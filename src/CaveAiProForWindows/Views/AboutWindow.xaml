@@ -21,7 +21,7 @@
                        Margin="0,0,0,16" />
             <TextBlock TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
                        LineHeight="20"
-                       Text="Opens the same JSON / ZIP backups as CaveAI Pro on Android (Google Play). CAVE AI PRO: export CSV, Survex, photos; verify ZIP integrity. Desktop PC app (x64)—not from Google Play; does not run on Android." />
+                       Text="Survey workstation for Windows: same CaveAI Pro (Android) JSON and backup ZIP, with traverse QC, integrity checks, plan/section drawing, and professional exports—Survex, Therion, station coordinates, DXF/SVG, and batch archive of every loaded project. Desktop PC (x64) companion; not from Google Play." />
             <TextBlock x:Name="RuntimeBlock" Margin="0,14,0,0" FontSize="11" FontFamily="Consolas"
                        TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextSubdued}"
                        HorizontalAlignment="Left" MaxWidth="400" />

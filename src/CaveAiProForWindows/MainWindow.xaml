@@ -40,6 +40,10 @@
                 <MenuItem Header="_Registry (caves + catalog) → CSV" Command="{Binding ExportRegistryCsvCommand}" />
                 <MenuItem Header="Maps _report → CSV" Command="{Binding ExportMapsReportCommand}"
                           ToolTip="All rows from the Maps tab (JSON/ZIP paths + standalone map files), UTF-8 BOM" />
+                <MenuItem Header="_Survey &amp; QC report (TXT)…" Command="{Binding ExportSurveyQcReportCommand}"
+                          ToolTip="Project summary + traverse statistics and QC hints (UTF-8 BOM) for the selected cave." />
+                <MenuItem Header="Export _all projects to folder…" Command="{Binding ExportAllProjectsToFolderCommand}"
+                          ToolTip="For every loaded project: shots CSV; if traverse exists also Survex .svx, Therion .th, stations x,y,z CSV." />
                 <Separator />
                 <MenuItem Header="Plan → _SVG" Command="{Binding ExportPlanSvgCommand}" />
                 <MenuItem Header="Plan → _DXF" Command="{Binding ExportPlanDxfCommand}" />
