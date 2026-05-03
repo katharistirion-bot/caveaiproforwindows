@@ -21,4 +21,7 @@ public sealed class LoadFromPathsWorkResult
     public string? AuxiliaryZipForMaps { get; init; }
 
     public IntegrityReport? IntegrityReport { get; init; }
+
+    /// <summary>Per-file JSON survey deserialization failures (Cave Library-only files are not listed).</summary>
+    public List<JsonSurveyLoadFailure> JsonSurveyLoadFailures { get; init; } = new();
 }

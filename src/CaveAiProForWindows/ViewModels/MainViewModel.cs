@@ -26,7 +26,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _sourcePathDisplay = "";
 
     [ObservableProperty] private string _statusMessage =
-        "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
+        "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
 
     [ObservableProperty] private bool _showIntegrityBanner;
 
@@ -146,6 +146,7 @@ public partial class MainViewModel : ObservableObject
         ExportPlanDxfCommand.NotifyCanExecuteChanged();
         ExportSectionSvgCommand.NotifyCanExecuteChanged();
         ExportSectionDxfCommand.NotifyCanExecuteChanged();
+        ExportSurveyQcReportCommand.NotifyCanExecuteChanged();
         StatusMessage = value == null
             ? "No project selected."
             : $"{value.Name} — {value.Shots.Count} shot(s)";
@@ -170,6 +171,7 @@ public partial class MainViewModel : ObservableObject
         HookProjectListViewFilter(value);
         OnPropertyChanged(nameof(ProjectsForList));
         OnPropertyChanged(nameof(HasNoProjects));
+        ExportAllProjectsToFolderCommand.NotifyCanExecuteChanged();
     }
 
     private void HookProjectListViewFilter(ObservableCollection<CaveProjectDocument> list)
@@ -457,12 +459,25 @@ public partial class MainViewModel : ObservableObject
 
             if (merged.Count == 0 && libraryAccumulator.Count == 0)
             {
-                Wpf.MessageBox.Show(
-                    Wpf.Application.Current.MainWindow,
-                    "No valid survey data or Cave Library (cave_library.json) was loaded.",
-                    "Open",
-                    Wpf.MessageBoxButton.OK,
-                    Wpf.MessageBoxImage.Information);
+                if (work.JsonSurveyLoadFailures.Count > 0)
+                {
+                    var esb = new StringBuilder();
+                    esb.AppendLine("Could not read survey data from the following JSON file(s). Check that the file is a CaveAI Pro database export (array of projects or wrapped \"projects\" array), not another JSON format.");
+                    foreach (var f in work.JsonSurveyLoadFailures)
+                        esb.AppendLine("• " + f.FileName + ": " + f.Message);
+                    UserErrorReporter.ShowInformation(
+                        Wpf.Application.Current.MainWindow,
+                        esb.ToString().TrimEnd(),
+                        "Open — JSON");
+                }
+                else
+                {
+                    UserErrorReporter.ShowInformation(
+                        Wpf.Application.Current.MainWindow,
+                        "No valid survey data or Cave Library (cave_library.json) was loaded.",
+                        "Open");
+                }
+
                 StatusMessage =
                     "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
                 return;
@@ -519,6 +534,18 @@ public partial class MainViewModel : ObservableObject
                     $"Loaded {libN} Cave Library card(s) (Android personal catalog). Open a survey backup (.zip / data.json) to link and edit projects.";
             }
 
+            if (work.JsonSurveyLoadFailures.Count > 0)
+            {
+                var wsb = new StringBuilder();
+                wsb.AppendLine("Some JSON files were not loaded as survey projects (other files in this session loaded OK):");
+                foreach (var f in work.JsonSurveyLoadFailures)
+                    wsb.AppendLine("• " + f.FileName + ": " + f.Message);
+                UserErrorReporter.ShowWarning(
+                    Wpf.Application.Current.MainWindow,
+                    wsb.ToString().TrimEnd(),
+                    "Open — JSON");
+            }
+
             WindowTitle = orderedPaths.Count <= 1
                 ? $"CAVE AI PRO — {Path.GetFileName(orderedPaths[0])}"
                 : $"CAVE AI PRO — {orderedPaths.Count} files";
@@ -531,7 +558,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Open failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+            UserErrorReporter.ShowWarning(Wpf.Application.Current.MainWindow, ex.Message, "Open failed");
             StatusMessage =
                 "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
         }
@@ -1231,6 +1258,74 @@ public partial class MainViewModel : ObservableObject
             Wpf.MessageBox.Show(
                 Wpf.Application.Current.MainWindow,
                 "CSV saved: plan-frame x,y,z in metres (same geometry as the Plan tab), UTF-8 BOM.",
+                "Export",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    private bool CanExportAllProjectsToFolder() => Projects.Count >= 1;
+
+    [RelayCommand(CanExecute = nameof(CanExportAllProjectsToFolder))]
+    private void ExportAllProjectsToFolder()
+    {
+        if (Projects.Count == 0)
+            return;
+        var dlg = new OpenFolderDialog
+        {
+            Title = "Folder for batch export (one set of files per loaded project)",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            var list = Projects.ToList();
+            var result = SurveyBatchExporter.ExportAllToFolder(list, dlg.FolderName);
+            StatusMessage = result.Errors.Count == 0
+                ? $"Batch export: {result.FilesWritten} file(s) for {result.ProjectCount} project(s)."
+                : $"Batch export: {result.FilesWritten} file(s); {result.Errors.Count} error(s).";
+            var msg = result.Errors.Count == 0
+                ? $"Wrote {result.FilesWritten} file(s) for {result.ProjectCount} project(s) to:\n{dlg.FolderName}"
+                : $"Wrote {result.FilesWritten} file(s); some paths failed:\n\n" + string.Join("\n", result.Errors.Take(8))
+                  + (result.Errors.Count > 8 ? $"\n… +{result.Errors.Count - 8} more" : "");
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                msg,
+                "Batch export",
+                Wpf.MessageBoxButton.OK,
+                result.Errors.Count > 0 ? Wpf.MessageBoxImage.Warning : Wpf.MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Batch export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedProject))]
+    private void ExportSurveyQcReport()
+    {
+        if (SelectedProject == null)
+            return;
+        var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
+        var dlg = new SaveFileDialog
+        {
+            Title = "Survey & QC report (text)",
+            Filter = "Text|*.txt|All|*.*",
+            FileName = $"{safe}_survey_qc_report.txt",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            File.WriteAllBytes(dlg.FileName, SurveyOfficeReportExporter.BuildUtf8Bom(SelectedProject));
+            StatusMessage = "Survey & QC report saved.";
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                "Report saved (UTF-8 BOM): summary, traverse statistics, and QC hints.",
                 "Export",
                 Wpf.MessageBoxButton.OK,
                 Wpf.MessageBoxImage.Information);

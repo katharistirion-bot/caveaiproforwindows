@@ -24,6 +24,7 @@ public static class LoadFromPathsWorker
         var loadedPaths = new List<string>();
         var analyticsSb = new StringBuilder();
         var mapInventoryRows = new List<MapInventoryRow>();
+        var jsonSurveyLoadFailures = new List<JsonSurveyLoadFailure>();
 
         var distinct = paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var total = distinct.Count;
@@ -41,6 +42,13 @@ public static class LoadFromPathsWorker
             var fn = Path.GetFileName(path);
             progress?.Report($"Reading {fn} ({index}/{total})…");
             var fullPath = Path.GetFullPath(path);
+            var length = new FileInfo(fullPath).Length;
+            if (length > BackupFileSizeLimits.MaxBackupFileBytes)
+            {
+                throw new InvalidDataException(
+                    $"{fn} is too large ({length:N0} bytes). For stability, open files up to {BackupFileSizeLimits.MaxBackupFileBytes:N0} bytes ({BackupFileSizeLimits.MaxBackupFileBytes / (1024 * 1024)} MiB) only.");
+            }
+
             var part = new List<CaveProjectDocument>();
             if (string.Equals(ext, ".zip", StringComparison.OrdinalIgnoreCase))
             {
@@ -60,12 +68,14 @@ public static class LoadFromPathsWorker
             else
             {
                 var rawJson = File.ReadAllText(path, Encoding.UTF8);
+                Exception? deserializeEx = null;
                 try
                 {
                     part = ExplorationDataLoader.DeserializeProjectsFromText(rawJson);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    deserializeEx = ex;
                     part = new List<CaveProjectDocument>();
                 }
 
@@ -80,6 +90,8 @@ public static class LoadFromPathsWorker
                     libraryAccumulator.AddRange(caves);
                     if (caves.Count > 0)
                         analyticsSb.AppendLine($"// {fn}: Cave Library ({caves.Count} card(s)) — not a survey database.");
+                    else if (deserializeEx != null)
+                        jsonSurveyLoadFailures.Add(new JsonSurveyLoadFailure(fullPath, fn, deserializeEx.Message));
                 }
             }
 
@@ -118,6 +130,7 @@ public static class LoadFromPathsWorker
             IntegrityZipPath = zipPath,
             AuxiliaryZipForMaps = auxiliaryZip,
             IntegrityReport = integrityReport,
+            JsonSurveyLoadFailures = jsonSurveyLoadFailures,
         };
     }
 }
