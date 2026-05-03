@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>CaveAiProForWindows</RootNamespace>
+    <AssemblyName>CaveAiProForWindows</AssemblyName>
+    <ApplicationTitle>CAVE AI PRO</ApplicationTitle>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    <Resource Include="Assets\ic_launcher_logo.png" />
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+</Project>

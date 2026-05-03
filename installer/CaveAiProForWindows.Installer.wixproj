@@ -1,0 +1,46 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputName>CaveAiProForWindows-Setup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <ProductVersion>$(CaveInstallerProductVersion)</ProductVersion>
+    <!-- WiX 5 has no StandardDirectory for CommonPrograms; static ICE treats ProgramMenuFolder as per-user while Package is perMachine + HKLM marker. -->
+    <SuppressIces>ICE38;ICE43;ICE57;ICE69</SuppressIces>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AppPublishDir>$(MSBuildProjectDirectory)\obj\app_publish</AppPublishDir>
+    <AppPublishDirWix>$([System.String]::Copy('$(AppPublishDir)').Replace('\', '/'))</AppPublishDirWix>
+    <AppProjectPath>$(MSBuildThisFileDirectory)..\src\CaveAiProForWindows\CaveAiProForWindows.csproj</AppProjectPath>
+    <InstallerDirWix>$([System.String]::Copy('$(MSBuildProjectDirectory)').Replace('\', '/'))</InstallerDirWix>
+    <IconIcoPathWix>$([System.String]::Copy('$(MSBuildProjectDirectory)\..\src\CaveAiProForWindows\Assets\app.ico').Replace('\', '/'))</IconIcoPathWix>
+    <DefineConstants>ProductVersion=$(ProductVersion);AppPublishDir=$(AppPublishDirWix);IconSource=$(IconIcoPathWix)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <!-- Classic MSI wizard + standard progress text; license overrides WixUI placeholder. -->
+  <ItemGroup>
+    <BindVariable Include="WixUILicenseRtf=$(InstallerDirWix)/License.rtf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <HarvestDirectory Include="$(AppPublishDir)">
+      <ComponentGroupName>PublishedApp</ComponentGroupName>
+      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <!-- Include every file and subdirectory from publish (self-contained layout). -->
+      <Recursive>True</Recursive>
+    </HarvestDirectory>
+    <BindPath Include="$(AppPublishDir)" />
+  </ItemGroup>
+
+  <Target Name="PublishAppForInstaller" BeforeTargets="BeforeBuild">
+    <RemoveDir Directories="$(AppPublishDir)" Condition="Exists('$(AppPublishDir)')" />
+    <MakeDir Directories="$(AppPublishDir)" />
+    <!-- Folder publish (not single-file): WPF pack:// resources fail with PublishSingleFile on many PCs. -->
+    <Exec Command="dotnet publish &quot;$(AppProjectPath)&quot; -c $(Configuration) -r win-x64 --self-contained true -p:PublishSingleFile=false -p:PublishTrimmed=false -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:CopyOutputSymbolsToPublishDirectory=false -o &quot;$(AppPublishDir)&quot;" />
+  </Target>
+</Project>

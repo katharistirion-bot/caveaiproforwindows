@@ -1,0 +1,208 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!--
+
+    Per-machine install (Windows 10/11 x64): Program Files, All Users Start Menu, HKLM marker.
+
+    ProgramMenuFolder + ALLUSERS=1 + Scope perMachine => common Start Menu Programs (not HKCU).
+
+  -->
+
+  <Package Name="CAVE AI PRO"
+
+           Manufacturer="CAVE AI PRO"
+
+           Version="$(var.ProductVersion)"
+
+           UpgradeCode="E1A2B3C4-D5E6-4789-ABCD-EF0011223344"
+
+           InstallerVersion="500"
+
+           Language="1033"
+
+           Scope="perMachine"
+
+           Compressed="yes">
+
+    <SummaryInformation Description="CAVE AI PRO — PC companion for CaveAI Pro on Android (Google Play). For 64-bit Windows 10 or 11; not from Google Play." />
+
+
+
+    <!-- 64-bit OS only (.NET 8 WPF win-x64 publish). Windows 10 / 11 report VersionNT64. -->
+
+    <Launch Condition="VersionNT64" Message="This installer requires 64-bit Windows 10 or Windows 11." />
+
+
+
+    <MajorUpgrade AllowDowngrades="no"
+
+                  DowngradeErrorMessage="A newer version of CAVE AI PRO is already installed." />
+
+
+
+    <MediaTemplate EmbedCab="yes" />
+
+
+
+    <Property Id="ARPPRODUCTICON" Value="CaveAppIcon" />
+
+
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+
+      <Directory Id="CompanyDir" Name="CaveAiPro">
+
+        <Directory Id="INSTALLFOLDER" Name="CaveAiProForWindows" />
+
+      </Directory>
+
+    </StandardDirectory>
+
+
+
+    <StandardDirectory Id="ProgramMenuFolder">
+
+      <Directory Id="CaveAiProProgramMenu" Name="CAVE AI PRO" />
+
+    </StandardDirectory>
+
+
+
+    <Feature Id="MainFeature" Title="CAVE AI PRO" Level="1">
+
+      <ComponentGroupRef Id="PublishedApp" />
+
+      <ComponentGroupRef Id="MenuShortcut" />
+
+      <ComponentGroupRef Id="SurveyFileAssociations" />
+
+    </Feature>
+
+    <!-- Classic Windows Installer wizard (welcome, license, folder, ready) + built-in progress bar. -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
+    <UIRef Id="WixUI_ErrorProgressText" />
+
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT"
+              Value="You can start CAVE AI PRO from the Start menu. After install, right-click a CaveAI .json or backup .zip, then Open with - CAVE AI PRO (or choose it once under Choose another app). Double-click works if you set this app as the default for that file type." />
+
+  </Package>
+
+
+
+  <Fragment>
+
+    <ComponentGroup Id="MenuShortcut" Directory="CaveAiProProgramMenu">
+
+      <Component Id="CmpStartMenuShortcut" Guid="C3D4E5F6-A7B8-9012-CDEF-123456789012">
+
+        <RegistryValue Id="RegInstallMarker"
+
+                       Root="HKLM"
+
+                       Key="SOFTWARE\CaveAiPro\CaveAiProForWindows"
+
+                       Name="Installed"
+
+                       Type="integer"
+
+                       Value="1"
+
+                       KeyPath="yes" />
+
+        <RegistryValue Id="RegInstallDir"
+
+                       Root="HKLM"
+
+                       Key="SOFTWARE\CaveAiPro\CaveAiProForWindows"
+
+                       Name="InstallDir"
+
+                       Type="string"
+
+                       Value="[INSTALLFOLDER]" />
+
+        <Shortcut Id="ScStartMenu"
+
+                  Name="CAVE AI PRO"
+
+                  Description="PC companion for CaveAI Pro (Android on Google Play). 64-bit desktop only."
+
+                  Target="[INSTALLFOLDER]CaveAiProForWindows.exe"
+
+                  WorkingDirectory="INSTALLFOLDER"
+
+                  Icon="CaveAppIcon" />
+
+        <RemoveFolder Id="RemoveCaveAiProProgramMenu" Directory="CaveAiProProgramMenu" On="uninstall" />
+
+      </Component>
+
+    </ComponentGroup>
+
+  </Fragment>
+
+
+
+  <Fragment>
+
+    <Icon Id="CaveAppIcon" SourceFile="$(var.IconSource)" />
+
+  </Fragment>
+
+  <!--
+    Register optional “Open with” handlers (OpenWithProgids) so Explorer offers CAVE AI PRO for .json / .zip
+    without replacing the user’s default app for all JSON or all ZIP archives.
+  -->
+  <Fragment>
+    <ComponentGroup Id="SurveyFileAssociations" Directory="INSTALLFOLDER">
+      <Component Id="CmpProgIdSurveyJson" Guid="A1F52B89-2C7D-4E61-9A4B-BB2F6E8C0D01">
+        <RegistryValue Id="RegProgIdSurveyJson_Default"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\CaveAiPro.SurveyJson.1"
+                       Type="string"
+                       Value="CaveAI Pro survey backup (JSON)"
+                       KeyPath="yes" />
+        <RegistryValue Id="RegProgIdSurveyJson_Command"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\CaveAiPro.SurveyJson.1\shell\open\command"
+                       Type="string"
+                       Value="&quot;[INSTALLFOLDER]CaveAiProForWindows.exe&quot; &quot;%1&quot;" />
+      </Component>
+      <Component Id="CmpOpenWithProgidsJson" Guid="A1F52B89-2C7D-4E61-9A4B-BB2F6E8C0D02">
+        <RegistryValue Id="RegOpenWithJson"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\.json\OpenWithProgids"
+                       Name="CaveAiPro.SurveyJson.1"
+                       Type="string"
+                       Value=""
+                       KeyPath="yes" />
+      </Component>
+      <Component Id="CmpProgIdBackupZip" Guid="A1F52B89-2C7D-4E61-9A4B-BB2F6E8C0D03">
+        <RegistryValue Id="RegProgIdBackupZip_Default"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\CaveAiPro.BackupZip.1"
+                       Type="string"
+                       Value="CaveAI Pro backup (ZIP)"
+                       KeyPath="yes" />
+        <RegistryValue Id="RegProgIdBackupZip_Command"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\CaveAiPro.BackupZip.1\shell\open\command"
+                       Type="string"
+                       Value="&quot;[INSTALLFOLDER]CaveAiProForWindows.exe&quot; &quot;%1&quot;" />
+      </Component>
+      <Component Id="CmpOpenWithProgidsZip" Guid="A1F52B89-2C7D-4E61-9A4B-BB2F6E8C0D04">
+        <RegistryValue Id="RegOpenWithZip"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\.zip\OpenWithProgids"
+                       Name="CaveAiPro.BackupZip.1"
+                       Type="string"
+                       Value=""
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
+

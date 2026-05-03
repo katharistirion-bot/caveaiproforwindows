@@ -1,0 +1,41 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#FF21262D" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#FFE6EDF3" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#FF21262D" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#FF3D444D" />
+
+    <SolidColorBrush x:Key="Cave.Surface" Color="#FF161B22" />
+    <SolidColorBrush x:Key="Cave.Background" Color="#FF0D1117" />
+    <SolidColorBrush x:Key="Cave.Border" Color="#FF30363D" />
+    <SolidColorBrush x:Key="Cave.CanvasBackdrop" Color="#FF0F172A" />
+    <SolidColorBrush x:Key="Cave.BannerTint" Color="#FF1A2332" />
+    <SolidColorBrush x:Key="Cave.Accent" Color="#FF1877F2" />
+    <SolidColorBrush x:Key="Cave.AccentHover" Color="#FF1C8AF7" />
+    <SolidColorBrush x:Key="Cave.AccentPressed" Color="#FF1565C0" />
+    <SolidColorBrush x:Key="Cave.AccentButtonForeground" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cave.Text" Color="#FFF0F6FC" />
+    <SolidColorBrush x:Key="Cave.TextMuted" Color="#FFB1BAC4" />
+    <SolidColorBrush x:Key="Cave.TextSubdued" Color="#FFD0D7DE" />
+    <SolidColorBrush x:Key="Cave.ButtonBackground" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cave.ButtonForeground" Color="#FF000000" />
+    <SolidColorBrush x:Key="Cave.ButtonBorder" Color="#FF24292F" />
+    <SolidColorBrush x:Key="Cave.ButtonBackgroundHover" Color="#FFF3F4F6" />
+    <SolidColorBrush x:Key="Cave.ButtonBackgroundPressed" Color="#FFE4E6EB" />
+    <SolidColorBrush x:Key="Cave.ButtonBorderHover" Color="#FF000000" />
+    <SolidColorBrush x:Key="Cave.ButtonDisabledForeground" Color="#FF57606A" />
+    <SolidColorBrush x:Key="Cave.ButtonDisabledBackground" Color="#FFE5E8EB" />
+    <SolidColorBrush x:Key="Cave.ButtonDisabledBorder" Color="#FF8C959F" />
+    <SolidColorBrush x:Key="Cave.AccentDisabledForeground" Color="#FF9CA3AF" />
+    <SolidColorBrush x:Key="Cave.AccentDisabledBackground" Color="#FF3D4D3F" />
+    <SolidColorBrush x:Key="Cave.AccentDisabledBorder" Color="#FF30363D" />
+    <SolidColorBrush x:Key="Cave.MenuItemHighlight" Color="#FF30363D" />
+    <SolidColorBrush x:Key="Cave.TabStripInactive" Color="#FF21262D" />
+    <SolidColorBrush x:Key="Cave.TabStripHover" Color="#FF2D333B" />
+    <SolidColorBrush x:Key="Cave.DataGridRow" Color="#FF0D1117" />
+    <SolidColorBrush x:Key="Cave.DataGridRowAlt" Color="#FF11161D" />
+    <SolidColorBrush x:Key="Cave.DataGridHeaderBg" Color="#FF21262D" />
+    <SolidColorBrush x:Key="Cave.SplitterGrip" Color="#FF484F58" />
+    <SolidColorBrush x:Key="Cave.ListItemHover" Color="#FF2D333B" />
+    <SolidColorBrush x:Key="Cave.ListItemSelected" Color="#FF1F3A5F" />
+</ResourceDictionary>

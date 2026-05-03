@@ -1,0 +1,46 @@
+<UserControl x:Class="CaveAiProForWindows.Views.PlanView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             Background="{DynamicResource Cave.Background}">
+    <DockPanel>
+        <DockPanel DockPanel.Dock="Top" Margin="12,10,12,6" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left" TextWrapping="Wrap" MaxWidth="520" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Cave.TextMuted}" FontSize="11"
+                       Text="Plan — survey metres (same reduction as CaveAI Pro / classic compass-clino loop). Ctrl+wheel: zoom. Middle drag: pan. Optional station names, scale bar, +Y arrow, and survey compass rose (N = +Y survey frame, same convention as Android — not device magnetic north)." />
+            <Button DockPanel.Dock="Right" Content="_Print plan…" Padding="14,6" Margin="0,0,0,0"
+                    Style="{StaticResource Cave.AccentButton}"
+                    ToolTip="Print plan (print preview, landscape)"
+                    Click="PrintPlan_Click" />
+            <CheckBox x:Name="PrintHiContrastCheck" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,8,0"
+                      Content="High-contrast print" ToolTip="Black/white for printer" />
+            <CheckBox x:Name="StationNamesCheck" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,8,0"
+                      Content="Station names" ToolTip="Label each traverse station (Compass / Walls–style)"
+                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed" />
+            <CheckBox x:Name="CartographyOverlayCheck" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,8,0"
+                      Content="Scale &amp; +Y" IsChecked="True" ToolTip="Graphic scale bar and survey +Y direction (cave cartography convention)"
+                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed" />
+            <Button DockPanel.Dock="Right" Content="Reset view" Padding="10,6" Margin="0,0,8,0"
+                    ToolTip="Reset zoom and pan"
+                    Click="ResetView_Click" />
+        </DockPanel>
+        <Border Margin="8" Padding="4" BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                Background="{DynamicResource Cave.CanvasBackdrop}" CornerRadius="4">
+            <ScrollViewer x:Name="HostScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                          PreviewMouseWheel="HostScroll_PreviewMouseWheel">
+                <Canvas x:Name="DrawingCanvas" Width="960" Height="640" ClipToBounds="True"
+                        PreviewMouseDown="DrawingCanvas_PreviewMouseDown"
+                        PreviewMouseMove="DrawingCanvas_PreviewMouseMove"
+                        PreviewMouseUp="DrawingCanvas_PreviewMouseUp"
+                        MouseLeave="DrawingCanvas_MouseLeave">
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="ZoomScale" ScaleX="1" ScaleY="1" CenterX="480" CenterY="320" />
+                            <TranslateTransform x:Name="ZoomPan" X="0" Y="0" />
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+                </Canvas>
+            </ScrollViewer>
+        </Border>
+    </DockPanel>
+</UserControl>

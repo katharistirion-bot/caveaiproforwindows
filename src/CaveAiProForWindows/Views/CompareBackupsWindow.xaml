@@ -1,0 +1,39 @@
+<Window x:Class="CaveAiProForWindows.Views.CompareBackupsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Compare backups"
+        Height="560" Width="900"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Cave.Background}"
+        Foreground="{DynamicResource Cave.Text}">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,8"
+                       Text="Pick two .json or .zip CaveAI files. Comparison by project name: shot counts, rocks, field catalog." />
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="BtnPickA" Content="File A…" Padding="12,6" Margin="0,0,8,0" Click="BtnPickA_Click" />
+                <TextBlock x:Name="TxtA" VerticalAlignment="Center" Text="(none)" TextTrimming="CharacterEllipsis" MaxWidth="320" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button x:Name="BtnPickB" Content="File B…" Padding="12,6" Margin="0,0,8,0" Click="BtnPickB_Click" />
+                <TextBlock x:Name="TxtB" VerticalAlignment="Center" Text="(none)" TextTrimming="CharacterEllipsis" MaxWidth="320" />
+            </StackPanel>
+            <Button Content="Compare" Padding="14,6" Margin="0,12,0,0" HorizontalAlignment="Left"
+                    Style="{StaticResource Cave.AccentButton}" Click="Compare_Click" />
+        </StackPanel>
+        <DataGrid x:Name="DiffGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                  Background="{DynamicResource Cave.Surface}" BorderBrush="{DynamicResource Cave.Border}"
+                  Foreground="{DynamicResource Cave.Text}" HeadersVisibility="Column">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Project" Binding="{Binding ProjectName}" Width="2*" />
+                <DataGridTextColumn Header="Shots A" Binding="{Binding ShotsA}" Width="72" />
+                <DataGridTextColumn Header="Shots B" Binding="{Binding ShotsB}" Width="72" />
+                <DataGridTextColumn Header="Shot diff" Binding="{Binding ShotsDelta}" Width="72" />
+                <DataGridTextColumn Header="Rocks A" Binding="{Binding RocksA}" Width="72" />
+                <DataGridTextColumn Header="Rocks B" Binding="{Binding RocksB}" Width="72" />
+                <DataGridTextColumn Header="Cat A" Binding="{Binding CatalogA}" Width="64" />
+                <DataGridTextColumn Header="Cat B" Binding="{Binding CatalogB}" Width="64" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

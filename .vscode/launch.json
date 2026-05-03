@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "CaveAi Pro (WPF, Debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build (after unlock)",
+      "program": "${workspaceFolder}/src/CaveAiProForWindows/bin/Debug/net8.0-windows/CaveAiProForWindows.dll",
+      "cwd": "${workspaceFolder}/src/CaveAiProForWindows/bin/Debug/net8.0-windows",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "env": {
+        "CAVEAI_DEV_SKIP_INSTALL_CHECK": "1"
+      }
+    },
+    {
+      "name": "CaveAi Pro (WPF, Release)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build (Release, after unlock)",
+      "program": "${workspaceFolder}/src/CaveAiProForWindows/bin/Release/net8.0-windows/CaveAiProForWindows.dll",
+      "cwd": "${workspaceFolder}/src/CaveAiProForWindows/bin/Release/net8.0-windows",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "env": {
+        "CAVEAI_DEV_SKIP_INSTALL_CHECK": "1"
+      }
+    }
+  ]
+}
