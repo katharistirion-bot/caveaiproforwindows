@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Data;
 using Microsoft.Win32;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -86,6 +88,7 @@ public partial class MainViewModel : ObservableObject
     private string? _zipPath;
     /// <summary>First .zip among opened paths when multiple files are loaded — used only to resolve embedded <c>maps/</c> paths (integrity UI still uses <see cref="_zipPath"/>).</summary>
     private string? _auxiliaryZipForMaps;
+    private CancellationTokenSource? _loadCts;
     private string? _lastExtractRoot;
     private string? _primarySourcePath;
     private int _sourceFileCount;
@@ -406,8 +409,16 @@ public partial class MainViewModel : ObservableObject
 
     private void LoadFromPath(string path) => LoadFromPaths(new[] { path });
 
-    /// <summary>Loads one or more JSON/ZIP files and merges all projects.</summary>
+    /// <summary>Loads one or more JSON/ZIP files and merges all projects (heavy work runs off the UI thread).</summary>
     public void LoadFromPaths(IReadOnlyList<string> paths)
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = new CancellationTokenSource();
+        _ = RunLoadFromPathsAsync(paths, _loadCts.Token);
+    }
+
+    private async Task RunLoadFromPathsAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken)
     {
         try
         {
@@ -415,69 +426,34 @@ public partial class MainViewModel : ObservableObject
             OpenLastExtractedFolderCommand.NotifyCanExecuteChanged();
             _auxiliaryZipForMaps = null;
 
-            var merged = new List<CaveProjectDocument>();
-            var libraryAccumulator = new List<KnownCaveRecord>();
-            var loadedPaths = new List<string>();
-            var analyticsSb = new StringBuilder();
-            MapInventoryRows.Clear();
-            foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
+            StatusMessage = "Loading backup…";
+
+            var progress = new Progress<string>(s => StatusMessage = s);
+            LoadFromPathsWorkResult work;
+            try
             {
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                    continue;
-                var ext = Path.GetExtension(path).ToLowerInvariant();
-                if (ext != ".json" && ext != ".zip")
-                    continue;
-                var fn = Path.GetFileName(path);
-                var fullPath = Path.GetFullPath(path);
-                var part = new List<CaveProjectDocument>();
-                if (string.Equals(ext, ".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    var (projects, rawJson) = ExplorationDataLoader.LoadFromCaveAiBackupZipWithRaw(path);
-                    part = projects;
-                    analyticsSb.AppendLine(BackupDataJsonAnalytics.BuildReport(fn, rawJson));
-                    analyticsSb.AppendLine();
-                    foreach (var row in ZipMapInventoryReader.TryRead(path))
-                    {
-                        if (IsTraverseShotMapInventorySlot(row.Slot))
-                            continue;
-                        MapInventoryRows.Add(row);
-                    }
-                    libraryAccumulator.AddRange(CaveLibraryJsonLoader.TryLoadFromZip(fullPath));
-                }
-                else
-                {
-                    var rawJson = File.ReadAllText(path, Encoding.UTF8);
-                    try
-                    {
-                        part = ExplorationDataLoader.DeserializeProjectsFromText(rawJson);
-                    }
-                    catch
-                    {
-                        part = new List<CaveProjectDocument>();
-                    }
-
-                    if (part.Count > 0)
-                    {
-                        analyticsSb.AppendLine(BackupDataJsonAnalytics.BuildReport(fn, rawJson));
-                        analyticsSb.AppendLine();
-                    }
-                    else
-                    {
-                        var caves = CaveLibraryJsonLoader.TryDeserializeKnownCaves(rawJson, fullPath);
-                        libraryAccumulator.AddRange(caves);
-                        if (caves.Count > 0)
-                            analyticsSb.AppendLine($"// {fn}: Cave Library ({caves.Count} card(s)) — not a survey database.");
-                    }
-                }
-
-                foreach (var p in part)
-                    p.LoadedFromFile = fullPath;
-                merged.AddRange(part);
-                loadedPaths.Add(path);
-                RecentPathsStore.Push(path);
+                work = await Task.Run(() => LoadFromPathsWorker.Execute(paths, progress, cancellationToken), cancellationToken)
+                    .ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage =
+                    "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
+                return;
             }
 
-            BackupDataAnalyticsText = analyticsSb.ToString().Trim();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                StatusMessage =
+                    "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
+                return;
+            }
+
+            var merged = work.Merged;
+            var libraryAccumulator = work.LibraryRecords;
+            var orderedPaths = work.LoadedPaths;
+
+            BackupDataAnalyticsText = work.BackupDataAnalyticsText;
 
             if (merged.Count == 0 && libraryAccumulator.Count == 0)
             {
@@ -487,26 +463,27 @@ public partial class MainViewModel : ObservableObject
                     "Open",
                     Wpf.MessageBoxButton.OK,
                     Wpf.MessageBoxImage.Information);
+                StatusMessage =
+                    "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
                 return;
             }
 
-            var orderedPaths = loadedPaths;
             _sourceFileCount = orderedPaths.Count;
             _primarySourcePath = orderedPaths.Count > 0 ? orderedPaths[0] : null;
-            _zipPath = orderedPaths.Count == 1 && string.Equals(Path.GetExtension(orderedPaths[0]), ".zip", StringComparison.OrdinalIgnoreCase)
-                ? orderedPaths[0]
-                : null;
-            _auxiliaryZipForMaps = orderedPaths
-                .FirstOrDefault(p =>
-                    string.Equals(Path.GetExtension(p), ".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(p));
+            _zipPath = work.IntegrityZipPath;
+            _auxiliaryZipForMaps = work.AuxiliaryZipForMaps;
             OnPropertyChanged(nameof(ActiveZipPath));
             OnPropertyChanged(nameof(ActiveZipPathForMaps));
-            _integrityReport = _zipPath != null ? IntegrityVerifier.VerifyZip(_zipPath) : null;
+            _integrityReport = work.IntegrityReport;
 
             _knownCaveMaster.Clear();
             foreach (var k in libraryAccumulator)
                 _knownCaveMaster.Add(k);
             ApplyKnownCaveCatalogFilters();
+
+            MapInventoryRows.Clear();
+            foreach (var row in work.MapInventoryRows)
+                MapInventoryRows.Add(row);
 
             // New collection replaces the default ICollectionView; clear filter and sync view current item
             // so the sidebar ListBox (bound to ProjectsForList) actually highlights the first cave.
@@ -555,6 +532,8 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Open failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+            StatusMessage =
+                "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
         }
     }
 
@@ -628,11 +607,6 @@ public partial class MainViewModel : ObservableObject
 
         ExportMapsReportCommand.NotifyCanExecuteChanged();
     }
-
-    /// <summary>Zip map_inventory slots for traverse station photos/audio — not cartography; hidden from inventory UI.</summary>
-    private static bool IsTraverseShotMapInventorySlot(string? slot) =>
-        !string.IsNullOrEmpty(slot) &&
-        slot.StartsWith("traverse.shot", StringComparison.OrdinalIgnoreCase);
 
     private void AppendStandaloneMapPathsTo(IList<MapAssetRow> rows)
     {
