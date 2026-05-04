@@ -8,7 +8,7 @@ namespace CaveAiProForWindows.Services;
 /// <summary>
 /// Builds a <see cref="PlanScene"/> for plan (viewMode 0) or section vectors (viewMode 1) + shared traverse.
 /// Section-only entry point: <see cref="SectionSceneBuilder"/>.
-/// Advanced projections: <see cref="LongProfileSceneBuilder"/>, <see cref="Pseudo3DSceneBuilder"/>.
+/// Advanced projections: <see cref="LongProfileSceneBuilder"/>. Pseudo-3D uses <see cref="CaveAiProForWindows.Views.CaveViewport3DPresenter"/>, not <see cref="PlanScene"/>.
 /// Raster basemaps are not part of the scene graph; they are loaded separately by <see cref="PlanMapUnderlayLoader"/>.
 /// </summary>
 public static class PlanSceneBuilder
@@ -24,7 +24,7 @@ public static class PlanSceneBuilder
         return visualization switch
         {
             SurveyVisualizationMode.LongProfile => LongProfileSceneBuilder.TryBuild(p),
-            SurveyVisualizationMode.Pseudo3D => Pseudo3DSceneBuilder.TryBuild(p, vectorViewMode),
+            SurveyVisualizationMode.Pseudo3D => null,
             _ => vectorViewMode == SurveyStationGeometry.AndroidViewModeSection
                 ? ExtendedElevationSceneBuilder.TryBuild(p, visualization)
                 : TryBuildPlan(p, visualization),

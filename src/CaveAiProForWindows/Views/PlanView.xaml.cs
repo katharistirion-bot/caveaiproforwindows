@@ -177,6 +177,8 @@ public partial class PlanView : System.Windows.Controls.UserControl
         SurveyCanvasTheme.Changed -= OnSurveyCanvasThemeChanged;
         UnwireMapRows(MapRows);
         UnwireMapInventory(MapInventory);
+        if (HostViewport3D != null && HostViewportShell != null)
+            CaveViewport3DPresenter.Detach(HostViewport3D, HostViewportShell);
     }
 
     private void OnSurveyCanvasThemeChanged() =>
@@ -185,8 +187,56 @@ public partial class PlanView : System.Windows.Controls.UserControl
     private void Redraw()
     {
         // During InitializeComponent(), CheckBox IsChecked can fire before named fields (e.g. DrawingCanvas) exist.
-        if (DrawingCanvas == null)
+        if (DrawingCanvas == null || HostViewport3D == null || HostViewportShell == null)
             return;
+
+        if (VisualizationMode != SurveyVisualizationMode.Pseudo3D)
+        {
+            CaveViewport3DPresenter.Detach(HostViewport3D, HostViewportShell);
+            HostViewportShell.Visibility = Visibility.Collapsed;
+            HostScroll.Visibility = Visibility.Visible;
+            if (Viewport3DMessage != null)
+                Viewport3DMessage.Visibility = Visibility.Collapsed;
+        }
+
+        if (VisualizationMode == SurveyVisualizationMode.Pseudo3D)
+        {
+            HostViewportShell.Visibility = Visibility.Visible;
+            HostScroll.Visibility = Visibility.Collapsed;
+            DrawingCanvas.Children.Clear();
+
+            var p3 = Project;
+            if (p3 == null)
+            {
+                CaveViewport3DPresenter.Detach(HostViewport3D, HostViewportShell);
+                HostViewport3D.Children.Clear();
+                HostViewport3D.Camera = null;
+                if (Viewport3DMessage != null)
+                {
+                    Viewport3DMessage.Text = "Select a project from the list.";
+                    Viewport3DMessage.Visibility = Visibility.Visible;
+                }
+
+                return;
+            }
+
+            if (Viewport3DMessage != null)
+                Viewport3DMessage.Visibility = Visibility.Collapsed;
+
+            if (!CaveViewport3DPresenter.TryPopulate(HostViewport3D, p3, HostViewportShell))
+            {
+                if (Viewport3DMessage != null)
+                {
+                    Viewport3DMessage.Text =
+                        "Could not build a 3D cave tube from this project. Add traverse shots with LRUD (left, right, up, down) at stations, then re-export.";
+                    Viewport3DMessage.Visibility = Visibility.Visible;
+                }
+
+                return;
+            }
+
+            return;
+        }
 
         DrawingCanvas.Children.Clear();
         var p = Project;
@@ -335,6 +385,28 @@ public partial class PlanView : System.Windows.Controls.UserControl
     /// <summary>PNG of the Plan <see cref="DrawingCanvas"/> as currently drawn (includes zoom/pan transform).</summary>
     public byte[]? CapturePlanPngBytes()
     {
+        if (VisualizationMode == SurveyVisualizationMode.Pseudo3D
+            && HostViewportShell != null
+            && HostViewportShell.Visibility == Visibility.Visible)
+        {
+            const double w = 960;
+            const double h = 640;
+            HostViewportShell.Measure(new Size(w, h));
+            HostViewportShell.Arrange(new Rect(0, 0, w, h));
+            HostViewportShell.UpdateLayout();
+
+            var pxW = (int)Math.Max(1, Math.Ceiling(w));
+            var pxH = (int)Math.Max(1, Math.Ceiling(h));
+            var rtb = new RenderTargetBitmap(pxW, pxH, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(HostViewportShell);
+
+            var enc = new PngBitmapEncoder();
+            enc.Frames.Add(BitmapFrame.Create(rtb));
+            using var ms = new MemoryStream();
+            enc.Save(ms);
+            return ms.ToArray();
+        }
+
         if (DrawingCanvas == null)
             return null;
 
@@ -342,16 +414,16 @@ public partial class PlanView : System.Windows.Controls.UserControl
         DrawingCanvas.Arrange(new Rect(0, 0, DrawingCanvas.Width, DrawingCanvas.Height));
         DrawingCanvas.UpdateLayout();
 
-        var pxW = (int)Math.Max(1, Math.Ceiling(DrawingCanvas.Width));
-        var pxH = (int)Math.Max(1, Math.Ceiling(DrawingCanvas.Height));
-        var rtb = new RenderTargetBitmap(pxW, pxH, 96, 96, PixelFormats.Pbgra32);
-        rtb.Render(DrawingCanvas);
+        var pxW2 = (int)Math.Max(1, Math.Ceiling(DrawingCanvas.Width));
+        var pxH2 = (int)Math.Max(1, Math.Ceiling(DrawingCanvas.Height));
+        var rtb2 = new RenderTargetBitmap(pxW2, pxH2, 96, 96, PixelFormats.Pbgra32);
+        rtb2.Render(DrawingCanvas);
 
-        var enc = new PngBitmapEncoder();
-        enc.Frames.Add(BitmapFrame.Create(rtb));
-        using var ms = new MemoryStream();
-        enc.Save(ms);
-        return ms.ToArray();
+        var enc2 = new PngBitmapEncoder();
+        enc2.Frames.Add(BitmapFrame.Create(rtb2));
+        using var ms2 = new MemoryStream();
+        enc2.Save(ms2);
+        return ms2.ToArray();
     }
 
     private void PrintPlan_Click(object sender, RoutedEventArgs e)
@@ -364,6 +436,79 @@ public partial class PlanView : System.Windows.Controls.UserControl
                 "Print plan",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
+            return;
+        }
+
+        if (VisualizationMode == SurveyVisualizationMode.Pseudo3D && HostViewportShell != null)
+        {
+            try
+            {
+                const double w = 960;
+                const double h = 640;
+                HostViewportShell.Measure(new Size(w, h));
+                HostViewportShell.Arrange(new Rect(0, 0, w, h));
+                HostViewportShell.UpdateLayout();
+
+                var pxW3d = (int)Math.Max(1, Math.Ceiling(w));
+                var pxH3d = (int)Math.Max(1, Math.Ceiling(h));
+                var rtb3d = new RenderTargetBitmap(pxW3d, pxH3d, 96, 96, PixelFormats.Pbgra32);
+                rtb3d.Render(HostViewportShell);
+
+                var pd3d = new PrintDialog();
+                try
+                {
+                    pd3d.PrintTicket.PageOrientation = PageOrientation.Landscape;
+                }
+                catch
+                {
+                    /* ignore */
+                }
+
+                if (pd3d.ShowDialog() != true)
+                    return;
+
+                var pw3d = pd3d.PrintableAreaWidth;
+                var ph3d = pd3d.PrintableAreaHeight;
+                if (pw3d <= 0 || ph3d <= 0)
+                {
+                    MessageBox.Show("Invalid printable area.", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var stack3d = new StackPanel { Background = Brushes.White, Width = pw3d };
+                var title3d = new TextBlock
+                {
+                    Text = $"{p.Name}  ·  {p.Date}  ·  3D MODEL (LRUD tube, CAVE AI PRO)",
+                    FontSize = 13,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = Brushes.Black,
+                    Margin = new Thickness(24, 18, 24, 10),
+                    TextWrapping = TextWrapping.Wrap,
+                };
+                stack3d.Children.Add(title3d);
+
+                var vb3d = new Viewbox
+                {
+                    Width = pw3d - 48,
+                    Height = Math.Max(120, ph3d - 72),
+                    Margin = new Thickness(24, 0, 24, 24),
+                    Stretch = Stretch.Uniform,
+                };
+                vb3d.Child = new Image { Source = rtb3d, SnapsToDevicePixels = true };
+                stack3d.Children.Add(vb3d);
+
+                stack3d.Measure(new Size(pw3d, ph3d));
+                stack3d.Arrange(new Rect(0, 0, pw3d, ph3d));
+                stack3d.UpdateLayout();
+
+                pd3d.PrintVisual(stack3d, $"CAVE AI PRO — {p.Name} 3D");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[PlanView] PrintPlan 3D failed: {ex}");
+                MessageBox.Show(ex.Message, "Print error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
             return;
         }
 

@@ -501,8 +501,8 @@ public static class PlanCanvasRenderer
         }
         else if (plan2Tone)
         {
-            // Soft passage fill + slightly darker smooth border (Plan 2 Tone).
-            lrudPlanFill = new SolidColorBrush(Color.FromArgb((byte)(splayXRay ? 72 : 96), 0xB4, 0xBA, 0xC4));
+            // Semi-transparent neutral fill for passage volume (Plan 2-Tone).
+            lrudPlanFill = new SolidColorBrush(Color.FromArgb(0x1A, 0x80, 0x80, 0x80));
             lrudPlanStroke = new SolidColorBrush(Color.FromArgb(230, 0x42, 0x48, 0x52));
         }
         else if (vMode.UsesDarkSurveyCanvas())
@@ -688,7 +688,9 @@ public static class PlanCanvasRenderer
                 StrokeLineJoin = PenLineJoin.Round,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
+                SnapsToDevicePixels = false,
             };
+            ApplySurveyRenderQuality(path);
             addChild(path);
         }
 
@@ -705,19 +707,22 @@ public static class PlanCanvasRenderer
                 return;
             if (pts.Count == 2)
             {
-                var line = new Line
+                var seg = new LineSegment(pts[1], true);
+                var fig = new PathFigure(pts[0], new[] { seg }, false);
+                var g2 = new PathGeometry(new[] { fig });
+                var path2 = new Path
                 {
-                    X1 = pts[0].X,
-                    Y1 = pts[0].Y,
-                    X2 = pts[1].X,
-                    Y2 = pts[1].Y,
+                    Data = g2,
+                    Fill = Brushes.Transparent,
                     Stroke = stroke,
                     StrokeThickness = thickness,
+                    StrokeLineJoin = PenLineJoin.Round,
                     StrokeStartLineCap = PenLineCap.Round,
                     StrokeEndLineCap = PenLineCap.Round,
-                    StrokeLineJoin = PenLineJoin.Round,
+                    SnapsToDevicePixels = false,
                 };
-                addChild(line);
+                ApplySurveyRenderQuality(path2);
+                addChild(path2);
                 return;
             }
 
@@ -733,7 +738,9 @@ public static class PlanCanvasRenderer
                 StrokeLineJoin = PenLineJoin.Round,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
+                SnapsToDevicePixels = false,
             };
+            ApplySurveyRenderQuality(path);
             addChild(path);
         }
 
@@ -753,7 +760,7 @@ public static class PlanCanvasRenderer
                     double ribbonTh;
                     if (plan2Tone)
                     {
-                        ribbonFill = new SolidColorBrush(Color.FromArgb(118, 0xA4, 0xA8, 0xAE));
+                        ribbonFill = new SolidColorBrush(Color.FromArgb(0x1A, 0x80, 0x80, 0x80));
                         ribbonStroke = new SolidColorBrush(Color.FromArgb(210, 0x46, 0x4C, 0x54));
                         ribbonTh = Math.Max(1.0, vectorStrokeThickness * 0.34);
                     }
