@@ -194,7 +194,7 @@ public partial class SectionView : System.Windows.Controls.UserControl
         try
         {
             var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
-            var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModeSection, VisualizationMode);
+            var scene = SectionSceneBuilder.TryBuild(p, VisualizationMode);
             if (scene == null)
             {
                 if (underlays.Count > 0)
@@ -334,7 +334,7 @@ public partial class SectionView : System.Windows.Controls.UserControl
         }
 
         var underlaysPrint = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
-        var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModeSection, VisualizationMode);
+        var scene = SectionSceneBuilder.TryBuild(p, VisualizationMode);
         var hi = PrintHiContrastCheck.IsChecked == true;
         if (scene == null)
         {

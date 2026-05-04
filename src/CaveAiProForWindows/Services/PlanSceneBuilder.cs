@@ -25,41 +25,30 @@ public static class PlanSceneBuilder
         {
             SurveyVisualizationMode.LongProfile => LongProfileSceneBuilder.TryBuild(p),
             SurveyVisualizationMode.Pseudo3D => Pseudo3DSceneBuilder.TryBuild(p, vectorViewMode),
-            _ => TryBuildPlanOrSection(p, vectorViewMode, visualization),
+            _ => vectorViewMode == SurveyStationGeometry.AndroidViewModeSection
+                ? ExtendedElevationSceneBuilder.TryBuild(p, visualization)
+                : TryBuildPlan(p, visualization),
         };
     }
 
-    private static PlanScene? TryBuildPlanOrSection(
-        CaveProjectDocument p,
-        int vectorViewMode,
-        SurveyVisualizationMode visualization)
+    /// <summary>Plan view (X,Y survey metres). Section uses <see cref="ExtendedElevationSceneBuilder"/>.</summary>
+    private static PlanScene? TryBuildPlan(CaveProjectDocument p, SurveyVisualizationMode visualization)
     {
+        const int vectorViewMode = SurveyStationGeometry.AndroidViewModePlan;
         var coords = SurveyStationGeometry.CalculatePlanCoordinates(p.Shots, (float)p.Alt);
         var vectorPolys = SurveyStationGeometry.ParseVectorLinesForViewMode(p.VectorLines, vectorViewMode);
-        IReadOnlyList<SurveyStationGeometry.PlanVectorPolyline> wallPolys;
-        if (vectorViewMode == SurveyStationGeometry.AndroidViewModePlan)
-        {
-            var sketch = SurveyStationGeometry.ParsePlanSketches(p.ExtensionData);
-            var secPlan = SurveyStationGeometry.ParsePlanSectionSketchesInPlan(p.ExtensionData);
-            wallPolys = sketch.Concat(secPlan).ToList();
-        }
-        else
-        {
-            wallPolys = SurveyStationGeometry.ParseSectionSketchesForSectionView(p.ExtensionData);
-        }
+        var sketch = SurveyStationGeometry.ParsePlanSketches(p.ExtensionData);
+        var secPlan = SurveyStationGeometry.ParsePlanSectionSketchesInPlan(p.ExtensionData);
+        var wallPolys = sketch.Concat(secPlan).ToList();
 
-        // LRUD passage: smoothed ribbon hull(s) in plan/section — omitted in X-ray (radials only, no passage box).
-        if (!visualization.ShowSplayXRayGeometry() &&
-            (vectorViewMode == SurveyStationGeometry.AndroidViewModePlan ||
-             vectorViewMode == SurveyStationGeometry.AndroidViewModeSection))
+        // LRUD passage: smoothed ribbon hull(s) in plan — omitted in X-ray (radials only, no passage box).
+        if (!visualization.ShowSplayXRayGeometry())
         {
             foreach (var ribbon in SurveyLrudWallGeometry.BuildPlanLrudRibbonPolylines(p.Shots, coords))
                 wallPolys = new[] { ribbon }.Concat(wallPolys).ToList();
         }
 
-        var symbols = vectorViewMode == SurveyStationGeometry.AndroidViewModePlan
-            ? SurveyStationGeometry.ParsePlanMapSymbols(p.ExtensionData)
-            : Array.Empty<SurveyStationGeometry.PlanMapSymbol>();
+        var symbols = SurveyStationGeometry.ParsePlanMapSymbols(p.ExtensionData);
 
         var splaySegs = new List<(float x1, float y1, float x2, float y2)>();
         if (visualization == SurveyVisualizationMode.Plan2Tone)

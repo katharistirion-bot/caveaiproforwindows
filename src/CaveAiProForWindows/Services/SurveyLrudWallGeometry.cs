@@ -90,6 +90,41 @@ public static class SurveyLrudWallGeometry
         return list;
     }
 
+    /// <summary>
+    /// Extended elevation / long-profile X-ray: horizontal segments at station elevation from chainage
+    /// toward ±L / ±R (metres along developed distance), matching <see cref="BuildLongProfileLrudQuads"/> frame.
+    /// </summary>
+    public static IReadOnlyList<(float x1, float y1, float x2, float y2)> BuildProfileLrudRadialSplays(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> profileChainageZ)
+    {
+        var list = new List<(float, float, float, float)>();
+        foreach (var shot in shots.Where(s => s.IsTraverseLeg))
+        {
+            if (!profileChainageZ.TryGetValue(shot.FromStation, out _) ||
+                !profileChainageZ.TryGetValue(shot.ToStation, out _))
+                continue;
+            var (lrL, lrR, _, _) = shot.EffectivePlanLrud();
+            var L = lrL > Eps ? lrL : MinHalfWidth;
+            var R = lrR > Eps ? lrR : MinHalfWidth;
+
+            void Rad(string station)
+            {
+                if (!profileChainageZ.TryGetValue(station, out var c))
+                    return;
+                var s = c.X;
+                var z = c.Y;
+                list.Add((s, z, s + L, z));
+                list.Add((s, z, s - R, z));
+            }
+
+            Rad(shot.FromStation);
+            Rad(shot.ToStation);
+        }
+
+        return list;
+    }
+
     /// <summary>Closed quads in long-profile plane (x = chainage m, y = Z m).</summary>
     public static IReadOnlyList<SurveyStationGeometry.PlanVectorPolyline> BuildLongProfileLrudQuads(
         IReadOnlyList<ShotRecord> shots,

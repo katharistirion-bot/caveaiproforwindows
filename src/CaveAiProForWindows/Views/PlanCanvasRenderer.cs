@@ -1131,7 +1131,7 @@ public static class PlanCanvasRenderer
             AddChildZ(canvas, head, ZIndexCartographyChrome);
 
             var northLabel = canvasKind == SurveyCanvasKind.Section
-                ? "+Y section"
+                ? "Developed distance →"
                 : "+Y survey";
             var ntb = new TextBlock
             {
@@ -1241,7 +1241,9 @@ public static class PlanCanvasRenderer
         addLetter("S", rcx + sX * rLabel, rcy + sY * rLabel);
         addLetter("W", rcx + wX * rLabel, rcy + wY * rLabel);
 
-        var sub = canvasKind == SurveyCanvasKind.Section ? "+Y = N (section)" : "+Y = N (plan)";
+        var sub = canvasKind == SurveyCanvasKind.Section
+            ? "Horizontal = chainage (m), vertical = Z (m)"
+            : "+Y = N (plan)";
         var hint = new TextBlock
         {
             Text = sub,
