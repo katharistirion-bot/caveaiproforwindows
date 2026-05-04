@@ -10,8 +10,6 @@ namespace CaveAiProForWindows.Views;
 /// </summary>
 internal static class SurveyPathSmoothing
 {
-    private const double Eps = 1e-9;
-
     private static bool IsOk(Point p) =>
         !double.IsNaN(p.X) && !double.IsInfinity(p.X) && !double.IsNaN(p.Y) && !double.IsInfinity(p.Y);
 
@@ -20,16 +18,6 @@ internal static class SurveyPathSmoothing
     {
         if (pts.Count < 3)
             return null;
-
-        if (pts.Count == 3)
-            {
-                var fig3 = new PathFigure(pts[0], new PathSegment[]
-                {
-                    new LineSegment(pts[1], true),
-                    new LineSegment(pts[2], true),
-                }, true);
-                return new PathGeometry(new[] { fig3 });
-            }
 
         var n = pts.Count;
         var segments = new List<PathSegment>(n);
@@ -101,32 +89,5 @@ internal static class SurveyPathSmoothing
 
         var fig = new PathFigure(pts[0], segments, false) { IsClosed = false };
         return new PathGeometry(new[] { fig }) { FillRule = FillRule.Nonzero };
-    }
-
-    /// <summary>Approximate length of first segment — used to skip micro loops.</summary>
-    public static double MinChordLength(IReadOnlyList<Point> pts)
-    {
-        if (pts.Count < 2)
-            return 0;
-        var dx = pts[1].X - pts[0].X;
-        var dy = pts[1].Y - pts[0].Y;
-        return Math.Sqrt(dx * dx + dy * dy);
-    }
-
-    public static bool IsDegenerate(IReadOnlyList<Point> pts, double minChordPx)
-    {
-        if (pts.Count < 2)
-            return true;
-        if (minChordPx <= Eps)
-            return false;
-        for (var i = 0; i < pts.Count - 1; i++)
-        {
-            var dx = pts[i + 1].X - pts[i].X;
-            var dy = pts[i + 1].Y - pts[i].Y;
-            if (Math.Sqrt(dx * dx + dy * dy) >= minChordPx)
-                return false;
-        }
-
-        return true;
     }
 }

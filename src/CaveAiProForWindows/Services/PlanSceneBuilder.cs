@@ -48,12 +48,12 @@ public static class PlanSceneBuilder
             wallPolys = SurveyStationGeometry.ParseSectionSketchesForSectionView(p.ExtensionData);
         }
 
-        // LRUD passage: one continuous ribbon polygon (plan frame) + X-ray radial splays — not centerline-only.
-        if (vectorViewMode == SurveyStationGeometry.AndroidViewModePlan ||
-            vectorViewMode == SurveyStationGeometry.AndroidViewModeSection)
+        // LRUD passage: smoothed ribbon hull(s) in plan/section — omitted in X-ray (radials only, no passage box).
+        if (!visualization.ShowSplayXRayGeometry() &&
+            (vectorViewMode == SurveyStationGeometry.AndroidViewModePlan ||
+             vectorViewMode == SurveyStationGeometry.AndroidViewModeSection))
         {
-            var ribbon = BuildLrudPassageRibbonPolyline(p.Shots, coords);
-            if (ribbon != null)
+            foreach (var ribbon in SurveyLrudWallGeometry.BuildPlanLrudRibbonPolylines(p.Shots, coords))
                 wallPolys = new[] { ribbon }.Concat(wallPolys).ToList();
         }
 
@@ -61,11 +61,19 @@ public static class PlanSceneBuilder
             ? SurveyStationGeometry.ParsePlanMapSymbols(p.ExtensionData)
             : Array.Empty<SurveyStationGeometry.PlanMapSymbol>();
 
-        var splaySegs = SurveySplayGeometry.BuildPlanSplaySegments(p.Shots, coords).ToList();
-        if (visualization.ShowSplayXRayGeometry())
+        var splaySegs = new List<(float x1, float y1, float x2, float y2)>();
+        if (visualization == SurveyVisualizationMode.Plan2Tone)
+        {
+            // Filled passage only — no internal splay web.
+        }
+        else if (visualization.ShowSplayXRayGeometry())
         {
             splaySegs.AddRange(SurveyLrudWallGeometry.BuildPlanLrudRadialSplays(p.Shots, coords));
             AppendTraverseLrudUdSplaySegments(p.Shots, coords, splaySegs);
+        }
+        else
+        {
+            splaySegs.AddRange(SurveySplayGeometry.BuildPlanSplaySegments(p.Shots, coords));
         }
 
         var minX = 0f;
@@ -148,7 +156,7 @@ public static class PlanSceneBuilder
             .Where(r => coords.ContainsKey(r.StationName))
             .ToList();
         Debug.WriteLine(
-            $"[PlanScene] scene OK bounds x=[{minX:0.##},{maxX:0.##}] y=[{minY:0.##},{maxY:0.##}] walls={wallPolys.Count} vectors={vectorPolys.Count} symbols={symbols.Count} splays={splaySegs.Count} stationImages={stationAttached.Count} (LRUD plan tubes prepended when in plan view)");
+            $"[PlanScene] scene OK bounds x=[{minX:0.##},{maxX:0.##}] y=[{minY:0.##},{maxY:0.##}] walls={wallPolys.Count} vectors={vectorPolys.Count} symbols={symbols.Count} splays={splaySegs.Count} stationImages={stationAttached.Count} (LRUD ribbon when not X-ray)");
 
         return new PlanScene
         {
@@ -164,96 +172,6 @@ public static class PlanSceneBuilder
             StationAttachedImages = stationAttached,
             SplaySegments = splaySegs,
         };
-    }
-
-    /// <summary>
-    /// Builds one closed polygon in plan (x,y) metres: left wall chain along traverse order, then right wall chain reversed,
-    /// using each traverse shot's <see cref="ShotRecord.EffectivePlanLrud"/> and perpendicular offsets (same math as legacy per-leg quads).
-    /// </summary>
-    private static SurveyStationGeometry.PlanVectorPolyline? BuildLrudPassageRibbonPolyline(
-        IReadOnlyList<ShotRecord> shots,
-        IReadOnlyDictionary<string, StationCoords> coords)
-    {
-        var legs = shots.Where(s => s.IsTraverseLeg).ToList();
-        if (legs.Count == 0)
-            return null;
-
-        var left = new List<(float x, float y)>();
-        var right = new List<(float x, float y)>();
-        const float eps = 2e-3f;
-        static bool Near((float x, float y) p, (float x, float y) q) =>
-            Math.Abs(p.x - q.x) <= eps && Math.Abs(p.y - q.y) <= eps;
-
-        void Append(List<(float x, float y)> chain, (float x, float y) p)
-        {
-            if (chain.Count > 0 && Near(chain[^1], p))
-                return;
-            chain.Add(p);
-        }
-
-        foreach (var shot in legs)
-        {
-            if (!coords.TryGetValue(shot.FromStation, out var a) || !coords.TryGetValue(shot.ToStation, out var b))
-                continue;
-            if (!TryLrudQuadCorners(shot, a, b, out var fl, out var tl, out var tr, out var fr))
-                continue;
-            Append(left, fl);
-            Append(left, tl);
-            Append(right, fr);
-            Append(right, tr);
-        }
-
-        if (left.Count + right.Count < 3)
-            return null;
-
-        var ring = new List<(float x, float y)>(left.Count + right.Count);
-        ring.AddRange(left);
-        for (var i = right.Count - 1; i >= 0; i--)
-            ring.Add(right[i]);
-        if (ring.Count < 3)
-            return null;
-
-        return new SurveyStationGeometry.PlanVectorPolyline("lrudPlanRibbon", ring, Closed: true);
-    }
-
-    /// <summary>Same perpendicular corridor corners as <see cref="SurveyLrudWallGeometry.BuildPlanLrudCorridorQuads"/> (single leg).</summary>
-    private static bool TryLrudQuadCorners(
-        ShotRecord shot,
-        StationCoords a,
-        StationCoords b,
-        out (float x, float y) fl,
-        out (float x, float y) tl,
-        out (float x, float y) tr,
-        out (float x, float y) fr)
-    {
-        fl = tl = tr = fr = default;
-        var dx = b.X - a.X;
-        var dy = b.Y - a.Y;
-        var len = Math.Sqrt(dx * (double)dx + dy * (double)dy);
-        if (len < 1e-4)
-            return false;
-        var fx = (float)(dx / len);
-        var fy = (float)(dy / len);
-        var plx = -fy;
-        var ply = fx;
-        const float Eps = 1e-4f;
-        const float MinHalfWidth = 0.18f;
-        var (lrL, lrR, _, _) = shot.EffectivePlanLrud();
-        var L = lrL > Eps ? lrL : MinHalfWidth;
-        var R = lrR > Eps ? lrR : MinHalfWidth;
-        var flx = a.X + plx * L;
-        var fly = a.Y + ply * L;
-        var frx = a.X - plx * R;
-        var fry = a.Y - ply * R;
-        var tlx = b.X + plx * L;
-        var tly = b.Y + ply * L;
-        var trx = b.X - plx * R;
-        var trY = b.Y - ply * R;
-        fl = (flx, fly);
-        tl = (tlx, tly);
-        tr = (trx, trY);
-        fr = (frx, fry);
-        return true;
     }
 
     /// <summary>X-ray: from each traverse station, draw plan segments for Up/Down along horizontal survey direction (tape × cos(clino)).</summary>

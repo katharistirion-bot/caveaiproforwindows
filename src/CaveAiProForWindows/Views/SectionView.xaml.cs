@@ -201,7 +201,7 @@ public partial class SectionView : System.Windows.Controls.UserControl
                 {
                     ZoomScale.CenterX = DrawingCanvas.Width / 2;
                     ZoomScale.CenterY = DrawingCanvas.Height / 2;
-                    PlanCanvasRenderer.DrawRasterUnderlaysOnly(
+                    SectionCanvasRenderer.DrawRasterUnderlaysOnly(
                         DrawingCanvas,
                         highContrast: false,
                         DrawingCanvas.Width,
@@ -219,7 +219,7 @@ public partial class SectionView : System.Windows.Controls.UserControl
 
             ZoomScale.CenterX = DrawingCanvas.Width / 2;
             ZoomScale.CenterY = DrawingCanvas.Height / 2;
-            PlanCanvasRenderer.Draw(
+            SectionCanvasRenderer.Draw(
                 scene,
                 DrawingCanvas,
                 highContrast: false,
@@ -348,7 +348,7 @@ public partial class SectionView : System.Windows.Controls.UserControl
                 return;
             }
 
-            PlanCanvasRenderer.DrawRasterUnderlaysOnly(
+            SectionCanvasRenderer.DrawRasterUnderlaysOnly(
                 DrawingCanvas,
                 hi,
                 DrawingCanvas.Width,
@@ -357,7 +357,7 @@ public partial class SectionView : System.Windows.Controls.UserControl
                 "section");
         }
         else
-            PlanCanvasRenderer.Draw(
+            SectionCanvasRenderer.Draw(
                 scene,
                 DrawingCanvas,
                 hi,

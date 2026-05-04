@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -635,12 +634,37 @@ public static class PlanCanvasRenderer
         Panel.SetZIndex(fgLayer, 1);
         vectorLayer.Children.Add(wallLayer);
         vectorLayer.Children.Add(fgLayer);
+        ApplySurveyRenderQuality(wallLayer);
+        ApplySurveyRenderQuality(fgLayer);
 
-        void AddVectorElement(UIElement el) => fgLayer.Children.Add(el);
+        void AddVectorElement(UIElement el)
+        {
+            ApplySurveyRenderQuality(el);
+            fgLayer.Children.Add(el);
+        }
 
-        void AddWallBehindTraverse(UIElement el) => wallLayer.Children.Add(el);
+        void AddWallBehindTraverse(UIElement el)
+        {
+            ApplySurveyRenderQuality(el);
+            wallLayer.Children.Add(el);
+        }
 
-        void AddClosedPolygon(
+        static List<Point> ToScreenPolyline(Func<float, float, Point> toScreen, SurveyStationGeometry.PlanVectorPolyline pl)
+        {
+            var list = new List<Point>(pl.Points.Count);
+            foreach (var (vx, vy) in pl.Points)
+            {
+                if (!IsFiniteFloat(vx) || !IsFiniteFloat(vy))
+                    continue;
+                var p = toScreen(vx, vy);
+                if (IsFiniteDouble(p.X) && IsFiniteDouble(p.Y))
+                    list.Add(p);
+            }
+
+            return list;
+        }
+
+        void AddClosedSmoothedWall(
             SurveyStationGeometry.PlanVectorPolyline pl,
             Brush fill,
             Brush stroke,
@@ -649,38 +673,77 @@ public static class PlanCanvasRenderer
         {
             if (pl.Points.Count < 3)
                 return;
-            var pg = new Polygon
+            var pts = ToScreenPolyline(ToScreen, pl);
+            if (pts.Count < 3)
+                return;
+            var geom = SurveyPathSmoothing.TryBuildClosedCatmullRomPath(pts);
+            if (geom == null)
+                return;
+            var path = new Path
             {
+                Data = geom,
                 Fill = fill,
                 Stroke = stroke,
                 StrokeThickness = thickness,
                 StrokeLineJoin = PenLineJoin.Round,
-                SnapsToDevicePixels = true,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
             };
-            foreach (var (vx, vy) in pl.Points)
-                pg.Points.Add(ToScreen(vx, vy));
-            addChild(pg);
+            addChild(path);
         }
 
-        void AddOpenPolyline(SurveyStationGeometry.PlanVectorPolyline pl, Brush stroke, double thickness, Action<UIElement> addChild)
+        void AddOpenSmoothedWall(
+            SurveyStationGeometry.PlanVectorPolyline pl,
+            Brush stroke,
+            double thickness,
+            Action<UIElement> addChild)
         {
             if (pl.Points.Count < 2)
                 return;
-            var poly = new Polyline
+            var pts = ToScreenPolyline(ToScreen, pl);
+            if (pts.Count < 2)
+                return;
+            if (pts.Count == 2)
             {
+                var line = new Line
+                {
+                    X1 = pts[0].X,
+                    Y1 = pts[0].Y,
+                    X2 = pts[1].X,
+                    Y2 = pts[1].Y,
+                    Stroke = stroke,
+                    StrokeThickness = thickness,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round,
+                    StrokeLineJoin = PenLineJoin.Round,
+                };
+                addChild(line);
+                return;
+            }
+
+            var geom = SurveyPathSmoothing.TryBuildOpenCatmullRomPath(pts);
+            if (geom == null)
+                return;
+            var path = new Path
+            {
+                Data = geom,
+                Fill = Brushes.Transparent,
                 Stroke = stroke,
                 StrokeThickness = thickness,
                 StrokeLineJoin = PenLineJoin.Round,
-                SnapsToDevicePixels = true,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
             };
-            foreach (var (vx, vy) in pl.Points)
-                poly.Points.Add(ToScreen(vx, vy));
-            addChild(poly);
+            addChild(path);
         }
 
         var wallIndex = 0;
         foreach (var pl in scene.WallPolylines)
         {
+            // X-ray: scene has no LRUD hull; skip any legacy passage polys so only radials draw.
+            if (splayXRay && pl.Type is "lrudPlanRibbon" or "lrudPlan" or "lrudProfile")
+                continue;
+
             switch (pl.Type)
             {
                 case "lrudPlanRibbon":
@@ -690,22 +753,15 @@ public static class PlanCanvasRenderer
                     double ribbonTh;
                     if (plan2Tone)
                     {
-                        ribbonFill = new SolidColorBrush(Color.FromRgb(0xD4, 0xD8, 0xE0));
-                        ribbonStroke = new SolidColorBrush(Color.FromArgb(210, 0x58, 0x5E, 0x66));
-                        ribbonTh = Math.Max(1.35, vectorStrokeThickness * 0.42);
+                        ribbonFill = new SolidColorBrush(Color.FromArgb(118, 0xA4, 0xA8, 0xAE));
+                        ribbonStroke = new SolidColorBrush(Color.FromArgb(210, 0x46, 0x4C, 0x54));
+                        ribbonTh = Math.Max(1.0, vectorStrokeThickness * 0.34);
                     }
                     else if (highContrast)
                     {
                         ribbonFill = lrudPlanFill;
                         ribbonStroke = lrudPlanStroke;
                         ribbonTh = Math.Max(1.5, vectorStrokeThickness * 0.52);
-                    }
-                    else if (splayXRay)
-                    {
-                        // Let the splay web read clearly over a faint passage hull.
-                        ribbonFill = new SolidColorBrush(Color.FromArgb(36, 0x6A, 0x72, 0x7E));
-                        ribbonStroke = new SolidColorBrush(Color.FromArgb(140, 0x8E, 0x96, 0xA0));
-                        ribbonTh = Math.Max(1.0, vectorStrokeThickness * 0.38);
                     }
                     else
                     {
@@ -715,16 +771,16 @@ public static class PlanCanvasRenderer
                     }
 
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedPolygon(pl, ribbonFill, ribbonStroke, ribbonTh, AddWallBehindTraverse);
+                        AddClosedSmoothedWall(pl, ribbonFill, ribbonStroke, ribbonTh, AddWallBehindTraverse);
                     break;
                 }
                 case "lrud3dEdge":
                     if (pl.Points.Count >= 2)
-                        AddOpenPolyline(pl, lrud3dEdgeStroke, Math.Max(0.75, vectorStrokeThickness * 0.32), AddWallBehindTraverse);
+                        AddOpenSmoothedWall(pl, lrud3dEdgeStroke, Math.Max(0.75, vectorStrokeThickness * 0.32), AddWallBehindTraverse);
                     break;
                 case "lrud3dFace":
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedPolygon(
+                        AddClosedSmoothedWall(
                             pl,
                             lrud3dFaceFill,
                             lrud3dFaceStroke,
@@ -733,13 +789,12 @@ public static class PlanCanvasRenderer
                     break;
                 case "lrudPlan":
                     if (pl.Closed && pl.Points.Count >= 3)
-                    {
-                        var lrudTh = splayXRay
-                            ? Math.Max(2.0, vectorStrokeThickness * 0.88)
-                            : Math.Max(1.1, vectorStrokeThickness * 0.62);
-                        AddClosedPolygon(pl, lrudPlanFill, lrudPlanStroke, lrudTh, AddWallBehindTraverse);
-                    }
-
+                        AddClosedSmoothedWall(
+                            pl,
+                            lrudPlanFill,
+                            lrudPlanStroke,
+                            Math.Max(1.1, vectorStrokeThickness * 0.62),
+                            AddWallBehindTraverse);
                     break;
                 case "lrudProfile":
                 {
@@ -747,7 +802,7 @@ public static class PlanCanvasRenderer
                         ? Math.Max(2.4, vectorStrokeThickness * 1.35)
                         : Math.Max(1.1, vectorStrokeThickness * 0.62);
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedPolygon(pl, lrudProfileFill, lrudProfileStroke, profTh, AddWallBehindTraverse);
+                        AddClosedSmoothedWall(pl, lrudProfileFill, lrudProfileStroke, profTh, AddWallBehindTraverse);
                     break;
                 }
                 default:
@@ -760,9 +815,9 @@ public static class PlanCanvasRenderer
                         ? Math.Max(2.2, vectorStrokeThickness * 1.22)
                         : vectorStrokeThickness;
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedPolygon(pl, sty.SketchFill, wallStroke, sketchTh, AddVectorElement);
+                        AddClosedSmoothedWall(pl, sty.SketchFill, wallStroke, sketchTh, AddVectorElement);
                     else if (pl.Points.Count >= 2)
-                        AddOpenPolyline(pl, wallStroke, sketchTh, AddVectorElement);
+                        AddOpenSmoothedWall(pl, wallStroke, sketchTh, AddVectorElement);
                     break;
                 }
             }
@@ -771,9 +826,9 @@ public static class PlanCanvasRenderer
         foreach (var pl in scene.VectorPolylines)
         {
             if (pl.Closed && pl.Points.Count >= 3)
-                AddClosedPolygon(pl, sty.VectorFill, sty.TraverseStroke, vectorStrokeThickness, AddVectorElement);
+                AddClosedSmoothedWall(pl, sty.VectorFill, sty.TraverseStroke, vectorStrokeThickness, AddVectorElement);
             else if (pl.Points.Count >= 2)
-                AddOpenPolyline(pl, sty.TraverseStroke, vectorStrokeThickness, AddVectorElement);
+                AddOpenSmoothedWall(pl, sty.TraverseStroke, vectorStrokeThickness, AddVectorElement);
         }
 
         foreach (var (x1, y1, x2, y2) in scene.TraverseSegments)
@@ -790,36 +845,39 @@ public static class PlanCanvasRenderer
                 StrokeThickness = vectorStrokeThickness,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
-                SnapsToDevicePixels = true,
+                StrokeLineJoin = PenLineJoin.Round,
             };
             AddVectorElement(leg);
         }
 
         var splayStrokeBrush = splayXRay
-            ? (highContrast ? Brushes.White : new SolidColorBrush(Color.FromRgb(0xF5, 0xE6, 0xC8)))
+            ? (highContrast ? Brushes.White : new SolidColorBrush(Color.FromRgb(0xE8, 0xDC, 0xC4)))
             : sty.SplayStroke;
-        var splayLineOpacity = splayXRay ? (highContrast ? 0.72 : 0.48) : sty.SplayOpacity;
+        var splayLineOpacity = splayXRay ? (highContrast ? 0.18 : 0.15) : sty.SplayOpacity;
 
-        foreach (var (sx1, sy1, sx2, sy2) in scene.SplaySegments)
+        if (!plan2Tone)
         {
-            if (!IsFiniteFloat(sx1) || !IsFiniteFloat(sy1) || !IsFiniteFloat(sx2) || !IsFiniteFloat(sy2))
-                continue;
-            var pa = ToScreen(sx1, sy1);
-            var pb = ToScreen(sx2, sy2);
-            var splayLine = new Line
+            foreach (var (sx1, sy1, sx2, sy2) in scene.SplaySegments)
             {
-                X1 = pa.X,
-                Y1 = pa.Y,
-                X2 = pb.X,
-                Y2 = pb.Y,
-                Stroke = splayStrokeBrush,
-                StrokeThickness = splayStrokeThickness,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round,
-                Opacity = splayLineOpacity,
-                SnapsToDevicePixels = true,
-            };
-            AddVectorElement(splayLine);
+                if (!IsFiniteFloat(sx1) || !IsFiniteFloat(sy1) || !IsFiniteFloat(sx2) || !IsFiniteFloat(sy2))
+                    continue;
+                var pa = ToScreen(sx1, sy1);
+                var pb = ToScreen(sx2, sy2);
+                var splayLine = new Line
+                {
+                    X1 = pa.X,
+                    Y1 = pa.Y,
+                    X2 = pb.X,
+                    Y2 = pb.Y,
+                    Stroke = splayStrokeBrush,
+                    StrokeThickness = splayXRay ? 0.5 : splayStrokeThickness,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round,
+                    StrokeLineJoin = PenLineJoin.Round,
+                    Opacity = splayLineOpacity,
+                };
+                AddVectorElement(splayLine);
+            }
         }
 
         var stationDot = Math.Max(6.0, Math.Min(20.0, pxPerMetre * 0.4));

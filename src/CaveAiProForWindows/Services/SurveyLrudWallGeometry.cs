@@ -2,6 +2,7 @@ using System.Linq;
 using CaveAiProForWindows.Models;
 
 namespace CaveAiProForWindows.Services;
+
 /// <summary>
 /// Builds passage outline polygons from traverse shot LRUD (Left, Right, Up, Down metres) in data.json,
 /// matching the compass/clino plan frame used by <see cref="SurveyStationGeometry.CalculatePlanCoordinates"/>.
@@ -177,5 +178,192 @@ public static class SurveyLrudWallGeometry
         }
 
         return list;
+    }
+
+    /// <summary>
+    /// Closed plan passage hull(s): each connected traverse component becomes one polygon whose boundary follows
+    /// left/right LRUD offsets along a graph walk (not raw JSON shot order), with densified vertices for smooth spline fit.
+    /// </summary>
+    public static IReadOnlyList<SurveyStationGeometry.PlanVectorPolyline> BuildPlanLrudRibbonPolylines(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords)
+    {
+        var legs = shots.Where(s => s.IsTraverseLeg).ToList();
+        if (legs.Count == 0)
+            return Array.Empty<SurveyStationGeometry.PlanVectorPolyline>();
+
+        var legCount = legs.Count;
+        var adj = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+        void AddAdj(string? node, int idx)
+        {
+            if (string.IsNullOrEmpty(node))
+                return;
+            if (!adj.TryGetValue(node, out var list))
+            {
+                list = new List<int>();
+                adj[node] = list;
+            }
+
+            list.Add(idx);
+        }
+
+        for (var i = 0; i < legCount; i++)
+        {
+            var s = legs[i];
+            AddAdj(s.FromStation, i);
+            AddAdj(s.ToStation, i);
+        }
+
+        var used = new HashSet<int>();
+        var ribbons = new List<SurveyStationGeometry.PlanVectorPolyline>();
+
+        for (var seed = 0; seed < legCount; seed++)
+        {
+            if (used.Contains(seed))
+                continue;
+
+            var walk = new List<(string wf, string wt, ShotRecord sh)>();
+            void Dfs(string u)
+            {
+                if (!adj.TryGetValue(u, out var incident))
+                    return;
+                foreach (var li in incident)
+                {
+                    if (!used.Add(li))
+                        continue;
+                    var sh = legs[li];
+                    var v = string.Equals(sh.FromStation, u, StringComparison.Ordinal)
+                        ? sh.ToStation!
+                        : sh.FromStation!;
+                    walk.Add((u, v, sh));
+                    Dfs(v);
+                }
+            }
+
+            Dfs(legs[seed].FromStation);
+            var ribbon = RibbonFromOrderedWalk(walk, coords);
+            if (ribbon != null)
+                ribbons.Add(ribbon);
+        }
+
+        return ribbons;
+    }
+
+    /// <summary>
+    /// LRUD corners for a single traverse step from <paramref name="walkFrom"/> to <paramref name="walkTo"/>
+    /// (swap L/R when walking opposite the shot's From→To direction).
+    /// </summary>
+    public static bool TryQuadCornersForWalk(
+        string walkFrom,
+        string walkTo,
+        ShotRecord shot,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords,
+        out (float x, float y) leftAtFrom,
+        out (float x, float y) leftAtTo,
+        out (float x, float y) rightAtFrom,
+        out (float x, float y) rightAtTo)
+    {
+        leftAtFrom = leftAtTo = rightAtFrom = rightAtTo = default;
+        if (!coords.TryGetValue(walkFrom, out var ca) || !coords.TryGetValue(walkTo, out var cb))
+            return false;
+        var dx = cb.X - ca.X;
+        var dy = cb.Y - ca.Y;
+        var len = Math.Sqrt(dx * (double)dx + dy * (double)dy);
+        if (len < 1e-4)
+            return false;
+        var fx = (float)(dx / len);
+        var fy = (float)(dy / len);
+        var plx = -fy;
+        var ply = fx;
+
+        var (lrL, lrR, _, _) = shot.EffectivePlanLrud();
+        var reverse = string.Equals(walkFrom, shot.ToStation, StringComparison.Ordinal)
+                      && string.Equals(walkTo, shot.FromStation, StringComparison.Ordinal);
+        if (reverse)
+            (lrL, lrR) = (lrR, lrL);
+
+        var L = lrL > Eps ? lrL : MinHalfWidth;
+        var R = lrR > Eps ? lrR : MinHalfWidth;
+        leftAtFrom = (ca.X + plx * L, ca.Y + ply * L);
+        leftAtTo = (cb.X + plx * L, cb.Y + ply * L);
+        rightAtFrom = (ca.X - plx * R, ca.Y - ply * R);
+        rightAtTo = (cb.X - plx * R, cb.Y - ply * R);
+        return true;
+    }
+
+    private static SurveyStationGeometry.PlanVectorPolyline? RibbonFromOrderedWalk(
+        IReadOnlyList<(string wf, string wt, ShotRecord sh)> walk,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords)
+    {
+        if (walk.Count == 0)
+            return null;
+        const float eps = 2.5e-3f;
+        const float densifyStepM = 0.22f;
+
+        static bool Near((float x, float y) p, (float x, float y) q) =>
+            Math.Abs(p.x - q.x) <= eps && Math.Abs(p.y - q.y) <= eps;
+
+        void AppendPt(List<(float x, float y)> chain, (float x, float y) p)
+        {
+            if (chain.Count > 0 && Near(chain[^1], p))
+                return;
+            chain.Add(p);
+        }
+
+        var left = new List<(float x, float y)>();
+        var right = new List<(float x, float y)>();
+        foreach (var (wf, wt, sh) in walk)
+        {
+            if (!TryQuadCornersForWalk(wf, wt, sh, coords, out var l0, out var l1, out var r0, out var r1))
+                continue;
+            AppendPt(left, l0);
+            AppendPt(left, l1);
+            AppendPt(right, r0);
+            AppendPt(right, r1);
+        }
+
+        if (left.Count < 2 || right.Count < 2)
+            return null;
+
+        var leftD = DensifyPlanChain(left, densifyStepM);
+        var rightD = DensifyPlanChain(right, densifyStepM);
+        var ring = new List<(float x, float y)>(leftD.Count + rightD.Count);
+        ring.AddRange(leftD);
+        for (var i = rightD.Count - 1; i >= 0; i--)
+            ring.Add(rightD[i]);
+        return ring.Count < 3
+            ? null
+            : new SurveyStationGeometry.PlanVectorPolyline("lrudPlanRibbon", ring, Closed: true);
+    }
+
+    private static List<(float x, float y)> DensifyPlanChain(IReadOnlyList<(float x, float y)> chain, float stepM)
+    {
+        if (chain.Count <= 1)
+            return new List<(float x, float y)>(chain);
+        var res = new List<(float x, float y)>(chain.Count * 3) { chain[0] };
+        for (var i = 0; i < chain.Count - 1; i++)
+        {
+            var p0 = chain[i];
+            var p1 = chain[i + 1];
+            var dx = p1.x - p0.x;
+            var dy = p1.y - p0.y;
+            var d = Math.Sqrt(dx * (double)dx + dy * (double)dy);
+            if (d < 1e-4)
+            {
+                res.Add(p1);
+                continue;
+            }
+
+            var n = Math.Min(64, Math.Max(1, (int)Math.Ceiling(d / stepM)));
+            for (var k = 1; k < n; k++)
+            {
+                var t = k / (float)n;
+                res.Add((p0.x + t * dx, p0.y + t * dy));
+            }
+
+            res.Add(p1);
+        }
+
+        return res;
     }
 }
