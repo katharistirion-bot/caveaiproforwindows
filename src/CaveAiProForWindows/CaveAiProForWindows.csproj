@@ -12,7 +12,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
-    <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    <PackageReference Include="PDFtoImage" Version="5.2.1" />
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
     <Resource Include="Assets\ic_launcher_logo.png" />
     <Resource Include="Assets\app.ico" />
   </ItemGroup>

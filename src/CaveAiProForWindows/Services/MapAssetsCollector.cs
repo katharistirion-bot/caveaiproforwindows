@@ -7,6 +7,7 @@ namespace CaveAiProForWindows.Services;
 /// <summary>
 /// Collects map / overlay / raster URIs and file paths from Gson <see cref="CaveProjectDocument.ExtensionData"/>
 /// and <see cref="CaveProjectDocument.VectorLines"/> (library cartography, TLS mesh, LIDAR, symbols, sketches, tracks, etc.).
+/// Android ↔ Windows map contract for **backup ZIP only**: <c>android-reference/MapsWindowsSync.md</c>.
 /// </summary>
 public static class MapAssetsCollector
 {
@@ -362,8 +363,12 @@ public static class MapAssetsCollector
         if (Path.IsPathRooted(t))
             return true;
 
+        // Leaf cartography filenames (e.g. 0001_cave.tif) — resolved on disk next to JSON/ZIP via PlanMapUnderlayLoader.
         if (t.IndexOf('/') < 0 && t.IndexOf('\\') < 0)
-            return false;
+        {
+            var leafExt = Path.GetExtension(t).ToLowerInvariant();
+            return leafExt is ".tif" or ".tiff" or ".geotiff" or ".png" or ".jpg" or ".jpeg" or ".webp" or ".bmp" or ".pdf";
+        }
 
         var lower = t.Replace('\\', '/').ToLowerInvariant();
         if (lower.Contains("maps/", StringComparison.Ordinal) ||
@@ -380,6 +385,7 @@ public static class MapAssetsCollector
 
         var ext = Path.GetExtension(t).ToLowerInvariant();
         return ext is ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif" or ".tif" or ".tiff" or ".bmp" or ".svg"
+            or ".pdf"
             or ".obj" or ".mtl" or ".geojson" or ".kml" or ".json" or ".zip" or ".dem" or ".mbtiles" or ".las" or ".laz";
     }
 

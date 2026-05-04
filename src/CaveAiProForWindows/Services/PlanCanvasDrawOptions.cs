@@ -11,11 +11,12 @@ public enum SurveyCanvasKind
 public sealed record PlanCanvasDrawOptions(
     bool ShowStationNames = false,
     bool ShowCartographyOverlay = true,
-    SurveyCanvasKind CanvasKind = SurveyCanvasKind.Plan)
+    SurveyCanvasKind CanvasKind = SurveyCanvasKind.Plan,
+    SurveyVisualizationMode VisualizationMode = SurveyVisualizationMode.Standard)
 {
-    public static PlanCanvasDrawOptions ForPlan(bool stationNames, bool overlay) =>
-        new(stationNames, overlay, SurveyCanvasKind.Plan);
+    public static PlanCanvasDrawOptions ForPlan(bool stationNames, bool overlay, SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard) =>
+        new(stationNames, overlay, SurveyCanvasKind.Plan, visualization);
 
-    public static PlanCanvasDrawOptions ForSection(bool stationNames, bool overlay) =>
-        new(stationNames, overlay, SurveyCanvasKind.Section);
+    public static PlanCanvasDrawOptions ForSection(bool stationNames, bool overlay, SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard) =>
+        new(stationNames, overlay, SurveyCanvasKind.Section, visualization);
 }

@@ -1,9 +1,12 @@
+using System;
 using System.Collections;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Printing;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.IO;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -37,6 +40,24 @@ public partial class PlanView : System.Windows.Controls.UserControl
         typeof(IEnumerable),
         typeof(PlanView),
         new PropertyMetadata(null, OnMapInventoryChanged));
+
+    public static readonly DependencyProperty VisualizationModeProperty = DependencyProperty.Register(
+        nameof(VisualizationMode),
+        typeof(SurveyVisualizationMode),
+        typeof(PlanView),
+        new PropertyMetadata(SurveyVisualizationMode.Standard, OnVisualizationModeChanged));
+
+    private static void OnVisualizationModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var v = (PlanView)d;
+        if (!v.IsLoaded)
+            return;
+        v.ZoomPan.X = 0;
+        v.ZoomPan.Y = 0;
+        v.ZoomScale.ScaleX = 1;
+        v.ZoomScale.ScaleY = 1;
+        v.Redraw();
+    }
 
     private static void OnMapRowsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -126,6 +147,13 @@ public partial class PlanView : System.Windows.Controls.UserControl
         set => SetValue(MapInventoryProperty, value);
     }
 
+    /// <summary>Native vector style for this tab (set from MainWindow tab headers).</summary>
+    public SurveyVisualizationMode VisualizationMode
+    {
+        get => (SurveyVisualizationMode)GetValue(VisualizationModeProperty);
+        set => SetValue(VisualizationModeProperty, value);
+    }
+
     private bool _isPanning;
     private System.Windows.Point _panMouseStart;
     private double _panStartX;
@@ -168,40 +196,56 @@ public partial class PlanView : System.Windows.Controls.UserControl
             return;
         }
 
-        var underlay = PlanMapUnderlayLoader.TryLoadRasterUnderlay(p, ZipPath, MapRows, MapInventory);
-        var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModePlan);
-        if (scene == null)
+        try
         {
-            if (underlay != null)
+            var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+            var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModePlan, VisualizationMode);
+            if (scene == null)
             {
-                ZoomScale.CenterX = DrawingCanvas.Width / 2;
-                ZoomScale.CenterY = DrawingCanvas.Height / 2;
-                PlanCanvasRenderer.DrawRasterUnderlayOnly(
-                    DrawingCanvas,
-                    highContrast: false,
-                    DrawingCanvas.Width,
-                    DrawingCanvas.Height,
-                    underlay,
-                    "plan");
+                if (underlays.Count > 0)
+                {
+                    ZoomScale.CenterX = DrawingCanvas.Width / 2;
+                    ZoomScale.CenterY = DrawingCanvas.Height / 2;
+                    PlanCanvasRenderer.DrawRasterUnderlaysOnly(
+                        DrawingCanvas,
+                        highContrast: false,
+                        DrawingCanvas.Width,
+                        DrawingCanvas.Height,
+                        underlays,
+                        "plan");
+                    return;
+                }
+
+                AddMessage(
+                    "No plan data yet — add traverse shots (to ≠ \"-\") and/or wall sketches or vectors in CaveAI Pro (Android), then re-export. "
+                    + "If cartography paths in the project resolve to PNG/JPEG/WebP/TIFF (open .zip, or keep the original .zip next to exported data.json), a raster underlay can appear here even without traverse.");
                 return;
             }
 
-            AddMessage(
-                "No plan data yet — add traverse shots (to ≠ \"-\") and/or wall sketches or vectors in CaveAI Pro (Android), then re-export. "
-                + "If the Maps tab lists PNG/JPEG/WebP/TIFF paths that resolve (inside an open .zip, or keep the original .zip next to an exported data.json in the same folder), a map preview appears here even without traverse.");
-            return;
+            ZoomScale.CenterX = DrawingCanvas.Width / 2;
+            ZoomScale.CenterY = DrawingCanvas.Height / 2;
+            PlanCanvasRenderer.Draw(
+                scene,
+                DrawingCanvas,
+                highContrast: false,
+                DrawingCanvas.Width,
+                DrawingCanvas.Height,
+                underlays,
+                p,
+                ZipPath,
+                CurrentDrawOptions());
         }
-
-        ZoomScale.CenterX = DrawingCanvas.Width / 2;
-        ZoomScale.CenterY = DrawingCanvas.Height / 2;
-        PlanCanvasRenderer.Draw(
-            scene,
-            DrawingCanvas,
-            highContrast: false,
-            DrawingCanvas.Width,
-            DrawingCanvas.Height,
-            underlay,
-            CurrentDrawOptions());
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[PlanView] Redraw failed: {ex}");
+            DrawingCanvas.Children.Clear();
+            MessageBox.Show(
+                $"Plan view could not render this project.\n\n{ex.Message}",
+                "Plan render error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            AddMessage($"Render error: {ex.Message}");
+        }
     }
 
     private void AddMessage(string text)
@@ -275,7 +319,8 @@ public partial class PlanView : System.Windows.Controls.UserControl
     private PlanCanvasDrawOptions CurrentDrawOptions() =>
         PlanCanvasDrawOptions.ForPlan(
             StationNamesCheck?.IsChecked == true,
-            CartographyOverlayCheck?.IsChecked != false);
+            CartographyOverlayCheck?.IsChecked != false,
+            VisualizationMode);
 
     private void ResetView_Click(object sender, RoutedEventArgs e)
     {
@@ -283,6 +328,30 @@ public partial class PlanView : System.Windows.Controls.UserControl
         ZoomPan.Y = 0;
         ZoomScale.ScaleX = 1;
         ZoomScale.ScaleY = 1;
+        // Re-run renderer fit (world → canvas) and refresh zoom anchor to canvas centre.
+        Redraw();
+    }
+
+    /// <summary>PNG of the Plan <see cref="DrawingCanvas"/> as currently drawn (includes zoom/pan transform).</summary>
+    public byte[]? CapturePlanPngBytes()
+    {
+        if (DrawingCanvas == null)
+            return null;
+
+        DrawingCanvas.Measure(new Size(DrawingCanvas.Width, DrawingCanvas.Height));
+        DrawingCanvas.Arrange(new Rect(0, 0, DrawingCanvas.Width, DrawingCanvas.Height));
+        DrawingCanvas.UpdateLayout();
+
+        var pxW = (int)Math.Max(1, Math.Ceiling(DrawingCanvas.Width));
+        var pxH = (int)Math.Max(1, Math.Ceiling(DrawingCanvas.Height));
+        var rtb = new RenderTargetBitmap(pxW, pxH, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(DrawingCanvas);
+
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(rtb));
+        using var ms = new MemoryStream();
+        enc.Save(ms);
+        return ms.ToArray();
     }
 
     private void PrintPlan_Click(object sender, RoutedEventArgs e)
@@ -298,38 +367,57 @@ public partial class PlanView : System.Windows.Controls.UserControl
             return;
         }
 
-        var underlayPrint = PlanMapUnderlayLoader.TryLoadRasterUnderlay(p, ZipPath, MapRows, MapInventory);
-        var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModePlan);
-        var hi = PrintHiContrastCheck.IsChecked == true;
-        if (scene == null)
+        PlanScene? scene;
+        try
         {
-            if (underlayPrint == null)
+            var underlaysPrint = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+            scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModePlan, VisualizationMode);
+            var hi = PrintHiContrastCheck.IsChecked == true;
+            if (scene == null)
             {
-                MessageBox.Show(
-                    "No plan data to print (add traverse shots and/or sketches or vectors), and no resolvable map image for a raster-only preview.",
-                    "Print plan",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
+                if (underlaysPrint.Count == 0)
+                {
+                    MessageBox.Show(
+                        "No plan data to print (add traverse shots and/or sketches or vectors), and no resolvable map image for a raster-only preview.",
+                        "Print plan",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
 
-            PlanCanvasRenderer.DrawRasterUnderlayOnly(
-                DrawingCanvas,
-                hi,
-                DrawingCanvas.Width,
-                DrawingCanvas.Height,
-                underlayPrint,
-                "plan");
+                PlanCanvasRenderer.DrawRasterUnderlaysOnly(
+                    DrawingCanvas,
+                    hi,
+                    DrawingCanvas.Width,
+                    DrawingCanvas.Height,
+                    underlaysPrint,
+                    "plan");
+            }
+            else
+            {
+                PlanCanvasRenderer.Draw(
+                    scene,
+                    DrawingCanvas,
+                    hi,
+                    DrawingCanvas.Width,
+                    DrawingCanvas.Height,
+                    underlaysPrint,
+                    p,
+                    ZipPath,
+                    CurrentDrawOptions());
+            }
         }
-        else
-            PlanCanvasRenderer.Draw(
-                scene,
-                DrawingCanvas,
-                hi,
-                DrawingCanvas.Width,
-                DrawingCanvas.Height,
-                underlayPrint,
-                CurrentDrawOptions());
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[PlanView] PrintPlan render failed: {ex}");
+            MessageBox.Show(
+                $"Could not prepare the plan for printing.\n\n{ex.Message}",
+                "Print plan",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Redraw();
+            return;
+        }
 
         var pd = new PrintDialog();
         try

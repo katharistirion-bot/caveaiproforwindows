@@ -1,3 +1,5 @@
+using CaveAiProForWindows.Models;
+
 namespace CaveAiProForWindows.Services;
 
 /// <summary>Survey-space geometry for plan or section export (metres, Android survey frame).</summary>
@@ -22,6 +24,14 @@ public sealed class PlanScene
 
     public IReadOnlyList<SurveyStationGeometry.PlanMapSymbol> Symbols { get; init; } =
         Array.Empty<SurveyStationGeometry.PlanMapSymbol>();
+
+    /// <summary>Field catalog / rocks / sketch / shot photos tied to a traverse station (resolved at render time).</summary>
+    public IReadOnlyList<StationAttachedImageRef> StationAttachedImages { get; init; } =
+        Array.Empty<StationAttachedImageRef>();
+
+    /// <summary>LRUD / radial splay segments in the same 2D frame as <see cref="Stations"/>.</summary>
+    public IReadOnlyList<(float x1, float y1, float x2, float y2)> SplaySegments { get; init; } =
+        Array.Empty<(float, float, float, float)>();
 
     public float SpanX => Math.Max(1e-6f, MaxX - MinX);
     public float SpanY => Math.Max(1e-6f, MaxY - MinY);

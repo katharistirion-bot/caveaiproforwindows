@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
+using Microsoft.Win32;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.ViewModels;
 
@@ -15,6 +16,7 @@ public partial class MainWindow : Window
         var vm = new MainViewModel();
         DataContext = vm;
         InputBindings.Add(new KeyBinding(vm.OpenFileCommand, Key.O, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(vm.CloseWorkspaceCommand, Key.W, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(vm.AboutCommand, new KeyGesture(Key.F1)));
 
         AllowDrop = true;
@@ -24,6 +26,16 @@ public partial class MainWindow : Window
         Loaded += (_, _) => WindowPlacementStore.ApplyTo(this);
         Closing += (_, _) => WindowPlacementStore.SaveFrom(this);
         App.WriteStartupLog("MainWindow constructed and Loaded wiring attached");
+    }
+
+    private void OpenDataInspector_Click(object sender, RoutedEventArgs e)
+    {
+        var w = new DataInspectorWindow
+        {
+            Owner = this,
+            DataContext = DataContext,
+        };
+        w.Show();
     }
 
     private static bool IsSurveyBackupFile(string path)
@@ -68,10 +80,59 @@ public partial class MainWindow : Window
             var n = vm.AddStandaloneMapPaths(maps);
             if (n > 0 && surveys.Count == 0)
                 vm.StatusMessage = n == 1
-                    ? "Added 1 standalone map — open the Maps tab."
-                    : $"Added {n} standalone maps — open the Maps tab.";
+                    ? "Added 1 standalone map — use File → Export → Maps report (CSV) to list paths."
+                    : $"Added {n} standalone maps — use File → Export → Maps report (CSV) to list paths.";
         }
 
         e.Handled = true;
+    }
+
+    private void ExportProjectWithPlanZip_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+            return;
+        var project = vm.SelectedProject;
+        if (project == null)
+        {
+            MessageBox.Show(
+                "Select a project in the list first.",
+                "Export ZIP",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var seg = string.Join("_", (project.Name ?? "cave").Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Trim('_');
+        if (seg.Length == 0)
+            seg = "cave";
+        if (seg.Length > 60)
+            seg = seg[..60].TrimEnd('_');
+
+        var dlg = new SaveFileDialog
+        {
+            Title = "Export project to ZIP",
+            Filter = "ZIP archive (*.zip)|*.zip",
+            FileName = $"{seg}_CaveAiPro_export.zip",
+            AddExtension = true,
+            DefaultExt = ".zip",
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        try
+        {
+            var png = PlanViewControl.CapturePlanPngBytes() ?? Array.Empty<byte>();
+            SurveyPortableZipExporter.WriteZip(project, png, dlg.FileName);
+            vm.StatusMessage = $"Exported ZIP: {dlg.FileName}";
+            MessageBox.Show(
+                "Saved:\r\n• data.json — one project (Android-compatible Gson shape)\r\n• plan_view.png — PLAN tab snapshot\r\n• README.txt",
+                "Export ZIP",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Export ZIP failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }

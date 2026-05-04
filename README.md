@@ -23,7 +23,7 @@ Companion για το **CaveAI Pro (Android)**: φορτώνει τα **ίδια
 
 ### Τι «κατεβαίνει» με το ZIP στο CAVE AI PRO (Windows)
 
-Όταν ανοίγεις ένα **CaveAI backup `.zip`**, η εφαρμογή Windows διαβάζει πρώτα το **`data.json`** (λίστα `CaveProject` όπως στο Android). Τα υπόλοιπα αρχεία μέσα στο ZIP **μένουν μέσα στο αρχείο**· το Windows τα ανοίγει **κατά περίπτωση** (π.χ. χάρτης ως underlay, εξαγωγή φωτογραφιών, «Explorer» από την καρτέλα Maps). Η λίστα παρακάτω είναι **ανά project / σπήλαιο** όπως στο JSON (αν το ZIP περιέχει πολλά projects, επαναλαμβάνεται για καθένα).
+Όταν ανοίγεις ένα **CaveAI backup `.zip`**, η εφαρμογή Windows διαβάζει πρώτα το **`data.json`** (λίστα `CaveProject` όπως στο Android). Για **Save ZIP / export μόνο του τρέχοντος σπηλαίου** στο Android, το συμβόλαιο είναι **ένα project ανά ZIP** (όχι όλη η βάση)· δες `android-reference/MapsWindowsSync.md` §0. Τα υπόλοιπα αρχεία μέσα στο ZIP **μένουν μέσα στο αρχείο**· το Windows τα ανοίγει **κατά περίπτωση** (π.χ. χάρτης ως underlay, εξαγωγή φωτογραφιών, «Explorer» από την καρτέλα Maps). Η λίστα παρακάτω είναι **ανά project / σπήλαιο** όπως στο JSON (αν το ZIP περιέχει πολλά projects, επαναλαμβάνεται για καθένα).
 
 #### Αρχεία μέσα στο `.zip` (δομή αρχείου)
 
@@ -31,7 +31,7 @@ Companion για το **CaveAI Pro (Android)**: φορτώνει τα **ίδια
 |------------------|--------|
 | **`data.json`** | Όλα τα δομικά δεδομένα της έρευνας (Gson όπως στο κινητό). |
 | **`photos/`** | Αρχεία εικόνας που στο JSON εμφανίζονται ως σχετικά paths `photos/…` (κυρίως φωτογραφίες σκοπιών). |
-| **`export_assets/`** | Άλλα τοπικά αρχεία που το Android ενσωματώνει στο ZIP (ήχος σκοπιών, εικόνες Geo/Bio, LIDAR/mesh, κ.λπ.) — paths `export_assets/…` στο `data.json` *(από ενημερωμένο export του `CaveAIPro`)*. **Χάρτες:** ιδανικά κάθε χάρτης σε **δικό του υποφάκελο** μέσα στο ZIP (π.χ. `export_assets/maps/MyCave__a1b2c3d4e5/000_plan_raster_89abcdef/basemap.tif`) ώστε να μην μπερδεύονται μεταξύ τους· δες `android-reference/CaveAiProBackupZipMapExport.kt`. |
+| **`export_assets/`** | Άλλα τοπικά αρχεία που το Android ενσωματώνει στο ZIP (ήχος σκοπιών, εικόνες Geo/Bio, LIDAR/mesh, κ.λπ.) — paths `export_assets/…` στο `data.json` *(από ενημερωμένο export του `CaveAIPro`)*. **Χάρτες:** ιδανικά κάθε χάρτης σε **δικό του υποφάκελο** μέσα στο ZIP (π.χ. `export_assets/maps/MyCave__a1b2c3d4e5/000_plan_raster_89abcdef/basemap.tif`) ώστε να μην μπερδεύονται μεταξύ τους· δες `android-reference/CaveAiProBackupZipMapExport.kt`. **Συγχρονισμός Android ↔ Windows για χάρτες (backup `.zip` μόνο):** `android-reference/MapsWindowsSync.md`. **Για διαχείριση στο PC / γραφείο:** προτίμησε **raster** (`.png`, `.tif`, `.jpg`, `.webp`, `.bmp`)· το **PDF** (πρώτη σελίδα) υποστηρίζεται και ως underlay στο Windows companion. |
 | **`backup_manifest.json`** | Μεταδεδομένα export (έκδοση, ώρα, λειτουργία «τρέχον project / όλα»). |
 | **`integrity_manifest.json`** | SHA-256 ανά αρχείο στο ZIP· το Windows το ελέγχει για ακεραιότητα. |
 | **`map_inventory.json`** | *(Νεότερο export Android)* Αναλυτική λίστα χαρτογραφικών διαδρομών ανά σπήλαιο — διαβάζεται στην καρτέλα **Backup detail**. |

@@ -172,6 +172,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ProjectsForList));
         OnPropertyChanged(nameof(HasNoProjects));
         ExportAllProjectsToFolderCommand.NotifyCanExecuteChanged();
+        CloseWorkspaceCommand.NotifyCanExecuteChanged();
     }
 
     private void HookProjectListViewFilter(ObservableCollection<CaveProjectDocument> list)
@@ -265,6 +266,68 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoProjects));
     }
 
+    private bool CanCloseWorkspace() =>
+        Projects.Count > 0 ||
+        _knownCaveMaster.Count > 0 ||
+        _standaloneMapPaths.Count > 0 ||
+        !string.IsNullOrEmpty(_zipPath) ||
+        !string.IsNullOrEmpty(_primarySourcePath) ||
+        MapInventoryRows.Count > 0;
+
+    /// <summary>Unloads all opened backups, Cave Library snapshot, standalone maps, and ZIP browser state so files are no longer part of this session.</summary>
+    [RelayCommand(CanExecute = nameof(CanCloseWorkspace))]
+    private void CloseWorkspace()
+    {
+        _loadCts?.Cancel();
+
+        CaveMapsMarkerPathResolver.ClearCache();
+
+        _zipPath = null;
+        _auxiliaryZipForMaps = null;
+        _primarySourcePath = null;
+        _sourceFileCount = 0;
+        _integrityReport = null;
+        _lastExtractRoot = null;
+
+        _knownCaveMaster.Clear();
+        _standaloneMapPaths.Clear();
+
+        MapInventoryRows.Clear();
+        BackupDataAnalyticsText = "";
+
+        ProjectListFilter = "";
+        SelectedProject = null;
+        Projects = new ObservableCollection<CaveProjectDocument>();
+
+        _caveRegistryMaster.Clear();
+        _bioCatalogMaster.Clear();
+        ApplyKnownCaveCatalogFilters();
+        ApplyRegistryFilters();
+
+        RefreshMapAssets(new List<CaveProjectDocument>());
+
+        SourcePathDisplay = "";
+        WindowTitle = "CAVE AI PRO — Survey workstation";
+        ShowSchemaNote = false;
+        SchemaNoteText = "";
+        StatusMessage =
+            "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
+
+        ApplyIntegrityUi();
+        RefreshArchivePanel();
+        OnPropertyChanged(nameof(ActiveZipPath));
+        OnPropertyChanged(nameof(ActiveZipPathForMaps));
+        ExtractPhotosCommand.NotifyCanExecuteChanged();
+        ExtractFullArchiveCommand.NotifyCanExecuteChanged();
+        OpenLastExtractedFolderCommand.NotifyCanExecuteChanged();
+        RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
+        ExportRegistryCsvCommand.NotifyCanExecuteChanged();
+        NotifyZipEntryCommands();
+        ExportMapsReportCommand.NotifyCanExecuteChanged();
+        CloseWorkspaceCommand.NotifyCanExecuteChanged();
+        ClearStandaloneMapsCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand]
     private void Exit() => Wpf.Application.Current.Shutdown();
 
@@ -282,6 +345,7 @@ public partial class MainViewModel : ObservableObject
         Wpf.MessageBox.Show(
             owner,
             "Ctrl+O — Open backup (.json / .zip)\n" +
+            "Ctrl+W — Close workspace (unload all opened files from this session)\n" +
             "F1 — About\n" +
             "Drag and drop — same file types as Open; you can also drop standalone map files (GeoTIFF, PNG, …).",
             "Keyboard shortcuts",
@@ -296,7 +360,7 @@ public partial class MainViewModel : ObservableObject
         {
             Title = "CAVE AI PRO — JSON or backup ZIP (Ctrl+click for multiple files)",
             Filter =
-                "CaveAI (*.json;*.zip)|*.json;*.zip|Cave Library JSON|cave_library.json|JSON|*.json|ZIP|*.zip|All|*.*",
+                "JSON survey / library (*.json)|*.json|ZIP backup (*.zip)|*.zip|CaveAI (*.json;*.zip)|*.json;*.zip|All files|*.*",
             Multiselect = true,
         };
         if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true) return;
@@ -332,9 +396,10 @@ public partial class MainViewModel : ObservableObject
         }
 
         StatusMessage = n == 1
-            ? "Added 1 standalone map — open the Maps tab."
-            : $"Added {n} standalone maps — open the Maps tab.";
+            ? "Added 1 standalone map — File → Export → Maps report (CSV) for paths."
+            : $"Added {n} standalone maps — File → Export → Maps report (CSV) for paths.";
         ClearStandaloneMapsCommand.NotifyCanExecuteChanged();
+        CloseWorkspaceCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanClearStandaloneMaps))]
@@ -346,6 +411,7 @@ public partial class MainViewModel : ObservableObject
         RefreshMapAssets(Projects.ToList());
         StatusMessage = "Standalone map list cleared.";
         ClearStandaloneMapsCommand.NotifyCanExecuteChanged();
+        CloseWorkspaceCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanClearStandaloneMaps() => _standaloneMapPaths.Count > 0;
@@ -380,6 +446,7 @@ public partial class MainViewModel : ObservableObject
             return 0;
         RefreshMapAssets(Projects.ToList());
         ClearStandaloneMapsCommand.NotifyCanExecuteChanged();
+        CloseWorkspaceCommand.NotifyCanExecuteChanged();
         return added;
     }
 
@@ -441,6 +508,7 @@ public partial class MainViewModel : ObservableObject
             {
                 StatusMessage =
                     "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
+                CloseWorkspaceCommand.NotifyCanExecuteChanged();
                 return;
             }
 
@@ -448,6 +516,7 @@ public partial class MainViewModel : ObservableObject
             {
                 StatusMessage =
                     "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
+                CloseWorkspaceCommand.NotifyCanExecuteChanged();
                 return;
             }
 
@@ -480,6 +549,7 @@ public partial class MainViewModel : ObservableObject
 
                 StatusMessage =
                     "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
+                CloseWorkspaceCommand.NotifyCanExecuteChanged();
                 return;
             }
 
@@ -555,12 +625,14 @@ public partial class MainViewModel : ObservableObject
             ExportRegistryCsvCommand.NotifyCanExecuteChanged();
             RefreshArchivePanel();
             NotifyZipEntryCommands();
+            CloseWorkspaceCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)
         {
             UserErrorReporter.ShowWarning(Wpf.Application.Current.MainWindow, ex.Message, "Open failed");
             StatusMessage =
                 "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
+            CloseWorkspaceCommand.NotifyCanExecuteChanged();
         }
     }
 

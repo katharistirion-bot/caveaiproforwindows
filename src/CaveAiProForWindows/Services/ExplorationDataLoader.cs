@@ -2,13 +2,14 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CaveAiProForWindows.Models;
 
 namespace CaveAiProForWindows.Services;
 
 /// <summary>
-/// Loads the same JSON the Android app writes: either <c>caveai_database_v1.json</c> (array of projects)
-/// or <c>data.json</c> inside a CaveAI Pro backup ZIP (same layout as the Android app export).
+/// Loads the same JSON the Android app writes: <c>caveai_database_v1.json</c> / <c>data.json</c> as a <b>JSON array</b> of projects,
+/// optional wrappers like <c>{"projects":[...]}</c>, a <b>single project object</b> with a <c>shots</c> array, or <c>data.json</c> inside a CaveAI ZIP.
 /// </summary>
 public static class ExplorationDataLoader
 {
@@ -17,6 +18,7 @@ public static class ExplorationDataLoader
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString,
     };
 
     /// <summary>Preferred ZIP entry names for the Gson project list (first match wins).</summary>
@@ -33,6 +35,8 @@ public static class ExplorationDataLoader
         "data",
         "surveyProjects",
         "caveProjects",
+        "surveyData",
+        "projectList",
     ];
 
     public static IReadOnlyList<CaveProjectDocument> LoadFromJsonFile(string path)
@@ -170,6 +174,10 @@ public static class ExplorationDataLoader
                 if (objCount == 1)
                     return prop.Value.GetRawText();
             }
+
+            // One Gson CaveProject as a single object (some exports / tools emit `{ "name":..., "shots":[...] }` without an array wrapper).
+            if (root.TryGetProperty("shots", out var shotsEl) && shotsEl.ValueKind == JsonValueKind.Array)
+                return "[" + root.GetRawText() + "]";
         }
 
         throw new InvalidDataException(
@@ -187,6 +195,10 @@ public static class ExplorationDataLoader
     private static List<CaveProjectDocument> DeserializeProjectList(string json)
     {
         var list = JsonSerializer.Deserialize<List<CaveProjectDocument>>(json, JsonOptions);
-        return list ?? new List<CaveProjectDocument>();
+        if (list == null)
+            return new List<CaveProjectDocument>();
+        foreach (var p in list)
+            ShotImportNormalizer.NormalizeProjectShots(p);
+        return list;
     }
 }

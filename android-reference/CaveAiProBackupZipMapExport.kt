@@ -1,11 +1,19 @@
 /**
- * CaveAI Pro — **ZIP backup: bundle map files for Windows (PC companion)**.
+ * CaveAI Pro — **ZIP backup only**: bundle map files for Windows (PC companion).
  *
  * Copy this file into the **CaveAI Pro Android** project and wire it from your existing
  * `ProjectBackupZip` / backup export pipeline.
  *
  * **Problem:** If `data.json` still contains `content://…` or device-only paths, CAVE AI PRO
  * on Windows cannot open those maps (Windows `MapAssetOpener` rejects `content:`).
+ *
+ * **Interchange format (office + Windows companion):** Prefer each bundled map as a **bitmap
+ * raster** (`.png`, `.tif`/`.tiff`, `.jpg`, `.webp`, `.bmp`) — one file per map folder — so
+ * archives are easy to open in viewers/GIS. The PC app uses **`RasterImageDecoder`** for
+ * Plan/Section underlay (rasters + **PDF first page**). Full contract: `MapsWindowsSync.md`
+ * in this folder.
+ * Heavy vector/GIS-only sources (e.g. raw `.svg`/mesh) are awkward in a flat backup; **rasterize
+ * or export to PDF on device** before `copyTo(zip)` when you want predictable ZIP contents.
  *
  * **Fix:** While building the backup `.zip`:
  * 1. Copy every local map / raster / mesh file referenced by the project into **`export_assets/…`**
@@ -206,16 +214,26 @@ fun sha256Hex(bytes: ByteArray): String {
  * ---------------------------------------------------------------------------
  * Integration checklist (Android `ProjectBackupZip` or equivalent):
  *
+ * 0. **Single-cave Save ZIP (current survey only):** When the user exports the **currently open**
+ *    cave only, the ZIP must contain **no other surveys**: `data.json` is a one-element project
+ *    array (not the full device database), `map_inventory.json` has **one** `projects[]` row,
+ *    and `photos/` / `export_assets/` entries belong **only** to that cave. See `MapsWindowsSync.md` §0.
+ *    A separate "export all caves" product action (if any) is a different contract.
+ *
  * 1. Serialize projects to JSON (as today). For each project, **before** writing `data.json`:
  *    - Enumerate map-related URIs your app already knows (plan raster, TLS mesh OBJ, library
  *      cartography files, LIDAR rasters, sketches on disk — mirror what the PC collects from
  *      Gson keys: see caveaiproforwindows `MapAssetsCollector` / README "Χαρτογραφία").
  *    - For each local file, add a [MapBytesProvider] and call [bundleMapsForZipProject].
+ *      Where the source is not already PNG/TIFF/JPEG/WebP/BMP/PDF, **decode and re-encode**
+ *      (e.g. `Bitmap.compress(PNG)` / `PdfDocument` / your GIS pipeline) so the bytes written
+ *      to the ZIP use an **interchange** extension from [guessExtensionFromUriOrPath]'s known set.
  *
  * 2. Write the returned patched JSON into the ZIP as **`data.json`** (array of projects).
  *
- * 3. If you collected `MapInventoryProject` for all caves, write:
+ * 3. If you collected `MapInventoryProject` for the cave(s) in **this** ZIP, write:
  *    `zip.putNextEntry(ZipEntry("map_inventory.json"))` + `MapInventoryJsonRoot(...).toJsonObject().toString()`
+ *    (single-cave ZIP → exactly **one** project in `projects[]`).
  *
  * 4. In **`backup_manifest.json`**, set `"includes_map_inventory": true` when the inventory exists.
  *

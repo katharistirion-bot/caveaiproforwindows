@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Printing;
 using System.Windows;
 using System.Windows.Controls;
@@ -37,6 +39,24 @@ public partial class SectionView : System.Windows.Controls.UserControl
         typeof(IEnumerable),
         typeof(SectionView),
         new PropertyMetadata(null, OnMapInventoryChanged));
+
+    public static readonly DependencyProperty VisualizationModeProperty = DependencyProperty.Register(
+        nameof(VisualizationMode),
+        typeof(SurveyVisualizationMode),
+        typeof(SectionView),
+        new PropertyMetadata(SurveyVisualizationMode.Standard, OnVisualizationModeChanged));
+
+    private static void OnVisualizationModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var v = (SectionView)d;
+        if (!v.IsLoaded)
+            return;
+        v.ZoomPan.X = 0;
+        v.ZoomPan.Y = 0;
+        v.ZoomScale.ScaleX = 1;
+        v.ZoomScale.ScaleY = 1;
+        v.Redraw();
+    }
 
     private static void OnMapRowsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -123,6 +143,13 @@ public partial class SectionView : System.Windows.Controls.UserControl
         set => SetValue(MapInventoryProperty, value);
     }
 
+    /// <summary>Native vector style for this tab (set from MainWindow tab headers).</summary>
+    public SurveyVisualizationMode VisualizationMode
+    {
+        get => (SurveyVisualizationMode)GetValue(VisualizationModeProperty);
+        set => SetValue(VisualizationModeProperty, value);
+    }
+
     private bool _isPanning;
     private System.Windows.Point _panMouseStart;
     private double _panStartX;
@@ -164,40 +191,56 @@ public partial class SectionView : System.Windows.Controls.UserControl
             return;
         }
 
-        var underlay = PlanMapUnderlayLoader.TryLoadRasterUnderlay(p, ZipPath, MapRows, MapInventory);
-        var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModeSection);
-        if (scene == null)
+        try
         {
-            if (underlay != null)
+            var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+            var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModeSection, VisualizationMode);
+            if (scene == null)
             {
-                ZoomScale.CenterX = DrawingCanvas.Width / 2;
-                ZoomScale.CenterY = DrawingCanvas.Height / 2;
-                PlanCanvasRenderer.DrawRasterUnderlayOnly(
-                    DrawingCanvas,
-                    highContrast: false,
-                    DrawingCanvas.Width,
-                    DrawingCanvas.Height,
-                    underlay,
-                    "section");
+                if (underlays.Count > 0)
+                {
+                    ZoomScale.CenterX = DrawingCanvas.Width / 2;
+                    ZoomScale.CenterY = DrawingCanvas.Height / 2;
+                    PlanCanvasRenderer.DrawRasterUnderlaysOnly(
+                        DrawingCanvas,
+                        highContrast: false,
+                        DrawingCanvas.Width,
+                        DrawingCanvas.Height,
+                        underlays,
+                        "section");
+                    return;
+                }
+
+                AddMessage(
+                    "No section vectors/sketches (viewMode 1) or traverse data for this project. "
+                    + "If cartography paths resolve to PNG/JPEG/WebP/TIFF (ZIP open, or .zip next to exported data.json), a raster underlay can still appear here.");
                 return;
             }
 
-            AddMessage(
-                "No section vectors/sketches (viewMode 1) or traverse data for this project. "
-                + "If the Maps tab lists resolvable PNG/JPEG/WebP/TIFF paths (ZIP open, or .zip next to exported data.json), a map preview can still appear here.");
-            return;
+            ZoomScale.CenterX = DrawingCanvas.Width / 2;
+            ZoomScale.CenterY = DrawingCanvas.Height / 2;
+            PlanCanvasRenderer.Draw(
+                scene,
+                DrawingCanvas,
+                highContrast: false,
+                DrawingCanvas.Width,
+                DrawingCanvas.Height,
+                underlays,
+                p,
+                ZipPath,
+                CurrentDrawOptions());
         }
-
-        ZoomScale.CenterX = DrawingCanvas.Width / 2;
-        ZoomScale.CenterY = DrawingCanvas.Height / 2;
-        PlanCanvasRenderer.Draw(
-            scene,
-            DrawingCanvas,
-            highContrast: false,
-            DrawingCanvas.Width,
-            DrawingCanvas.Height,
-            underlay,
-            CurrentDrawOptions());
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[SectionView] Redraw failed: {ex}");
+            DrawingCanvas.Children.Clear();
+            MessageBox.Show(
+                $"Section view could not render this project.\n\n{ex.Message}",
+                "Section render error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            AddMessage($"Render error: {ex.Message}");
+        }
     }
 
     private void AddMessage(string text)
@@ -269,7 +312,8 @@ public partial class SectionView : System.Windows.Controls.UserControl
     private PlanCanvasDrawOptions CurrentDrawOptions() =>
         PlanCanvasDrawOptions.ForSection(
             StationNamesCheck?.IsChecked == true,
-            CartographyOverlayCheck?.IsChecked != false);
+            CartographyOverlayCheck?.IsChecked != false,
+            VisualizationMode);
 
     private void ResetView_Click(object sender, RoutedEventArgs e)
     {
@@ -277,6 +321,7 @@ public partial class SectionView : System.Windows.Controls.UserControl
         ZoomPan.Y = 0;
         ZoomScale.ScaleX = 1;
         ZoomScale.ScaleY = 1;
+        Redraw();
     }
 
     private void PrintSection_Click(object sender, RoutedEventArgs e)
@@ -288,12 +333,12 @@ public partial class SectionView : System.Windows.Controls.UserControl
             return;
         }
 
-        var underlayPrint = PlanMapUnderlayLoader.TryLoadRasterUnderlay(p, ZipPath, MapRows, MapInventory);
-        var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModeSection);
+        var underlaysPrint = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+        var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModeSection, VisualizationMode);
         var hi = PrintHiContrastCheck.IsChecked == true;
         if (scene == null)
         {
-            if (underlayPrint == null)
+            if (underlaysPrint.Count == 0)
             {
                 MessageBox.Show(
                     "No section data to print and no resolvable map image for a raster-only preview.",
@@ -303,12 +348,12 @@ public partial class SectionView : System.Windows.Controls.UserControl
                 return;
             }
 
-            PlanCanvasRenderer.DrawRasterUnderlayOnly(
+            PlanCanvasRenderer.DrawRasterUnderlaysOnly(
                 DrawingCanvas,
                 hi,
                 DrawingCanvas.Width,
                 DrawingCanvas.Height,
-                underlayPrint,
+                underlaysPrint,
                 "section");
         }
         else
@@ -318,7 +363,9 @@ public partial class SectionView : System.Windows.Controls.UserControl
                 hi,
                 DrawingCanvas.Width,
                 DrawingCanvas.Height,
-                underlayPrint,
+                underlaysPrint,
+                p,
+                ZipPath,
                 CurrentDrawOptions());
         var pd = new PrintDialog();
         try
