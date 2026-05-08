@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore CaveAiProForWindows.sln
+
+      - name: Build (Release)
+        run: dotnet build CaveAiProForWindows.sln -c Release --no-restore
+
+      - name: Publish (single-file win-x64)
+        run: >
+          dotnet publish src/CaveAiProForWindows/CaveAiProForWindows.csproj
+          -c Release -r win-x64
+          -p:PublishProfile=ReleaseSingleFile-Win64
+
+      - name: Verify publish output
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:GITHUB_WORKSPACE "src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/win-x64/CaveAiProForWindows.exe"
+          if (-not (Test-Path $exe)) { throw "Expected published exe not found: $exe" }
+          $manifest = Join-Path $env:GITHUB_WORKSPACE "src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/win-x64/publish-manifest.json"
+          if (-not (Test-Path $manifest)) { throw "Expected publish-manifest.json not found: $manifest" }

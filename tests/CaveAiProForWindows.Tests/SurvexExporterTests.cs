@@ -51,4 +51,59 @@ public sealed class SurvexExporterTests
         Assert.IsFalse(text.Contains("A2\t-\t", StringComparison.Ordinal));
         Assert.IsTrue(Regex.IsMatch(text.TrimEnd(), @"\*end demo_cave\s*\z"), "expected *end demo_cave trailer");
     }
+
+    [TestMethod]
+    public void BuildSvxUtf8Bom_emits_explicit_units_for_third_party_compatibility()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Units Test",
+            Shots =
+            [
+                new ShotRecord { FromStation = "A", ToStation = "B", Distance = 10f, Azimuth = 45f, Clino = 0f },
+            ],
+        };
+
+        var bytes = SurvexExporter.BuildSvxUtf8Bom(project);
+        var text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetString(bytes.AsSpan(3..));
+
+        StringAssert.Contains(text, "*units tape metres");
+        StringAssert.Contains(text, "*units compass degrees");
+        StringAssert.Contains(text, "*units clino degrees");
+
+        var unitsIndex = text.IndexOf("*units tape", StringComparison.Ordinal);
+        var dataIndex = text.IndexOf("*data normal from to tape compass clino", StringComparison.Ordinal);
+        Assert.IsTrue(unitsIndex >= 0 && dataIndex > unitsIndex,
+            "*units directives must appear before *data normal in the centerline.");
+    }
+
+    [TestMethod]
+    public void BuildSvxUtf8Bom_uses_invariant_culture_for_decimals_regardless_of_thread_culture()
+    {
+        var prev = System.Threading.Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture =
+                System.Globalization.CultureInfo.GetCultureInfo("el-GR"); // comma decimal
+            var project = new CaveProjectDocument
+            {
+                Name = "Greek decimals",
+                Shots =
+                [
+                    new ShotRecord { FromStation = "A", ToStation = "B", Distance = 7.5f, Azimuth = 12.34f, Clino = -1.5f },
+                ],
+            };
+            var bytes = SurvexExporter.BuildSvxUtf8Bom(project);
+            var text = new UTF8Encoding(false).GetString(bytes.AsSpan(3..));
+
+            Assert.IsFalse(text.Contains("7,5", StringComparison.Ordinal),
+                "Decimals must use '.', never the el-GR ',' separator.");
+            StringAssert.Contains(text, "7.5\t");
+            StringAssert.Contains(text, "12.34\t-1.5");
+        }
+        finally
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = prev;
+        }
+    }
 }

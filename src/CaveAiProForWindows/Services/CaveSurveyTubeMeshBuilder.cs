@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
@@ -73,6 +74,201 @@ public static class CaveSurveyTubeMeshBuilder
         mesh.Normals = ComputeVertexNormals(mesh.Positions, mesh.TriangleIndices);
         mesh.Freeze();
         return mesh;
+    }
+
+    /// <summary>Per-station sphere radius: mean of (L+R+U+D)/4 over incident traverse legs.</summary>
+    public static Dictionary<string, double> ComputeStationBallJointRadii(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3)
+    {
+        var sum = new Dictionary<string, double>(StringComparer.Ordinal);
+        var cnt = new Dictionary<string, int>(StringComparer.Ordinal);
+        void Add(string st, float v)
+        {
+            if (string.IsNullOrEmpty(st))
+                return;
+            if (!sum.TryGetValue(st, out var s0))
+            {
+                sum[st] = v;
+                cnt[st] = 1;
+            }
+            else
+            {
+                sum[st] = s0 + v;
+                cnt[st]++;
+            }
+        }
+
+        foreach (var shot in shots.Where(s => s.IsTraverseLeg))
+        {
+            if (!coords3.ContainsKey(shot.FromStation) || !coords3.ContainsKey(shot.ToStation))
+                continue;
+            var (lrL, lrR, lrU, lrD) = shot.EffectivePlanLrud();
+            var v = (lrL + lrR + lrU + lrD) * 0.25f;
+            Add(shot.FromStation, v);
+            Add(shot.ToStation, v);
+        }
+
+        var r = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var kv in sum)
+        {
+            if (cnt.TryGetValue(kv.Key, out var c) && c > 0 && coords3.ContainsKey(kv.Key))
+                r[kv.Key] = Math.Max(MinHalf, kv.Value / c);
+        }
+
+        return r;
+    }
+
+    /// <summary>One mesh: all traverse legs as thin solid cylinders (survey X,Y,Z).</summary>
+    public static MeshGeometry3D? BuildTraverseTubeMesh(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        double pipeRadius,
+        int ringSegments = 8)
+    {
+        var legs = shots.Where(s => s.IsTraverseLeg).ToList();
+        if (legs.Count == 0 || pipeRadius < 1e-6)
+            return null;
+        var positions = new List<Point3D>();
+        var indices = new List<int>();
+        foreach (var shot in legs)
+        {
+            if (!coords3.TryGetValue(shot.FromStation, out var ca) || !coords3.TryGetValue(shot.ToStation, out var cb))
+                continue;
+            var a = new Vector3D(ca.X, ca.Y, ca.Z);
+            var b = new Vector3D(cb.X, cb.Y, cb.Z);
+            var t = b - a;
+            var len = t.Length;
+            if (len < 1e-5)
+                continue;
+            t.Normalize();
+            if (!TryEllipseBasis(t, out var rAxis, out var uAxis))
+                continue;
+            var offset = new Vector3D(0, 0, 0);
+            var baseA = positions.Count;
+            AppendEllipseRing(positions, a, t, rAxis, uAxis, offset, pipeRadius, pipeRadius, ringSegments);
+            var baseB = positions.Count;
+            AppendEllipseRing(positions, b, t, rAxis, uAxis, offset, pipeRadius, pipeRadius, ringSegments);
+            StitchRings(indices, baseA, baseB, ringSegments);
+        }
+
+        if (positions.Count < 3)
+            return null;
+        var mesh = new MeshGeometry3D
+        {
+            Positions = new Point3DCollection(positions),
+            TriangleIndices = new Int32Collection(indices),
+        };
+        mesh.Normals = ComputeVertexNormals(mesh.Positions, mesh.TriangleIndices);
+        mesh.Freeze();
+        return mesh;
+    }
+
+    /// <summary>Merged spheres at traverse stations (ball joints).</summary>
+    public static MeshGeometry3D? BuildBallJointSpheresMesh(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        IReadOnlyDictionary<string, double> radii,
+        int stacks = 10,
+        int slices = 14)
+    {
+        var positions = new List<Point3D>();
+        var indices = new List<int>();
+        foreach (var kv in radii)
+        {
+            if (!coords3.TryGetValue(kv.Key, out var c))
+                continue;
+            var center = new Point3D(c.X, c.Y, c.Z);
+            AppendSphereMesh(positions, indices, center, kv.Value, stacks, slices);
+        }
+
+        if (positions.Count < 3)
+            return null;
+        var mesh = new MeshGeometry3D
+        {
+            Positions = new Point3DCollection(positions),
+            TriangleIndices = new Int32Collection(indices),
+        };
+        mesh.Normals = ComputeVertexNormals(mesh.Positions, mesh.TriangleIndices);
+        mesh.Freeze();
+        return mesh;
+    }
+
+    /// <summary>Small station markers (same stations as <paramref name="stationNames"/>).</summary>
+    public static MeshGeometry3D? BuildStationMarkerSpheresMesh(
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        IEnumerable<string> stationNames,
+        double markerRadius,
+        int stacks = 6,
+        int slices = 8)
+    {
+        var positions = new List<Point3D>();
+        var indices = new List<int>();
+        foreach (var name in stationNames.Distinct(StringComparer.Ordinal))
+        {
+            if (!coords3.TryGetValue(name, out var c))
+                continue;
+            AppendSphereMesh(positions, indices, new Point3D(c.X, c.Y, c.Z), markerRadius, stacks, slices);
+        }
+
+        if (positions.Count < 3)
+            return null;
+        var mesh = new MeshGeometry3D
+        {
+            Positions = new Point3DCollection(positions),
+            TriangleIndices = new Int32Collection(indices),
+        };
+        mesh.Normals = ComputeVertexNormals(mesh.Positions, mesh.TriangleIndices);
+        mesh.Freeze();
+        return mesh;
+    }
+
+    private static void AppendSphereMesh(
+        List<Point3D> positions,
+        List<int> indices,
+        Point3D center,
+        double radius,
+        int stacks,
+        int slices)
+    {
+        if (stacks < 2 || slices < 3 || radius < 1e-6)
+            return;
+        var baseIdx = positions.Count;
+        for (var i = 0; i <= stacks; i++)
+        {
+            var phi = Math.PI * i / stacks - Math.PI * 0.5;
+            var cp = Math.Cos(phi);
+            var sp = Math.Sin(phi);
+            for (var j = 0; j < slices; j++)
+            {
+                var theta = 2 * Math.PI * j / slices;
+                var ct = Math.Cos(theta);
+                var sth = Math.Sin(theta);
+                var x = center.X + radius * cp * ct;
+                var y = center.Y + radius * cp * sth;
+                var z = center.Z + radius * sp;
+                positions.Add(new Point3D(x, y, z));
+            }
+        }
+
+        var cols = slices;
+        for (var i = 0; i < stacks; i++)
+        {
+            for (var j = 0; j < slices; j++)
+            {
+                var j1 = (j + 1) % slices;
+                var i0 = baseIdx + i * cols + j;
+                var i1 = baseIdx + i * cols + j1;
+                var i2 = baseIdx + (i + 1) * cols + j1;
+                var i3 = baseIdx + (i + 1) * cols + j;
+                indices.Add(i0);
+                indices.Add(i1);
+                indices.Add(i2);
+                indices.Add(i0);
+                indices.Add(i2);
+                indices.Add(i3);
+            }
+        }
     }
 
     private static bool TryEllipseBasis(Vector3D tangent, out Vector3D rAxis, out Vector3D uAxis)

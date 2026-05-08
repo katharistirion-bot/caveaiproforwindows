@@ -71,17 +71,29 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _schemaNoteText = "";
 
+    /// <summary>User has accepted the in-app legal disclaimer — required for exports, AI tab, and advanced tools.</summary>
+    [ObservableProperty] private bool _legalTermsAccepted;
+
     /// <summary>Full JSON scan of <c>data.json</c> (per project: shots/photos/audio, rocks, catalog, vectorLines, keys).</summary>
     [ObservableProperty] private string _backupDataAnalyticsText = "";
 
     public ObservableCollection<ShotRecord> ShotsView { get; } = new();
 
-    public ObservableCollection<StationQcRow> StationQcRows { get; } = new();
+    public ObservableCollection<StationQcRowViewModel> StationQcRows { get; } = new();
+
+    /// <summary>Fired when traverse data or plan station overrides change — map views should redraw.</summary>
+    public event EventHandler? SurveyDataChanged;
 
     public ObservableCollection<MapAssetRow> MapAssetRows { get; } = new();
 
     /// <summary>Rows from optional Android <c>map_inventory.json</c> inside an open ZIP.</summary>
     public ObservableCollection<MapInventoryRow> MapInventoryRows { get; } = new();
+
+    /// <summary>Rows for the main window INTEGRITY tab (mirrors manifest verification / banner).</summary>
+    public ObservableCollection<IntegrityIssueRow> IntegrityIssueRows { get; } = new();
+
+    /// <summary>Topology / traverse QC rows for the main SURVEY QC tab (populated via TraverseQcStats.BuildSurveyQcIssueRows).</summary>
+    public ObservableCollection<SurveyQcIssueRow> SurveyQcIssueRows { get; } = new();
 
     public ObservableCollection<string> RecentPaths { get; } = new();
 
@@ -125,8 +137,41 @@ public partial class MainViewModel : ObservableObject
     {
         foreach (var p in RecentPathsStore.Load())
             RecentPaths.Add(p);
+        LegalTermsAccepted = LegalTermsAcceptanceStore.Load();
         MapAssetRows.CollectionChanged += (_, _) => ExportMapsReportCommand.NotifyCanExecuteChanged();
         HookProjectListViewFilter(Projects);
+        RefreshSurveyQcIssueRows();
+        NotifyLegalGateCommands();
+    }
+
+    partial void OnLegalTermsAcceptedChanged(bool value)
+    {
+        LegalTermsAcceptanceStore.Save(value);
+        NotifyLegalGateCommands();
+    }
+
+    /// <summary>When false, export / extract / compare / inspector flows stay disabled.</summary>
+    private bool LegalTermsGateOpen() => LegalTermsAccepted;
+
+    private void NotifyLegalGateCommands()
+    {
+        ExportCsvCommand.NotifyCanExecuteChanged();
+        ExportSurvexCommand.NotifyCanExecuteChanged();
+        ExportTherionCommand.NotifyCanExecuteChanged();
+        ExportStationsCsvCommand.NotifyCanExecuteChanged();
+        ExportAllProjectsToFolderCommand.NotifyCanExecuteChanged();
+        ExportSurveyQcReportCommand.NotifyCanExecuteChanged();
+        ExportPlanSvgCommand.NotifyCanExecuteChanged();
+        ExportPlanDxfCommand.NotifyCanExecuteChanged();
+        ExportSectionSvgCommand.NotifyCanExecuteChanged();
+        ExportSectionDxfCommand.NotifyCanExecuteChanged();
+        ExportMapsReportCommand.NotifyCanExecuteChanged();
+        ExportRegistryCsvCommand.NotifyCanExecuteChanged();
+        ExtractPhotosCommand.NotifyCanExecuteChanged();
+        ExtractFullArchiveCommand.NotifyCanExecuteChanged();
+        CompareBackupsCommand.NotifyCanExecuteChanged();
+        ExtractSelectedZipEntryToDiskCommand.NotifyCanExecuteChanged();
+        ExtractMapAssetToDiskCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedProjectChanged(CaveProjectDocument? value)
@@ -135,6 +180,7 @@ public partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(StatisticsText));
+        RefreshSurveyQcIssueRows();
         RefreshStationQc();
         ExportCsvCommand.NotifyCanExecuteChanged();
         ExportSurvexCommand.NotifyCanExecuteChanged();
@@ -173,6 +219,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoProjects));
         ExportAllProjectsToFolderCommand.NotifyCanExecuteChanged();
         CloseWorkspaceCommand.NotifyCanExecuteChanged();
+        NotifyLegalGateCommands();
     }
 
     private void HookProjectListViewFilter(ObservableCollection<CaveProjectDocument> list)
@@ -225,8 +272,44 @@ public partial class MainViewModel : ObservableObject
     private void RefreshStationQc()
     {
         StationQcRows.Clear();
-        foreach (var r in TraverseQcStats.BuildStationRows(SelectedProject))
-            StationQcRows.Add(r);
+        if (SelectedProject == null)
+            return;
+        foreach (var spec in TraverseQcStats.BuildStationCoordinateSpecs(SelectedProject))
+        {
+            StationQcRows.Add(new StationQcRowViewModel(
+                SelectedProject,
+                spec.Name,
+                spec.X,
+                spec.Y,
+                spec.Z,
+                spec.TraverseLegsFrom,
+                spec.TraverseLegsTo,
+                OnStationCoordinateOverrideEdited));
+        }
+    }
+
+    private void OnStationCoordinateOverrideEdited()
+    {
+        OnPropertyChanged(nameof(StatisticsText));
+        RefreshSurveyQcIssueRows();
+        SurveyDataChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RefreshSurveyQcIssueRows()
+    {
+        SurveyQcIssueRows.Clear();
+        foreach (var row in TraverseQcStats.BuildSurveyQcIssueRows(SelectedProject))
+            SurveyQcIssueRows.Add(row);
+    }
+
+    /// <summary>Call after a shots grid cell is committed so station QC, stats text, and map renderers refresh.</summary>
+    public void NotifySurveyDataEdited()
+    {
+        RefreshStationQc();
+        OnPropertyChanged(nameof(StatisticsText));
+        RefreshSurveyQcIssueRows();
+        CollectionViewSource.GetDefaultView(Projects)?.Refresh();
+        SurveyDataChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void ApplyRegistryFilters()
@@ -326,6 +409,7 @@ public partial class MainViewModel : ObservableObject
         ExportMapsReportCommand.NotifyCanExecuteChanged();
         CloseWorkspaceCommand.NotifyCanExecuteChanged();
         ClearStandaloneMapsCommand.NotifyCanExecuteChanged();
+        NotifyLegalGateCommands();
     }
 
     [RelayCommand]
@@ -347,7 +431,11 @@ public partial class MainViewModel : ObservableObject
             "Ctrl+O — Open backup (.json / .zip)\n" +
             "Ctrl+W — Close workspace (unload all opened files from this session)\n" +
             "F1 — About\n" +
-            "Drag and drop — same file types as Open; you can also drop standalone map files (GeoTIFF, PNG, …).",
+            "Drag and drop — same file types as Open; you can also drop standalone map files (GeoTIFF, PNG, …).\n\n" +
+            "Map (PLAN / SECTION / SKETCH EDITOR, when keyboard focus is in the survey tabs — not in a text field):\n" +
+            "Ctrl+1 — Pan / zoom · Ctrl+2 — Select · Ctrl+3 — Draw · Ctrl+4 — Symbol\n" +
+            "Ctrl+0 — Reset zoom / pan · Ctrl+Plus or Ctrl+Numpad+ — Zoom in · Ctrl+Minus or Ctrl+Numpad− — Zoom out\n" +
+            "Esc — Clear survey pick (highlight + restore survey overview pane if you collapsed it with an empty click). Toolbar Zoom in/out also works on PLAN and SECTION.",
             "Keyboard shortcuts",
             Wpf.MessageBoxButton.OK,
             Wpf.MessageBoxImage.Information);
@@ -839,6 +927,8 @@ public partial class MainViewModel : ObservableObject
     private bool CanOpenSelectedZipFile() =>
         !string.IsNullOrEmpty(_zipPath) && SelectedZipEntry != null && !SelectedZipEntry.IsDirectory;
 
+    private bool CanExtractSelectedZipEntryToDisk() => LegalTermsGateOpen() && CanOpenSelectedZipFile();
+
     private bool HasSelectedZipEntry() => SelectedZipEntry != null;
 
     [RelayCommand(CanExecute = nameof(HasSourceOnDisk))]
@@ -887,7 +977,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanOpenSelectedZipFile))]
+    [RelayCommand(CanExecute = nameof(CanExtractSelectedZipEntryToDisk))]
     private void ExtractSelectedZipEntryToDisk()
     {
         if (string.IsNullOrEmpty(_zipPath) || SelectedZipEntry is not { IsDirectory: false } sel) return;
@@ -927,7 +1017,7 @@ public partial class MainViewModel : ObservableObject
 
     private bool HasAnyProjects() => Projects.Count > 0;
 
-    [RelayCommand(CanExecute = nameof(HasSelectedProject))]
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
     private void ExportPlanSvg()
     {
         if (SelectedProject == null) return;
@@ -958,7 +1048,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelectedProject))]
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
     private void ExportPlanDxf()
     {
         if (SelectedProject == null) return;
@@ -989,7 +1079,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelectedProject))]
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
     private void ExportSectionSvg()
     {
         if (SelectedProject == null) return;
@@ -1020,7 +1110,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelectedProject))]
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
     private void ExportSectionDxf()
     {
         if (SelectedProject == null) return;
@@ -1050,8 +1140,6 @@ public partial class MainViewModel : ObservableObject
             Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
         }
     }
-
-    private bool CanExportMapsReport() => MapAssetRows.Count > 0;
 
     [RelayCommand(CanExecute = nameof(CanExportMapsReport))]
     private void ExportMapsReport()
@@ -1125,6 +1213,8 @@ public partial class MainViewModel : ObservableObject
 
     private static string? TryLinkedLibraryCaveId(CaveProjectDocument p)
     {
+        if (!string.IsNullOrWhiteSpace(p.LinkedLibraryCaveId))
+            return p.LinkedLibraryCaveId.Trim();
         if (p.ExtensionData?.TryGetValue("linkedLibraryCaveId", out var el) != true)
             return null;
         return el.ValueKind == JsonValueKind.String ? el.GetString() : null;
@@ -1147,7 +1237,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasAnyProjects))]
+    [RelayCommand(CanExecute = nameof(CanExportRegistryCsvGated))]
     private void ExportRegistryCsv()
     {
         var dlg = new Microsoft.Win32.SaveFileDialog
@@ -1169,7 +1259,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(LegalTermsGateOpen))]
     private void CompareBackups()
     {
         var owner = Wpf.Application.Current.MainWindow;
@@ -1185,6 +1275,7 @@ public partial class MainViewModel : ObservableObject
 
     private void ApplyIntegrityUi()
     {
+        IntegrityIssueRows.Clear();
         var r = _integrityReport;
         if (r == null)
         {
@@ -1199,6 +1290,7 @@ public partial class MainViewModel : ObservableObject
             IntegrityBannerText = "Integrity: " + r.SkippedReason;
             IntegrityBannerColorHex = "#FFD29922";
             IntegrityDetailText = r.SkippedReason;
+            IntegrityIssueRows.Add(new IntegrityIssueRow("Notice", r.SkippedReason));
             return;
         }
 
@@ -1207,6 +1299,7 @@ public partial class MainViewModel : ObservableObject
             IntegrityBannerText = $"Integrity verified — {r.FilesMatched}/{r.FilesChecked} files (SHA-256).";
             IntegrityBannerColorHex = "#FF3FB950";
             IntegrityDetailText = IntegrityBannerText;
+            IntegrityIssueRows.Add(new IntegrityIssueRow("OK", IntegrityBannerText));
             return;
         }
 
@@ -1215,21 +1308,38 @@ public partial class MainViewModel : ObservableObject
         foreach (var line in r.Mismatches)
             sb.AppendLine("• " + line);
         IntegrityDetailText = sb.ToString().TrimEnd();
-        IntegrityBannerText = $"Integrity issues — see Integrity tab ({r.Mismatches.Count} line(s)).";
+        IntegrityBannerText = $"Integrity issues — see INTEGRITY tab ({r.Mismatches.Count} line(s)).";
         IntegrityBannerColorHex = "#FFF85149";
+
+        IntegrityIssueRows.Add(new IntegrityIssueRow(
+            "Summary",
+            $"Matched {r.FilesMatched} of {r.FilesChecked} manifest file(s); missing inside ZIP: {r.FilesMissingInZip}."));
+        foreach (var line in r.Mismatches)
+            IntegrityIssueRows.Add(new IntegrityIssueRow("Issue", line));
     }
 
     private bool HasSelectedProject() => SelectedProject != null;
 
     private bool HasZip() => !string.IsNullOrEmpty(_zipPath);
 
-    private bool CanExportSurvex() => SelectedProject?.Shots?.Any(s => s.IsTraverseLeg) == true;
+    private bool CanExportWithSelectedProject() => LegalTermsGateOpen() && SelectedProject != null;
+
+    private bool CanExportSurvex() =>
+        LegalTermsGateOpen() && SelectedProject?.Shots?.Any(s => s.IsTraverseLeg) == true;
 
     private bool CanExportTherion() => CanExportSurvex();
 
     private bool CanExportStationsCsv() => CanExportSurvex();
 
-    [RelayCommand(CanExecute = nameof(HasSelectedProject))]
+    private bool CanExtractFromZip() => LegalTermsGateOpen() && HasZip();
+
+    private bool CanExportRegistryCsvGated() => LegalTermsGateOpen() && HasAnyProjects();
+
+    private bool CanExportMapsReport() => LegalTermsGateOpen() && MapAssetRows.Count > 0;
+
+    private bool CanExportAllProjectsToFolder() => LegalTermsGateOpen() && Projects.Count >= 1;
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
     private void ExportCsv()
     {
         if (SelectedProject == null) return;
@@ -1237,15 +1347,17 @@ public partial class MainViewModel : ObservableObject
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
             Title = "Export shots CSV",
-            Filter = "CSV|*.csv",
+            Filter = "CSV (Excel-friendly)|*.csv|All files|*.*",
+            DefaultExt = ".csv",
             FileName = $"{safe}_shots.csv",
+            AddExtension = true,
         };
         if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true) return;
         try
         {
             File.WriteAllBytes(dlg.FileName, ExplorationAnalytics.ExportShotsToCsvUtf8Bom(SelectedProject));
-            StatusMessage = "CSV saved.";
-            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, "CSV saved.", "Export", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information);
+            StatusMessage = "CSV saved: " + dlg.FileName;
+            SnackbarService.ShowFileSaved(dlg.FileName, "CSV saved —");
         }
         catch (Exception ex)
         {
@@ -1260,21 +1372,18 @@ public partial class MainViewModel : ObservableObject
         var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Export Survex",
-            Filter = "Survex|*.svx",
+            Title = "Export Survex centerline",
+            Filter = "Survex centerline|*.svx|All files|*.*",
+            DefaultExt = ".svx",
             FileName = $"{safe}.svx",
+            AddExtension = true,
         };
         if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true) return;
         try
         {
             File.WriteAllBytes(dlg.FileName, SurvexExporter.BuildSvxUtf8Bom(SelectedProject));
-            StatusMessage = "Survex saved.";
-            Wpf.MessageBox.Show(
-                Wpf.Application.Current.MainWindow,
-                "Survex file saved. Validate conventions in Survex/Cavern before production use.",
-                "Export",
-                Wpf.MessageBoxButton.OK,
-                Wpf.MessageBoxImage.Information);
+            StatusMessage = "Survex saved: " + dlg.FileName;
+            SnackbarService.ShowFileSaved(dlg.FileName, "Survex (.svx) saved —");
         }
         catch (Exception ex)
         {
@@ -1290,20 +1399,17 @@ public partial class MainViewModel : ObservableObject
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
             Title = "Export Therion centerline",
-            Filter = "Therion|*.th|All|*.*",
+            Filter = "Therion centerline|*.th|All files|*.*",
+            DefaultExt = ".th",
             FileName = $"{safe}.th",
+            AddExtension = true,
         };
         if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true) return;
         try
         {
             File.WriteAllBytes(dlg.FileName, TherionExporter.BuildCenterlineThUtf8Bom(SelectedProject));
-            StatusMessage = "Therion .th saved.";
-            Wpf.MessageBox.Show(
-                Wpf.Application.Current.MainWindow,
-                "Therion centerline saved (UTF-8 BOM). Open in XTherion; add CS/fix as needed for your cave.",
-                "Export",
-                Wpf.MessageBoxButton.OK,
-                Wpf.MessageBoxImage.Information);
+            StatusMessage = "Therion .th saved: " + dlg.FileName;
+            SnackbarService.ShowFileSaved(dlg.FileName, "Therion (.th) saved —");
         }
         catch (Exception ex)
         {
@@ -1340,8 +1446,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private bool CanExportAllProjectsToFolder() => Projects.Count >= 1;
-
     [RelayCommand(CanExecute = nameof(CanExportAllProjectsToFolder))]
     private void ExportAllProjectsToFolder()
     {
@@ -1377,7 +1481,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelectedProject))]
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
     private void ExportSurveyQcReport()
     {
         if (SelectedProject == null)
@@ -1408,7 +1512,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasZip))]
+    [RelayCommand(CanExecute = nameof(CanExtractFromZip))]
     private void ExtractFullArchive()
     {
         if (string.IsNullOrEmpty(_zipPath)) return;
@@ -1440,7 +1544,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasZip))]
+    [RelayCommand(CanExecute = nameof(CanExtractFromZip))]
     private void ExtractPhotos()
     {
         if (string.IsNullOrEmpty(_zipPath)) return;
@@ -1522,7 +1626,7 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = "File location shown in Explorer.";
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(LegalTermsGateOpen))]
     private void ExtractMapAssetToDisk(MapAssetRow? row)
     {
         if (row == null || string.IsNullOrWhiteSpace(row.UriOrPath))

@@ -1,0 +1,7 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Optional overrides for PlanCanvasRenderer.TryMapBrush — omit keys to use built-in survey colours. -->
+    <SolidColorBrush x:Key="Map.TraverseStroke" Color="#FF1877F2" />
+    <SolidColorBrush x:Key="Map.WallStroke" Color="#FF4A4A4A" />
+    <SolidColorBrush x:Key="Map.SketchFill" Color="#33A0A0A0" />
+</ResourceDictionary>

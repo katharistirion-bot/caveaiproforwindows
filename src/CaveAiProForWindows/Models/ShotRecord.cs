@@ -9,11 +9,13 @@ public sealed class ShotRecord
     [JsonPropertyName("id")]
     public string? Id { get; set; }
 
+    /// <summary>Compass bearing in degrees (0–360). Gson may emit fractional degrees — stored as float for true-scale reduction.</summary>
     [JsonPropertyName("azimuth")]
-    public int Azimuth { get; set; }
+    public float Azimuth { get; set; }
 
+    /// <summary>Inclination in degrees (typically −90…+90).</summary>
     [JsonPropertyName("clino")]
-    public int Clino { get; set; }
+    public float Clino { get; set; }
 
     [JsonPropertyName("distance")]
     public float Distance { get; set; }
@@ -47,6 +49,18 @@ public sealed class ShotRecord
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
 
+    /// <summary>Android Gson <c>comment</c> — distinct from <see cref="Notes"/> when both are present.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; set; }
+
+    /// <summary>Human-readable capture time string from Android export when present.</summary>
+    [JsonPropertyName("time")]
+    public string? Time { get; set; }
+
+    /// <summary>Epoch milliseconds (UTC) when Android records an absolute shot timestamp.</summary>
+    [JsonPropertyName("timestampUtcMs")]
+    public long? TimestampUtcMs { get; set; }
+
     [JsonPropertyName("depth")]
     public float Depth { get; set; }
 
@@ -79,6 +93,62 @@ public sealed class ShotRecord
 
     [JsonPropertyName("down")]
     public float? DownAlias { get; set; }
+
+    [JsonPropertyName("ambientBleTempCelsius")]
+    public float? AmbientBleTempCelsius { get; set; }
+
+    [JsonPropertyName("manualAmbientTempCelsius")]
+    public float? ManualAmbientTempCelsius { get; set; }
+
+    [JsonPropertyName("ambientBleRelativeHumidityPct")]
+    public float? AmbientBleRelativeHumidityPct { get; set; }
+
+    [JsonPropertyName("manualRelativeHumidityPct")]
+    public float? ManualRelativeHumidityPct { get; set; }
+
+    [JsonPropertyName("atmosphericO2VolPct")]
+    public float? AtmosphericO2VolPct { get; set; }
+
+    [JsonPropertyName("co2Ppm")]
+    public float? Co2Ppm { get; set; }
+
+    [JsonPropertyName("barometricPressureHpa")]
+    public float? BarometricPressureHpa { get; set; }
+
+    /// <summary>UTC ms when the instrument hold / sampling window started (schema v2).</summary>
+    [JsonPropertyName("measurementStartedUtcMs")]
+    public long? MeasurementStartedUtcMs { get; set; }
+
+    /// <summary>UTC ms when the measurement was committed (schema v2).</summary>
+    [JsonPropertyName("measurementCompletedUtcMs")]
+    public long? MeasurementCompletedUtcMs { get; set; }
+
+    /// <summary>Sample variance of compass/azimuth during hold (deg²), for QC.</summary>
+    [JsonPropertyName("compassSampleVarianceDeg2")]
+    public float? CompassSampleVarianceDeg2 { get; set; }
+
+    /// <summary>Sample variance of clinometer during hold (deg²).</summary>
+    [JsonPropertyName("clinoSampleVarianceDeg2")]
+    public float? ClinoSampleVarianceDeg2 { get; set; }
+
+    [JsonPropertyName("compassStdDeg")]
+    public float? CompassStdDeg { get; set; }
+
+    [JsonPropertyName("clinoStdDeg")]
+    public float? ClinoStdDeg { get; set; }
+
+    [JsonPropertyName("tapeStdM")]
+    public float? TapeStdM { get; set; }
+
+    /// <summary>Fused attitude quality 0…1 when IMU-assisted.</summary>
+    [JsonPropertyName("sensorFusionQuality")]
+    public float? SensorFusionQuality { get; set; }
+
+    [JsonPropertyName("horizontalPositionAccuracyM")]
+    public float? HorizontalPositionAccuracyM { get; set; }
+
+    [JsonPropertyName("verticalPositionAccuracyM")]
+    public float? VerticalPositionAccuracyM { get; set; }
 
     /// <summary>Unmapped per-shot JSON (e.g. nested <c>lrud</c> object) — read by <see cref="ShotImportNormalizer"/>.</summary>
     [JsonExtensionData]

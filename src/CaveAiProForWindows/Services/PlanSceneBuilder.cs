@@ -35,20 +35,21 @@ public static class PlanSceneBuilder
     private static PlanScene? TryBuildPlan(CaveProjectDocument p, SurveyVisualizationMode visualization)
     {
         const int vectorViewMode = SurveyStationGeometry.AndroidViewModePlan;
-        var coords = SurveyStationGeometry.CalculatePlanCoordinates(p.Shots, (float)p.Alt);
+        var coords = SurveyStationGeometry.CalculatePlanCoordinates(p);
         var vectorPolys = SurveyStationGeometry.ParseVectorLinesForViewMode(p.VectorLines, vectorViewMode);
-        var sketch = SurveyStationGeometry.ParsePlanSketches(p.ExtensionData);
-        var secPlan = SurveyStationGeometry.ParsePlanSectionSketchesInPlan(p.ExtensionData);
+        var sketch = SurveyStationGeometry.ParsePlanSketches(p);
+        var secPlan = SurveyStationGeometry.ParsePlanSectionSketchesInPlan(p);
         var wallPolys = sketch.Concat(secPlan).ToList();
 
-        // LRUD passage: smoothed ribbon hull(s) in plan — omitted in X-ray (radials only, no passage box).
+        // LRUD passage: one closed outline per traverse component = left-wall chain + right-wall chain (reversed),
+        // not per-shot boxes — omitted in X-ray (radials only, no passage hull).
         if (!visualization.ShowSplayXRayGeometry())
         {
             foreach (var ribbon in SurveyLrudWallGeometry.BuildPlanLrudRibbonPolylines(p.Shots, coords))
                 wallPolys = new[] { ribbon }.Concat(wallPolys).ToList();
         }
 
-        var symbols = SurveyStationGeometry.ParsePlanMapSymbols(p.ExtensionData);
+        var symbols = SurveyStationGeometry.ParsePlanMapSymbols(p);
 
         var splaySegs = new List<(float x1, float y1, float x2, float y2)>();
         if (visualization == SurveyVisualizationMode.Plan2Tone)

@@ -32,6 +32,11 @@ public static class SurvexExporter
             sb.AppendLine($"*fix {anchor} 0 0 0");
         }
 
+        // Explicit units guarantee Survex / Cavern interprets the columns the same way the Android edition recorded
+        // them, regardless of any *calibrate or non-default site settings the user may add later.
+        sb.AppendLine("*units tape metres");
+        sb.AppendLine("*units compass degrees");
+        sb.AppendLine("*units clino degrees");
         sb.AppendLine("*data normal from to tape compass clino");
 
         foreach (var s in project.Shots.Where(x => x.IsTraverseLeg))

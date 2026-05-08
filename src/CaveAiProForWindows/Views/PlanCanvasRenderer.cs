@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -58,7 +60,23 @@ public static class PlanCanvasRenderer
         Brush WallStrokePrimary,
         Brush WallStrokeAlt,
         bool AlternateWallStrokes,
-        double SplayOpacity);
+        double SplayOpacity,
+        bool DashedTraverse);
+
+    private static Brush? TryMapBrush(string key)
+    {
+        try
+        {
+            if (Application.Current?.TryFindResource(key) is Brush b)
+                return b;
+        }
+        catch
+        {
+            /* design-time / no Application */
+        }
+
+        return null;
+    }
 
     private static SurveyVectorStyle ResolveSurveyVectorStyle(PlanCanvasDrawOptions opt, bool highContrast)
     {
@@ -78,7 +96,8 @@ public static class PlanCanvasRenderer
                 WallStrokePrimary: stroke,
                 WallStrokeAlt: stroke,
                 AlternateWallStrokes: false,
-                SplayOpacity: v.ShowSplayXRayGeometry() ? 0.95 : 0.55);
+                SplayOpacity: v.ShowSplayXRayGeometry() ? 0.95 : 0.55,
+                DashedTraverse: false);
         }
 
         if (v.UsesDarkSurveyCanvas())
@@ -101,7 +120,8 @@ public static class PlanCanvasRenderer
                 WallStrokePrimary: wallA,
                 WallStrokeAlt: wallB,
                 AlternateWallStrokes: twoTone,
-                SplayOpacity: v.ShowSplayXRayGeometry() ? 0.92 : 0.68);
+                SplayOpacity: v.ShowSplayXRayGeometry() ? 0.92 : 0.68,
+                DashedTraverse: false);
         }
 
         Brush sketchFill;
@@ -119,15 +139,24 @@ public static class PlanCanvasRenderer
         }
         else
         {
-            sketchFill = new SolidColorBrush(Color.FromArgb(0x55, 0xEA, 0x58, 0x0C));
-            vectorFill = new SolidColorBrush(Color.FromArgb(0x40, 0x18, 0x77, 0xF2));
-            stationFill = new SolidColorBrush(Color.FromRgb(0xFA, 0xCC, 0x15));
+            sketchFill = new SolidColorBrush(Color.FromArgb(0x7A, 0xD8, 0xD1, 0xC6));
+            vectorFill = new SolidColorBrush(Color.FromArgb(0x3A, 0xC9, 0x9A, 0x71));
+            stationFill = Brushes.White;
             symbolFill = new SolidColorBrush(Color.FromRgb(0xA8, 0x55, 0xD7));
-            legend = new SolidColorBrush(Color.FromRgb(0x65, 0x67, 0x6B));
+            legend = new SolidColorBrush(Color.FromRgb(0x4A, 0x4D, 0x52));
         }
 
-        var traverseStd = Brushes.Cyan;
+        Brush traverseStd = new SolidColorBrush(Color.FromRgb(0xC4, 0x86, 0x53));
         var splayStd = new SolidColorBrush(Color.FromArgb(200, 0x90, 0x90, 0x98));
+        Brush wallStd = new SolidColorBrush(Color.FromRgb(0x2C, 0x3E, 0x50));
+        if (!v.UsesDarkSurveyCanvas() && !SurveyCanvasTheme.IsDark)
+        {
+            traverseStd = TryMapBrush("Map.TraverseStroke") ?? traverseStd;
+            wallStd = TryMapBrush("Map.WallStroke") ?? wallStd;
+            if (TryMapBrush("Map.SketchFill") is SolidColorBrush sf)
+                sketchFill = sf;
+        }
+
         return new SurveyVectorStyle(
             SketchFill: sketchFill,
             VectorFill: vectorFill,
@@ -136,10 +165,74 @@ public static class PlanCanvasRenderer
             Legend: legend,
             TraverseStroke: traverseStd,
             SplayStroke: splayStd,
-            WallStrokePrimary: traverseStd,
-            WallStrokeAlt: traverseStd,
+            WallStrokePrimary: wallStd,
+            WallStrokeAlt: wallStd,
             AlternateWallStrokes: false,
-            SplayOpacity: v.ShowSplayXRayGeometry() ? 0.88 : 0.52);
+            SplayOpacity: v.ShowSplayXRayGeometry() ? 0.88 : 0.52,
+            DashedTraverse: true);
+    }
+
+    private static byte ScaleAlpha(byte a, double mul)
+    {
+        var v = (int)Math.Round(a * mul);
+        return (byte)Math.Clamp(v, 0, 255);
+    }
+
+    private static Brush CreateSketchCanvasBackground(bool dark, CartographicIntensity intensity)
+    {
+        var gridMul = intensity switch
+        {
+            CartographicIntensity.Subtle => 0.42,
+            CartographicIntensity.Balanced => 1.0,
+            _ => 1.35,
+        };
+        var baseColor = dark ? Color.FromRgb(12, 13, 16) : Color.FromRgb(248, 247, 244);
+        var major = dark ? Color.FromArgb(ScaleAlpha(30, gridMul), 130, 140, 160) : Color.FromArgb(ScaleAlpha(34, gridMul), 90, 100, 115);
+        var minor = dark ? Color.FromArgb(ScaleAlpha(14, gridMul), 130, 140, 160) : Color.FromArgb(ScaleAlpha(18, gridMul), 110, 118, 130);
+        var dot = dark ? Color.FromArgb(ScaleAlpha(24, gridMul), 145, 160, 182) : Color.FromArgb(ScaleAlpha(26, gridMul), 105, 112, 124);
+        var tile = 24.0;
+
+        var group = new DrawingGroup();
+        group.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(baseColor),
+            null,
+            new RectangleGeometry(new Rect(0, 0, tile, tile))));
+        group.Children.Add(new GeometryDrawing(
+            null,
+            new Pen(new SolidColorBrush(minor), 0.7),
+            new GeometryGroup
+            {
+                Children =
+                {
+                    new LineGeometry(new Point(tile * 0.5, 0), new Point(tile * 0.5, tile)),
+                    new LineGeometry(new Point(0, tile * 0.5), new Point(tile, tile * 0.5)),
+                },
+            }));
+        group.Children.Add(new GeometryDrawing(
+            null,
+            new Pen(new SolidColorBrush(major), 0.95),
+            new GeometryGroup
+            {
+                Children =
+                {
+                    new LineGeometry(new Point(0, 0), new Point(tile, 0)),
+                    new LineGeometry(new Point(0, 0), new Point(0, tile)),
+                },
+            }));
+        group.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(dot),
+            null,
+            new EllipseGeometry(new Point(tile * 0.5, tile * 0.5), 0.9, 0.9)));
+
+        return new DrawingBrush(group)
+        {
+            TileMode = TileMode.Tile,
+            Viewport = new Rect(0, 0, tile, tile),
+            ViewportUnits = BrushMappingMode.Absolute,
+            Viewbox = new Rect(0, 0, tile, tile),
+            ViewboxUnits = BrushMappingMode.Absolute,
+            Stretch = Stretch.None,
+        };
     }
 
     /// <summary>
@@ -285,6 +378,53 @@ public static class PlanCanvasRenderer
         }
 
         return (minX, maxX, minY, maxY);
+    }
+
+    private static PlanCanvasSurveyLayout ComputeSurveyLayout(
+        PlanScene scene,
+        double canvasWidth,
+        double canvasHeight)
+    {
+        const double pad = 48;
+        var (wMinX, wMaxX, wMinY, wMaxY) = ComputeRenderingWorldBounds(scene);
+        var wSpanX = Math.Max(1e-6, wMaxX - wMinX);
+        var wSpanY = Math.Max(1e-6, wMaxY - wMinY);
+        if (wSpanX > 1e7 || wSpanY > 1e7)
+            Debug.WriteLine($"[Vectors] Warning: very large world span ({wSpanX},{wSpanY}) — check wall/vector units in JSON.");
+        var usableW = Math.Max(1, canvasWidth - 2 * pad);
+        var usableH = Math.Max(1, canvasHeight - 2 * pad);
+        var scale = Math.Min(usableW / wSpanX, usableH / wSpanY);
+        if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
+            scale = 1;
+        var pxPerMetre = scale;
+        var plotW = wSpanX * scale;
+        var plotH = wSpanY * scale;
+        var originX = pad + (usableW - plotW) * 0.5;
+        var originY = pad + (usableH - plotH) * 0.5;
+        if (!IsFiniteDouble(originX) || !IsFiniteDouble(originY))
+        {
+            originX = pad;
+            originY = pad;
+        }
+
+        if (!IsFiniteDouble(pxPerMetre) || pxPerMetre <= 0)
+            pxPerMetre = 1;
+
+        return new PlanCanvasSurveyLayout(wMinX, wMaxX, wMinY, wMaxY, originX, originY, pxPerMetre);
+    }
+
+    /// <summary>Same transforms as vector draw — for hit-testing and overlays.</summary>
+    public static bool TryComputeSurveyLayout(
+        PlanScene scene,
+        double canvasWidth,
+        double canvasHeight,
+        out PlanCanvasSurveyLayout layout)
+    {
+        layout = default;
+        if (canvasWidth < 16 || canvasHeight < 16)
+            return false;
+        layout = ComputeSurveyLayout(scene, canvasWidth, canvasHeight);
+        return layout.Scale > 1e-15 && !double.IsNaN(layout.Scale);
     }
 
     /// <summary>
@@ -452,36 +592,25 @@ public static class PlanCanvasRenderer
 
         drawingCanvas.Children.Clear();
         ApplySurveyRenderQuality(drawingCanvas);
-        drawingCanvas.Background = opt.VisualizationMode.UsesDarkSurveyCanvas()
-            ? new SolidColorBrush(Color.FromRgb(10, 10, 14))
-            : Brushes.Transparent;
+        var darkCanvas = opt.VisualizationMode.UsesDarkSurveyCanvas();
+        drawingCanvas.Background = CreateSketchCanvasBackground(darkCanvas, opt.CartographicIntensity);
         const double pad = 48;
         drawingCanvas.Width = canvasWidth;
         drawingCanvas.Height = canvasHeight;
 
-        var (wMinX, wMaxX, wMinY, wMaxY) = ComputeRenderingWorldBounds(scene);
-        var wSpanX = Math.Max(1e-6, wMaxX - wMinX);
-        var wSpanY = Math.Max(1e-6, wMaxY - wMinY);
+        var planLayout = ComputeSurveyLayout(scene, canvasWidth, canvasHeight);
+        var wMinX = planLayout.WMinX;
+        var wMaxX = planLayout.WMaxX;
+        var wMinY = planLayout.WMinY;
+        var wMaxY = planLayout.WMaxY;
+        var wSpanX = planLayout.WorldSpanX;
+        var wSpanY = planLayout.WorldSpanY;
         if (wSpanX > 1e7 || wSpanY > 1e7)
             Debug.WriteLine($"[Vectors] Warning: very large world span ({wSpanX},{wSpanY}) — check wall/vector units in JSON.");
-        var usableW = Math.Max(1, canvasWidth - 2 * pad);
-        var usableH = Math.Max(1, canvasHeight - 2 * pad);
-        var scale = Math.Min(usableW / wSpanX, usableH / wSpanY);
-        if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
-            scale = 1;
-        var pxPerMetre = scale;
-        var plotW = wSpanX * scale;
-        var plotH = wSpanY * scale;
-        var originX = pad + (usableW - plotW) * 0.5;
-        var originY = pad + (usableH - plotH) * 0.5;
-        if (!IsFiniteDouble(originX) || !IsFiniteDouble(originY))
-        {
-            originX = pad;
-            originY = pad;
-        }
-
-        if (!IsFiniteDouble(pxPerMetre) || pxPerMetre <= 0)
-            pxPerMetre = 1;
+        var originX = planLayout.OriginX;
+        var originY = planLayout.OriginY;
+        var scale = planLayout.Scale;
+        var pxPerMetre = planLayout.PxPerMetre;
 
         Debug.WriteLine(
             $"[Vectors] worldBounds x=[{wMinX:0.##},{wMaxX:0.##}] y=[{wMinY:0.##},{wMaxY:0.##}] span≈{wSpanX:0.##}×{wSpanY:0.##} m · scale={scale:0.####} px/m · origin=({originX:0.#},{originY:0.#})");
@@ -556,16 +685,7 @@ public static class PlanCanvasRenderer
             $"vectors={scene.VectorPolylines.Count} pxPerM={pxPerMetre:0.######} " +
             $"vectorStrokePx={vectorStrokeThickness:0.##} splayStrokePx={splayStrokeThickness:0.##} splayOpacity={sty.SplayOpacity:0.##}");
 
-        Point ToScreen(float x, float y)
-        {
-            if (!IsFiniteFloat(x) || !IsFiniteFloat(y))
-                return new Point(0, 0);
-            var px = originX + ((double)x - wMinX) * scale;
-            var py = originY + (wMaxY - (double)y) * scale;
-            if (!IsFiniteDouble(px) || !IsFiniteDouble(py))
-                return new Point(0, 0);
-            return new Point(px, py);
-        }
+        Point ToScreen(float x, float y) => planLayout.WorldToCanvas(x, y);
 
         if (scene.SplaySegments.Count > 0)
         {
@@ -669,7 +789,8 @@ public static class PlanCanvasRenderer
             Brush fill,
             Brush stroke,
             double thickness,
-            Action<UIElement> addChild)
+            Action<UIElement> addChild,
+            bool applyShadow = false)
         {
             if (pl.Points.Count < 3)
                 return;
@@ -690,6 +811,19 @@ public static class PlanCanvasRenderer
                 StrokeEndLineCap = PenLineCap.Round,
                 SnapsToDevicePixels = false,
             };
+            if (applyShadow && !highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
+            {
+                var blur = opt.CartographicIntensity == CartographicIntensity.Rich ? 10.5 : 7.5;
+                var op = opt.CartographicIntensity == CartographicIntensity.Rich ? 0.3 : 0.2;
+                path.Effect = new DropShadowEffect
+                {
+                    Color = Color.FromArgb(255, 32, 42, 52),
+                    BlurRadius = blur,
+                    ShadowDepth = 1.5,
+                    Opacity = op,
+                    Direction = 300,
+                };
+            }
             ApplySurveyRenderQuality(path);
             addChild(path);
         }
@@ -744,6 +878,69 @@ public static class PlanCanvasRenderer
             addChild(path);
         }
 
+        void AddOpenSharpPolyline(
+            SurveyStationGeometry.PlanVectorPolyline pl,
+            Brush stroke,
+            double thickness,
+            Action<UIElement> addChild)
+        {
+            if (pl.Points.Count < 2)
+                return;
+            var pts = ToScreenPolyline(ToScreen, pl);
+            if (pts.Count < 2)
+                return;
+            var fig = new PathFigure(pts[0], Array.Empty<PathSegment>(), false);
+            for (var i = 1; i < pts.Count; i++)
+                fig.Segments.Add(new LineSegment(pts[i], true));
+
+            var geom = new PathGeometry(new[] { fig });
+            var path = new Path
+            {
+                Data = geom,
+                Fill = Brushes.Transparent,
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                StrokeLineJoin = PenLineJoin.Miter,
+                StrokeStartLineCap = PenLineCap.Flat,
+                StrokeEndLineCap = PenLineCap.Flat,
+                SnapsToDevicePixels = false,
+            };
+            ApplySurveyRenderQuality(path);
+            addChild(path);
+        }
+
+        void AddClosedSharpPolyline(
+            SurveyStationGeometry.PlanVectorPolyline pl,
+            Brush fill,
+            Brush stroke,
+            double thickness,
+            Action<UIElement> addChild)
+        {
+            if (pl.Points.Count < 3)
+                return;
+            var pts = ToScreenPolyline(ToScreen, pl);
+            if (pts.Count < 3)
+                return;
+            var fig = new PathFigure(pts[0], Array.Empty<PathSegment>(), true);
+            for (var i = 1; i < pts.Count; i++)
+                fig.Segments.Add(new LineSegment(pts[i], true));
+
+            var geom = new PathGeometry(new[] { fig });
+            var path = new Path
+            {
+                Data = geom,
+                Fill = fill,
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                StrokeLineJoin = PenLineJoin.Miter,
+                StrokeStartLineCap = PenLineCap.Flat,
+                StrokeEndLineCap = PenLineCap.Flat,
+                SnapsToDevicePixels = false,
+            };
+            ApplySurveyRenderQuality(path);
+            addChild(path);
+        }
+
         var wallIndex = 0;
         foreach (var pl in scene.WallPolylines)
         {
@@ -778,7 +975,14 @@ public static class PlanCanvasRenderer
                     }
 
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedSmoothedWall(pl, ribbonFill, ribbonStroke, ribbonTh, AddWallBehindTraverse);
+                        AddClosedSmoothedWall(
+                            pl,
+                            ribbonFill,
+                            ribbonStroke,
+                            ribbonTh,
+                            AddWallBehindTraverse,
+                            applyShadow: !vMode.UsesDarkSurveyCanvas() &&
+                                         opt.CartographicIntensity != CartographicIntensity.Subtle);
                     break;
                 }
                 case "lrud3dEdge":
@@ -801,7 +1005,9 @@ public static class PlanCanvasRenderer
                             lrudPlanFill,
                             lrudPlanStroke,
                             Math.Max(1.1, vectorStrokeThickness * 0.62),
-                            AddWallBehindTraverse);
+                            AddWallBehindTraverse,
+                            applyShadow: !vMode.UsesDarkSurveyCanvas() &&
+                                         opt.CartographicIntensity != CartographicIntensity.Subtle);
                     break;
                 case "lrudProfile":
                 {
@@ -821,8 +1027,29 @@ public static class PlanCanvasRenderer
                     var sketchTh = sectionNight
                         ? Math.Max(2.2, vectorStrokeThickness * 1.22)
                         : vectorStrokeThickness;
+                    if (pl.PreferSharpPolyline)
+                    {
+                        if (pl.Closed && pl.Points.Count >= 3)
+                            AddClosedSharpPolyline(
+                                pl,
+                                sty.SketchFill,
+                                wallStroke,
+                                sketchTh,
+                                AddVectorElement);
+                        else if (pl.Points.Count >= 2)
+                            AddOpenSharpPolyline(pl, wallStroke, sketchTh, AddVectorElement);
+                        break;
+                    }
+
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedSmoothedWall(pl, sty.SketchFill, wallStroke, sketchTh, AddVectorElement);
+                        AddClosedSmoothedWall(
+                            pl,
+                            sty.SketchFill,
+                            wallStroke,
+                            sketchTh,
+                            AddVectorElement,
+                            applyShadow: !vMode.UsesDarkSurveyCanvas() &&
+                                         opt.CartographicIntensity != CartographicIntensity.Subtle);
                     else if (pl.Points.Count >= 2)
                         AddOpenSmoothedWall(pl, wallStroke, sketchTh, AddVectorElement);
                     break;
@@ -854,6 +1081,8 @@ public static class PlanCanvasRenderer
                 StrokeEndLineCap = PenLineCap.Round,
                 StrokeLineJoin = PenLineJoin.Round,
             };
+            if (sty.DashedTraverse && opt.CartographicIntensity != CartographicIntensity.Subtle)
+                leg.StrokeDashArray = new DoubleCollection { 4.5, 3.2 };
             AddVectorElement(leg);
         }
 
@@ -899,31 +1128,14 @@ public static class PlanCanvasRenderer
                 Height = stationDot,
                 Fill = sty.StationFill,
                 Stroke = sty.TraverseStroke,
-                StrokeThickness = vectorStrokeThickness,
+                StrokeThickness = Math.Max(1.6, vectorStrokeThickness * 0.62),
             };
             Canvas.SetLeft(el, pt.X - stationHalf);
             Canvas.SetTop(el, pt.Y - stationHalf);
             AddVectorElement(el);
         }
 
-        foreach (var sym in scene.Symbols)
-        {
-            var pt = ToScreen(sym.X, sym.Y);
-            var symSize = Math.Max(7.0, Math.Min(18.0, pxPerMetre * 0.38));
-            var symHalf = symSize * 0.5;
-            var dot = new Ellipse
-            {
-                Width = symSize,
-                Height = symSize,
-                Fill = sty.SymbolFill,
-                Stroke = sty.TraverseStroke,
-                StrokeThickness = vectorStrokeThickness,
-                Opacity = 0.98,
-            };
-            Canvas.SetLeft(dot, pt.X - symHalf);
-            Canvas.SetTop(dot, pt.Y - symHalf);
-            AddVectorElement(dot);
-        }
+        // Android mapSymbols / sketch stamps are drawn on the design layer (see AndroidImportedSymbolPresenter).
 
         if (opt.ShowStationNames)
         {
@@ -953,6 +1165,38 @@ public static class PlanCanvasRenderer
                 AddVectorElement(lab);
             }
         }
+
+        if (opt.ShowStationZDepth)
+        {
+            var inv = CultureInfo.InvariantCulture;
+            foreach (var c in scene.Stations.Values)
+            {
+                var pt = ToScreen(c.X, c.Y);
+                var zLab = new TextBlock
+                {
+                    Text = $"Z {c.Z.ToString("0.##", inv)} m",
+                    FontSize = 9.75,
+                    Foreground = sty.Legend,
+                };
+                if (!highContrast)
+                {
+                    zLab.Effect = new DropShadowEffect
+                    {
+                        BlurRadius = 2,
+                        ShadowDepth = 0,
+                        Color = SurveyCanvasTheme.IsDark ? Colors.Black : Colors.White,
+                        Opacity = 0.8,
+                    };
+                }
+
+                Canvas.SetLeft(zLab, pt.X + 7);
+                Canvas.SetTop(zLab, opt.ShowStationNames ? pt.Y + 4 : pt.Y - 12);
+                AddVectorElement(zLab);
+            }
+        }
+
+        DrawPickHighlight(scene, stationImageResolveProject, opt.PickHighlight, ToScreen, AddVectorElement, pxPerMetre,
+            highContrast);
 
         var legCount = scene.TraverseSegments.Count;
         var nMaps = suppressRaster ? 0 : (rasterUnderlays?.Count ?? 0);
@@ -1106,61 +1350,11 @@ public static class PlanCanvasRenderer
                 eY = nX;
             }
 
-            var ax = canvasWidth - 78;
-            var ay = canvasHeight - 48;
-            var tip = new Point(ax + nX * 26, ay + nY * 26);
-            var tail = new Point(ax - nX * 10, ay - nY * 10);
-            var px = -nY;
-            var py = nX;
-            const double wing = 8.5;
-            var w1 = new Point(tip.X - nX * 12 + px * wing, tip.Y - nY * 12 + py * wing);
-            var w2 = new Point(tip.X - nX * 12 - px * wing, tip.Y - nY * 12 - py * wing);
-            var fig = new PathFigure(tip, new PathSegment[] { new LineSegment(w1, true), new LineSegment(w2, true) }, true);
-            var geom = new PathGeometry(new[] { fig });
-            var shaft = new Line
-            {
-                X1 = tail.X,
-                Y1 = tail.Y,
-                X2 = tip.X - nX * 6,
-                Y2 = tip.Y - nY * 6,
-                Stroke = fg,
-                StrokeThickness = 2.25,
-                StrokeEndLineCap = PenLineCap.Round,
-                SnapsToDevicePixels = true,
-            };
-            AddChildZ(canvas, shaft, ZIndexCartographyChrome);
-            var head = new Path
-            {
-                Fill = fg,
-                Data = geom,
-                SnapsToDevicePixels = true,
-            };
-            AddChildZ(canvas, head, ZIndexCartographyChrome);
-
-            var northLabel = canvasKind == SurveyCanvasKind.Section
-                ? "Developed distance →"
-                : "+Y survey";
-            var ntb = new TextBlock
-            {
-                Text = northLabel,
-                Foreground = fg,
-                FontSize = 10,
-                FontWeight = FontWeights.SemiBold,
-                Effect = !highContrast
-                    ? new DropShadowEffect
-                    {
-                        BlurRadius = 2,
-                        ShadowDepth = 0,
-                        Color = SurveyCanvasTheme.IsDark ? Colors.Black : Colors.White,
-                        Opacity = 0.8,
-                    }
-                    : null,
-            };
-            Canvas.SetLeft(ntb, ax - 28);
-            Canvas.SetTop(ntb, ay + 18);
-            AddChildZ(canvas, ntb, ZIndexCartographyChrome);
-
-            AddSurveyCompassRose(canvas, fg, chipBg, chipBorder, nX, nY, eX, eY, canvasKind);
+            const double compassRoseOuter = 128;
+            const double compassMargin = 18;
+            var roseLeft = canvasWidth - compassRoseOuter - compassMargin;
+            var roseTop = canvasHeight - compassRoseOuter - compassMargin;
+            AddSurveyCompassRose(canvas, fg, chipBg, chipBorder, nX, nY, eX, eY, canvasKind, roseLeft, roseTop);
         }
     }
 
@@ -1174,9 +1368,10 @@ public static class PlanCanvasRenderer
         double nY,
         double eX,
         double eY,
-        SurveyCanvasKind canvasKind)
+        SurveyCanvasKind canvasKind,
+        double chipLeft,
+        double chipTop)
     {
-        const double pad = 10;
         const double box = 112;
         const double rcx = 56;
         const double rcy = 56;
@@ -1276,9 +1471,143 @@ public static class PlanCanvasRenderer
             ToolTip =
                 "Survey compass: N aligns with +Y in the survey frame (same as CaveAI Pro Android plan / rotation-vector heading math vs map). Not magnetic north.",
         };
-        Canvas.SetLeft(chip, pad);
-        Canvas.SetTop(chip, pad);
+        Canvas.SetLeft(chip, chipLeft);
+        Canvas.SetTop(chip, chipTop);
         AddChildZ(canvas, chip, ZIndexCartographyChrome);
+    }
+
+    private static bool NamesEq(string? a, string? b) =>
+        string.Equals((a ?? "").Trim(), (b ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryGetSceneStation(PlanScene scene, string? name, out SurveyStationGeometry.StationPlanCoords c)
+    {
+        var key = (name ?? "").Trim();
+        if (key.Length == 0)
+        {
+            c = new SurveyStationGeometry.StationPlanCoords("?", float.NaN, float.NaN, float.NaN);
+            return false;
+        }
+
+        if (scene.Stations.TryGetValue(key, out var direct))
+        {
+            c = direct;
+            return true;
+        }
+
+        var match = scene.Stations.Keys.FirstOrDefault(
+            k => string.Equals(k.Trim(), key, StringComparison.OrdinalIgnoreCase));
+        if (match != null && scene.Stations.TryGetValue(match, out var found))
+        {
+            c = found;
+            return true;
+        }
+
+        c = new SurveyStationGeometry.StationPlanCoords("?", float.NaN, float.NaN, float.NaN);
+        return false;
+    }
+
+    private static void DrawPickHighlight(
+        PlanScene scene,
+        CaveProjectDocument? project,
+        SurveyMapPickHighlight? hl,
+        Func<float, float, Point> toScreen,
+        Action<UIElement> addVector,
+        double pxPerMetre,
+        bool highContrast)
+    {
+        if (hl == null || project == null)
+            return;
+
+        if (!hl.IsLeg)
+        {
+            if (!TryGetSceneStation(scene, hl.StationOrFrom, out var c))
+                return;
+            var pt = toScreen(c.X, c.Y);
+            var ring = Math.Clamp(pxPerMetre * 0.78, 16, 40);
+            var half = ring * 0.5;
+            // Outer glow ring — wider, low-opacity bright accent so the selected station "pops" at any zoom.
+            var glowBrush = highContrast
+                ? new SolidColorBrush(Color.FromArgb(95, 0xFF, 0xFF, 0xFF))
+                : new SolidColorBrush(Color.FromArgb(95, 0x22, 0xFF, 0xCC));
+            var glowSize = ring * 1.65;
+            var glowHalf = glowSize * 0.5;
+            var glow = new Ellipse
+            {
+                Width = glowSize,
+                Height = glowSize,
+                Fill = glowBrush,
+                Stroke = Brushes.Transparent,
+                IsHitTestVisible = false,
+            };
+            Panel.SetZIndex(glow, 11);
+            Canvas.SetLeft(glow, pt.X - glowHalf);
+            Canvas.SetTop(glow, pt.Y - glowHalf);
+            addVector(glow);
+
+            Brush fill = highContrast
+                ? new SolidColorBrush(Color.FromArgb(140, 0xFF, 0xFF, 0xFF))
+                : new SolidColorBrush(Color.FromArgb(150, 0x22, 0xFF, 0xCC));
+            Brush strokeBrush = highContrast
+                ? new SolidColorBrush(Color.FromRgb(0x22, 0xFF, 0xCC))
+                : new SolidColorBrush(Color.FromArgb(255, 0xFF, 0xEC, 0x66));
+            var e = new Ellipse
+            {
+                Width = ring,
+                Height = ring,
+                Fill = fill,
+                Stroke = strokeBrush,
+                StrokeThickness = highContrast ? 3.5 : 3.25,
+            };
+            Panel.SetZIndex(e, 12);
+            Canvas.SetLeft(e, pt.X - half);
+            Canvas.SetTop(e, pt.Y - half);
+            addVector(e);
+
+            var core = Math.Clamp(pxPerMetre * 0.38, 7.5, 18);
+            var ch = core * 0.5;
+            var coreEl = new Ellipse
+            {
+                Width = core,
+                Height = core,
+                Fill = strokeBrush,
+                Stroke = Brushes.Transparent,
+            };
+            Panel.SetZIndex(coreEl, 13);
+            Canvas.SetLeft(coreEl, pt.X - ch);
+            Canvas.SetTop(coreEl, pt.Y - ch);
+            addVector(coreEl);
+            return;
+        }
+
+        var fromN = (hl.StationOrFrom ?? "").Trim();
+        var toN = (hl.LegToStation ?? "").Trim();
+        if (fromN.Length == 0 || toN.Length == 0)
+            return;
+        var shot = project.Shots.FirstOrDefault(
+            s => s.IsTraverseLeg && NamesEq(s.FromStation, fromN) && NamesEq(s.ToStation, toN));
+        if (shot == null)
+            return;
+        if (!TryGetSceneStation(scene, shot.FromStation, out var a) || !TryGetSceneStation(scene, shot.ToStation, out var b))
+            return;
+        var pa = toScreen(a.X, a.Y);
+        var pb = toScreen(b.X, b.Y);
+        Brush legStroke = highContrast
+            ? new SolidColorBrush(Color.FromRgb(0x66, 0xFF, 0xF0))
+            : new SolidColorBrush(Color.FromArgb(235, 0xFF, 0xDD, 0x66));
+        var line = new Line
+        {
+            X1 = pa.X,
+            Y1 = pa.Y,
+            X2 = pb.X,
+            Y2 = pb.Y,
+            Stroke = legStroke,
+            StrokeThickness = Math.Max(highContrast ? 4.25 : 3.85, pxPerMetre * 0.13),
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            Opacity = highContrast ? 1 : 0.96,
+        };
+        Panel.SetZIndex(line, 12);
+        addVector(line);
     }
 
     /// <summary>
@@ -1297,6 +1626,8 @@ public static class PlanCanvasRenderer
         const double pad = 48;
         drawingCanvas.Width = canvasWidth;
         drawingCanvas.Height = canvasHeight;
+        var mapInt = CartographicIntensityParser.Parse(AppUiSettingsStore.LoadOrDefault().CartographicIntensity);
+        drawingCanvas.Background = CreateSketchCanvasBackground(SurveyCanvasTheme.IsDark, mapInt);
 
         AddRasterUnderlayLayers(
             drawingCanvas,

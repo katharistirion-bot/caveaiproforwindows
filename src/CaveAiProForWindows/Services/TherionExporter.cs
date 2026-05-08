@@ -77,17 +77,17 @@ public static class TherionExporter
         return outBytes;
     }
 
-    private static bool TryParseLatLon(string? latStr, string? lonStr, out double lat, out double lon)
+    private static bool TryParseLatLon(double? latVal, double? lonVal, out double lat, out double lon)
     {
         lat = 0;
         lon = 0;
-        if (string.IsNullOrWhiteSpace(latStr) || string.IsNullOrWhiteSpace(lonStr))
+        if (latVal is not { } la || lonVal is not { } lo)
             return false;
-        if (!double.TryParse(latStr.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out lat))
+        if (Math.Abs(la) < 1e-12 && Math.Abs(lo) < 1e-12)
             return false;
-        if (!double.TryParse(lonStr.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out lon))
-            return false;
-        return Math.Abs(lat) > 1e-9 || Math.Abs(lon) > 1e-9;
+        lat = la;
+        lon = lo;
+        return true;
     }
 
     private static string SanitizeSurveyId(string name)

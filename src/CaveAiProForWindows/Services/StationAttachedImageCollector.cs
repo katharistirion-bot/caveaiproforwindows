@@ -153,15 +153,12 @@ public static class StationAttachedImageCollector
             }
         }
 
-        if (p.ExtensionData != null)
-        {
-            if (vectorViewMode == SurveyStationGeometry.AndroidViewModePlan &&
-                p.ExtensionData.TryGetValue("sketches", out var skPlan))
-                AppendSketchImages(skPlan, "sketches");
-            if (vectorViewMode == SurveyStationGeometry.AndroidViewModeSection &&
-                p.ExtensionData.TryGetValue("sectionSketches", out var skSec))
-                AppendSketchImages(skSec, "sectionSketches");
-        }
+        if (vectorViewMode == SurveyStationGeometry.AndroidViewModePlan &&
+            CaveProjectJsonBlobs.TryGetSketches(p, out var skPlan))
+            AppendSketchImages(skPlan, "sketches");
+        if (vectorViewMode == SurveyStationGeometry.AndroidViewModeSection &&
+            CaveProjectJsonBlobs.TryGetSectionSketches(p, out var skSec))
+            AppendSketchImages(skSec, "sectionSketches");
 
         for (var si = 0; si < p.Shots.Count; si++)
         {

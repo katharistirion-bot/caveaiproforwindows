@@ -1,8 +1,26 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:conv="clr-namespace:CaveAiProForWindows.Converters">
+                    xmlns:conv="clr-namespace:CaveAiProForWindows.Converters"
+                    xmlns:models="clr-namespace:CaveAiProForWindows.Models">
     <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
     <conv:HexColorToBrushConverter x:Key="HexToBrush" />
+    <conv:ProjectQcBadgeConverter x:Key="ProjectQcBadge" />
+
+    <DataTemplate DataType="{x:Type models:ProjectQcBadgeInfo}">
+        <Border x:Name="QcBadgeRoot" Padding="4,2" CornerRadius="4" Margin="4,0,0,0" VerticalAlignment="Center"
+                Background="{DynamicResource Cave.CanvasBackdrop}"
+                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                ToolTip="{Binding Summary}">
+            <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Glyph}"
+                       Foreground="{Binding AccentBrushHex, Converter={StaticResource HexToBrush}}" />
+        </Border>
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding Glyph}" Value="">
+                <Setter TargetName="QcBadgeRoot" Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
 
     <Style x:Key="Cave.LibraryCardHost" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
@@ -170,7 +188,7 @@
     </ControlTemplate>
 
     <Style TargetType="TabItem">
-        <Setter Property="Foreground" Value="{DynamicResource Cave.TextMuted}" />
+        <Setter Property="Foreground" Value="{DynamicResource Cave.Text}" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Template" Value="{StaticResource Cave.TabItemTemplate}" />
     </Style>

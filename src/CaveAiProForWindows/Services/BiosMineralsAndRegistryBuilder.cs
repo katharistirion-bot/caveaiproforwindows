@@ -35,15 +35,17 @@ public static class BiosMineralsAndRegistryBuilder
     {
         var name = string.IsNullOrWhiteSpace(p.Name) ? "(unnamed)" : p.Name;
         var trav = p.Shots.Count(s => s.IsTraverseLeg);
-        var lib = TryExtensionString(p.ExtensionData, "linkedLibraryCaveId");
+        var lib = !string.IsNullOrWhiteSpace(p.LinkedLibraryCaveId)
+            ? p.LinkedLibraryCaveId.Trim()
+            : TryExtensionString(p.ExtensionData, "linkedLibraryCaveId");
         var cover = RegistryCoverResolver.TryGetCoverUri(p);
         var rocks = p.Rocks is { ValueKind: JsonValueKind.Array } r ? r.GetArrayLength() : 0;
         var cat = p.FieldCatalogEntries is { ValueKind: JsonValueKind.Array } f ? f.GetArrayLength() : 0;
         return new CaveRegistryRow(
             name,
             p.Date ?? "",
-            p.Lat,
-            p.Lon,
+            p.Lat?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            p.Lon?.ToString(System.Globalization.CultureInfo.InvariantCulture),
             p.Alt,
             trav,
             p.Shots.Count,

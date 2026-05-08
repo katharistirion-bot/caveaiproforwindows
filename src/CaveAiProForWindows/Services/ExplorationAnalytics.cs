@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using CaveAiProForWindows.Models;
@@ -8,6 +9,7 @@ public static class ExplorationAnalytics
 {
     public static string BuildSummaryText(CaveProjectDocument p)
     {
+        var inv = CultureInfo.InvariantCulture;
         var shots = p.Shots;
         var traverses = shots.Count(s => s.IsTraverseLeg);
         var splays = shots.Count(s => !s.IsTraverseLeg);
@@ -22,7 +24,8 @@ public static class ExplorationAnalytics
         var sb = new StringBuilder();
         sb.AppendLine($"Project: {p.Name}");
         sb.AppendLine($"Date: {p.Date}   Entrance alt (m): {p.Alt:0.##}");
-        if (p.Lat is { } la && p.Lon is { } lo) sb.AppendLine($"Entrance: {la}, {lo}");
+        if (p.Lat is { } la && p.Lon is { } lo)
+            sb.AppendLine($"Entrance: {la.ToString(inv)}, {lo.ToString(inv)}");
         sb.AppendLine($"Shots total: {shots.Count}  (traverse legs: {traverses}, splays / other: {splays})");
         sb.AppendLine($"Unique station IDs (from/to on traverses): {stations.Count}");
         sb.AppendLine($"Sum traverse distances (horizontal leg lengths as recorded): {sumTraverseDist:0.##} m");
@@ -31,7 +34,7 @@ public static class ExplorationAnalytics
         var vecCount = JsonArrayLength(p.VectorLines);
         if (vecCount > 0)
             sb.AppendLine($"Map vector overlays (vectorLines): {vecCount} — drawn on Plan tab (cyan) with sketches.");
-        var planStations = SurveyStationGeometry.CalculatePlanCoordinates(p.Shots, (float)p.Alt);
+        var planStations = SurveyStationGeometry.CalculatePlanCoordinates(p);
         if (planStations.Count > 0)
             sb.AppendLine($"Plan geometry (traverse reduction, same as Android): {planStations.Count} station position(s).");
         AppendMapsAndLibraries(sb, p);
@@ -47,43 +50,63 @@ public static class ExplorationAnalytics
     private static void AppendMapsAndLibraries(StringBuilder sb, CaveProjectDocument p)
     {
         var ext = p.ExtensionData;
-        if (ext == null || ext.Count == 0)
-            return;
 
-        static int ArrCount(Dictionary<string, JsonElement> d, string key) =>
-            d.TryGetValue(key, out var el) && el.ValueKind == JsonValueKind.Array ? el.GetArrayLength() : 0;
+        static int ArrCountExt(Dictionary<string, JsonElement>? d, string key) =>
+            d != null && d.TryGetValue(key, out var el) && el.ValueKind == JsonValueKind.Array ? el.GetArrayLength() : 0;
 
-        if (ext.TryGetValue("linkedLibraryCaveId", out var lid) && lid.ValueKind == JsonValueKind.String)
+        static int ArrCountPrimaryOrExt(JsonElement primary, Dictionary<string, JsonElement>? d, string key)
+        {
+            if (primary.ValueKind == JsonValueKind.Array)
+                return primary.GetArrayLength();
+            return ArrCountExt(d, key);
+        }
+
+        if (!string.IsNullOrWhiteSpace(p.LinkedLibraryCaveId))
+            sb.AppendLine($"Cave Library link: linkedLibraryCaveId = {p.LinkedLibraryCaveId.Trim()}");
+        else if (ext?.TryGetValue("linkedLibraryCaveId", out var lid) == true && lid.ValueKind == JsonValueKind.String)
         {
             var s = lid.GetString();
             if (!string.IsNullOrWhiteSpace(s))
                 sb.AppendLine($"Cave Library link: linkedLibraryCaveId = {s}");
         }
 
-        var cartUris = ArrCount(ext, "publicLibraryCartographyUris");
+        var cartUris = ArrCountPrimaryOrExt(p.PublicLibraryCartographyUris, ext, "publicLibraryCartographyUris");
         if (cartUris > 0)
             sb.AppendLine($"Public Library cartography URIs in JSON: {cartUris} (use Export → Extract full archive on PC for files).");
 
-        if (ext.TryGetValue("surfaceLidarRaster", out var slr) && slr.ValueKind == JsonValueKind.Object)
+        var hasSurfaceRaster = p.SurfaceLidarRaster.ValueKind is JsonValueKind.Object or JsonValueKind.Array ||
+                               (ext?.TryGetValue("surfaceLidarRaster", out var slrExt) == true &&
+                                slrExt.ValueKind is JsonValueKind.Object or JsonValueKind.Array);
+        if (hasSurfaceRaster)
             sb.AppendLine("Surface raster / LIDAR overlay: present in JSON (extract ZIP for bundled rasters).");
 
-        if (ext.TryGetValue("cartographyTlsMeshObjUri", out var mesh) && mesh.ValueKind == JsonValueKind.String)
+        if (!string.IsNullOrWhiteSpace(p.CartographyTlsMeshObjUri))
+            sb.AppendLine("TLS / mesh OBJ uri: present (Android path — extract full archive to copy blobs).");
+        else if (ext?.TryGetValue("cartographyTlsMeshObjUri", out var mesh) == true && mesh.ValueKind == JsonValueKind.String)
         {
             var s = mesh.GetString();
             if (!string.IsNullOrWhiteSpace(s))
                 sb.AppendLine("TLS / mesh OBJ uri: present (Android path — extract full archive to copy blobs).");
         }
 
-        var nMapSym = ArrCount(ext, "mapSymbols");
+        var nMapSym = ArrCountPrimaryOrExt(p.MapSymbols, ext, "mapSymbols");
         if (nMapSym > 0) sb.AppendLine($"Map symbols: {nMapSym}");
-        var nSketch = ArrCount(ext, "sketches");
+        var nSketch = ArrCountPrimaryOrExt(p.Sketches, ext, "sketches");
         if (nSketch > 0) sb.AppendLine($"Plan sketches (polylines): {nSketch}");
-        var nSecSk = ArrCount(ext, "sectionSketches");
+        var nSketchLayer = ArrCountPrimaryOrExt(p.SketchLayer, ext, "sketchLayer");
+        if (nSketchLayer > 0) sb.AppendLine($"Sketch layer (plan strokes): {nSketchLayer}");
+        var nMapObjects = ArrCountPrimaryOrExt(p.MapObjects, ext, "mapObjects");
+        if (nMapObjects > 0) sb.AppendLine($"Map objects (mixed strokes / symbols): {nMapObjects}");
+        var nSecSk = ArrCountPrimaryOrExt(p.SectionSketches, ext, "sectionSketches");
         if (nSecSk > 0) sb.AppendLine($"Section sketches: {nSecSk}");
-        var nTrack = ArrCount(ext, "trackPoints");
+        var nTrack = ArrCountPrimaryOrExt(p.TrackPoints, ext, "trackPoints");
         if (nTrack > 0) sb.AppendLine($"Surface track points: {nTrack}");
-        if (ext.TryGetValue("surveyEventLog", out var log) && log.ValueKind == JsonValueKind.Array)
-            sb.AppendLine($"Survey event log lines: {log.GetArrayLength()}");
+
+        var logLen = p.SurveyEventLog.ValueKind == JsonValueKind.Array
+            ? p.SurveyEventLog.GetArrayLength()
+            : ArrCountExt(ext, "surveyEventLog");
+        if (logLen > 0)
+            sb.AppendLine($"Survey event log lines: {logLen}");
     }
 
     private static int JsonArrayLength(JsonElement? e)
@@ -97,7 +120,10 @@ public static class ExplorationAnalytics
     public static byte[] ExportShotsToCsvUtf8Bom(CaveProjectDocument p)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("fromStation,toStation,distance_m,clino_deg,azimuth_deg,depth_m,l_m,r_m,u_m,d_m,notes,symbol");
+        sb.AppendLine(
+            "fromStation,toStation,distance_m,clino_deg,azimuth_deg,depth_m,l_m,r_m,u_m,d_m,notes,comment,time,timestampUtcMs," +
+            "measurementStartedUtcMs,measurementCompletedUtcMs,compassSampleVarianceDeg2,clinoSampleVarianceDeg2," +
+            "compassStdDeg,clinoStdDeg,tapeStdM,sensorFusionQuality,horizontalPositionAccuracyM,verticalPositionAccuracyM,symbol");
         foreach (var s in p.Shots)
         {
             static string Csv(string? x)
@@ -107,6 +133,8 @@ public static class ExplorationAnalytics
                 if (t.Contains(',') || t.Contains('"') || t.Contains('\n')) return $"\"{t}\"";
                 return t;
             }
+
+            static string F(float? v, IFormatProvider inv) => v?.ToString(inv) ?? "";
 
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             sb.AppendLine(string.Join(',',
@@ -121,6 +149,19 @@ public static class ExplorationAnalytics
                 s.U.ToString(inv),
                 s.D.ToString(inv),
                 Csv(s.Notes),
+                Csv(s.Comment),
+                Csv(s.Time),
+                s.TimestampUtcMs?.ToString(inv) ?? "",
+                s.MeasurementStartedUtcMs?.ToString(inv) ?? "",
+                s.MeasurementCompletedUtcMs?.ToString(inv) ?? "",
+                F(s.CompassSampleVarianceDeg2, inv),
+                F(s.ClinoSampleVarianceDeg2, inv),
+                F(s.CompassStdDeg, inv),
+                F(s.ClinoStdDeg, inv),
+                F(s.TapeStdM, inv),
+                F(s.SensorFusionQuality, inv),
+                F(s.HorizontalPositionAccuracyM, inv),
+                F(s.VerticalPositionAccuracyM, inv),
                 Csv(s.Symbol)));
         }
 

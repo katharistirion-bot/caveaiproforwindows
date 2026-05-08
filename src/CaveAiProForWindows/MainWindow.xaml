@@ -14,13 +14,14 @@
         Background="{DynamicResource Cave.Background}"
         Foreground="{DynamicResource Cave.Text}"
         FontFamily="Segoe UI"
-        FontSize="13.5"
+        FontSize="14"
         TextOptions.TextFormattingMode="Display"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
-        Icon="pack://application:,,,/Assets/app.ico">
+        Icon="pack://application:,,,/Assets/logo.ico">
+    <Grid>
     <DockPanel>
-        <Menu DockPanel.Dock="Top">
+        <Menu DockPanel.Dock="Top" Padding="4,2" Background="{DynamicResource Cave.Surface}">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open…" Command="{Binding OpenFileCommand}" InputGestureText="Ctrl+O" />
                 <MenuItem Header="_Close workspace" Command="{Binding CloseWorkspaceCommand}" InputGestureText="Ctrl+W"
@@ -71,11 +72,23 @@
             </MenuItem>
         </Menu>
 
-        <ToolBarTray DockPanel.Dock="Top" Background="{DynamicResource Cave.Surface}">
-            <ToolBar ToolBarTray.IsLocked="True" Background="Transparent">
-                <Image Width="32" Height="32" Margin="0,0,10,0" Stretch="Uniform"
-                       Source="pack://application:,,,/Assets/ic_launcher_logo.png"
-                       RenderOptions.BitmapScalingMode="HighQuality" ToolTip="CAVE AI PRO" />
+        <ToolBarTray DockPanel.Dock="Top" Background="{DynamicResource Cave.Surface}" Margin="0,0,0,4">
+            <ToolBar ToolBarTray.IsLocked="True" Background="Transparent" Padding="4,2">
+                <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center"
+                            ToolTip="CAVE AI PRO — Windows survey workstation">
+                    <Image Width="40" Height="40" Margin="0,0,10,0" Stretch="Uniform"
+                           Source="pack://application:,,,/Assets/logo.png"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="CAVE AI PRO"
+                                   FontSize="14"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource Cave.Text}" />
+                        <TextBlock Text="Survey workstation · v1.0"
+                                   FontSize="10.5"
+                                   Foreground="{DynamicResource Cave.TextMuted}" />
+                    </StackPanel>
+                </StackPanel>
                 <Button Content="Open" Command="{Binding OpenFileCommand}" Padding="12,6" Margin="0,0,6,0"
                         Style="{StaticResource Cave.AccentButton}" />
                 <Separator />
@@ -87,7 +100,7 @@
             </ToolBar>
         </ToolBarTray>
 
-        <StatusBar DockPanel.Dock="Bottom" Background="{DynamicResource Cave.Surface}">
+        <StatusBar DockPanel.Dock="Bottom" Background="{DynamicResource Cave.Surface}" Padding="4,2">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}" TextTrimming="CharacterEllipsis" MaxWidth="780"
                            Foreground="{DynamicResource Cave.TextSubdued}" />
@@ -99,7 +112,11 @@
             </StatusBarItem>
         </StatusBar>
 
-        <Grid Margin="10">
+        <Border Margin="10" Padding="8"
+                Background="{DynamicResource Cave.Surface}"
+                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                CornerRadius="10">
+        <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -109,6 +126,9 @@
                 <Border Padding="10,8" CornerRadius="6"
                         Background="{DynamicResource Cave.Surface}"
                         BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                        Cursor="Hand"
+                        ToolTip="Click to open the INTEGRITY tab for full details"
+                        MouseLeftButtonUp="IntegrityBanner_MouseLeftButtonUp"
                         Visibility="{Binding ShowIntegrityBanner, Converter={StaticResource BoolToVis}}">
                     <TextBlock Text="{Binding IntegrityBannerText}" TextWrapping="Wrap"
                                FontWeight="SemiBold"
@@ -123,7 +143,7 @@
                 </Border>
             </StackPanel>
 
-            <Grid Grid.Row="1">
+            <Grid Grid.Row="1" Margin="0,4,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="220" />
                     <ColumnDefinition Width="6" />
@@ -174,19 +194,41 @@
                         </DockPanel>
                         <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" FontSize="11"
                                    Foreground="{DynamicResource Cave.TextMuted}"
-                                   Text="After opening a backup, click a cave — PLAN / SECTION / 3D MODEL / … stay empty until a project is selected. Tools → Data inspector for summary, JSON scan, QC, shots, catalog, ZIP." />
+                                   Text="After opening a backup, click a cave — PLAN / SECTION / 3D MODEL / … stay empty until a project is selected. INTEGRITY: ZIP SHA-256. SURVEY QC: traverse topology checks. SKETCH EDITOR: plan base map + overlay sketches. Tools → Data inspector for JSON scan, shots grid, catalog, ZIP." />
                         <ListBox ItemsSource="{Binding ProjectsForList}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}"
                                  Background="{DynamicResource Cave.Surface}" BorderBrush="{DynamicResource Cave.Border}"
-                                 Foreground="{DynamicResource Cave.Text}" />
+                                 Foreground="{DynamicResource Cave.Text}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ToolTip="{Binding Name}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                        <ContentControl Grid.Column="1"
+                                                        Content="{Binding Converter={StaticResource ProjectQcBadge}}"
+                                                        Focusable="False" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </DockPanel>
 
                     <GridSplitter Grid.Column="1" Style="{StaticResource Cave.GridSplitterVertical}" />
 
-                    <Grid Grid.Column="2">
-                        <TabControl Background="{DynamicResource Cave.Surface}" BorderBrush="{DynamicResource Cave.Border}"
-                                    Padding="0,2,0,0">
+                    <Grid Grid.Column="2" VerticalAlignment="Stretch">
+                        <TabControl x:Name="MainSurveyTabControl"
+                                    Background="{DynamicResource Cave.Surface}" BorderBrush="{DynamicResource Cave.Border}"
+                                    Padding="0,2,0,0"
+                                    VerticalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Stretch">
                         <TabItem Header="PLAN" ToolTip="Plan view (Android) — standard colours">
                             <views:PlanView x:Name="PlanViewControl"
+                                            VerticalAlignment="Stretch"
+                                            HorizontalAlignment="Stretch"
                                             VisualizationMode="{x:Static services:SurveyVisualizationMode.Standard}"
                                             Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                             ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
@@ -194,46 +236,262 @@
                                             MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
                         <TabItem Header="SECTION" ToolTip="Section view (viewMode 1) — standard">
-                            <views:SectionView VisualizationMode="{x:Static services:SurveyVisualizationMode.Standard}"
-                                               Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
-                                               ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
-                                               MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
-                                               MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
+                            <views:SectionView VerticalAlignment="Stretch"
+                                                 HorizontalAlignment="Stretch"
+                                                 VisualizationMode="{x:Static services:SurveyVisualizationMode.Standard}"
+                                                 Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
+                                                 ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
+                                                 MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
+                                                 MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
                         <TabItem Header="3D MODEL" ToolTip="Pseudo-3D projection (plan walls + vectors)">
-                            <views:PlanView VisualizationMode="{x:Static services:SurveyVisualizationMode.Pseudo3D}"
+                            <views:PlanView VerticalAlignment="Stretch"
+                                            HorizontalAlignment="Stretch"
+                                            VisualizationMode="{x:Static services:SurveyVisualizationMode.Pseudo3D}"
                                             Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                             ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
                                             MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
                                             MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
                         <TabItem Header="LONG PROFILE" ToolTip="Developed distance vs depth (Z)">
-                            <views:PlanView VisualizationMode="{x:Static services:SurveyVisualizationMode.LongProfile}"
+                            <views:PlanView VerticalAlignment="Stretch"
+                                            HorizontalAlignment="Stretch"
+                                            VisualizationMode="{x:Static services:SurveyVisualizationMode.LongProfile}"
                                             Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                             ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
                                             MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
                                             MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
-                        <TabItem Header="X-RAY" ToolTip="LRUD splays (plan frame, like Android plan X-ray)">
-                            <views:PlanView VisualizationMode="{x:Static services:SurveyVisualizationMode.PlanXRay}"
-                                            Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
-                                            ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
-                                            MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
-                                            MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
+                        <TabItem Header="GEO &amp; BIO" ToolTip="Offline reader for Android Gemini analyses, rock textures, and biological observations (split into Geology / Biology sub-tabs)">
+                            <views:GeoBioView VerticalAlignment="Stretch"
+                                              HorizontalAlignment="Stretch"
+                                              Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
+                                              ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}" />
+                        </TabItem>
+                        <TabItem Header="PHOTOS" ToolTip="Global photo gallery — every JPEG/PNG in the active backup grouped by station / category, click for full-screen LightBox">
+                            <views:PhotosExplorerView VerticalAlignment="Stretch"
+                                                      HorizontalAlignment="Stretch"
+                                                      Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
+                                                      ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}" />
+                        </TabItem>
+                        <TabItem Header="X-RAY" ToolTip="Offline viewer: Android satellite snapshot + traverse overlay">
+                            <views:OfflineXRayView VerticalAlignment="Stretch"
+                                                   HorizontalAlignment="Stretch"
+                                                   Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
+                                                   ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
+                                                   MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
                         <TabItem Header="PLAN 2-TONE" ToolTip="Two-tone walls, dark canvas">
-                            <views:PlanView VisualizationMode="{x:Static services:SurveyVisualizationMode.Plan2Tone}"
+                            <views:PlanView VerticalAlignment="Stretch"
+                                            HorizontalAlignment="Stretch"
+                                            VisualizationMode="{x:Static services:SurveyVisualizationMode.Plan2Tone}"
                                             Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                             ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
                                             MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
                                             MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
                         <TabItem Header="SECTION NIGHT" ToolTip="Section — dark canvas, high contrast">
-                            <views:SectionView VisualizationMode="{x:Static services:SurveyVisualizationMode.SectionNight}"
-                                               Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
-                                               ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
-                                               MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
-                                               MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
+                            <views:SectionView VerticalAlignment="Stretch"
+                                                 HorizontalAlignment="Stretch"
+                                                 VisualizationMode="{x:Static services:SurveyVisualizationMode.SectionNight}"
+                                                 Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
+                                                 ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
+                                                 MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
+                                                 MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
+                        </TabItem>
+                        <TabItem x:Name="IntegrityTabItem" Header="INTEGRITY"
+                                 ToolTip="Android backup integrity_manifest.json — SHA-256 file checks vs this ZIP">
+                            <DockPanel Margin="10" LastChildFill="True">
+                                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Foreground="{DynamicResource Cave.TextMuted}" FontSize="12.5"
+                                           Text="Each row is from verifying integrity_manifest.json against the opened backup ZIP (size + SHA-256). Use this list to find missing files, hash mismatches, or a skipped check." />
+                                <DataGrid ItemsSource="{Binding IntegrityIssueRows}" AutoGenerateColumns="False"
+                                          IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                          Background="{DynamicResource Cave.Surface}"
+                                          Foreground="{DynamicResource Cave.Text}"
+                                          BorderBrush="{DynamicResource Cave.Border}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="110" />
+                                        <DataGridTextColumn Header="Detail" Binding="{Binding Message}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="SURVEY QC"
+                                 ToolTip="Traverse graph checks — same topology rules as CaveAI Pro workstation QC (duplicate legs, disconnected components, etc.)">
+                            <Grid Margin="10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Foreground="{DynamicResource Cave.TextMuted}" FontSize="12.5"
+                                           Text="Traverse statistics (readonly box) mirror TraverseQcStats.BuildSummaryText. The DataGrid is bound to SurveyQcIssueRows — populated by TraverseQcStats.BuildSurveyQcIssueRows for the selected project (duplicate legs, disconnected components, bidirectional pairs, etc.). All processing is local to this Windows WPF app." />
+                                <TextBox Grid.Row="1" Text="{Binding StatisticsText, Mode=OneWay}" IsReadOnly="True"
+                                         TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                                         MinHeight="120" MaxHeight="220" Margin="0,0,0,10" Padding="8"
+                                         FontFamily="Consolas" FontSize="12"
+                                         Background="{DynamicResource Cave.Surface}" Foreground="{DynamicResource Cave.Text}"
+                                         BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" />
+                                <DataGrid Grid.Row="2" ItemsSource="{Binding SurveyQcIssueRows}" AutoGenerateColumns="False"
+                                          IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                          Background="{DynamicResource Cave.Surface}"
+                                          Foreground="{DynamicResource Cave.Text}"
+                                          BorderBrush="{DynamicResource Cave.Border}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="140" />
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+                        <TabItem Header="SKETCH EDITOR"
+                                 ToolTip="Plan survey as base map — draw and stamp symbols on a transparent overlay (same pan/zoom as PLAN)">
+                            <views:SketchEditorView VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                                                    VisualizationMode="{x:Static services:SurveyVisualizationMode.Standard}"
+                                                    Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
+                                                    ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
+                                                    MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
+                                                    MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
+                        </TabItem>
+                        <TabItem Header="AI ANALYTICS"
+                                 ToolTip="Offline QC statistics, LRUD-based volumetric geometry, and local topological lead hints — all on this PC, no cloud LLMs">
+                            <Grid>
+                                <views:AiAnalyticsView VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                                                      Project="{Binding DataContext.SelectedProject, ElementName=Shell}" />
+                                <Border Panel.ZIndex="2"
+                                        Background="#CC0D0F14"
+                                        CornerRadius="0"
+                                        Visibility="{Binding DataContext.LegalTermsAccepted, ElementName=Shell, Converter={StaticResource InverseBoolToVis}}">
+                                    <Border HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520" Margin="28"
+                                            Padding="24" CornerRadius="10"
+                                            Background="{DynamicResource Cave.Surface}"
+                                            BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock FontSize="18" FontWeight="Bold" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource Cave.Text}"
+                                                       Text="Terms acceptance required" />
+                                            <TextBlock Margin="0,14,0,0" FontSize="13.5" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource Cave.TextMuted}"
+                                                       Text="Local AI analytics and batch export features stay locked until you accept the disclaimer on the LEGAL &amp; SETTINGS tab. Survey viewing and integrity checks remain available. No network or API keys are required for analysis." />
+                                            <Button Margin="0,22,0,0" HorizontalAlignment="Left" Padding="16,9"
+                                                    Style="{StaticResource Cave.AccentButton}"
+                                                    Content="Open LEGAL &amp; SETTINGS…"
+                                                    Click="LegalRequiredOverlay_GoToLegal_Click" />
+                                        </StackPanel>
+                                    </Border>
+                                </Border>
+                            </Grid>
+                        </TabItem>
+                        <TabItem x:Name="LegalSettingsTabItem" Header="LEGAL &amp; SETTINGS"
+                                 ToolTip="Disclaimer, copyright, and terms acceptance">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16,12">
+                                <StackPanel MaxWidth="920" HorizontalAlignment="Left">
+                                    <Border Padding="20"
+                                            CornerRadius="10"
+                                            Margin="0,0,0,18"
+                                            Background="{DynamicResource Cave.Surface}"
+                                            BorderBrush="{DynamicResource Cave.Border}"
+                                            BorderThickness="1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Image Grid.Column="0"
+                                                   Width="160" Height="160"
+                                                   Stretch="Uniform"
+                                                   VerticalAlignment="Top"
+                                                   Margin="0,0,22,0"
+                                                   Source="pack://application:,,,/Assets/logo.png"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                                   ToolTip="CAVE AI PRO" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="CAVE AI PRO"
+                                                           FontSize="26"
+                                                           FontWeight="Bold"
+                                                           Foreground="{DynamicResource Cave.Text}" />
+                                                <TextBlock Text="Windows survey workstation"
+                                                           FontSize="13"
+                                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                                           Margin="0,2,0,10" />
+                                                <TextBlock Text="Version 1.0"
+                                                           FontSize="12.5"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Cave.Text}" />
+                                                <TextBlock Text="Copyright © 2026"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="13"
+                                                           Foreground="{DynamicResource Cave.Text}"
+                                                           Margin="0,8,0,2" />
+                                                <TextBlock TextWrapping="Wrap" FontSize="12"
+                                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                                           Text="CAVE AI PRO, CaveAI Pro, and related names and logos are trademarks of their respective owners. All rights not expressly granted are reserved." />
+                                                <TextBlock TextWrapping="Wrap" FontSize="11.5" Margin="0,8,0,0"
+                                                           Foreground="{DynamicResource Cave.TextSubdued}"
+                                                           Text="Branding and disclaimer texts on this PC edition match the Android edition for legal consistency across platforms." />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Separator Margin="0,0,0,16" />
+                                    <TextBlock Text="Legal disclaimer (English)" FontWeight="SemiBold" FontSize="15"
+                                               Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
+                                    <Border Padding="0" CornerRadius="6" Margin="0,0,0,12"
+                                            Background="{DynamicResource Cave.CanvasBackdrop}"
+                                            BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                            MinHeight="240">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360"
+                                                      Padding="10,8">
+                                            <RichTextBox x:Name="LegalDisclaimerRichText"
+                                                         IsReadOnly="True"
+                                                         IsDocumentEnabled="True"
+                                                         BorderThickness="0"
+                                                         Background="Transparent"
+                                                         Padding="2"
+                                                         Foreground="{DynamicResource Cave.Text}"
+                                                         VerticalScrollBarVisibility="Disabled"
+                                                         HorizontalScrollBarVisibility="Disabled">
+                                                <FlowDocument PagePadding="4" TextAlignment="Left"
+                                                              Foreground="{DynamicResource Cave.Text}">
+                                                    <Paragraph FontSize="15" FontWeight="Bold" Margin="0,0,0,10">
+                                                        LEGAL DISCLAIMER (English) — READ BEFORE USE
+                                                    </Paragraph>
+                                                    <Paragraph FontSize="13.5" LineHeight="24" FontWeight="SemiBold">
+                                                        CAVE AI PRO for Windows is survey workstation software provided “AS IS”, without warranty of any kind, express or implied, including but not limited to fitness for a particular purpose, merchantability, accuracy, completeness, or non-infringement.
+                                                    </Paragraph>
+                                                    <Paragraph FontSize="13.5" LineHeight="24" FontWeight="SemiBold">
+                                                        You alone are responsible for verifying all survey data, traverse geometry, exports (Survex, Therion, DXF, CSV, etc.), and any decisions made in the field or office. This application does not replace qualified cave-survey judgment, independent loop closure, instrument calibration records, or national/regional survey standards.
+                                                    </Paragraph>
+                                                    <Paragraph FontSize="13.5" LineHeight="24" FontWeight="SemiBold">
+                                                        The authors and distributors are not liable for any direct, indirect, incidental, special, consequential, or punitive damages arising from use or inability to use the software, including data loss, incorrect coordinates, or misinterpretation of maps and QC messages.
+                                                    </Paragraph>
+                                                    <Paragraph FontSize="13.5" LineHeight="24" FontWeight="SemiBold">
+                                                        By using this software you acknowledge that caving and survey work are inherently hazardous and that you will comply with all applicable laws, land access rules, and safety practices. If you do not agree, do not use the software.
+                                                    </Paragraph>
+                                                    <Paragraph FontSize="13.5" LineHeight="24" FontWeight="SemiBold" Margin="0,14,0,0">
+                                                        This desktop edition is intended to run without reliance on external large-language-model (LLM) services: survey analytics, QC, and geometric estimates are implemented or planned as local algorithms on your machine. You are not asked to supply cloud API keys for core survey workflows; optional features that touch the network (for example, downloading a user-supplied map URL) are separate and do not send your cave database to a third-party AI provider.
+                                                    </Paragraph>
+                                                </FlowDocument>
+                                            </RichTextBox>
+                                        </ScrollViewer>
+                                    </Border>
+                                    <CheckBox Margin="0,4,0,16"
+                                              FontSize="13.5"
+                                              Foreground="{DynamicResource Cave.Text}"
+                                              IsChecked="{Binding DataContext.LegalTermsAccepted, ElementName=Shell, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                        <TextBlock TextWrapping="Wrap" MaxWidth="860"
+                                                   Text="I have read and accept the terms and conditions" />
+                                    </CheckBox>
+                                    <TextBlock Text="About this build" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8"
+                                               Foreground="{DynamicResource Cave.Text}" />
+                                    <TextBlock TextWrapping="Wrap" FontSize="12.5" Margin="0,0,0,12"
+                                               Foreground="{DynamicResource Cave.TextMuted}"
+                                               Text="CAVE AI PRO for Windows is a fully offline-first survey workstation: there is no API key configuration, no subscription to external AI APIs, and no recurring cloud cost for core analytics. Optional preferences (such as theme or default export folders) may be added here later. File → Export and Tools → Data inspector require acceptance of the terms above." />
+                                </StackPanel>
+                            </ScrollViewer>
                         </TabItem>
                         </TabControl>
 
@@ -261,5 +519,8 @@
                 </Grid>
             </Grid>
         </Grid>
+        </Border>
     </DockPanel>
+    <views:SnackbarHost x:Name="MainSnackbar" />
+    </Grid>
 </Window>

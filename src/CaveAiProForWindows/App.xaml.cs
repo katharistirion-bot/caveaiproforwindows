@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using CaveAiProForWindows.Services;
@@ -45,12 +47,17 @@ public partial class App : System.Windows.Application
 
         try
         {
+            var splash = ShowSplash();
+            WaitForSplashWarmup(splash, MinimumSplashDuration);
+
             var main = new MainWindow();
             MainWindow = main;
             main.Show();
             WriteStartupLog("MainWindow shown");
             if (startupSurveyPaths.Count > 0 && main.DataContext is MainViewModel vm)
                 vm.LoadFromPaths(startupSurveyPaths);
+
+            CloseSplash(splash);
         }
         catch (Exception ex)
         {
@@ -73,6 +80,66 @@ public partial class App : System.Windows.Application
         }
 
         WriteStartupLog("OnStartup end");
+    }
+
+    /// <summary>Minimum on-screen time so the brand splash is actually visible even on fast machines.</summary>
+    private static readonly TimeSpan MinimumSplashDuration = TimeSpan.FromMilliseconds(2500);
+
+    private static SplashScreen? ShowSplash()
+    {
+        try
+        {
+            var splash = new SplashScreen();
+            splash.Show();
+            // Pump the dispatcher once so the splash actually paints before MainWindow construction blocks the UI thread.
+            splash.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
+            return splash;
+        }
+        catch (Exception ex)
+        {
+            WriteStartupLog("Splash creation failed: " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Blocks until the splash has been on screen at least <paramref name="minimum"/>, while keeping the
+    /// dispatcher alive so the indeterminate progress bar continues animating.
+    /// </summary>
+    private static void WaitForSplashWarmup(SplashScreen? splash, TimeSpan minimum)
+    {
+        if (splash == null)
+            return;
+        var sw = Stopwatch.StartNew();
+        var frame = new DispatcherFrame();
+        var timer = new DispatcherTimer(DispatcherPriority.Background, splash.Dispatcher)
+        {
+            Interval = TimeSpan.FromMilliseconds(40),
+        };
+        timer.Tick += (_, _) =>
+        {
+            if (sw.Elapsed >= minimum)
+            {
+                timer.Stop();
+                frame.Continue = false;
+            }
+        };
+        timer.Start();
+        Dispatcher.PushFrame(frame);
+    }
+
+    private static void CloseSplash(SplashScreen? splash)
+    {
+        if (splash == null)
+            return;
+        try
+        {
+            splash.Close();
+        }
+        catch (Exception ex)
+        {
+            WriteStartupLog("Splash close failed: " + ex.Message);
+        }
     }
 
     /// <summary>Paths from Explorer double-click / &quot;Open with&quot; (shell passes each path as one argument).</summary>

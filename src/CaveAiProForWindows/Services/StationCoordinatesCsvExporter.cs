@@ -12,7 +12,7 @@ public static class StationCoordinatesCsvExporter
 {
     public static byte[] BuildUtf8Bom(CaveProjectDocument project)
     {
-        var coords = SurveyStationGeometry.CalculatePlanCoordinates(project.Shots, (float)project.Alt);
+        var coords = SurveyStationGeometry.CalculatePlanCoordinates(project);
         var sb = new StringBuilder();
         sb.AppendLine("station,x_m,y_m,z_m");
         foreach (var kv in coords.OrderBy(k => k.Key, StringComparer.Ordinal))

@@ -9,9 +9,13 @@ namespace CaveAiProForWindows.Services;
 /// <summary>Minimal SVG export (traverse + walls + vectors + stations) in survey metres.</summary>
 public static class SurveySvgExporter
 {
-    public static void WritePlanSvg(CaveProjectDocument project, Stream stream, int vectorViewMode = SurveyStationGeometry.AndroidViewModePlan)
+    public static void WritePlanSvg(
+        CaveProjectDocument project,
+        Stream stream,
+        int vectorViewMode = SurveyStationGeometry.AndroidViewModePlan,
+        SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard)
     {
-        var scene = PlanSceneBuilder.TryBuild(project, vectorViewMode)
+        var scene = PlanSceneBuilder.TryBuild(project, vectorViewMode, visualization)
             ?? throw new InvalidOperationException("No drawable geometry for SVG.");
         using var xw = XmlWriter.Create(stream, new XmlWriterSettings { Indent = true, Encoding = new UTF8Encoding(false) });
         var pad = 4f;

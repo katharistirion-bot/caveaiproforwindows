@@ -8,13 +8,47 @@
     <RootNamespace>CaveAiProForWindows</RootNamespace>
     <AssemblyName>CaveAiProForWindows</AssemblyName>
     <ApplicationTitle>CAVE AI PRO</ApplicationTitle>
-    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <!-- Required so restore includes win-x64 assets when publishing self-contained / single-file. -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!--
+    Distribution / IP-hardening (see Properties/PublishProfiles/ReleaseSingleFile-Win64.pubxml for the full
+    single-file + self-contained stack). PublishSingleFile and SelfContained are kept in that profile only
+    so plain "dotnet build -c Release" still lands under bin\Release\net8.0-windows\ (no inferred win-x64 RID).
+
+    ReadyToRun improves startup and precompiles more code to native images, but it is not a substitute for a
+    commercial obfuscator: managed metadata and IL can still be inspected. PublishTrimmed stays off because
+    WPF + SkiaSharp are reflection-heavy without verified trim roots.
+
+    Publish command (final portable exe, no separate .NET install):
+      dotnet publish src/CaveAiProForWindows/CaveAiProForWindows.csproj -c Release -r win-x64 -p:PublishProfile=ReleaseSingleFile-Win64
+  -->
+  <PropertyGroup Label="Distribution publish defaults (non-RID build safe)">
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="PDFtoImage" Version="5.2.1" />
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
     <Resource Include="Assets\ic_launcher_logo.png" />
+    <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\logo.ico" />
   </ItemGroup>
+
+  <Target Name="WritePublishManifest" AfterTargets="Publish">
+    <PropertyGroup>
+      <_ManifestRid Condition="'$(RuntimeIdentifier)' == ''">unspecified</_ManifestRid>
+      <_ManifestRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_ManifestRid>
+      <_PubDir>$([MSBuild]::EnsureTrailingSlash($(PublishDir)))</_PubDir>
+      <_ManifestJson>{"assembly":"$(AssemblyName)","version":"$(Version)","targetFramework":"$(TargetFramework)","runtimeIdentifier":"$(_ManifestRid)","configuration":"$(Configuration)"}</_ManifestJson>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_PubDir)publish-manifest.json" Lines="$(_ManifestJson)" Overwrite="true" Encoding="utf-8" />
+  </Target>
 </Project>

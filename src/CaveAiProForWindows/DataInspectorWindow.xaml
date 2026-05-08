@@ -37,7 +37,7 @@
                 <DockPanel Grid.Row="0">
                     <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,6"
                                Foreground="{DynamicResource Cave.TextMuted}" FontSize="12"
-                               Text="Full scan of raw data.json: per cave — traverse legs, photo and audio URI counts, rocks, field catalog, vectorLines, public cartography list, LIDAR / TLS fields, surveyEventLog size, and every top-level JSON key." />
+                               Text="Full scan of raw data.json: per cave — traverse legs, photo/audio counts, per-shot key union (notes/comment/time/timestamp), rocks, field catalog, vectorLines, map symbols &amp; sketches counts, public cartography, LIDAR / TLS, surveyEventLog, and every top-level JSON key." />
                     <TextBox Text="{Binding BackupDataAnalyticsText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
                              AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas" FontSize="12" Padding="8"
@@ -73,15 +73,15 @@
                 </ScrollViewer>
                 <TextBlock DockPanel.Dock="Top" Text="Stations (traverse reduction)" FontWeight="SemiBold" Margin="0,0,0,6"
                            Foreground="{DynamicResource Cave.TextMuted}" />
-                <DataGrid ItemsSource="{Binding StationQcRows}" AutoGenerateColumns="False" IsReadOnly="True"
-                          CanUserAddRows="False" CanUserDeleteRows="False">
+                <DataGrid x:Name="StationQcGrid" ItemsSource="{Binding StationQcRows}" AutoGenerateColumns="False"
+                          IsReadOnly="False" CanUserAddRows="False" CanUserDeleteRows="False">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Station" Binding="{Binding Name}" Width="*" />
-                        <DataGridTextColumn Header="X m" Binding="{Binding X, StringFormat=F2}" Width="72" />
-                        <DataGridTextColumn Header="Y m" Binding="{Binding Y, StringFormat=F2}" Width="72" />
-                        <DataGridTextColumn Header="Z m" Binding="{Binding Z, StringFormat=F2}" Width="72" />
-                        <DataGridTextColumn Header="From-legs" Binding="{Binding TraverseLegsFrom}" Width="72" />
-                        <DataGridTextColumn Header="To-legs" Binding="{Binding TraverseLegsTo}" Width="72" />
+                        <DataGridTextColumn Header="Station" Binding="{Binding Name}" IsReadOnly="True" Width="*" />
+                        <DataGridTextColumn Header="X m" Binding="{Binding X, Mode=TwoWay, StringFormat=F2}" Width="72" />
+                        <DataGridTextColumn Header="Y m" Binding="{Binding Y, Mode=TwoWay, StringFormat=F2}" Width="72" />
+                        <DataGridTextColumn Header="Z m" Binding="{Binding Z, Mode=TwoWay, StringFormat=F2}" Width="72" />
+                        <DataGridTextColumn Header="From-legs" Binding="{Binding TraverseLegsFrom}" IsReadOnly="True" Width="72" />
+                        <DataGridTextColumn Header="To-legs" Binding="{Binding TraverseLegsTo}" IsReadOnly="True" Width="72" />
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>
@@ -95,20 +95,28 @@
                              Background="{DynamicResource Cave.Surface}" Foreground="{DynamicResource Cave.Text}"
                              BorderBrush="{DynamicResource Cave.Border}" />
                 </DockPanel>
-                <DataGrid ItemsSource="{Binding ShotsView}" AutoGenerateColumns="False" IsReadOnly="True"
-                          CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single">
+                <DataGrid x:Name="ShotsDataGrid" ItemsSource="{Binding ShotsView}" AutoGenerateColumns="False"
+                          IsReadOnly="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single"
+                          CellEditEnding="ShotsDataGrid_CellEditEnding">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="From" Binding="{Binding FromStation}" Width="*" />
-                        <DataGridTextColumn Header="To" Binding="{Binding ToStation}" Width="*" />
-                        <DataGridTextColumn Header="Dist m" Binding="{Binding Distance, StringFormat=F2}" Width="72" />
-                        <DataGridTextColumn Header="Clino°" Binding="{Binding Clino}" Width="56" />
-                        <DataGridTextColumn Header="Az°" Binding="{Binding Azimuth}" Width="56" />
-                        <DataGridTextColumn Header="Depth m" Binding="{Binding Depth, StringFormat=F2}" Width="72" />
-                        <DataGridTextColumn Header="L" Binding="{Binding L, StringFormat=F2}" Width="44" />
-                        <DataGridTextColumn Header="R" Binding="{Binding R, StringFormat=F2}" Width="44" />
-                        <DataGridTextColumn Header="U" Binding="{Binding U, StringFormat=F2}" Width="44" />
-                        <DataGridTextColumn Header="D" Binding="{Binding D, StringFormat=F2}" Width="44" />
-                        <DataGridTextColumn Header="Notes" Binding="{Binding Notes}" Width="2*" />
+                        <DataGridTextColumn Header="From" Binding="{Binding FromStation, Mode=TwoWay}" Width="*" />
+                        <DataGridTextColumn Header="To" Binding="{Binding ToStation, Mode=TwoWay}" Width="*" />
+                        <DataGridTextColumn Header="Dist m" Binding="{Binding Distance, Mode=TwoWay, StringFormat=F2}" Width="72" />
+                        <DataGridTextColumn Header="Clino°" Binding="{Binding Clino, Mode=TwoWay}" Width="56" />
+                        <DataGridTextColumn Header="Az°" Binding="{Binding Azimuth, Mode=TwoWay}" Width="56" />
+                        <DataGridTextColumn Header="Depth m" Binding="{Binding Depth, Mode=TwoWay, StringFormat=F2}" Width="72" />
+                        <DataGridTextColumn Header="L" Binding="{Binding L, Mode=TwoWay, StringFormat=F2}" Width="44" />
+                        <DataGridTextColumn Header="R" Binding="{Binding R, Mode=TwoWay, StringFormat=F2}" Width="44" />
+                        <DataGridTextColumn Header="U" Binding="{Binding U, Mode=TwoWay, StringFormat=F2}" Width="44" />
+                        <DataGridTextColumn Header="D" Binding="{Binding D, Mode=TwoWay, StringFormat=F2}" Width="44" />
+                        <DataGridTextColumn Header="Notes" Binding="{Binding Notes, Mode=TwoWay}" Width="1.2*" />
+                        <DataGridTextColumn Header="Comment" Binding="{Binding Comment, Mode=TwoWay}" Width="*" />
+                        <DataGridTextColumn Header="Time" Binding="{Binding Time, Mode=TwoWay}" Width="90" />
+                        <DataGridTextColumn Header="tsUtcMs" Binding="{Binding TimestampUtcMs, Mode=TwoWay}" Width="90" />
+                        <DataGridTextColumn Header="mStartMs" Binding="{Binding MeasurementStartedUtcMs, Mode=TwoWay}" Width="88" />
+                        <DataGridTextColumn Header="mEndMs" Binding="{Binding MeasurementCompletedUtcMs, Mode=TwoWay}" Width="88" />
+                        <DataGridTextColumn Header="cmpVar" Binding="{Binding CompassSampleVarianceDeg2, Mode=TwoWay, StringFormat=F2}" Width="72" />
+                        <DataGridTextColumn Header="clVar" Binding="{Binding ClinoSampleVarianceDeg2, Mode=TwoWay, StringFormat=F2}" Width="72" />
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>

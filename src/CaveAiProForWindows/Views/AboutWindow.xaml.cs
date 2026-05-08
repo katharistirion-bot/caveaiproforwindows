@@ -17,11 +17,12 @@ public partial class AboutWindow : Window
             ? $"{info}  (assembly {ver})"
             : $"Build {ver}" + (string.IsNullOrWhiteSpace(file) ? "" : $"  · file {file}");
 
-        var exePath = !string.IsNullOrWhiteSpace(asm.Location)
-            ? asm.Location
-            : Environment.ProcessPath;
+        // ProcessPath works for single-file publish; Assembly.Location is empty there (IL3000).
+        var exePath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(exePath))
-            RuntimeBlock.Text = "Runtime path: (unknown — single-file publish?)";
+            exePath = AppContext.BaseDirectory;
+        if (string.IsNullOrWhiteSpace(exePath))
+            RuntimeBlock.Text = "Runtime path: (unknown)";
         else if (File.Exists(exePath))
         {
             var utc = File.GetLastWriteTimeUtc(exePath);
@@ -31,8 +32,17 @@ public partial class AboutWindow : Window
                 $"Last write (UTC): {utc:yyyy-MM-dd HH:mm:ss}\r\n" +
                 "If you do not see new UI (e.g. Maps → Map label), compare this path to your build output folder.";
         }
+        else if (Directory.Exists(exePath))
+        {
+            var utc = Directory.GetLastWriteTimeUtc(exePath);
+            RuntimeBlock.Text =
+                "This window shows which copy of the app is running.\r\n" +
+                $"App folder: {exePath}\r\n" +
+                $"Last write (UTC): {utc:yyyy-MM-dd HH:mm:ss}\r\n" +
+                "If you do not see new UI (e.g. Maps → Map label), compare this path to your build output folder.";
+        }
         else
-            RuntimeBlock.Text = $"Exe path not found on disk: {exePath}";
+            RuntimeBlock.Text = $"Runtime path not found on disk: {exePath}";
     }
 
     private void Ok_Click(object sender, RoutedEventArgs e) => Close();

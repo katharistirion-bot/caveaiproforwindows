@@ -6,6 +6,8 @@
 
 **Πηγή αλήθειας για ZIP maps:** `MapAssetsCollector` (paths μέσα στο `data.json` **του ZIP**), `ZipMapInventoryReader`, `MapAssetOpener`, `PlanMapUnderlayLoader`, `RasterImageDecoder`.
 
+**Πλούσιο survey JSON (AI / QC / strokes):** `DataJsonSurveySchemaV2.md` + `CaveProjectDataJsonEnrichment.kt` — επέκταση `data.json` πέρα από χάρτες· το Windows deserialize-άρει όλα τα νέα πεδία στο `CaveProjectDocument` / `ShotRecord`.
+
 ---
 
 ## 0. Save ZIP — **μόνο το σπήλαιο που είναι ανοιχτό εκείνη τη στιγμή**

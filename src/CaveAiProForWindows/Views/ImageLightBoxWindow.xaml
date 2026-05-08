@@ -1,0 +1,53 @@
+<Window x:Class="CaveAiProForWindows.Views.ImageLightBoxWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Image"
+        WindowStartupLocation="CenterOwner"
+        WindowState="Maximized"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="Black"
+        AllowsTransparency="False"
+        ShowInTaskbar="True"
+        FocusManager.FocusedElement="{Binding ElementName=DismissOverlay}">
+    <Grid x:Name="DismissOverlay"
+          Background="Transparent"
+          MouseLeftButtonDown="OnRootClick"
+          KeyDown="OnKeyDown"
+          Focusable="True">
+        <Image x:Name="LightBoxImage"
+               Stretch="Uniform"
+               RenderOptions.BitmapScalingMode="HighQuality"
+               IsHitTestVisible="False" />
+
+        <Border VerticalAlignment="Top"
+                HorizontalAlignment="Stretch"
+                Padding="12,8"
+                Background="#80000000">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right"
+                        Content="✕  Close"
+                        FontSize="13"
+                        Padding="12,4"
+                        Foreground="White"
+                        Background="Transparent"
+                        BorderBrush="#FFAAAAAA"
+                        BorderThickness="1"
+                        Click="OnCloseClick" />
+                <TextBlock x:Name="CaptionText"
+                           Foreground="White"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+
+        <TextBlock VerticalAlignment="Bottom"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,16"
+                   Foreground="#FFCCCCCC"
+                   FontSize="11"
+                   IsHitTestVisible="False"
+                   Text="Click anywhere or press Esc to close." />
+    </Grid>
+</Window>

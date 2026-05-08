@@ -3,7 +3,10 @@ using System.Text.Json.Serialization;
 
 namespace CaveAiProForWindows.Models;
 
-/// <summary>Subset of Android <c>CaveProject</c> — matches Gson field names in backup ZIP <c>data.json</c>.</summary>
+/// <summary>Plan-frame station position override (metres). Session/editor use; not part of Android export JSON.</summary>
+public readonly record struct PlanStationPositionOverride(float X, float Y, float Z);
+
+/// <summary>Android <c>CaveProject</c> Gson shape for backup <c>data.json</c> — explicit fields preserve 1:1 JSON mapping; overflow still in <see cref="ExtensionData"/>.</summary>
 public sealed class CaveProjectDocument
 {
     [JsonPropertyName("name")]
@@ -18,19 +21,29 @@ public sealed class CaveProjectDocument
     [JsonPropertyName("endTime")]
     public string? EndTime { get; set; }
 
+    /// <summary>Entrance latitude (degrees); Gson may emit a JSON number or a numeric string.</summary>
     [JsonPropertyName("lat")]
-    public string? Lat { get; set; }
+    public double? Lat { get; set; }
 
+    /// <summary>Entrance longitude (degrees).</summary>
     [JsonPropertyName("lon")]
-    public string? Lon { get; set; }
+    public double? Lon { get; set; }
 
     [JsonPropertyName("alt")]
     public double Alt { get; set; }
 
+    [JsonPropertyName("exitLat")]
+    public double? ExitLat { get; set; }
+
+    [JsonPropertyName("exitLon")]
+    public double? ExitLon { get; set; }
+
+    [JsonPropertyName("exitAlt")]
+    public double? ExitAlt { get; set; }
+
     [JsonPropertyName("shots")]
     public List<ShotRecord> Shots { get; set; } = new();
 
-    /// <summary>Android <c>VectorLine</c> (CaveSurveyModels.kt) — plan/section/profile overlays; Gson may use nested arrays or Pair objects.</summary>
     [JsonPropertyName("vectorLines")]
     public JsonElement? VectorLines { get; set; }
 
@@ -40,19 +53,167 @@ public sealed class CaveProjectDocument
     [JsonPropertyName("fieldCatalogEntries")]
     public JsonElement? FieldCatalogEntries { get; set; }
 
+    [JsonPropertyName("sketches")]
+    public JsonElement Sketches { get; set; }
+
+    /// <summary>Alternate plan sketch list (free-hand walls / floor detail) — Gson may use this instead of or in addition to <c>sketches</c>.</summary>
+    [JsonPropertyName("sketchLayer")]
+    public JsonElement SketchLayer { get; set; }
+
+    /// <summary>Mixed plan objects: polyline strokes and/or placed symbols — survey-metre coordinates like <c>sketches</c>.</summary>
+    [JsonPropertyName("mapObjects")]
+    public JsonElement MapObjects { get; set; }
+
+    [JsonPropertyName("sectionSketches")]
+    public JsonElement SectionSketches { get; set; }
+
+    [JsonPropertyName("mapSymbols")]
+    public JsonElement MapSymbols { get; set; }
+
+    [JsonPropertyName("trackPoints")]
+    public JsonElement TrackPoints { get; set; }
+
+    [JsonPropertyName("linkedLibraryCaveId")]
+    public string? LinkedLibraryCaveId { get; set; }
+
+    [JsonPropertyName("surveyEventLog")]
+    public JsonElement SurveyEventLog { get; set; }
+
+    [JsonPropertyName("visitBaselineFingerprintJson")]
+    public string? VisitBaselineFingerprintJson { get; set; }
+
+    [JsonPropertyName("excludeEntranceCoordsFromPublicPublish")]
+    public bool? ExcludeEntranceCoordsFromPublicPublish { get; set; }
+
+    [JsonPropertyName("requireVehicleParkStep")]
+    public bool? RequireVehicleParkStep { get; set; }
+
+    [JsonPropertyName("vehicleParkCoords")]
+    public JsonElement VehicleParkCoords { get; set; }
+
+    [JsonPropertyName("vehicleParkNotes")]
+    public string? VehicleParkNotes { get; set; }
+
+    [JsonPropertyName("surfaceLidarRaster")]
+    public JsonElement SurfaceLidarRaster { get; set; }
+
+    [JsonPropertyName("publicLibraryCartographyUris")]
+    public JsonElement PublicLibraryCartographyUris { get; set; }
+
+    [JsonPropertyName("cartographyTlsMeshObjUri")]
+    public string? CartographyTlsMeshObjUri { get; set; }
+
+    [JsonPropertyName("surveyArchiveSchemaVersion")]
+    public string? SurveyArchiveSchemaVersion { get; set; }
+
+    [JsonPropertyName("surveyArchivedAtMs")]
+    public long? SurveyArchivedAtMs { get; set; }
+
+    [JsonPropertyName("depthSpanAnnotations")]
+    public JsonElement DepthSpanAnnotations { get; set; }
+
+    [JsonPropertyName("brackets")]
+    public JsonElement Brackets { get; set; }
+
+    /// <summary>Schema v2: handset / OS / app build captured at export.</summary>
+    [JsonPropertyName("exportDeviceContext")]
+    public SurveyExportDeviceContext? ExportDeviceContext { get; set; }
+
+    /// <summary>Schema v2: active compass / sensor calibration profile.</summary>
+    [JsonPropertyName("surveyCalibrationProfile")]
+    public SurveyCalibrationProfileSnapshot? SurveyCalibrationProfile { get; set; }
+
+    /// <summary>Schema v2: on-device AI classifications for QC / office pipelines.</summary>
+    [JsonPropertyName("surveyAiClassifications")]
+    public List<SurveyAiClassificationTag> SurveyAiClassifications { get; set; } = new();
+
+    /// <summary>Schema v2: per-station environmental snapshots.</summary>
+    [JsonPropertyName("stationEnvironmentSnapshots")]
+    public List<StationEnvironmentSnapshot> StationEnvironmentSnapshots { get; set; } = new();
+
+    /// <summary>
+    /// Gemini / on-device geology analysis result (free-form text or markdown). Android exporters use a few
+    /// different key names for this — all are mapped here so the offline GEOLOGY tab can render the analysis
+    /// without re-running cloud calls.
+    /// </summary>
+    [JsonPropertyName("geminiGeologyAnalysisText")]
+    public string? GeminiGeologyAnalysisText { get; set; }
+
+    /// <inheritdoc cref="GeminiGeologyAnalysisText"/>
+    [JsonPropertyName("geminiGeologyAnalysis")]
+    public string? GeminiGeologyAnalysis { get; set; }
+
+    /// <inheritdoc cref="GeminiGeologyAnalysisText"/>
+    [JsonPropertyName("geminiAnalysisText")]
+    public string? GeminiAnalysisText { get; set; }
+
+    /// <inheritdoc cref="GeminiGeologyAnalysisText"/>
+    [JsonPropertyName("aiGeologyAnalysisText")]
+    public string? AiGeologyAnalysisText { get; set; }
+
+    /// <inheritdoc cref="GeminiGeologyAnalysisText"/>
+    [JsonPropertyName("cloudGeologyAnalysisText")]
+    public string? CloudGeologyAnalysisText { get; set; }
+
+    /// <summary>Optional raw Gemini geology JSON payload (for forward compatibility with newer exporters).</summary>
+    [JsonPropertyName("geminiGeologyAnalysisJson")]
+    public JsonElement GeminiGeologyAnalysisJson { get; set; }
+
+    /// <summary>
+    /// X-Ray / satellite backdrop image (path inside the ZIP, sibling file, or http(s) URL) captured on Android
+    /// when the user ran the cloud satellite snapshot. The deserializer is case-insensitive, so
+    /// <c>xrayBackdropImageUri</c> and <c>xRayBackdropImageUri</c> both map here.
+    /// </summary>
+    [JsonPropertyName("xrayBackdropImageUri")]
+    public string? XrayBackdropImageUri { get; set; }
+
+    /// <inheritdoc cref="XrayBackdropImageUri"/>
+    [JsonPropertyName("geminiSatelliteImageUri")]
+    public string? GeminiSatelliteImageUri { get; set; }
+
+    /// <inheritdoc cref="XrayBackdropImageUri"/>
+    [JsonPropertyName("satelliteSnapshotImageUri")]
+    public string? SatelliteSnapshotImageUri { get; set; }
+
+    /// <inheritdoc cref="XrayBackdropImageUri"/>
+    [JsonPropertyName("cloudSatelliteSnapshotUri")]
+    public string? CloudSatelliteSnapshotUri { get; set; }
+
+    /// <summary>
+    /// Optional geographic bounding box of <see cref="XrayBackdropImageUri"/> (NE/SW or min/max lat/lon shape, see
+    /// <see cref="XRayBackdropMetadataParser"/>). When present, the offline X-Ray tab geo-aligns the survey so each
+    /// station sits on the correct terrain pixel of the satellite snapshot — exactly like the Android X-Ray.
+    /// </summary>
+    [JsonPropertyName("xrayBackdropImageBounds")]
+    public JsonElement XrayBackdropImageBounds { get; set; }
+
+    /// <summary>
+    /// Optional list of geology / Gemini photo references the Android exporter chose for this project (paths
+    /// inside the ZIP, sibling files, http URLs, or <c>data:image</c> base64). Read alongside <see cref="Rocks"/>.
+    /// </summary>
+    [JsonPropertyName("geminiGeologyPhotoUris")]
+    public List<string>? GeminiGeologyPhotoUris { get; set; }
+
+    /// <inheritdoc cref="GeminiGeologyPhotoUris"/>
+    [JsonPropertyName("aiGeologyPhotoUris")]
+    public List<string>? AiGeologyPhotoUris { get; set; }
+
     public int RocksCount =>
         Rocks is { ValueKind: JsonValueKind.Array } r ? r.GetArrayLength() : 0;
 
     public int FieldCatalogEntryCount =>
         FieldCatalogEntries is { ValueKind: JsonValueKind.Array } arr ? arr.GetArrayLength() : 0;
 
-    /// <summary>All JSON members not mapped above (sketches, mapSymbols, surfaceLidarRaster, library URIs, trackPoints, etc.).</summary>
+    /// <summary>Any Gson members not listed above (forward-compatible with newer Android builds).</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 
-    /// <summary>Set after load when merging multiple files — not part of Gson JSON.</summary>
     [JsonIgnore]
     public string? LoadedFromFile { get; set; }
+
+    [JsonIgnore]
+    public Dictionary<string, PlanStationPositionOverride> PlanStationPositionOverrides { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public override string ToString() => string.IsNullOrWhiteSpace(Date) ? Name : $"{Name}  ({Date})";
 }

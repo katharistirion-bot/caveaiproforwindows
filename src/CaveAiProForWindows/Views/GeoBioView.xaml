@@ -1,0 +1,309 @@
+<UserControl x:Class="CaveAiProForWindows.Views.GeoBioView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource Cave.Background}">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Geo &amp; Bio (offline scientific reader)"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource Cave.Text}" />
+            <TextBlock x:Name="SubtitleText"
+                       FontSize="11.5"
+                       Margin="0,4,0,0"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource Cave.TextMuted}"
+                       Text="Gemini analyses, rock textures, and organism observations bundled by Android — fully offline." />
+        </StackPanel>
+
+        <TabControl Grid.Row="1" Margin="0,10,0,0"
+                    Background="Transparent"
+                    BorderBrush="{DynamicResource Cave.Border}">
+            <TabItem x:Name="GeologyTab" Header="GEOLOGY">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2">
+                    <StackPanel>
+                        <Border x:Name="GlobalAnalysisBorder"
+                                Padding="12"
+                                CornerRadius="8"
+                                Margin="0,0,0,12"
+                                Background="{DynamicResource Cave.Surface}"
+                                BorderBrush="{DynamicResource Cave.Border}"
+                                BorderThickness="1"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Global Gemini analysis"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Cave.Text}"
+                                           Margin="0,0,0,6" />
+                                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                                    <TextBlock x:Name="GlobalAnalysisText"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource Cave.Text}"
+                                               LineHeight="20"
+                                               FontSize="13" />
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
+
+                        <ItemsControl x:Name="GeologyItemsControl">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,12"
+                                            Padding="12"
+                                            Background="{DynamicResource Cave.Surface}"
+                                            BorderBrush="{DynamicResource Cave.Border}"
+                                            BorderThickness="1"
+                                            CornerRadius="8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="220" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0">
+                                                <Image Source="{Binding HeroImage}"
+                                                       Width="200"
+                                                       Height="160"
+                                                       Stretch="UniformToFill"
+                                                       Cursor="Hand"
+                                                       Tag="{Binding}"
+                                                       MouseLeftButtonUp="HeroImage_MouseLeftButtonUp"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                                       Visibility="{Binding HeroImageVisibility}" />
+                                                <Border Width="200" Height="160"
+                                                        Background="{DynamicResource Cave.CanvasBackdrop}"
+                                                        BorderBrush="{DynamicResource Cave.Border}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Visibility="{Binding NoImageVisibility}">
+                                                    <TextBlock Text="(no photo)"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource Cave.TextMuted}" />
+                                                </Border>
+
+                                                <ItemsControl ItemsSource="{Binding ExtraImages}"
+                                                              Margin="0,8,0,0"
+                                                              Visibility="{Binding ExtraImagesVisibility}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Image Source="{Binding Bitmap}"
+                                                                   Width="62" Height="46"
+                                                                   Margin="0,0,4,4"
+                                                                   Stretch="UniformToFill"
+                                                                   Cursor="Hand"
+                                                                   Tag="{Binding}"
+                                                                   MouseLeftButtonUp="ExtraImage_MouseLeftButtonUp"
+                                                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                                                   ToolTip="{Binding Caption}" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                                <TextBlock Text="{Binding Title}"
+                                                           FontSize="15"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Cave.Text}"
+                                                           TextWrapping="Wrap" />
+                                                <WrapPanel Margin="0,4,0,8">
+                                                    <Border Background="{DynamicResource Cave.BannerTint}"
+                                                            CornerRadius="4"
+                                                            Padding="6,2"
+                                                            Margin="0,0,6,0">
+                                                        <TextBlock Text="{Binding CategoryLabel}"
+                                                                   Foreground="{DynamicResource Cave.Text}"
+                                                                   FontSize="11"
+                                                                   FontWeight="SemiBold" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding StationLabel}"
+                                                               Foreground="{DynamicResource Cave.TextMuted}"
+                                                               FontSize="11"
+                                                               VerticalAlignment="Center"
+                                                               Margin="0,0,8,0" />
+                                                    <TextBlock Text="{Binding SourceLabel}"
+                                                               Foreground="{DynamicResource Cave.TextSubdued}"
+                                                               FontSize="11"
+                                                               VerticalAlignment="Center" />
+                                                </WrapPanel>
+
+                                                <ScrollViewer MaxHeight="280"
+                                                              VerticalScrollBarVisibility="Auto"
+                                                              Visibility="{Binding AnalysisVisibility}">
+                                                    <TextBlock Text="{Binding AnalysisText}"
+                                                               FontSize="13"
+                                                               LineHeight="20"
+                                                               Foreground="{DynamicResource Cave.Text}"
+                                                               TextWrapping="Wrap" />
+                                                </ScrollViewer>
+
+                                                <TextBlock Text="{Binding DetailsSummary}"
+                                                           Margin="0,8,0,0"
+                                                           FontSize="11.5"
+                                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding DetailsVisibility}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border x:Name="GeologyEmptyBorder"
+                                Padding="12"
+                                CornerRadius="6"
+                                Background="{DynamicResource Cave.BannerTint}"
+                                BorderBrush="{DynamicResource Cave.Border}"
+                                BorderThickness="1"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="GeologyEmptyText"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource Cave.TextMuted}" />
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem x:Name="BiologyTab" Header="BIOLOGY">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2">
+                    <StackPanel>
+                        <ItemsControl x:Name="BiologyItemsControl">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,12"
+                                            Padding="12"
+                                            Background="{DynamicResource Cave.Surface}"
+                                            BorderBrush="{DynamicResource Cave.Border}"
+                                            BorderThickness="1"
+                                            CornerRadius="8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="220" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0">
+                                                <Image Source="{Binding HeroImage}"
+                                                       Width="200"
+                                                       Height="160"
+                                                       Stretch="UniformToFill"
+                                                       Cursor="Hand"
+                                                       Tag="{Binding}"
+                                                       MouseLeftButtonUp="HeroImage_MouseLeftButtonUp"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                                       Visibility="{Binding HeroImageVisibility}" />
+                                                <Border Width="200" Height="160"
+                                                        Background="{DynamicResource Cave.CanvasBackdrop}"
+                                                        BorderBrush="{DynamicResource Cave.Border}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Visibility="{Binding NoImageVisibility}">
+                                                    <TextBlock Text="(no photo)"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource Cave.TextMuted}" />
+                                                </Border>
+
+                                                <ItemsControl ItemsSource="{Binding ExtraImages}"
+                                                              Margin="0,8,0,0"
+                                                              Visibility="{Binding ExtraImagesVisibility}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Image Source="{Binding Bitmap}"
+                                                                   Width="62" Height="46"
+                                                                   Margin="0,0,4,4"
+                                                                   Stretch="UniformToFill"
+                                                                   Cursor="Hand"
+                                                                   Tag="{Binding}"
+                                                                   MouseLeftButtonUp="ExtraImage_MouseLeftButtonUp"
+                                                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                                                   ToolTip="{Binding Caption}" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                                <TextBlock Text="{Binding Title}"
+                                                           FontSize="15"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Cave.Text}"
+                                                           TextWrapping="Wrap" />
+                                                <WrapPanel Margin="0,4,0,8">
+                                                    <Border Background="{DynamicResource Cave.BannerTint}"
+                                                            CornerRadius="4"
+                                                            Padding="6,2"
+                                                            Margin="0,0,6,0">
+                                                        <TextBlock Text="{Binding CategoryLabel}"
+                                                                   Foreground="{DynamicResource Cave.Text}"
+                                                                   FontSize="11"
+                                                                   FontWeight="SemiBold" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding StationLabel}"
+                                                               Foreground="{DynamicResource Cave.TextMuted}"
+                                                               FontSize="11"
+                                                               VerticalAlignment="Center"
+                                                               Margin="0,0,8,0" />
+                                                    <TextBlock Text="{Binding SourceLabel}"
+                                                               Foreground="{DynamicResource Cave.TextSubdued}"
+                                                               FontSize="11"
+                                                               VerticalAlignment="Center" />
+                                                </WrapPanel>
+
+                                                <ScrollViewer MaxHeight="280"
+                                                              VerticalScrollBarVisibility="Auto"
+                                                              Visibility="{Binding AnalysisVisibility}">
+                                                    <TextBlock Text="{Binding AnalysisText}"
+                                                               FontSize="13"
+                                                               LineHeight="20"
+                                                               Foreground="{DynamicResource Cave.Text}"
+                                                               TextWrapping="Wrap" />
+                                                </ScrollViewer>
+
+                                                <TextBlock Text="{Binding DetailsSummary}"
+                                                           Margin="0,8,0,0"
+                                                           FontSize="11.5"
+                                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding DetailsVisibility}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border x:Name="BiologyEmptyBorder"
+                                Padding="12"
+                                CornerRadius="6"
+                                Background="{DynamicResource Cave.BannerTint}"
+                                BorderBrush="{DynamicResource Cave.Border}"
+                                BorderThickness="1"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="BiologyEmptyText"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource Cave.TextMuted}" />
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

@@ -15,6 +15,8 @@ public static class MapAssetsCollector
     {
         "mapSymbols",
         "sketches",
+        "sketchLayer",
+        "mapObjects",
         "sectionSketches",
         "trackPoints",
     };
@@ -27,6 +29,8 @@ public static class MapAssetsCollector
         "surfaceLidarRaster",
         "mapSymbols",
         "sketches",
+        "sketchLayer",
+        "mapObjects",
         "sectionSketches",
         "trackPoints",
     };
@@ -56,9 +60,36 @@ public static class MapAssetsCollector
                 rows.Add(new MapAssetRow(cave, category, v, src));
             }
 
+            if (p.PublicLibraryCartographyUris.ValueKind == JsonValueKind.Array)
+            {
+                var i = 0;
+                foreach (var el in p.PublicLibraryCartographyUris.EnumerateArray())
+                {
+                    var s = JsonString(el);
+                    if (!string.IsNullOrEmpty(s))
+                        Add($"publicLibraryCartographyUris[{i}]", s);
+                    i++;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(p.CartographyTlsMeshObjUri))
+                Add("cartographyTlsMeshObjUri", p.CartographyTlsMeshObjUri.Trim());
+
+            if (p.SurfaceLidarRaster.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+                CollectFromJsonValue(rows, seen, cave, src, "surfaceLidarRaster", p.SurfaceLidarRaster, 0);
+
+            foreach (var key in DeepHarvestRootKeys)
+            {
+                var root = KeyedJsonRoot(p, key);
+                if (root.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+                    continue;
+                HarvestAssetStrings(rows, seen, cave, src, key, root, "", 0, 12);
+            }
+
             if (p.ExtensionData != null)
             {
-                if (p.ExtensionData.TryGetValue("publicLibraryCartographyUris", out var libCart) &&
+                if (p.PublicLibraryCartographyUris.ValueKind != JsonValueKind.Array &&
+                    p.ExtensionData.TryGetValue("publicLibraryCartographyUris", out var libCart) &&
                     libCart.ValueKind == JsonValueKind.Array)
                 {
                     var i = 0;
@@ -71,10 +102,12 @@ public static class MapAssetsCollector
                     }
                 }
 
-                if (p.ExtensionData.TryGetValue("cartographyTlsMeshObjUri", out var mesh) && mesh.ValueKind == JsonValueKind.String)
+                if (string.IsNullOrWhiteSpace(p.CartographyTlsMeshObjUri) &&
+                    p.ExtensionData.TryGetValue("cartographyTlsMeshObjUri", out var mesh) && mesh.ValueKind == JsonValueKind.String)
                     Add("cartographyTlsMeshObjUri", mesh.GetString());
 
-                if (p.ExtensionData.TryGetValue("surfaceLidarRaster", out var slr))
+                if (p.SurfaceLidarRaster.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array) &&
+                    p.ExtensionData.TryGetValue("surfaceLidarRaster", out var slr))
                     CollectFromJsonValue(rows, seen, cave, src, "surfaceLidarRaster", slr, 0);
 
                 foreach (var kv in p.ExtensionData)
@@ -89,6 +122,8 @@ public static class MapAssetsCollector
 
                 foreach (var key in DeepHarvestRootKeys)
                 {
+                    if (KeyedJsonRoot(p, key).ValueKind is not (JsonValueKind.Undefined or JsonValueKind.Null))
+                        continue;
                     if (!p.ExtensionData.TryGetValue(key, out var root))
                         continue;
                     HarvestAssetStrings(rows, seen, cave, src, key, root, "", 0, 12);
@@ -391,4 +426,16 @@ public static class MapAssetsCollector
 
     private static string? JsonString(JsonElement el) =>
         el.ValueKind == JsonValueKind.String ? el.GetString() : null;
+
+    private static JsonElement KeyedJsonRoot(CaveProjectDocument p, string key) =>
+        key switch
+        {
+            "mapSymbols" => p.MapSymbols,
+            "sketches" => p.Sketches,
+            "sketchLayer" => p.SketchLayer,
+            "mapObjects" => p.MapObjects,
+            "sectionSketches" => p.SectionSketches,
+            "trackPoints" => p.TrackPoints,
+            _ => default,
+        };
 }

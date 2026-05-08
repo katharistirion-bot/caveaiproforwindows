@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Serialization;
 
 namespace CaveAiProForWindows.Services;
 
@@ -18,7 +19,9 @@ public static class ExplorationDataLoader
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
-        NumberHandling = JsonNumberHandling.AllowReadingFromString,
+        NumberHandling =
+            JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString,
+        Converters = { new FlexibleDoubleConverter(), new FlexibleStringConverter() },
     };
 
     /// <summary>Preferred ZIP entry names for the Gson project list (first match wins).</summary>
@@ -198,7 +201,11 @@ public static class ExplorationDataLoader
         if (list == null)
             return new List<CaveProjectDocument>();
         foreach (var p in list)
+        {
             ShotImportNormalizer.NormalizeProjectShots(p);
+            ImportedStationCoordinatesBootstrap.TryApply(p);
+        }
+
         return list;
     }
 }

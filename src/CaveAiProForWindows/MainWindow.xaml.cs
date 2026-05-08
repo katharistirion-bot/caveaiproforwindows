@@ -1,10 +1,13 @@
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Win32;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.ViewModels;
+using CaveAiProForWindows.Views;
 
 namespace CaveAiProForWindows;
 
@@ -25,11 +28,133 @@ public partial class MainWindow : Window
 
         Loaded += (_, _) => WindowPlacementStore.ApplyTo(this);
         Closing += (_, _) => WindowPlacementStore.SaveFrom(this);
+        PreviewKeyDown += OnMainWindowPreviewKeyDown;
         App.WriteStartupLog("MainWindow constructed and Loaded wiring attached");
+    }
+
+    private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)
+    {
+        while (child != null)
+        {
+            if (ReferenceEquals(child, ancestor))
+                return true;
+            child = VisualTreeHelper.GetParent(child);
+        }
+
+        return false;
+    }
+
+    private bool IsKeyboardFocusWithinSurveyTabs() =>
+        MainSurveyTabControl != null &&
+        Keyboard.FocusedElement is DependencyObject dep &&
+        IsDescendantOf(dep, MainSurveyTabControl);
+
+    private static bool IsTextInputFocused() =>
+        Keyboard.FocusedElement is TextBoxBase;
+
+    private IMapSurfaceShortcuts? TryResolveFocusedMapSurface()
+    {
+        if (Keyboard.FocusedElement is not DependencyObject dep)
+            return null;
+        for (var o = dep; o != null; o = VisualTreeHelper.GetParent(o))
+        {
+            if (o is PlanView pv && pv.VisualizationMode != SurveyVisualizationMode.Pseudo3D)
+                return pv;
+            if (o is SketchEditorView sk)
+                return sk;
+            if (o is SectionView sec)
+                return sec;
+        }
+
+        return null;
+    }
+
+    private void OnMainWindowPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (!IsKeyboardFocusWithinSurveyTabs())
+            return;
+
+        if (e.Key == Key.Escape)
+        {
+            if (IsTextInputFocused())
+                return;
+            var surfaceEsc = TryResolveFocusedMapSurface();
+            if (surfaceEsc == null)
+                return;
+            surfaceEsc.ClearMapSelectionAndRedraw();
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers != ModifierKeys.Control)
+            return;
+        if (IsTextInputFocused())
+            return;
+
+        var surface = TryResolveFocusedMapSurface();
+        if (surface == null)
+            return;
+
+        switch (e.Key)
+        {
+            case Key.D1:
+            case Key.NumPad1:
+                surface.ApplyMapEditorTool(MapCanvasEditorTool.PanZoom);
+                e.Handled = true;
+                break;
+            case Key.D2:
+            case Key.NumPad2:
+                surface.ApplyMapEditorTool(MapCanvasEditorTool.Select);
+                e.Handled = true;
+                break;
+            case Key.D3:
+            case Key.NumPad3:
+                surface.ApplyMapEditorTool(MapCanvasEditorTool.DrawFreehand);
+                e.Handled = true;
+                break;
+            case Key.D4:
+            case Key.NumPad4:
+                surface.ApplyMapEditorTool(MapCanvasEditorTool.PlaceSymbol);
+                e.Handled = true;
+                break;
+            case Key.D0:
+            case Key.NumPad0:
+                surface.ResetMapView();
+                e.Handled = true;
+                break;
+            case Key.Add:
+            case Key.OemPlus:
+                surface.MapZoomIn();
+                e.Handled = true;
+                break;
+            case Key.Subtract:
+            case Key.OemMinus:
+                surface.MapZoomOut();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private void IntegrityBanner_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (IntegrityTabItem != null)
+            IntegrityTabItem.IsSelected = true;
     }
 
     private void OpenDataInspector_Click(object sender, RoutedEventArgs e)
     {
+        if (DataContext is MainViewModel vm && !vm.LegalTermsAccepted)
+        {
+            MessageBox.Show(
+                this,
+                "Please open the LEGAL & SETTINGS tab and accept the terms and conditions before using the Data & backup inspector.",
+                "Terms required",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            SelectLegalSettingsTab();
+            return;
+        }
+
         var w = new DataInspectorWindow
         {
             Owner = this,
@@ -37,6 +162,14 @@ public partial class MainWindow : Window
         };
         w.Show();
     }
+
+    private void SelectLegalSettingsTab()
+    {
+        if (LegalSettingsTabItem != null)
+            LegalSettingsTabItem.IsSelected = true;
+    }
+
+    private void LegalRequiredOverlay_GoToLegal_Click(object sender, RoutedEventArgs e) => SelectLegalSettingsTab();
 
     private static bool IsSurveyBackupFile(string path)
     {
@@ -91,6 +224,18 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm)
             return;
+        if (!vm.LegalTermsAccepted)
+        {
+            MessageBox.Show(
+                this,
+                "Please open the LEGAL & SETTINGS tab and accept the terms and conditions before exporting.",
+                "Terms required",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            SelectLegalSettingsTab();
+            return;
+        }
+
         var project = vm.SelectedProject;
         if (project == null)
         {

@@ -13,7 +13,7 @@ public static class ExtendedElevationSceneBuilder
 {
     public static PlanScene? TryBuild(CaveProjectDocument p, SurveyVisualizationMode visualization)
     {
-        var planCoords = SurveyStationGeometry.CalculatePlanCoordinates(p.Shots, (float)p.Alt);
+        var planCoords = SurveyStationGeometry.CalculatePlanCoordinates(p);
         if (planCoords.Count == 0)
             return null;
 
@@ -38,7 +38,7 @@ public static class ExtendedElevationSceneBuilder
         var traverseLegs = p.Shots.Where(s => s.IsTraverseLeg).ToList();
 
         var wallPolys = new List<SurveyStationGeometry.PlanVectorPolyline>();
-        foreach (var sk in SurveyStationGeometry.ParseSectionSketchesForSectionView(p.ExtensionData))
+        foreach (var sk in SurveyStationGeometry.ParseSectionSketchesForSectionView(p))
         {
             var t = TransformPolylinePlanToElevation(sk, traverseLegs, planCoords, chainage);
             if (t != null)
@@ -56,7 +56,7 @@ public static class ExtendedElevationSceneBuilder
         }
 
         if (!visualization.ShowSplayXRayGeometry())
-            wallPolys.AddRange(SurveyLrudWallGeometry.BuildLongProfileLrudQuads(p.Shots, elev));
+            wallPolys.AddRange(SurveyLrudWallGeometry.BuildLongProfileLrudRibbonPolylines(p.Shots, elev));
 
         var splaySegs = new List<(float x1, float y1, float x2, float y2)>();
         if (visualization == SurveyVisualizationMode.Plan2Tone)
@@ -142,6 +142,10 @@ public static class ExtendedElevationSceneBuilder
             Consider(x2, y2);
         }
 
+        var sectionSymbols = ProjectPlanSymbolsToProfile(p, traverseLegs, planCoords, chainage);
+        foreach (var sym in sectionSymbols)
+            Consider(sym.X, sym.Y);
+
         if (!has)
             return null;
 
@@ -176,10 +180,46 @@ public static class ExtendedElevationSceneBuilder
             TraverseSegments = segs,
             WallPolylines = wallPolys,
             VectorPolylines = vectorPolys,
-            Symbols = Array.Empty<SurveyStationGeometry.PlanMapSymbol>(),
+            Symbols = sectionSymbols,
             StationAttachedImages = stationAttached,
             SplaySegments = splaySegs,
         };
+    }
+
+    /// <summary>
+    /// Maps Android plan-frame symbol stamps into extended-elevation (chainage × Z) using the same edge-projection as wall strokes.
+    /// </summary>
+    private static IReadOnlyList<SurveyStationGeometry.PlanMapSymbol> ProjectPlanSymbolsToProfile(
+        CaveProjectDocument p,
+        IReadOnlyList<ShotRecord> traverseLegs,
+        IReadOnlyDictionary<string, StationCoords> planCoords,
+        IReadOnlyDictionary<string, float> chainage)
+    {
+        var list = new List<SurveyStationGeometry.PlanMapSymbol>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        void TryAdd(SurveyStationGeometry.PlanMapSymbol sym)
+        {
+            var key = $"{sym.SymbolId ?? sym.Label ?? sym.IconKey ?? ""}\u001f{sym.X:G9}\u001f{sym.Y:G9}";
+            if (!seen.Add(key))
+                return;
+            if (!TryProjectPlanXYToChainageZ(
+                    sym.X,
+                    sym.Y,
+                    traverseLegs,
+                    planCoords,
+                    chainage,
+                    out var s,
+                    out var z))
+                return;
+            list.Add(sym with { X = s, Y = z });
+        }
+
+        foreach (var sym in SurveyStationGeometry.ParsePlanMapSymbols(p))
+            TryAdd(sym);
+        foreach (var sym in SurveyStationGeometry.ParseSectionMapSymbols(p))
+            TryAdd(sym);
+
+        return list;
     }
 
     /// <summary>Project a plan-metre sketch/vector polyline into (chainage, Z) by snapping each vertex to the nearest traverse leg in plan.</summary>
@@ -198,7 +238,7 @@ public static class ExtendedElevationSceneBuilder
 
         if (pts.Count < 2)
             return null;
-        return new SurveyStationGeometry.PlanVectorPolyline(pl.Type, pts, pl.Closed);
+        return new SurveyStationGeometry.PlanVectorPolyline(pl.Type, pts, pl.Closed, pl.PreferSharpPolyline);
     }
 
     /// <summary>Closest point on traverse legs in plan (X,Y); chainage and Z are linearly interpolated along that leg.</summary>

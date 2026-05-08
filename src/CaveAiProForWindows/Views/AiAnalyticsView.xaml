@@ -1,0 +1,160 @@
+<UserControl x:Class="CaveAiProForWindows.Views.AiAnalyticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource Cave.Background}"
+             VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+    <UserControl.Resources>
+        <Style x:Key="AiResultsCellText" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Padding" Value="4,2" />
+        </Style>
+    </UserControl.Resources>
+    <Grid x:Name="RootInteractionGrid" Margin="0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300" MinWidth="260" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="*" MinWidth="280" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left: control panel -->
+        <Border Grid.Column="0" Padding="14,16" CornerRadius="10" Margin="10,10,0,10"
+                Background="{DynamicResource Cave.Surface}"
+                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Text="AI workspace" FontSize="16" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,4" />
+                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="11.5" Margin="0,0,0,14"
+                           Foreground="{DynamicResource Cave.TextMuted}"
+                           Text="Select an offline analysis engine, then run. All stages execute on this PC using local C# math and geometry — no internet, no API keys, no cloud LLMs." />
+
+                <TextBlock DockPanel.Dock="Top" Text="Analysis model" FontWeight="SemiBold" FontSize="12.5"
+                           Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
+                <ListBox x:Name="ModelListBox" DockPanel.Dock="Top" Margin="0,0,0,16"
+                         BorderThickness="0" Background="Transparent"
+                         SelectionMode="Single"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.Resources>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="10,10" />
+                            <Setter Property="Margin" Value="0,0,0,8" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Background" Value="{DynamicResource Cave.CanvasBackdrop}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource Cave.Border}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Cave.ListItemSelected}" />
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Cave.Accent}" />
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Cave.ListItemHover}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.Resources>
+                    <ListBoxItem Tag="Qc" IsSelected="True">
+                        <StackPanel>
+                            <TextBlock Text="QC Anomaly Detection" FontWeight="SemiBold" FontSize="13"
+                                       Foreground="{DynamicResource Cave.Text}" />
+                            <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5"
+                                       Foreground="{DynamicResource Cave.TextMuted}"
+                                       Text="Local statistics: standard deviation, variance thresholds, traverse loop closure." />
+                        </StackPanel>
+                    </ListBoxItem>
+                    <ListBoxItem Tag="Volume">
+                        <StackPanel>
+                            <TextBlock Text="Volumetric AI Estimation" FontWeight="SemiBold" FontSize="13"
+                                       Foreground="{DynamicResource Cave.Text}" />
+                            <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5"
+                                       Foreground="{DynamicResource Cave.TextMuted}"
+                                       Text="Local 3D geometry: LRUD cross-section polygons, hulls, and void integration." />
+                        </StackPanel>
+                    </ListBoxItem>
+                    <ListBoxItem Tag="Lead">
+                        <StackPanel>
+                            <TextBlock Text="Lead Prediction" FontWeight="SemiBold" FontSize="13"
+                                       Foreground="{DynamicResource Cave.Text}" />
+                            <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5"
+                                       Foreground="{DynamicResource Cave.TextMuted}"
+                                       Text="Local vectors: extrapolation from open-ended stations on the traverse graph." />
+                        </StackPanel>
+                    </ListBoxItem>
+                </ListBox>
+
+                <Button x:Name="RunAnalysisButton" DockPanel.Dock="Top" Content="Run local analysis"
+                        Style="{StaticResource Cave.AccentButton}" Padding="14,10" Margin="0,0,0,10"
+                        FontSize="13" FontWeight="SemiBold" Click="RunAnalysisButton_Click" />
+
+                <ProgressBar x:Name="AnalysisProgressBar" DockPanel.Dock="Top" Height="6" Margin="0,0,0,8"
+                             IsIndeterminate="True" Visibility="Collapsed"
+                             Foreground="{DynamicResource Cave.Accent}"
+                             Background="{DynamicResource Cave.CanvasBackdrop}" />
+
+                <TextBlock x:Name="AnalysisStatusText" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource Cave.TextSubdued}" Text="Ready — select an engine and run (100% offline)." />
+
+                <Border DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="0,16,0,0"
+                        Padding="10,8" CornerRadius="6"
+                        Background="{DynamicResource Cave.BannerTint}" BorderBrush="{DynamicResource Cave.Border}"
+                        BorderThickness="1">
+                    <TextBlock TextWrapping="Wrap" FontSize="11"
+                               Foreground="{DynamicResource Cave.TextMuted}"
+                               Text="All metrics are computed locally from the loaded project; nothing is sent over the network." />
+                </Border>
+            </DockPanel>
+        </Border>
+
+        <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch"
+                      Style="{StaticResource Cave.GridSplitterVertical}" />
+
+        <!-- Right: results -->
+        <Border Grid.Column="2" Margin="0,10,10,10" Padding="0" CornerRadius="10"
+                Background="{DynamicResource Cave.Surface}"
+                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Text="Results" FontSize="15" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Cave.Text}" Margin="16,14,16,8" />
+                <TextBlock x:Name="ResultsSummaryText" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource Cave.TextMuted}" Margin="16,0,16,8" />
+                <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource Cave.Border}" Margin="16,0,16,0" />
+                <DataGrid x:Name="ResultsDataGrid"
+                          Margin="12,10,16,16"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          Background="{DynamicResource Cave.Surface}"
+                          Foreground="{DynamicResource Cave.Text}"
+                          BorderThickness="0"
+                          RowBackground="{DynamicResource Cave.DataGridRow}"
+                          AlternatingRowBackground="{DynamicResource Cave.DataGridRowAlt}"
+                          VerticalAlignment="Stretch"
+                          MinHeight="160">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Metric" Binding="{Binding Metric}" Width="*"
+                                            MinWidth="140" ElementStyle="{StaticResource AiResultsCellText}" />
+                        <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="2*"
+                                            MinWidth="200" ElementStyle="{StaticResource AiResultsCellText}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

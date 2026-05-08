@@ -63,6 +63,52 @@ public static class ShotImportNormalizer
         }
 
         TryPullRadialsFromExtension(s);
+        TryPullAzimuthClinoFromExtension(s);
+    }
+
+    /// <summary>Some Gson exports nest azimuth/clino under a single object instead of top-level fields.</summary>
+    private static void TryPullAzimuthClinoFromExtension(ShotRecord s)
+    {
+        if (s.ExtensionData == null)
+            return;
+        foreach (var wrapKey in new[] { "angles", "orientation", "direction", "compass", "bearing" })
+        {
+            if (!s.ExtensionData.TryGetValue(wrapKey, out var wrap) || wrap.ValueKind != JsonValueKind.Object)
+                continue;
+            var wrote = false;
+            if (TryReadFirstFloatAnyMagnitude(wrap, out var az, "azimuth", "az", "bearing", "heading", "deg"))
+            {
+                s.Azimuth = az;
+                wrote = true;
+            }
+
+            if (TryReadFirstFloatAnyMagnitude(wrap, out var cl, "clino", "inclination", "dip", "slope"))
+            {
+                s.Clino = cl;
+                wrote = true;
+            }
+
+            if (wrote)
+                return;
+        }
+    }
+
+    /// <summary>Like <see cref="TryFirstFloat"/> but allows zero (needed for compass angles).</summary>
+    private static bool TryReadFirstFloatAnyMagnitude(JsonElement obj, out float value, params string[] names)
+    {
+        foreach (var n in names)
+        {
+            if (!obj.TryGetProperty(n, out var el))
+                continue;
+            if (TryGetFloat(el, out var v))
+            {
+                value = v;
+                return true;
+            }
+        }
+
+        value = 0;
+        return false;
     }
 
     private static bool LrudAllSmall(ShotRecord s) =>

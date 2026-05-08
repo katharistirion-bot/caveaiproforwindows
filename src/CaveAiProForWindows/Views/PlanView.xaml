@@ -2,8 +2,10 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Name="Root"
-             Background="{DynamicResource Cave.Background}">
-    <Grid Margin="0">
+             Background="{DynamicResource Cave.Background}"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+    <Grid Margin="0" VerticalAlignment="Stretch">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="320" />
@@ -19,14 +21,20 @@
                         Click="PrintPlan_Click" />
                 <CheckBox x:Name="PrintHiContrastCheck" VerticalAlignment="Center" Margin="12,0,8,0"
                           Content="High-contrast print" ToolTip="Black/white for printer" />
-                <CheckBox x:Name="StationNamesCheck" VerticalAlignment="Center" Margin="12,0,8,0"
-                          Content="Station names" ToolTip="Label each traverse station (Compass / Walls–style)"
-                          Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed" />
-                <CheckBox x:Name="CartographyOverlayCheck" VerticalAlignment="Center" Margin="12,0,8,0"
-                          Content="Scale &amp; +Y" IsChecked="True" ToolTip="Graphic scale bar and survey +Y direction"
-                          Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed" />
-                <Button Content="Reset view" Padding="10,6" Margin="12,0,0,0"
-                        ToolTip="Reset zoom/pan and refit vectors to the canvas"
+                <Button Content="Export _PNG…" Padding="10,6" Margin="8,0,0,0"
+                        ToolTip="Save full survey bounds as a high-resolution PNG (~300 DPI, CAD-friendly)"
+                        Click="ExportPlanPng_Click" />
+                <Button Content="Export _SVG (vector)…" Padding="10,6" Margin="8,0,0,0"
+                        ToolTip="Export traverse, walls, vectors, and stations as scalable SVG for CAD"
+                        Click="ExportPlanSvg_Click" />
+                <Button Content="Zoom _out" Padding="10,6" Margin="12,0,0,0"
+                        ToolTip="Zoom out (mouse wheel down toward cursor, or Ctrl+wheel)"
+                        Click="ZoomOut_Click" />
+                <Button Content="Zoom _in" Padding="10,6" Margin="8,0,0,0"
+                        ToolTip="Zoom in (mouse wheel up toward cursor, or Ctrl+wheel)"
+                        Click="ZoomIn_Click" />
+                <Button Content="Reset view" Padding="10,6" Margin="8,0,0,0"
+                        ToolTip="Reset zoom/pan (double-click map in Pan mode)"
                         Click="ResetView_Click" />
             </StackPanel>
         </DockPanel>
@@ -35,39 +43,294 @@
                 Background="{DynamicResource Cave.CanvasBackdrop}" CornerRadius="4"
                 VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
             <Grid>
-                <!-- 3D MODEL tab: lit solid LRUD tube (Viewport3D). Other tabs: 2D plan canvas. -->
-                <Border x:Name="HostViewportShell" Visibility="Collapsed" Background="#FF131418"
-                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                    <Grid>
-                        <Viewport3D x:Name="HostViewport3D" ClipToBounds="True"
-                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                        <TextBlock x:Name="Viewport3DMessage" Visibility="Collapsed" TextWrapping="Wrap" MaxWidth="520"
-                                   FontSize="14" TextAlignment="Center" VerticalAlignment="Center"
-                                   HorizontalAlignment="Center" Margin="24"
-                                   Foreground="#FFE8E6E2" />
-                    </Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" MinWidth="180" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border x:Name="EditorToolsPanel" Grid.Column="0" Margin="0,0,10,0" Padding="0" CornerRadius="6"
+                        BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                        Background="{DynamicResource Cave.Surface}"
+                        VerticalAlignment="Stretch">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="5">
+                            <TextBlock Text="Drawing mode" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                       Foreground="{DynamicResource Cave.Text}"
+                                       Margin="0,0,0,8" />
+                            <RadioButton x:Name="EditorToolPan" GroupName="PlanMapEditorTools" Margin="0,0,0,6"
+                                         IsChecked="True"
+                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                         Content="Pan / zoom" Checked="EditorToolPan_Checked"
+                                         Foreground="{DynamicResource Cave.Text}" />
+                            <RadioButton x:Name="EditorToolSelect" GroupName="PlanMapEditorTools" Margin="0,0,0,6"
+                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                         Content="Select" Checked="EditorToolSelect_Checked"
+                                         Foreground="{DynamicResource Cave.Text}" />
+                            <RadioButton x:Name="EditorToolDraw" GroupName="PlanMapEditorTools" Margin="0,0,0,6"
+                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                         Content="Draw" Checked="EditorToolDraw_Checked"
+                                         Foreground="{DynamicResource Cave.Text}" />
+                            <RadioButton x:Name="EditorToolSymbol" GroupName="PlanMapEditorTools" Margin="0,0,0,10"
+                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                         Content="Symbol" Checked="EditorToolSymbol_Checked"
+                                         Foreground="{DynamicResource Cave.Text}" />
+
+                            <Separator Margin="0,0,0,10" />
+
+                            <TextBlock Text="Sketch symbols" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                       Foreground="{DynamicResource Cave.Text}"
+                                       Margin="0,0,0,8" />
+
+                            <Border x:Name="SymbolPaletteRoot" IsEnabled="False" Padding="6"
+                                    BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" CornerRadius="4"
+                                    Background="{DynamicResource Cave.CanvasBackdrop}">
+                                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <ToggleButton x:Name="SymbolPaletteRock" Width="44" Height="40" Margin="0,0,6,6"
+                                                  ToolTip="Rock / block" Padding="4" Background="Transparent"
+                                                  BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                                  Checked="SymbolPalette_Checked"
+                                                  Content="{DynamicResource SketchGlyphRock}" />
+                                    <ToggleButton x:Name="SymbolPaletteWater" Width="44" Height="40" Margin="0,0,6,6"
+                                                  ToolTip="Water / pool" Padding="4" Background="Transparent"
+                                                  BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                                  Checked="SymbolPalette_Checked"
+                                                  Content="{DynamicResource SketchGlyphWater}" />
+                                    <ToggleButton x:Name="SymbolPaletteSpele" Width="44" Height="40" Margin="0,0,0,6"
+                                                  ToolTip="Stalactite / speleothem" Padding="4" Background="Transparent"
+                                                  BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                                  Checked="SymbolPalette_Checked"
+                                                  Content="{DynamicResource SketchGlyphSpele}" />
+                                </WrapPanel>
+                            </Border>
+
+                            <TextBlock Margin="0,8,0,10" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                       Foreground="{DynamicResource Cave.TextMuted}"
+                                       Text="Select mode: click a station marker (or traverse leg); click empty map to collapse this panel · Esc restores overview · Ctrl+1 Pan · 2 Select · 3 Draw · 4 Symbol · 0 reset · +/− zoom. Wheel zoom (cursor) · left/middle-drag pan · double-click map: reset view." />
+
+                            <Separator Margin="0,0,0,10" />
+
+                            <TextBlock Text="Map cartography style" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                       Foreground="{DynamicResource Cave.Text}"
+                                       Margin="0,0,0,8" />
+                            <ComboBox x:Name="CartographicIntensityCombo" Margin="0,0,0,10"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      SelectionChanged="CartographicIntensityCombo_SelectionChanged"
+                                      ToolTip="Subtle: lighter grid &amp; shadow · Balanced · Rich: stronger sketch depth (saved for all map tabs)">
+                                <ComboBoxItem Content="Subtle" Tag="Subtle" />
+                                <ComboBoxItem Content="Balanced" Tag="Balanced" />
+                                <ComboBoxItem Content="Rich" Tag="Rich" />
+                            </ComboBox>
+
+                            <TextBlock Text="Plan display" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                       Foreground="{DynamicResource Cave.Text}"
+                                       Margin="0,0,0,8" />
+                            <CheckBox x:Name="StationNamesCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      Content="Station names" ToolTip="Label each traverse station"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="StationZDepthCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      Content="Show Z (elevation)" ToolTip="Plan-frame Z (m) beside each station"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="CartographyOverlayCheck" Margin="0,0,0,0"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Scale bar &amp; survey compass"
+                                      ToolTip="Scale bar and compass rose (bottom-right of map)"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                        </StackPanel>
+                    </ScrollViewer>
                 </Border>
-                <ScrollViewer x:Name="HostScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                              VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
-                              PreviewMouseWheel="HostScroll_PreviewMouseWheel">
-                    <Canvas x:Name="DrawingCanvas" Width="960" Height="640" ClipToBounds="True"
-                            PreviewMouseDown="DrawingCanvas_PreviewMouseDown"
-                            PreviewMouseMove="DrawingCanvas_PreviewMouseMove"
-                            PreviewMouseUp="DrawingCanvas_PreviewMouseUp"
-                            MouseLeave="DrawingCanvas_MouseLeave">
-                        <Canvas.RenderTransform>
-                            <TransformGroup>
-                                <ScaleTransform x:Name="ZoomScale" ScaleX="1" ScaleY="1" CenterX="480" CenterY="320" />
-                                <TranslateTransform x:Name="ZoomPan" X="0" Y="0" />
-                            </TransformGroup>
-                        </Canvas.RenderTransform>
-                    </Canvas>
-                </ScrollViewer>
+
+                <Grid Grid.Column="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="200" />
+                        <ColumnDefinition x:Name="SurveyDetailsColumn" Width="250" MinWidth="230" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid x:Name="MapHostGrid" Grid.Column="0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                          SizeChanged="MapHostGrid_SizeChanged">
+                        <Image Panel.ZIndex="-1"
+                               Width="920" Height="920"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Stretch="Uniform"
+                               Opacity="0.05"
+                               IsHitTestVisible="False"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               Source="pack://application:,,,/Assets/ic_launcher_logo.png" />
+                        <Border x:Name="HostViewportShell" Visibility="Collapsed" Background="#FF131418"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <Grid>
+                                <Viewport3D x:Name="HostViewport3D" ClipToBounds="True"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                                <TextBlock x:Name="Viewport3DMessage" Visibility="Collapsed" TextWrapping="Wrap"
+                                           MaxWidth="520"
+                                           FontSize="14" TextAlignment="Center" VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" Margin="24"
+                                           Foreground="#FFE8E6E2" />
+                            </Grid>
+                        </Border>
+                        <ScrollViewer x:Name="HostScroll" HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto"
+                                      VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                                      Background="Transparent"
+                                      PreviewMouseWheel="HostScroll_PreviewMouseWheel">
+                            <Grid x:Name="MapZoomRoot" MinWidth="200" MinHeight="200" Width="960" Height="640"
+                                  ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Grid.RenderTransform>
+                                    <TransformGroup>
+                                        <ScaleTransform x:Name="ZoomScale" ScaleX="1" ScaleY="1" CenterX="480"
+                                                        CenterY="320" />
+                                        <TranslateTransform x:Name="ZoomPan" X="0" Y="0" />
+                                    </TransformGroup>
+                                </Grid.RenderTransform>
+                                <Canvas x:Name="SurveyCanvas" Width="960" Height="640" ClipToBounds="True"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                        IsHitTestVisible="False" />
+                                <Canvas x:Name="DesignLayer" Width="960" Height="640" ClipToBounds="True"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                        Background="Transparent"
+                                        MouseLeftButtonDown="DesignLayer_MouseLeftButtonDown"
+                                        MouseMove="DesignLayer_MouseMove"
+                                        MouseLeftButtonUp="DesignLayer_MouseLeftButtonUp"
+                                        MouseDown="DesignLayer_MouseDown"
+                                        MouseUp="DesignLayer_MouseUp"
+                                        MouseLeave="DesignLayer_MouseLeave" />
+                            </Grid>
+                        </ScrollViewer>
+                        <Border x:Name="SurveyHudPanel" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Margin="12,12,16,12"
+                                Panel.ZIndex="8" Padding="12,10" CornerRadius="6" MaxWidth="280" IsHitTestVisible="False"
+                                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                Background="{DynamicResource Cave.Surface}" Opacity="0.96">
+                            <StackPanel>
+                                <TextBlock Text="Survey summary" FontWeight="SemiBold"
+                                           FontSize="{DynamicResource Cave.HudTitleFontSize}"
+                                           Margin="0,0,0,8"
+                                           Foreground="{DynamicResource Cave.Text}" />
+                                <TextBlock x:Name="HudStationCountText" TextWrapping="Wrap"
+                                           FontSize="{DynamicResource Cave.HudFontSize}"
+                                           Foreground="{DynamicResource Cave.TextSubdued}" />
+                                <TextBlock x:Name="HudLengthText" TextWrapping="Wrap"
+                                           FontSize="{DynamicResource Cave.HudFontSize}" Margin="0,6,0,0"
+                                           Foreground="{DynamicResource Cave.TextSubdued}" />
+                                <TextBlock x:Name="HudZSpanText" TextWrapping="Wrap"
+                                           FontSize="{DynamicResource Cave.HudFontSize}" Margin="0,6,0,0"
+                                           Foreground="{DynamicResource Cave.TextSubdued}" />
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="StationFloatingCard" Visibility="Collapsed"
+                                HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Panel.ZIndex="10" Padding="12,10,14,10" CornerRadius="8"
+                                MaxWidth="280" IsHitTestVisible="False"
+                                BorderThickness="1" BorderBrush="#FF22FFCC"
+                                Background="#F0151B22">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="14" ShadowDepth="0" Opacity="0.55"
+                                                  Color="#FF000000" />
+                            </Border.Effect>
+                            <StackPanel>
+                                <TextBlock Text="Station selected" FontSize="10.5" FontWeight="SemiBold"
+                                           Foreground="#FF22FFCC" Margin="0,0,0,4"
+                                           TextWrapping="NoWrap" />
+                                <TextBlock x:Name="StationCardNameText" FontSize="14" FontWeight="Bold"
+                                           Foreground="#FFFFFFFF" Margin="0,0,0,6"
+                                           TextWrapping="Wrap" Text="-" />
+                                <TextBlock x:Name="StationCardCoordsText" FontSize="11.5"
+                                           Foreground="#FFC9D4DF" Margin="0,0,0,3"
+                                           TextWrapping="Wrap" Text="-" />
+                                <TextBlock x:Name="StationCardDepthText" FontSize="11.5" FontWeight="SemiBold"
+                                           Foreground="#FFFFEC9C" Margin="0,0,0,6"
+                                           TextWrapping="Wrap" Text="-" />
+                                <TextBlock x:Name="StationCardLrudText" FontSize="11"
+                                           Foreground="#FFB7C2CE"
+                                           TextWrapping="Wrap" Text="-" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Border x:Name="SurveyDetailsPane" Grid.Column="1" Margin="8,0,0,0" Padding="12,12" CornerRadius="6"
+                            BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                            VerticalAlignment="Stretch" Background="{DynamicResource Cave.Surface}">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock x:Name="PropertyPaneTitleText" DockPanel.Dock="Top" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.DetailsTitleFontSize}" Margin="0,0,0,4"
+                                       Foreground="{DynamicResource Cave.Text}" TextWrapping="Wrap"
+                                       Text="Survey overview" />
+                            <Border x:Name="PropertySelectionStatusBadge" DockPanel.Dock="Top" Margin="0,0,0,10"
+                                    Padding="8,4" CornerRadius="6"
+                                    BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                    Background="{DynamicResource Cave.CanvasBackdrop}">
+                                <TextBlock x:Name="PropertySelectionStatusText"
+                                           FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                           Foreground="{DynamicResource Cave.TextMuted}" TextWrapping="Wrap"
+                                           Text="No item selected" />
+                            </Border>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                <TextBlock x:Name="PropertyNameFieldCaption" Text="Name" FontWeight="SemiBold"
+                                           FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                           Foreground="{DynamicResource Cave.Text}" />
+                                    <TextBlock x:Name="PropertyStationLegNameText" Margin="0,2,0,10"
+                                               FontSize="{DynamicResource Cave.DetailsBodyFontSize}"
+                                               Foreground="{DynamicResource Cave.TextSubdued}" TextWrapping="Wrap"
+                                               Text="-" />
+
+                                <TextBlock x:Name="PropertyCoordsFieldCaption" Text="Plan XY &amp; Z elevation"
+                                           FontWeight="SemiBold"
+                                           FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                           Foreground="{DynamicResource Cave.Text}" />
+                                    <TextBlock x:Name="PropertyCoordinatesText" Margin="0,2,0,10"
+                                               FontSize="{DynamicResource Cave.DetailsBodyFontSize}"
+                                               Foreground="{DynamicResource Cave.TextSubdued}" TextWrapping="Wrap"
+                                               Text="-" />
+
+                                <TextBlock x:Name="PropertySurveyFieldCaption" Text="Tape · azimuth · clino"
+                                           FontWeight="SemiBold"
+                                           FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                           Foreground="{DynamicResource Cave.Text}" />
+                                    <TextBlock x:Name="PropertySurveyDataText" Margin="0,2,0,10"
+                                               FontSize="{DynamicResource Cave.DetailsBodyFontSize}"
+                                               Foreground="{DynamicResource Cave.TextSubdued}" TextWrapping="Wrap"
+                                               Text="-" />
+
+                                <TextBlock x:Name="PropertyWallFieldCaption"
+                                           Text="Cross-section LRUD (Left · Right · Up · Down)"
+                                           FontWeight="SemiBold"
+                                           FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                           Foreground="{DynamicResource Cave.Text}" />
+                                    <TextBlock x:Name="PropertyWallDimensionsText" Margin="0,2,0,0"
+                                               FontSize="{DynamicResource Cave.DetailsBodyFontSize}"
+                                               Foreground="{DynamicResource Cave.TextSubdued}" TextWrapping="Wrap"
+                                               Text="-" />
+
+                                    <TextBlock Text="Android export (full parsed context)" FontWeight="SemiBold"
+                                               FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                               Foreground="{DynamicResource Cave.Text}"
+                                               Margin="0,14,0,4" />
+                                    <TextBlock x:Name="PropertyAndroidPayloadText" Margin="0,0,0,0"
+                                               FontSize="11"
+                                               FontFamily="Consolas"
+                                               Foreground="{DynamicResource Cave.TextSubdued}" TextWrapping="Wrap"
+                                               Text="—" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="2" Margin="12,0,12,8" TextWrapping="Wrap" FontSize="10.5"
+        <TextBlock Grid.Row="2" Margin="12,0,12,8" TextWrapping="Wrap"
+                   FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                    Foreground="{DynamicResource Cave.TextMuted}" MaxHeight="44" TextTrimming="CharacterEllipsis"
-                   Text="Plan — survey metres (CaveAI Pro reduction). Main window tabs: PLAN, 3D MODEL, LONG PROFILE, X-RAY, PLAN 2-TONE. Ctrl+wheel: zoom. Middle drag: pan." />
+                   Text="Plan — survey metres (CaveAI Pro reduction). Main window tabs: PLAN, 3D MODEL, LONG PROFILE, X-RAY, PLAN 2-TONE. Zoom: wheel (toward cursor) or toolbar. Pan: left or middle drag. Double-click map (Pan mode): reset view." />
     </Grid>
 </UserControl>

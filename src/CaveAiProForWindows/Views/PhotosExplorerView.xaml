@@ -1,0 +1,134 @@
+<UserControl x:Class="CaveAiProForWindows.Views.PhotosExplorerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource Cave.Background}">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Photos (offline gallery)"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource Cave.Text}" />
+            <TextBlock x:Name="SubtitleText"
+                       FontSize="11.5"
+                       Margin="0,4,0,0"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource Cave.TextMuted}"
+                       Text="Every JPEG/PNG found inside the active backup ZIP, grouped by station or category. Click a thumbnail to view full-screen." />
+        </StackPanel>
+
+        <DockPanel Grid.Row="1" Margin="0,10,0,8" LastChildFill="True">
+            <ComboBox x:Name="GroupModeCombo"
+                      DockPanel.Dock="Right"
+                      Width="180"
+                      VerticalContentAlignment="Center"
+                      SelectionChanged="GroupModeCombo_SelectionChanged"
+                      ToolTip="Group photos by station or by category">
+                <ComboBoxItem Content="Group by station / category" IsSelected="True" />
+                <ComboBoxItem Content="Group by category" />
+                <ComboBoxItem Content="No grouping" />
+            </ComboBox>
+            <TextBox x:Name="FilterBox"
+                     VerticalContentAlignment="Center"
+                     Padding="6,4"
+                     Background="{DynamicResource Cave.Surface}"
+                     Foreground="{DynamicResource Cave.Text}"
+                     BorderBrush="{DynamicResource Cave.Border}"
+                     ToolTip="Filter by filename, station, or category"
+                     TextChanged="FilterBox_TextChanged" />
+        </DockPanel>
+
+        <Grid Grid.Row="2">
+            <Border x:Name="EmptyBorder"
+                    Padding="12"
+                    CornerRadius="6"
+                    Background="{DynamicResource Cave.BannerTint}"
+                    BorderBrush="{DynamicResource Cave.Border}"
+                    BorderThickness="1"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Stretch"
+                    Visibility="Collapsed">
+                <TextBlock x:Name="EmptyText"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource Cave.TextMuted}" />
+            </Border>
+
+            <ScrollViewer x:Name="GalleryScroll"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="PhotosItemsControl">
+                    <ItemsControl.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Cave.BannerTint}"
+                                            BorderBrush="{DynamicResource Cave.Border}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="8,6"
+                                            Margin="0,12,0,8">
+                                        <DockPanel LastChildFill="True">
+                                            <TextBlock DockPanel.Dock="Right"
+                                                       Foreground="{DynamicResource Cave.TextMuted}"
+                                                       FontSize="11"
+                                                       Text="{Binding ItemCount, StringFormat={}{0} photo(s)}" />
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Cave.Text}"
+                                                       FontSize="13" />
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                            <GroupStyle.Panel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel />
+                                </ItemsPanelTemplate>
+                            </GroupStyle.Panel>
+                        </GroupStyle>
+                    </ItemsControl.GroupStyle>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,8,8"
+                                    Padding="6"
+                                    Background="{DynamicResource Cave.Surface}"
+                                    BorderBrush="{DynamicResource Cave.Border}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Cursor="Hand"
+                                    Tag="{Binding}"
+                                    MouseLeftButtonUp="PhotoCard_MouseLeftButtonUp"
+                                    ToolTip="{Binding TooltipText}">
+                                <StackPanel Width="180">
+                                    <Image Source="{Binding Bitmap}"
+                                           Width="168"
+                                           Height="126"
+                                           Stretch="UniformToFill"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <TextBlock Margin="0,6,0,0"
+                                               Text="{Binding Caption}"
+                                               TextTrimming="CharacterEllipsis"
+                                               FontSize="11.5"
+                                               Foreground="{DynamicResource Cave.Text}" />
+                                    <TextBlock Margin="0,2,0,0"
+                                               Text="{Binding CategoryDisplay}"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource Cave.TextMuted}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

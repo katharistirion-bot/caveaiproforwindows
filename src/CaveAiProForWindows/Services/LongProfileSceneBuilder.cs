@@ -11,7 +11,7 @@ public static class LongProfileSceneBuilder
 {
     public static PlanScene? TryBuild(CaveProjectDocument p)
     {
-        var coords3 = SurveyStationGeometry.CalculatePlanCoordinates(p.Shots, (float)p.Alt);
+        var coords3 = SurveyStationGeometry.CalculatePlanCoordinates(p);
         if (coords3.Count == 0)
             return null;
 
@@ -46,7 +46,7 @@ public static class LongProfileSceneBuilder
         var minY = projected.Values.Min(c => c.Y);
         var maxY = projected.Values.Max(c => c.Y);
 
-        var wallPolys = SurveyLrudWallGeometry.BuildLongProfileLrudQuads(p.Shots, projected).ToList();
+        var wallPolys = SurveyLrudWallGeometry.BuildLongProfileLrudRibbonPolylines(p.Shots, projected).ToList();
         foreach (var pl in wallPolys)
         {
             foreach (var (x, y) in pl.Points)
@@ -59,7 +59,7 @@ public static class LongProfileSceneBuilder
         }
 
         Debug.WriteLine(
-            $"[LongProfile] stations={projected.Count}, legs={segs.Count}, chainage≈{maxX - minX:0.#} m, z≈{maxY - minY:0.#} m, lrudPanels={wallPolys.Count}");
+            $"[LongProfile] stations={projected.Count}, legs={segs.Count}, chainage≈{maxX - minX:0.#} m, z≈{maxY - minY:0.#} m, lrudRibbons={wallPolys.Count}");
 
         return new PlanScene
         {
