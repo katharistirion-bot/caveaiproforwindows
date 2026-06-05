@@ -1,9 +1,8 @@
-using System.Globalization;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using CaveAiProForWindows.Models;
-using CaveAiProForWindows.Services;
+using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows.Views;
 
@@ -16,6 +15,8 @@ public partial class AiAnalyticsView : UserControl
         typeof(AiAnalyticsView),
         new PropertyMetadata(null, OnProjectPropertyChanged));
 
+    private AiAnalyticsViewModel? _viewModel;
+
     public CaveProjectDocument? Project
     {
         get => (CaveProjectDocument?)GetValue(ProjectProperty);
@@ -25,77 +26,58 @@ public partial class AiAnalyticsView : UserControl
     public AiAnalyticsView()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        EnsureViewModel();
+        _viewModel?.OnViewLoaded();
+        if (ModelListBox != null)
+            ModelListBox.SelectionChanged += ModelListBox_SelectionChanged;
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (ModelListBox != null)
+            ModelListBox.SelectionChanged -= ModelListBox_SelectionChanged;
+    }
+
+    private void EnsureViewModel()
+    {
+        if (_viewModel != null || AiAnalyticsPanel == null)
+            return;
+
+        _viewModel = new AiAnalyticsViewModel();
+        AiAnalyticsPanel.DataContext = _viewModel;
+        _viewModel.SetProject(Project);
+        _viewModel.SetSelectedToolTag(GetSelectedToolTag() ?? "Qc");
     }
 
     private static void OnProjectPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not AiAnalyticsView v)
             return;
-        if (Equals(e.NewValue, e.OldValue))
-            return;
-        v.ClearResultsUi("Project changed — run analysis again when ready.");
+        v.EnsureViewModel();
+        v._viewModel?.SetProject(v.Project);
     }
 
-    private void ClearResultsUi(string statusMessage)
+    private void ModelListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (AnalysisStatusText != null)
-            AnalysisStatusText.Text = statusMessage;
-        if (ResultsSummaryText != null)
-            ResultsSummaryText.Text = "";
-        if (ResultsDataGrid != null)
-            ResultsDataGrid.ItemsSource = null;
+        _viewModel?.SetSelectedToolTag(GetSelectedToolTag() ?? "Qc");
     }
 
     private string? GetSelectedToolTag()
     {
-        if (ModelListBox.SelectedItem is ListBoxItem li && li.Tag is string s)
+        if (ModelListBox?.SelectedItem is ListBoxItem li && li.Tag is string s)
             return s;
-        return (ModelListBox.SelectedItem as ListBoxItem)?.Tag as string;
+        return (ModelListBox?.SelectedItem as ListBoxItem)?.Tag as string;
     }
 
-    private async void RunAnalysisButton_Click(object sender, RoutedEventArgs e)
+    private void ResultsDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (RunAnalysisButton == null || RootInteractionGrid == null)
-            return;
-
-        var tag = GetSelectedToolTag() ?? "Qc";
-        var project = Project;
-        RunAnalysisButton.IsEnabled = false;
-        ModelListBox.IsEnabled = false;
-        AnalysisProgressBar.Visibility = Visibility.Visible;
-        AnalysisStatusText.Text = "Computing on loaded survey (local)…";
-
-        try
-        {
-            var rows = await System.Threading.Tasks.Task.Run(() =>
-                    AiLocalSurveyAnalytics.BuildResultRows(tag, project).ToList())
-                .ConfigureAwait(true);
-
-            ResultsDataGrid.ItemsSource = rows;
-            if (project != null)
-            {
-                var name = string.IsNullOrWhiteSpace(project.Name) ? "(unnamed project)" : project.Name.Trim();
-                var mode = tag switch
-                {
-                    "Volume" => "Volumetric",
-                    "Lead" => "Lead prediction",
-                    _ => "QC anomaly",
-                };
-                ResultsSummaryText.Text =
-                    $"{name} · {DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} · {mode}";
-            }
-            else
-            {
-                ResultsSummaryText.Text = "";
-            }
-
-            AnalysisStatusText.Text = "Complete.";
-        }
-        finally
-        {
-            AnalysisProgressBar.Visibility = Visibility.Collapsed;
-            RunAnalysisButton.IsEnabled = true;
-            ModelListBox.IsEnabled = true;
-        }
+        if (ResultsDataGrid?.SelectedItem is AiAnalyticsMetricRow row)
+            _viewModel?.JumpToStationFromRow(row);
     }
 }

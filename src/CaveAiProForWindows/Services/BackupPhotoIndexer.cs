@@ -267,7 +267,8 @@ public static class BackupPhotoIndexer
             return ("Map / Backdrop", "Map / Backdrop");
         if (p.Contains("/geology", StringComparison.Ordinal) || p.Contains("/geo/", StringComparison.Ordinal) ||
             p.Contains("/rocks", StringComparison.Ordinal) || p.Contains("/mineral", StringComparison.Ordinal) ||
-            p.Contains("/gemini", StringComparison.Ordinal))
+            p.Contains("/caveai", StringComparison.Ordinal) ||
+            p.Contains(AndroidExportLegacyJsonKeys.PhotoPathSegment, StringComparison.Ordinal))
             return ("Geo", "Geo");
         if (p.Contains("/biology", StringComparison.Ordinal) || p.Contains("/bio/", StringComparison.Ordinal) ||
             p.Contains("/organism", StringComparison.Ordinal) || p.Contains("/fauna", StringComparison.Ordinal) ||

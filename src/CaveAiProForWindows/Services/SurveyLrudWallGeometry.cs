@@ -225,6 +225,108 @@ public static class SurveyLrudWallGeometry
         return ribbons;
     }
 
+    /// <summary>
+    /// Plan LRUD corridor outline(s) with a grey level derived from average vertical extent (Up + Down) on each walk.
+    /// Used for generative ControlNet structure masks.
+    /// </summary>
+    public static IReadOnlyList<LrudPlanRibbonMask> BuildPlanLrudRibbonMaskPolygons(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords)
+    {
+        var masks = new List<LrudPlanRibbonMask>();
+        var maxUd = ComputeMaxVerticalExtentMetres(shots);
+        foreach (var walk in EnumerateOrderedTraverseWalks(shots))
+        {
+            var ribbon = RibbonFromOrderedWalk(walk, coords);
+            if (ribbon == null)
+                continue;
+            var avgUd = AverageVerticalExtentMetres(walk.Select(w => w.sh));
+            var grey = GreyLevelFromVerticalExtent(avgUd, maxUd);
+            masks.Add(new LrudPlanRibbonMask(ribbon, grey, avgUd));
+        }
+
+        return masks;
+    }
+
+    /// <summary>Per-leg corridor quads with grey from that shot's Up/Down (fallback when ribbon walk fails).</summary>
+    public static IReadOnlyList<LrudPlanRibbonMask> BuildPlanLrudCorridorMaskQuads(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords)
+    {
+        var maxUd = ComputeMaxVerticalExtentMetres(shots);
+        var masks = new List<LrudPlanRibbonMask>();
+        foreach (var shot in shots.Where(s => s.IsTraverseLeg))
+        {
+            if (!coords.TryGetValue(shot.FromStation, out var a) || !coords.TryGetValue(shot.ToStation, out var b))
+                continue;
+            var dx = b.X - a.X;
+            var dy = b.Y - a.Y;
+            var len = Math.Sqrt(dx * (double)dx + dy * (double)dy);
+            if (len < 1e-4)
+                continue;
+            var plx = -(float)(dy / len);
+            var ply = (float)(dx / len);
+            var (lrL, lrR, lrU, lrD) = shot.EffectivePlanLrud();
+            var L = lrL > Eps ? lrL : MinHalfWidth;
+            var R = lrR > Eps ? lrR : MinHalfWidth;
+            var flx = a.X + plx * L;
+            var fly = a.Y + ply * L;
+            var frx = a.X - plx * R;
+            var fry = a.Y - ply * R;
+            var tlx = b.X + plx * L;
+            var tly = b.Y + ply * L;
+            var trx = b.X - plx * R;
+            var trY = b.Y - ply * R;
+            var pts = new List<(float x, float y)> { (flx, fly), (tlx, tly), (trx, trY), (frx, fry) };
+            var ud = VerticalExtentMetres(lrU, lrD);
+            var grey = GreyLevelFromVerticalExtent(ud, maxUd);
+            masks.Add(new LrudPlanRibbonMask(
+                new SurveyStationGeometry.PlanVectorPolyline("lrudPlanMaskQuad", pts, Closed: true),
+                grey,
+                ud));
+        }
+
+        return masks;
+    }
+
+    public static float ComputeMaxVerticalExtentMetres(IReadOnlyList<ShotRecord> shots)
+    {
+        var max = 0f;
+        foreach (var shot in shots.Where(s => s.IsTraverseLeg))
+        {
+            var ( _, _, u, d) = shot.EffectivePlanLrud();
+            max = Math.Max(max, VerticalExtentMetres(u, d));
+        }
+
+        return max;
+    }
+
+    public static float AverageVerticalExtentMetres(IEnumerable<ShotRecord> shots)
+    {
+        var sum = 0f;
+        var n = 0;
+        foreach (var shot in shots)
+        {
+            var (_, _, u, d) = shot.EffectivePlanLrud();
+            sum += VerticalExtentMetres(u, d);
+            n++;
+        }
+
+        return n == 0 ? 0 : sum / n;
+    }
+
+    public static float VerticalExtentMetres(float up, float down) =>
+        (up > Eps ? up : MinHalfWidth) + (down > Eps ? down : MinHalfWidth);
+
+    /// <summary>Maps vertical extent (U+D metres) to mask grey 96–255 (darker = taller passage).</summary>
+    public static byte GreyLevelFromVerticalExtent(float verticalExtentMetres, float maxVerticalExtentMetres)
+    {
+        if (maxVerticalExtentMetres < Eps)
+            return 220;
+        var t = Math.Clamp(verticalExtentMetres / maxVerticalExtentMetres, 0.12f, 1f);
+        return (byte)(96 + t * 159);
+    }
+
     /// <summary>Each inner list is an ordered DFS walk of one traverse connected component (same as plan ribbon).</summary>
     private static List<List<(string wf, string wt, ShotRecord sh)>> EnumerateOrderedTraverseWalks(
         IReadOnlyList<ShotRecord> shots)
@@ -714,3 +816,9 @@ public static class SurveyLrudWallGeometry
         return res;
     }
 }
+
+/// <summary>One filled LRUD corridor polygon for generative structure masks (plan metres + grey level).</summary>
+public sealed record LrudPlanRibbonMask(
+    SurveyStationGeometry.PlanVectorPolyline Outline,
+    byte GreyLevel,
+    float AverageVerticalExtentMetres);

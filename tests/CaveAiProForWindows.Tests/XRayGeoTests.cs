@@ -120,4 +120,17 @@ public sealed class XRayGeoTests
         Assert.AreEqual(0, rect.X, 1e-6);
         Assert.AreEqual(300, rect.Y, 1e-6);
     }
+
+    [TestMethod]
+    public void XRayGeoLayout_canvas_to_geo_roundtrip()
+    {
+        var bbox = new XRayBackdropMetadata(MinLat: 39.99, MaxLat: 40.01, MinLon: 21.99, MaxLon: 22.01, "t");
+        var displayRect = new Rect(0, 0, 1000, 1000);
+        var geo = XRayProjection.Build(40.0, 22.0, bbox, 1000, 1000, displayRect);
+        var canvas = geo.GeoToCanvas(40.005, 22.005);
+        var back = geo.TryCanvasToGeo(canvas);
+        Assert.IsNotNull(back);
+        Assert.IsTrue(Math.Abs(back!.Value.Lat - 40.005) < 1e-6);
+        Assert.IsTrue(Math.Abs(back.Value.Lon - 22.005) < 1e-6);
+    }
 }

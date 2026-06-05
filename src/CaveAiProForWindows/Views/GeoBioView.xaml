@@ -18,7 +18,7 @@
                        Margin="0,4,0,0"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource Cave.TextMuted}"
-                       Text="Gemini analyses, rock textures, and organism observations bundled by Android — fully offline." />
+                       Text="Cave AI analyses, rock textures, and organism observations bundled by Android — fully offline." />
         </StackPanel>
 
         <TabControl Grid.Row="1" Margin="0,10,0,0"
@@ -36,7 +36,7 @@
                                 BorderThickness="1"
                                 Visibility="Collapsed">
                             <StackPanel>
-                                <TextBlock Text="Global Gemini analysis"
+                                <TextBlock Text="Global Cave AI analysis"
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource Cave.Text}"
                                            Margin="0,0,0,6" />

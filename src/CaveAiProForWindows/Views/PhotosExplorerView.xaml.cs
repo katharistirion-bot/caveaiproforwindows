@@ -78,6 +78,14 @@ public partial class PhotosExplorerView : UserControl
 
     private void ApplyView()
     {
+        // SelectionChanged/TextChanged can run during InitializeComponent() before sibling
+        // named fields (e.g. FilterBox) are assigned; defer until layout is coherent.
+        if (!IsInitialized)
+            return;
+        if (FilterBox == null || SubtitleText == null || GroupModeCombo == null ||
+            PhotosItemsControl == null)
+            return;
+
         var filter = (FilterBox.Text ?? "").Trim();
         IEnumerable<PhotoCardViewModel> filtered = _allCards;
         if (filter.Length > 0)

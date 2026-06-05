@@ -5,41 +5,85 @@
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Vertical">
-            <TextBlock Text="X-Ray (offline)"
+            <TextBlock Text="X-Ray (geo-aligned)"
                        FontSize="15"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource Cave.Text}" />
-            <TextBlock Text="Android satellite/map snapshot bundled in the backup, with traverse drawn on top. No internet."
+            <TextBlock Text="Satellite backdrop geo-calibrated from Android bounding box · click stations to highlight Plan/Section · wheel zoom · drag pan."
                        FontSize="11.5"
                        Margin="0,4,0,0"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource Cave.TextMuted}" />
         </StackPanel>
 
-        <!-- Solid black canvas frame: matches Android X-Ray look. No theme grid / dotted underlay shows here. -->
-        <Border Grid.Row="1"
-                Margin="0,10,0,0"
+        <DockPanel Grid.Row="1" Margin="0,10,0,8" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <CheckBox x:Name="AiOverlayCheck"
+                          Content="AI render overlay"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          IsChecked="True"
+                          ToolTip="Toggle generative map render (from Sketch Editor) as a transparent layer"
+                          Checked="AiOverlayCheck_Changed"
+                          Unchecked="AiOverlayCheck_Changed"
+                          Foreground="{DynamicResource Cave.TextSubdued}" />
+                <Button Content="Zoom out" Padding="10,6" Margin="0,0,6,0" Click="ZoomOut_Click"
+                        ToolTip="Zoom out (mouse wheel toward cursor)" />
+                <Button Content="Zoom in" Padding="10,6" Margin="0,0,6,0" Click="ZoomIn_Click"
+                        ToolTip="Zoom in (mouse wheel toward cursor)" />
+                <Button Content="Fit view" Padding="10,6" Margin="0,0,6,0" Click="FitView_Click"
+                        ToolTip="Fit entire geo map in viewport" />
+                <Button Content="Export geo PNG…" Padding="10,6" Margin="0,0,6,0" Click="ExportGeoMap_Click"
+                        ToolTip="Save satellite raster with .pgw world file for QGIS (requires bounding box metadata)" />
+                <Button Content="Reset" Padding="10,6" Click="ResetView_Click"
+                        ToolTip="Reset zoom/pan (double-click map)" />
+            </StackPanel>
+            <TextBlock x:Name="CursorGeoText"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{DynamicResource Cave.TextMuted}"
+                       Text="—" />
+        </DockPanel>
+
+        <Border Grid.Row="2"
                 Background="Black"
                 BorderBrush="{DynamicResource Cave.Border}"
                 BorderThickness="1"
                 CornerRadius="8"
                 ClipToBounds="True">
-            <Grid x:Name="MapHostGrid"
-                  Background="Black"
-                  SizeChanged="MapHostGrid_SizeChanged">
-                <!-- Stretch=Uniform: traverse projection assumes letterboxed display so geo-aligned points match pixel positions exactly. -->
-                <Image x:Name="BackgroundRaster"
-                       Stretch="Uniform"
-                       RenderOptions.BitmapScalingMode="HighQuality"
-                       HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" />
-                <Canvas x:Name="TraverseCanvas"
-                        Background="Transparent" />
+            <Grid x:Name="MapHostGrid" Background="Black" SizeChanged="MapHostGrid_SizeChanged">
+                <ScrollViewer x:Name="HostScroll"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              Background="Black"
+                              PreviewMouseWheel="HostScroll_PreviewMouseWheel">
+                    <Grid x:Name="MapZoomRoot" HorizontalAlignment="Left" VerticalAlignment="Top">
+                        <Grid.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="ZoomScale" ScaleX="1" ScaleY="1" />
+                                <TranslateTransform x:Name="ZoomPan" X="0" Y="0" />
+                            </TransformGroup>
+                        </Grid.RenderTransform>
+                        <Canvas x:Name="MapCanvas" Background="Black"
+                                MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown"
+                                MouseMove="MapCanvas_MouseMove"
+                                MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp"
+                                MouseLeave="MapCanvas_MouseLeave">
+                            <Image x:Name="BackgroundRaster"
+                                   Stretch="Fill"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   IsHitTestVisible="False" />
+                            <Canvas x:Name="AiOverlayCanvas" IsHitTestVisible="False" />
+                            <Canvas x:Name="TraverseLayer" IsHitTestVisible="True" />
+                        </Canvas>
+                    </Grid>
+                </ScrollViewer>
                 <Border x:Name="PlaceholderBorder"
                         Background="#E60D0F14"
                         Visibility="Collapsed">
@@ -62,11 +106,16 @@
             </Grid>
         </Border>
 
-        <TextBlock x:Name="AlignmentFooter"
-                   Grid.Row="2"
-                   Margin="2,6,2,0"
-                   FontSize="11"
-                   TextWrapping="Wrap"
-                   Foreground="{DynamicResource Cave.TextMuted}" />
+        <StackPanel Grid.Row="3" Margin="2,6,2,0">
+            <TextBlock x:Name="AlignmentFooter"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource Cave.TextMuted}" />
+            <TextBlock x:Name="SelectionFooter"
+                       FontSize="11"
+                       Margin="0,2,0,0"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource Cave.TextSubdued}" />
+        </StackPanel>
     </Grid>
 </UserControl>

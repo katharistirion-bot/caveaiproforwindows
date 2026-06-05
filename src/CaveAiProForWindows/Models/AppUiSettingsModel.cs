@@ -11,6 +11,20 @@ public sealed class AppUiSettingsModel
     public MapTabPersistedState Plan { get; set; } = new();
     public MapTabPersistedState Sketch { get; set; } = new();
     public MapTabPersistedState Section { get; set; } = new();
+
+    /// <summary>Non-secret generative map preferences (API token lives in Windows Credential Manager).</summary>
+    public GenerativeMapSettings GenerativeMap { get; set; } = new();
+
+    /// <summary>Android Desktop Sync folder watched by AI Analytics.</summary>
+    public AndroidSyncSettings AndroidSync { get; set; } = new();
+}
+
+public sealed class GenerativeMapSettings
+{
+    public string DefaultPrompt { get; set; } =
+        "photorealistic cave survey map, top-down view, rock textures, underground river";
+
+    public bool ShowAiRenderOnCanvas { get; set; } = true;
 }
 
 public sealed class MapTabPersistedState

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using CaveAiProForWindows.Services;
 
 namespace CaveAiProForWindows.Views;
 
@@ -16,6 +17,14 @@ public partial class AboutWindow : Window
         VersionBlock.Text = !string.IsNullOrWhiteSpace(info) && info != ver
             ? $"{info}  (assembly {ver})"
             : $"Build {ver}" + (string.IsNullOrWhiteSpace(file) ? "" : $"  · file {file}");
+
+        var envOrigin = Environment.GetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN");
+        WebPortalBlock.Text =
+            "Web portal origin: " + PublicLibraryCatalog.WebOrigin + "\n" +
+            (string.IsNullOrWhiteSpace(envOrigin)
+                ? "Set CAVEAIPRO_WEB_ORIGIN if the custom domain differs from the default."
+                : "CAVEAIPRO_WEB_ORIGIN is set for this user/machine.") +
+            "\nFirebase fallback (website default): " + PublicLibraryCatalog.FirebaseHostingOrigin;
 
         // ProcessPath works for single-file publish; Assembly.Location is empty there (IL3000).
         var exePath = Environment.ProcessPath;

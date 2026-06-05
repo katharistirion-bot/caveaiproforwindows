@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -12,6 +13,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.GenerativeMap;
+using CaveAiProForWindows.Services.SketchAssist;
 using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows.Views;
@@ -23,7 +27,15 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         nameof(Project),
         typeof(CaveProjectDocument),
         typeof(SketchEditorView),
-        new PropertyMetadata(null, (d, _) => ((SketchEditorView)d).Redraw()));
+        new PropertyMetadata(null, OnProjectChanged));
+
+    private static void OnProjectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var v = (SketchEditorView)d;
+        v.Redraw();
+        v._cloudPublish?.NotifyProjectChanged(v.Project);
+        v._sketchAssist?.NotifyProjectChanged(v.Project);
+    }
 
     public static readonly DependencyProperty ZipPathProperty = DependencyProperty.Register(
         nameof(ZipPath),
@@ -115,6 +127,8 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     private MapCanvasEditorTool _currentTool = MapCanvasEditorTool.PanZoom;
     private SketchEditorSymbolKind _stampKind = SketchEditorSymbolKind.RockBlock;
     private MainViewModel? _wiredMainVm;
+    private CloudPublishViewModel? _cloudPublish;
+    private SketchAssistViewModel? _sketchAssist;
     private CaveProjectDocument? _designLayerProjectScope;
     private PlanScene? _interactivePlanScene;
     private PlanCanvasSurveyLayout _surveyHitLayout;
@@ -146,7 +160,10 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     private void SketchEditorView_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (e.NewValue is true)
+        {
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(Redraw));
+            _sketchAssist?.RefreshApiTokenStatus();
+        }
     }
 
     private void SketchEditorView_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e) =>
@@ -155,10 +172,28 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     private void WireMainViewModel(MainViewModel? vm)
     {
         if (_wiredMainVm != null)
+        {
             _wiredMainVm.SurveyDataChanged -= MainViewModel_SurveyDataChanged;
+            _wiredMainVm.PropertyChanged -= MainViewModel_PropertyChanged;
+        }
+
         _wiredMainVm = vm;
         if (_wiredMainVm != null)
+        {
             _wiredMainVm.SurveyDataChanged += MainViewModel_SurveyDataChanged;
+            _wiredMainVm.PropertyChanged += MainViewModel_PropertyChanged;
+        }
+
+        _cloudPublish?.NotifyLegalTermsChanged();
+    }
+
+    private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.LegalTermsAccepted))
+        {
+            _cloudPublish?.NotifyLegalTermsChanged();
+            _sketchAssist?.NotifyLegalTermsChanged();
+        }
     }
 
     private void MainViewModel_SurveyDataChanged(object? sender, EventArgs e) => Redraw();
@@ -208,6 +243,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         SurveyCanvasTheme.Changed += OnSurveyCanvasThemeChanged;
+        GenerativeMapSessionCache.SessionChanged += OnGenerativeMapSessionChanged;
         WireMapRows(MapRows);
         WireMapInventory(MapInventory);
         if (DesignLayer != null && HostScroll != null && ZoomPan != null)
@@ -223,6 +259,8 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             SymbolPaletteRock.IsChecked = true;
         SyncSymbolPaletteEnabled();
         WireMainViewModel(DataContext as MainViewModel);
+        EnsureCloudPublishViewModel();
+        EnsureSketchAssistViewModel();
         ResetPropertiesPanelToSummary();
         Redraw();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
@@ -236,6 +274,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     {
         PersistSketchTab();
         SurveyCanvasTheme.Changed -= OnSurveyCanvasThemeChanged;
+        GenerativeMapSessionCache.SessionChanged -= OnGenerativeMapSessionChanged;
         WireMainViewModel(null);
         UnwireMapRows(MapRows);
         UnwireMapInventory(MapInventory);
@@ -716,6 +755,8 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                     AndroidImportedSymbolPresenter.SyncDesignLayer(DesignLayer, scene, _surveyHitLayout, highContrast: false);
                 else
                     AndroidImportedSymbolPresenter.ClearImported(DesignLayer);
+
+                ApplyGenerativeMapOverlay(p);
             }
             catch (Exception ex)
             {
@@ -979,5 +1020,127 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         ZoomScale.ScaleY = 1;
         Redraw();
         PersistSketchTab();
+    }
+
+    private void EnsureCloudPublishViewModel()
+    {
+        if (_cloudPublish != null || CloudPublishPanel == null)
+            return;
+
+        _cloudPublish = new CloudPublishViewModel(new CloudPublishEditorHost
+        {
+            GetProject = () => Project,
+            GetLegalTermsAccepted = () => _wiredMainVm?.LegalTermsAccepted == true,
+            CaptureArtifacts = TryCapturePublishArtifacts,
+            GetOwnerWindow = () => Window.GetWindow(this),
+            PersistLinkedLibraryCaveId = id =>
+            {
+                if (_wiredMainVm != null)
+                    _wiredMainVm.StatusMessage = $"Linked library cave id set to {id.Trim()}.";
+            },
+        });
+
+        CloudPublishPanel.DataContext = _cloudPublish;
+        _cloudPublish.NotifyProjectChanged(Project);
+    }
+
+    private void EnsureSketchAssistViewModel()
+    {
+        if (_sketchAssist != null || SketchAssistPanel == null)
+            return;
+
+        _sketchAssist = new SketchAssistViewModel(new SketchAssistEditorHost
+        {
+            GetProject = () => Project,
+            GetLegalTermsAccepted = () => _wiredMainVm?.LegalTermsAccepted == true,
+            BuildSession = () => SketchAssistInputBuilder.TryBuild(
+                Project!,
+                DesignLayer,
+                SurveyCanvas?.Width ?? 0,
+                SurveyCanvas?.Height ?? 0,
+                VisualizationMode),
+            CaptureStructureMask = () =>
+            {
+                var p = Project;
+                if (p == null || SurveyCanvas == null || DesignLayer == null)
+                    return null;
+                return CloudPublishService.TryCaptureStructureMask(
+                    p,
+                    DesignLayer,
+                    SurveyCanvas.Width,
+                    SurveyCanvas.Height);
+            },
+            OnGenerativeRenderCompleted = () => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Redraw)),
+            GetOwnerWindow = () => Window.GetWindow(this),
+            OpenLegalSettingsTab = () =>
+            {
+                if (Window.GetWindow(this) is MainWindow mw)
+                    mw.SelectLegalSettingsTab();
+            },
+        });
+
+        SketchAssistPanel.DataContext = _sketchAssist;
+        _sketchAssist.NotifyProjectChanged(Project);
+        _sketchAssist.RefreshApiTokenStatus();
+    }
+
+    private void OnGenerativeMapSessionChanged(object? sender, GenerativeMapSessionChangedEventArgs e)
+    {
+        if (Project == null || !ReferenceEquals(e.Project, Project))
+            return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (Project != null)
+                ApplyGenerativeMapOverlay(Project);
+        });
+    }
+
+    private void ApplyGenerativeMapOverlay(CaveProjectDocument project)
+    {
+        if (SurveyCanvas == null || !_surveyHitLayoutReady)
+            return;
+
+        var entry = GenerativeMapSessionCache.TryGet(project);
+        var show = _sketchAssist?.ShowAiRenderOnCanvas != false;
+        GenerativeMapOverlayPresenter.Apply(
+            SurveyCanvas,
+            _surveyHitLayout,
+            entry?.Bitmap,
+            show && entry != null);
+    }
+
+    private CloudPublishArtifactCapture? TryCapturePublishArtifacts()
+    {
+        var p = Project;
+        if (p == null || SurveyCanvas == null || DesignLayer == null)
+            return null;
+
+        var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+        var generative = GenerativeMapSessionCache.TryGet(p)?.PngBytes;
+        var aiMap = generative ?? SketchEditorPublishCapture.TryCaptureAiMapPng(
+            p,
+            VisualizationMode,
+            SketchDrawOptions(),
+            underlays,
+            ZipPath,
+            DesignLayer,
+            SurveyCanvas.Width,
+            SurveyCanvas.Height);
+
+        var mask = CloudPublishService.TryCaptureStructureMask(
+            p,
+            DesignLayer,
+            SurveyCanvas.Width,
+            SurveyCanvas.Height);
+
+        if (aiMap == null && mask == null)
+            return null;
+
+        return new CloudPublishArtifactCapture
+        {
+            AiMapPng = aiMap,
+            StructureMaskPng = mask,
+            SurveyJsonUtf8 = CloudPublishService.SerializeProjectJsonUtf8(p),
+        };
     }
 }

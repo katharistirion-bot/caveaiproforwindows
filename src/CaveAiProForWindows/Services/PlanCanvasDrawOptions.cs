@@ -31,7 +31,8 @@ public sealed record PlanCanvasDrawOptions(
         bool stationNames,
         bool overlay,
         SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard,
-        CartographicIntensity cartographicIntensity = CartographicIntensity.Balanced) =>
+        CartographicIntensity cartographicIntensity = CartographicIntensity.Balanced,
+        SurveyMapPickHighlight? pickHighlight = null) =>
         new(stationNames, overlay, SurveyCanvasKind.Section, visualization, ShowStationZDepth: false,
-            cartographicIntensity, PickHighlight: null);
+            cartographicIntensity, pickHighlight);
 }

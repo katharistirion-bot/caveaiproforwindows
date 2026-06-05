@@ -14,7 +14,7 @@ public enum AndroidBackupImageCategory
     /// <summary>Satellite / aerial / x-ray basemap snapshot (single image overlaid on traverse).</summary>
     XRayBackdrop,
 
-    /// <summary>Geology / Gemini photos (one per rock card, multiple per project).</summary>
+    /// <summary>Geology / Cave AI photos (one per rock card, multiple per project).</summary>
     GeologyPhoto,
 }
 
@@ -23,7 +23,7 @@ public enum AndroidBackupImageCategory
 /// via <see cref="MapAssetOpener.TryEnsureLocalFilePath"/>) or <see cref="EmbeddedJson"/> (a JSON subtree that may
 /// contain a <c>data:image</c> / base64 leaf to decode in-memory) is non-null.
 /// </summary>
-/// <param name="SourceLabel">Human-readable origin (e.g. <c>"ExtensionData[geminiSatelliteImageUri]"</c>) — useful for diagnostics.</param>
+/// <param name="SourceLabel">Human-readable origin (e.g. <c>"ExtensionData[caveAiSatelliteImageUri]"</c>) — useful for diagnostics.</param>
 /// <param name="RawValue">Raw path/URI string from JSON or ZIP entry name; resolve via <see cref="MapAssetOpener"/>.</param>
 /// <param name="EmbeddedJson">JSON subtree to scan for inline base64 images via <see cref="OfflineEmbeddedImageDecoder"/>.</param>
 public sealed record AndroidBackupImageHint(string SourceLabel, string? RawValue, JsonElement? EmbeddedJson);
@@ -54,18 +54,18 @@ public static class AndroidBackupImageDiscovery
     [
         "xray", "x-ray", "x_ray", "satellite", "aerial", "basemap", "base_map",
         "ortho", "orthophoto", "snapshot", "mapsnapshot", "map_snapshot",
-        "visionsatellite", "geminisatellite", "satelliteoverlay", "skyview",
+        "visionsatellite", "caveaisatellite", "satelliteoverlay", "skyview",
     ];
 
     private static readonly string[] GeologyKeywords =
     [
-        "geolog", "gemini", "rock", "mineral", "petrolog", "biolog", "lithology",
+        "geolog", "caveai", "rock", "mineral", "petrolog", "biolog", "lithology",
         "texture", "speleothem", "outcrop",
     ];
 
     private static readonly string[] GeologyAnalysisKeywords =
     [
-        "geolog", "gemini", "rock", "mineral", "petrolog", "biolog", "lithology",
+        "geolog", "caveai", "rock", "mineral", "petrolog", "biolog", "lithology",
         "analysis", "summary", "report", "vision", "aianalysis", "cloud",
     ];
 
@@ -188,18 +188,18 @@ public static class AndroidBackupImageDiscovery
     }
 
     /// <summary>
-    /// Best-effort retrieval of the Gemini / on-device geology analysis text. Tries (1) the explicit
-    /// <see cref="CaveProjectDocument.GeminiGeologyAnalysisText"/> family, then (2) deep harvesting from
+    /// Best-effort retrieval of the Cave AI / on-device geology analysis text. Tries (1) the explicit
+    /// <see cref="CaveProjectDocument.CaveAiGeologyAnalysisText"/> family, then (2) deep harvesting from
     /// <see cref="CaveProjectDocument.ExtensionData"/> under broader keyword keys, then (3) a sidecar
-    /// <c>geology*</c> / <c>gemini*</c> text/json/md entry inside the open ZIP.
+    /// <c>geology*</c> / legacy export keys / text/json/md entry inside the open ZIP.
     /// </summary>
     public static string? FindGeologyAnalysisText(CaveProjectDocument project, string? zipPath)
     {
         foreach (var explicitText in new[]
                  {
-                     project.GeminiGeologyAnalysisText,
-                     project.GeminiGeologyAnalysis,
-                     project.GeminiAnalysisText,
+                     project.CaveAiGeologyAnalysisText,
+                     project.CaveAiGeologyAnalysis,
+                     project.CaveAiAnalysisText,
                      project.AiGeologyAnalysisText,
                      project.CloudGeologyAnalysisText,
                  })
@@ -208,10 +208,10 @@ public static class AndroidBackupImageDiscovery
                 return explicitText.Trim();
         }
 
-        if (project.GeminiGeologyAnalysisJson.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+        if (project.CaveAiGeologyAnalysisJson.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
         {
             string? best = null;
-            HarvestPossibleText(project.GeminiGeologyAnalysisJson, ref best, "geminiGeologyAnalysisJson");
+            HarvestPossibleText(project.CaveAiGeologyAnalysisJson, ref best, "caveAiGeologyAnalysisJson");
             if (!string.IsNullOrWhiteSpace(best))
                 return best;
         }
@@ -287,20 +287,20 @@ public static class AndroidBackupImageDiscovery
     private static IEnumerable<(string Label, string? Value)> EnumerateExplicitXRayProperties(CaveProjectDocument p)
     {
         yield return ("xrayBackdropImageUri", p.XrayBackdropImageUri);
-        yield return ("geminiSatelliteImageUri", p.GeminiSatelliteImageUri);
+        yield return ("caveAiSatelliteImageUri", p.CaveAiSatelliteImageUri);
         yield return ("satelliteSnapshotImageUri", p.SatelliteSnapshotImageUri);
         yield return ("cloudSatelliteSnapshotUri", p.CloudSatelliteSnapshotUri);
     }
 
     private static IEnumerable<(string Label, string Value)> EnumerateExplicitGeologyPhotoProperties(CaveProjectDocument p)
     {
-        if (p.GeminiGeologyPhotoUris is { Count: > 0 } a)
+        if (p.CaveAiGeologyPhotoUris is { Count: > 0 } a)
         {
             for (var i = 0; i < a.Count; i++)
             {
                 var v = a[i];
                 if (!string.IsNullOrWhiteSpace(v))
-                    yield return ($"geminiGeologyPhotoUris[{i}]", v);
+                    yield return ($"caveAiGeologyPhotoUris[{i}]", v);
             }
         }
 

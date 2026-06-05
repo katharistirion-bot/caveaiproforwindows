@@ -17,7 +17,7 @@ public sealed class GeoBioTests
         {
             Rocks = JsonDocument.Parse("""
                                        [
-                                           {"name":"Calcite stalactite","geminiAnalysisText":"Pure calcite, c. 200ka.","photoUri":"photos/rocks/r1.jpg"},
+                                           {"name":"Calcite stalactite","caveAiAnalysisText":"Pure calcite, c. 200ka.","photoUri":"photos/rocks/r1.jpg"},
                                            {"mineralName":"Aragonite needles","analysis":"Acicular aragonite mass.","images":["photos/rocks/r2.jpg","photos/rocks/r3.jpg"]}
                                        ]
                                        """).RootElement,
@@ -29,7 +29,7 @@ public sealed class GeoBioTests
         Assert.IsTrue(records.All(r => r.Category == GeoBioCategory.Rock),
             "rocks[] entries should default to Rock category.");
         Assert.AreEqual("Calcite stalactite", records[0].Title);
-        Assert.AreEqual("Pure calcite, c. 200ka.", records[0].GeminiAnalysisText);
+        Assert.AreEqual("Pure calcite, c. 200ka.", records[0].CaveAiAnalysisText);
         StringAssert.Contains(records[0].SourceLabel, "rocks[0]");
         Assert.AreEqual(2, records[1].ImageReferences.Count);
         Assert.AreEqual("photos/rocks/r2.jpg", records[1].ImageReferences[0]);
@@ -64,8 +64,8 @@ public sealed class GeoBioTests
             {
                 ["geoBioRecords"] = JsonDocument.Parse("""
                                                       [
-                                                        {"category":"Rock","name":"Speleothem-A","geminiAnalysisText":"Stalactite tip.","imageReferences":["photos/geo/a.jpg"],"station":"S12"},
-                                                        {"category":"Organism","name":"Bat colony","geminiAnalysisText":"Rhinolophus sp.","imageReferences":["photos/bio/bat1.jpg"],"station":"S03"}
+                                                        {"category":"Rock","name":"Speleothem-A","caveAiAnalysisText":"Stalactite tip.","imageReferences":["photos/geo/a.jpg"],"station":"S12"},
+                                                        {"category":"Organism","name":"Bat colony","caveAiAnalysisText":"Rhinolophus sp.","imageReferences":["photos/bio/bat1.jpg"],"station":"S03"}
                                                       ]
                                                       """).RootElement,
             },

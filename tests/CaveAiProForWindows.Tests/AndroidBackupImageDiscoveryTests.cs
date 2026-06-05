@@ -71,7 +71,7 @@ public sealed class AndroidBackupImageDiscoveryTests
 
     /// <summary>
     /// Reproduces the bug for the JSON-only path: Android puts the satellite image under a non-standard
-    /// extension key (e.g. <c>geminiSatelliteImageUri</c>) — the broader keyword match must catch it.
+    /// extension key (e.g. <c>caveAiSatelliteImageUri</c>) — the broader keyword match must catch it.
     /// </summary>
     [TestMethod]
     public void Discovery_finds_xray_image_via_extension_data_keyword()
@@ -88,7 +88,7 @@ public sealed class AndroidBackupImageDiscoveryTests
             Name = "C",
             ExtensionData = new Dictionary<string, JsonElement>
             {
-                ["geminiSatelliteImageUri"] = JsonDocument.Parse($"\"{entryPath}\"").RootElement,
+                ["caveAiSatelliteImageUri"] = JsonDocument.Parse($"\"{entryPath}\"").RootElement,
             },
         };
 
@@ -188,7 +188,7 @@ public sealed class AndroidBackupImageDiscoveryTests
     }
 
     /// <summary>
-    /// Gemini analysis text on the <see cref="CaveProjectDocument.GeminiGeologyAnalysisText"/> property is
+    /// Cave AI analysis text on the <see cref="CaveProjectDocument.CaveAiGeologyAnalysisText"/> property is
     /// returned directly, ahead of any extension-data text-soup search.
     /// </summary>
     [TestMethod]
@@ -197,7 +197,7 @@ public sealed class AndroidBackupImageDiscoveryTests
         var project = new CaveProjectDocument
         {
             Name = "C",
-            GeminiGeologyAnalysisText = "Karst limestone with significant secondary calcite deposition.",
+            CaveAiGeologyAnalysisText = "Karst limestone with significant secondary calcite deposition.",
         };
 
         var text = AndroidBackupImageDiscovery.FindGeologyAnalysisText(project, zipPath: null);
@@ -207,7 +207,7 @@ public sealed class AndroidBackupImageDiscoveryTests
 
     /// <summary>
     /// When the explicit property is empty, the deeper <see cref="CaveProjectDocument.ExtensionData"/> walk
-    /// must still find Gemini-style text under broader keyword keys (e.g. <c>aiAnalysisText</c>).
+    /// must still find analysis text under broader keyword keys (e.g. <c>aiAnalysisText</c>).
     /// </summary>
     [TestMethod]
     public void FindGeologyAnalysisText_falls_back_to_extension_data_with_broader_keywords()

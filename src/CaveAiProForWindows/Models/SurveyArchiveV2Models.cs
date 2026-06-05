@@ -105,4 +105,16 @@ public sealed class StationEnvironmentSnapshot
 
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
+
+    [JsonPropertyName("lat")]
+    public double? Lat { get; set; }
+
+    [JsonPropertyName("lon")]
+    public double? Lon { get; set; }
+
+    [JsonPropertyName("latitude")]
+    public double? Latitude { get; set; }
+
+    [JsonPropertyName("longitude")]
+    public double? Longitude { get; set; }
 }

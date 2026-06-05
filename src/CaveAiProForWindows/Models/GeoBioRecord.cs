@@ -14,7 +14,7 @@ public sealed class GeoBioRecord
         string title,
         string sourceLabel,
         string? station,
-        string? geminiAnalysisText,
+        string? caveAiAnalysisText,
         IReadOnlyList<string> imageReferences,
         string detailsSummary,
         string? coordinatesSummary)
@@ -23,7 +23,7 @@ public sealed class GeoBioRecord
         Title = string.IsNullOrWhiteSpace(title) ? "(unnamed)" : title.Trim();
         SourceLabel = sourceLabel;
         Station = station;
-        GeminiAnalysisText = geminiAnalysisText;
+        CaveAiAnalysisText = caveAiAnalysisText;
         ImageReferences = imageReferences;
         DetailsSummary = detailsSummary;
         CoordinatesSummary = coordinatesSummary;
@@ -38,8 +38,8 @@ public sealed class GeoBioRecord
 
     public string? Station { get; }
 
-    /// <summary>Free-form on-device Gemini analysis text (full, untruncated for the GEO &amp; BIO panel).</summary>
-    public string? GeminiAnalysisText { get; }
+    /// <summary>Free-form Cave AI analysis text (full, untruncated for the GEO &amp; BIO panel).</summary>
+    public string? CaveAiAnalysisText { get; }
 
     /// <summary>Path / URI references — resolve through <see cref="Services.MapAssetOpener.TryEnsureLocalFilePath"/>.</summary>
     public IReadOnlyList<string> ImageReferences { get; }

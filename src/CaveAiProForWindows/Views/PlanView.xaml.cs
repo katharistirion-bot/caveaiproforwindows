@@ -314,6 +314,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         SyncSymbolPaletteEnabled();
 
         WireMainViewModel(DataContext as MainViewModel);
+        SurveyStationSelectionHub.StationSelected += OnExternalStationSelected;
         ResetPropertiesPanelToSummary();
         Redraw();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(FitMapSurfaceToHost));
@@ -327,6 +328,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         PersistPlanTab();
+        SurveyStationSelectionHub.StationSelected -= OnExternalStationSelected;
         SurveyCanvasTheme.Changed -= OnSurveyCanvasThemeChanged;
         WireMainViewModel(null);
         if (MapHostGrid != null)
@@ -342,6 +344,56 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     }
 
     private void MapTransform_Changed(object? sender, EventArgs e) => UpdateStationFloatingCardPosition();
+
+    private void OnExternalStationSelected(object? sender, SurveyStationSelectionEventArgs e)
+    {
+        if (string.Equals(e.Source, "Plan", StringComparison.OrdinalIgnoreCase))
+            return;
+        ApplyExternalStationSelection(e.StationName);
+        if (e.RequestZoom)
+            ZoomToStation(e.StationName);
+    }
+
+    /// <summary>Pan/zoom so <paramref name="stationName"/> is centered in the plan viewport.</summary>
+    public void ZoomToStation(string stationName)
+    {
+        if (ZoomScale == null || ZoomPan == null || HostScroll == null || !_surveyHitLayoutReady)
+            return;
+        if (!TryFindSceneStation(stationName, out var coord))
+            return;
+
+        var canvasPt = _surveyHitLayout.WorldToCanvas(coord.X, coord.Y);
+        var targetScale = MapZoomInteractions.ClampScale(Math.Max(ZoomScale.ScaleX, 1.85));
+        ZoomScale.CenterX = canvasPt.X;
+        ZoomScale.CenterY = canvasPt.Y;
+        ZoomScale.ScaleX = targetScale;
+        ZoomScale.ScaleY = targetScale;
+
+        var hostW = HostScroll.ViewportWidth > 0 ? HostScroll.ViewportWidth : MapHostGrid?.ActualWidth ?? 800;
+        var hostH = HostScroll.ViewportHeight > 0 ? HostScroll.ViewportHeight : MapHostGrid?.ActualHeight ?? 600;
+        ZoomPan.X = hostW * 0.5 - canvasPt.X * targetScale;
+        ZoomPan.Y = hostH * 0.5 - canvasPt.Y * targetScale;
+        UpdateStationFloatingCardPosition();
+    }
+
+    public void ApplyExternalStationSelection(string stationName)
+    {
+        if (Project == null || string.IsNullOrWhiteSpace(stationName))
+            return;
+
+        if (_interactivePlanScene != null
+            && _surveyHitLayoutReady
+            && TryFindSceneStation(stationName, out var coord))
+        {
+            _stationDetailsPaneDismissed = false;
+            UpdatePropertiesPanel(new SurveyPickStation(stationName.Trim(), coord));
+        }
+        else
+            _surveyPickHighlight = new SurveyMapPickHighlight(false, stationName.Trim(), null);
+
+        Redraw();
+        UpdateStationFloatingCardPosition();
+    }
 
     private void MapHostGrid_SizeChanged(object sender, SizeChangedEventArgs e)
     {
@@ -529,6 +581,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 ApplyPropertyCaptionState(PropertyCaptionStyle.Station);
 
                 _surveyPickHighlight = new SurveyMapPickHighlight(false, station.Name.Trim(), null);
+                SurveyStationSelectionHub.Select(station.Name.Trim(), "Plan");
                 PropertySelectionStatusText.Text = "Selected station";
                 ApplyPropertiesVisualState(PropertiesVisualState.Station);
                 PropertyStationLegNameText.Text = station.Name;

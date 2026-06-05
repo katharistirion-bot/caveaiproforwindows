@@ -423,6 +423,44 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenPublicLibraryCatalog()
+    {
+        try
+        {
+            PublicLibraryCatalog.ShowMapInAppWindow(Wpf.Application.Current.MainWindow);
+            StatusMessage = $"Public Cave Library · {PublicLibraryCatalog.WebOrigin}";
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                ex.Message,
+                "Public Cave Library",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Warning);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenWebCaveAi()
+    {
+        try
+        {
+            PublicLibraryCatalog.ShowCaveAiInAppWindow(Wpf.Application.Current.MainWindow);
+            StatusMessage = $"Cave AI web · {PublicLibraryCatalog.WebOrigin}";
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                ex.Message,
+                "Cave AI",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Warning);
+        }
+    }
+
+    [RelayCommand]
     private void ShowKeyboardShortcuts()
     {
         var owner = Wpf.Application.Current.MainWindow;

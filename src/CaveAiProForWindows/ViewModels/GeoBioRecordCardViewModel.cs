@@ -61,7 +61,7 @@ public sealed class GeoBioRecordCardViewModel
             FormatCategory(record.Category),
             FormatStation(record),
             record.SourceLabel,
-            record.GeminiAnalysisText,
+            record.CaveAiAnalysisText,
             record.DetailsSummary,
             hero,
             extras);

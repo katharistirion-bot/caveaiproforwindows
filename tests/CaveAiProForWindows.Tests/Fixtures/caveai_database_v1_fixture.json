@@ -1,0 +1,19 @@
+[
+  {
+    "name": "Fixture Cave",
+    "lat": 40.0,
+    "lon": 22.0,
+    "xrayBackdropImageBounds": {
+      "minLat": 39.999,
+      "maxLat": 40.001,
+      "minLon": 21.999,
+      "maxLon": 22.001
+    },
+    "shots": [
+      { "fromStation": "1", "toStation": "2", "distance": 12.5, "azimuth": 90, "clino": 0, "notes": "QC suspect leg" }
+    ],
+    "stationEnvironmentSnapshots": [
+      { "stationName": "1", "lat": 40.0001, "lon": 22.0001, "notes": "Entrance humidity high" }
+    ]
+  }
+]

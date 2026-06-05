@@ -73,7 +73,24 @@
                                         <TextBlock Margin="8,0,0,0"
                                                    FontSize="11.5"
                                                    Foreground="{DynamicResource Cave.TextMuted}"
-                                                   Text="{Binding Difficulty, StringFormat=· diff {0}}" />
+                                                   Text="{Binding Difficulty, StringFormat=· Difficulty {0}/10}" />
+                                        <TextBlock Margin="8,0,0,0"
+                                                   FontSize="11.5"
+                                                   Foreground="{DynamicResource Cave.TextMuted}"
+                                                   Text="{Binding Depth, StringFormat=· Depth {0} m}" />
+                                        <TextBlock Margin="8,0,0,0"
+                                                   FontSize="11.5"
+                                                   Foreground="{DynamicResource Cave.TextMuted}"
+                                                   Text="{Binding Length, StringFormat=· Length {0} m}" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+                                        <TextBlock FontSize="11.5"
+                                                   Foreground="{DynamicResource Cave.TextMuted}"
+                                                   Text="{Binding Elevation, StringFormat=Elev {0} m}" />
+                                        <TextBlock Margin="8,0,0,0"
+                                                   FontSize="11.5"
+                                                   Foreground="{DynamicResource Cave.TextMuted}"
+                                                   Text="{Binding Area, StringFormat=· {0}}" />
                                     </StackPanel>
                                     <TextBlock Margin="0,4,0,0"
                                                FontSize="12"

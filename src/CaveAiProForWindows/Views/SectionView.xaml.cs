@@ -161,6 +161,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
     private MainViewModel? _wiredMainVm;
     private CaveProjectDocument? _designLayerProjectScope;
     private bool _applyingSettings;
+    private SurveyMapPickHighlight? _surveyPickHighlight;
 
     public SectionView()
     {
@@ -341,6 +342,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
         SyncSymbolPaletteEnabled();
 
         WireMainViewModel(DataContext as MainViewModel);
+        SurveyStationSelectionHub.StationSelected += OnExternalStationSelected;
         Redraw();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(FitMapSurfaceToHost));
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyDeferredSectionZoomFromSettings));
@@ -349,6 +351,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         PersistSectionTab();
+        SurveyStationSelectionHub.StationSelected -= OnExternalStationSelected;
         SurveyCanvasTheme.Changed -= OnSurveyCanvasThemeChanged;
         WireMainViewModel(null);
         if (MapHostGrid != null)
@@ -565,7 +568,16 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
             StationNamesCheck?.IsChecked == true,
             CartographyOverlayCheck?.IsChecked != false,
             VisualizationMode,
-            intensity);
+            intensity,
+            _surveyPickHighlight);
+    }
+
+    private void OnExternalStationSelected(object? sender, SurveyStationSelectionEventArgs e)
+    {
+        if (string.Equals(e.Source, "Section", StringComparison.OrdinalIgnoreCase))
+            return;
+        _surveyPickHighlight = new SurveyMapPickHighlight(false, e.StationName.Trim(), null);
+        Redraw();
     }
 
     private void ResetView_Click(object sender, RoutedEventArgs e) => ResetMapView();

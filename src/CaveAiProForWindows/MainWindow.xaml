@@ -67,6 +67,15 @@
                 <MenuItem Header="_Compare two backups…" Command="{Binding CompareBackupsCommand}" />
             </MenuItem>
             <MenuItem Header="_Help">
+                <MenuItem Header="Public Cave _Library…" Command="{Binding OpenPublicLibraryCatalogCommand}"
+                          ToolTip="Browse community-published caves in-app (WebView2 · Google sign-in)." />
+                <MenuItem Header="Cave _AI on web…" Command="{Binding OpenWebCaveAiCommand}"
+                          ToolTip="Open CaveAI assistant page in-app (same portal as website /ai)." />
+                <MenuItem Header="Public Library in _browser…" Click="OpenPublicLibraryExternal_Click"
+                          ToolTip="Open the web map in your default browser." />
+                <MenuItem Header="Cave AI in _browser…" Click="OpenWebCaveAiExternal_Click"
+                          ToolTip="Open /ai in your default browser." />
+                <Separator />
                 <MenuItem Header="_About" Command="{Binding AboutCommand}" InputGestureText="F1" />
                 <MenuItem Header="_Keyboard shortcuts…" Command="{Binding ShowKeyboardShortcutsCommand}" />
             </MenuItem>
@@ -97,6 +106,9 @@
                 <Button Content="Therion" Command="{Binding ExportTherionCommand}" ToolTip="Export traverse .th" Padding="10,6" Margin="0,0,4,0" />
                 <Button Content="Photos" Command="{Binding ExtractPhotosCommand}" ToolTip="Extract photos from ZIP" Padding="10,6" Margin="0,0,4,0" />
                 <Button Content="Explorer" Command="{Binding RevealCurrentFileInExplorerCommand}" ToolTip="Show current file in Explorer" Padding="10,6" Margin="0,0,4,0" />
+                <Separator />
+                <Button Content="Public Library" Command="{Binding OpenPublicLibraryCatalogCommand}"
+                        ToolTip="Browse published caves in-app (WebView2 · Google sign-in)" Padding="10,6" />
             </ToolBar>
         </ToolBarTray>
 
@@ -262,7 +274,7 @@
                                             MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
                                             MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
-                        <TabItem Header="GEO &amp; BIO" ToolTip="Offline reader for Android Gemini analyses, rock textures, and biological observations (split into Geology / Biology sub-tabs)">
+                        <TabItem Header="GEO &amp; BIO" ToolTip="Offline reader for Android Cave AI analyses, rock textures, and biological observations (split into Geology / Biology sub-tabs)">
                             <views:GeoBioView VerticalAlignment="Stretch"
                                               HorizontalAlignment="Stretch"
                                               Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
@@ -274,8 +286,8 @@
                                                       Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                                       ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}" />
                         </TabItem>
-                        <TabItem Header="X-RAY" ToolTip="Offline viewer: Android satellite snapshot + traverse overlay">
-                            <views:OfflineXRayView VerticalAlignment="Stretch"
+                        <TabItem Header="X-RAY" ToolTip="Geo-calibrated satellite map: bounding-box alignment, zoom/pan, station pick syncs Plan/Section, AI render overlay">
+                            <views:OfflineXRayView x:Name="OfflineXRayViewControl" VerticalAlignment="Stretch"
                                                    HorizontalAlignment="Stretch"
                                                    Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                                    ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
@@ -489,7 +501,27 @@
                                                Foreground="{DynamicResource Cave.Text}" />
                                     <TextBlock TextWrapping="Wrap" FontSize="12.5" Margin="0,0,0,12"
                                                Foreground="{DynamicResource Cave.TextMuted}"
-                                               Text="CAVE AI PRO for Windows is a fully offline-first survey workstation: there is no API key configuration, no subscription to external AI APIs, and no recurring cloud cost for core analytics. Optional preferences (such as theme or default export folders) may be added here later. File → Export and Tools → Data inspector require acceptance of the terms above." />
+                                               Text="CAVE AI PRO for Windows is an offline-first survey workstation. Core analytics and exports require no cloud APIs. Optional generative map rendering (Sketch Editor → AI Render) uses Replicate ControlNet when you provide your own API token — stored locally in Windows Credential Manager, never in ui-settings.json." />
+                                    <Separator Margin="0,8,0,16" />
+                                    <TextBlock Text="Generative map (Replicate)" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
+                                    <TextBlock TextWrapping="Wrap" FontSize="12.5" Margin="0,0,0,10"
+                                               Foreground="{DynamicResource Cave.TextMuted}"
+                                               Text="Your Replicate API token is saved in Windows Credential Manager under CaveAiProForWindows:ReplicateApiToken. It is not written to ui-settings.json or survey backups. Developers may also set the CAVEAIPRO_REPLICATE_API_TOKEN environment variable." />
+                                    <TextBlock x:Name="ReplicateTokenStatusText" TextWrapping="Wrap" FontSize="12"
+                                               Foreground="{DynamicResource Cave.TextSubdued}" Margin="0,0,0,8" />
+                                    <TextBlock Text="Replicate API token" FontWeight="SemiBold" FontSize="12.5"
+                                               Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,4" />
+                                    <PasswordBox x:Name="ReplicateApiTokenBox" Padding="8,6" MaxWidth="420"
+                                                 HorizontalAlignment="Left" MinWidth="320"
+                                                 ToolTip="Paste token from replicate.com/account/api-tokens" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Button Content="Save token" Padding="14,8" Margin="0,0,10,0"
+                                                Style="{StaticResource Cave.AccentButton}"
+                                                Click="SaveReplicateApiToken_Click" />
+                                        <Button Content="Clear saved token" Padding="14,8"
+                                                Click="ClearReplicateApiToken_Click" />
+                                    </StackPanel>
                                 </StackPanel>
                             </ScrollViewer>
                         </TabItem>

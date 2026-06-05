@@ -11,6 +11,8 @@
     <SolidColorBrush x:Key="Cave.Border" Color="#FF30363D" />
     <SolidColorBrush x:Key="Cave.CanvasBackdrop" Color="#FF0F172A" />
     <SolidColorBrush x:Key="Cave.BannerTint" Color="#FF1A2332" />
+    <SolidColorBrush x:Key="Cave.AnalyticsPriorityRow" Color="#FF3D2E14" />
+    <SolidColorBrush x:Key="Cave.AnalyticsCriticalRow" Color="#FF4A1A1A" />
     <SolidColorBrush x:Key="Cave.Accent" Color="#FF1877F2" />
     <SolidColorBrush x:Key="Cave.AccentHover" Color="#FF1C8AF7" />
     <SolidColorBrush x:Key="Cave.AccentPressed" Color="#FF1565C0" />

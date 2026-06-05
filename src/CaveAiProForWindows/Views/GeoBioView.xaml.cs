@@ -12,7 +12,7 @@ namespace CaveAiProForWindows.Views;
 
 /// <summary>
 /// GEO &amp; BIO offline reader. Splits Android scientific records (rocks, fieldCatalogEntries, geoBioRecords)
-/// into Geology and Biology sub-tabs, renders Gemini analyses as scrollable typography, and opens any photo
+/// into Geology and Biology sub-tabs, renders Cave AI analyses as scrollable typography, and opens any photo
 /// in <see cref="ImageLightBoxWindow"/> on click.
 /// </summary>
 public partial class GeoBioView : UserControl
@@ -89,8 +89,8 @@ public partial class GeoBioView : UserControl
         if (geologyVms.Count == 0)
         {
             var hint = string.IsNullOrWhiteSpace(globalAnalysis)
-                ? "No rocks/mineral records or Gemini geology analysis in this backup. Open BACKUP CONTENTS to inspect raw JSON."
-                : "No itemized rock records — global Gemini analysis is shown above.";
+                ? "No rocks/mineral records or Cave AI geology analysis in this backup. Open BACKUP CONTENTS to inspect raw JSON."
+                : "No itemized rock records — global Cave AI analysis is shown above.";
             ShowEmpty(GeologyEmptyBorder, GeologyEmptyText, hint);
         }
 

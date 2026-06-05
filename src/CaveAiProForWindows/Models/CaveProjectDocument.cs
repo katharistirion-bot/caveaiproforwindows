@@ -132,32 +132,32 @@ public sealed class CaveProjectDocument
     public List<StationEnvironmentSnapshot> StationEnvironmentSnapshots { get; set; } = new();
 
     /// <summary>
-    /// Gemini / on-device geology analysis result (free-form text or markdown). Android exporters use a few
+    /// Cave AI / on-device geology analysis result (free-form text or markdown). Android exporters use a few
     /// different key names for this — all are mapped here so the offline GEOLOGY tab can render the analysis
     /// without re-running cloud calls.
     /// </summary>
-    [JsonPropertyName("geminiGeologyAnalysisText")]
-    public string? GeminiGeologyAnalysisText { get; set; }
+    [JsonPropertyName("caveAiGeologyAnalysisText")]
+    public string? CaveAiGeologyAnalysisText { get; set; }
 
-    /// <inheritdoc cref="GeminiGeologyAnalysisText"/>
-    [JsonPropertyName("geminiGeologyAnalysis")]
-    public string? GeminiGeologyAnalysis { get; set; }
+    /// <inheritdoc cref="CaveAiGeologyAnalysisText"/>
+    [JsonPropertyName("caveAiGeologyAnalysis")]
+    public string? CaveAiGeologyAnalysis { get; set; }
 
-    /// <inheritdoc cref="GeminiGeologyAnalysisText"/>
-    [JsonPropertyName("geminiAnalysisText")]
-    public string? GeminiAnalysisText { get; set; }
+    /// <inheritdoc cref="CaveAiGeologyAnalysisText"/>
+    [JsonPropertyName("caveAiAnalysisText")]
+    public string? CaveAiAnalysisText { get; set; }
 
-    /// <inheritdoc cref="GeminiGeologyAnalysisText"/>
+    /// <inheritdoc cref="CaveAiGeologyAnalysisText"/>
     [JsonPropertyName("aiGeologyAnalysisText")]
     public string? AiGeologyAnalysisText { get; set; }
 
-    /// <inheritdoc cref="GeminiGeologyAnalysisText"/>
+    /// <inheritdoc cref="CaveAiGeologyAnalysisText"/>
     [JsonPropertyName("cloudGeologyAnalysisText")]
     public string? CloudGeologyAnalysisText { get; set; }
 
-    /// <summary>Optional raw Gemini geology JSON payload (for forward compatibility with newer exporters).</summary>
-    [JsonPropertyName("geminiGeologyAnalysisJson")]
-    public JsonElement GeminiGeologyAnalysisJson { get; set; }
+    /// <summary>Optional raw Cave AI geology JSON payload (for forward compatibility with newer exporters).</summary>
+    [JsonPropertyName("caveAiGeologyAnalysisJson")]
+    public JsonElement CaveAiGeologyAnalysisJson { get; set; }
 
     /// <summary>
     /// X-Ray / satellite backdrop image (path inside the ZIP, sibling file, or http(s) URL) captured on Android
@@ -168,8 +168,8 @@ public sealed class CaveProjectDocument
     public string? XrayBackdropImageUri { get; set; }
 
     /// <inheritdoc cref="XrayBackdropImageUri"/>
-    [JsonPropertyName("geminiSatelliteImageUri")]
-    public string? GeminiSatelliteImageUri { get; set; }
+    [JsonPropertyName("caveAiSatelliteImageUri")]
+    public string? CaveAiSatelliteImageUri { get; set; }
 
     /// <inheritdoc cref="XrayBackdropImageUri"/>
     [JsonPropertyName("satelliteSnapshotImageUri")]
@@ -188,13 +188,13 @@ public sealed class CaveProjectDocument
     public JsonElement XrayBackdropImageBounds { get; set; }
 
     /// <summary>
-    /// Optional list of geology / Gemini photo references the Android exporter chose for this project (paths
+    /// Optional list of geology / Cave AI photo references the Android exporter chose for this project (paths
     /// inside the ZIP, sibling files, http URLs, or <c>data:image</c> base64). Read alongside <see cref="Rocks"/>.
     /// </summary>
-    [JsonPropertyName("geminiGeologyPhotoUris")]
-    public List<string>? GeminiGeologyPhotoUris { get; set; }
+    [JsonPropertyName("caveAiGeologyPhotoUris")]
+    public List<string>? CaveAiGeologyPhotoUris { get; set; }
 
-    /// <inheritdoc cref="GeminiGeologyPhotoUris"/>
+    /// <inheritdoc cref="CaveAiGeologyPhotoUris"/>
     [JsonPropertyName("aiGeologyPhotoUris")]
     public List<string>? AiGeologyPhotoUris { get; set; }
 

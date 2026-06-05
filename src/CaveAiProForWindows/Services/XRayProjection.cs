@@ -49,6 +49,22 @@ public readonly record struct XRayGeoLayout(
         var canvasY = DisplayRectInCanvas.Y + imgPy / Math.Max(1e-9, ImagePixelHeight) * DisplayRectInCanvas.Height;
         return new Point(canvasX, canvasY);
     }
+
+    /// <summary>Inverse of <see cref="GeoToCanvas"/> — canvas pixel to WGS-84 degrees.</summary>
+    public (double Lat, double Lon)? TryCanvasToGeo(Point canvasPt)
+    {
+        var rect = DisplayRectInCanvas;
+        if (rect.Width <= 0 || rect.Height <= 0)
+            return null;
+
+        var imgPx = (canvasPt.X - rect.X) / rect.Width * ImagePixelWidth;
+        var imgPy = (canvasPt.Y - rect.Y) / rect.Height * ImagePixelHeight;
+        var spanLat = Math.Max(1e-12, MaxLat - MinLat);
+        var spanLon = Math.Max(1e-12, MaxLon - MinLon);
+        var lon = MinLon + imgPx / Math.Max(1e-9, ImagePixelWidth) * spanLon;
+        var lat = MaxLat - imgPy / Math.Max(1e-9, ImagePixelHeight) * spanLat;
+        return (lat, lon);
+    }
 }
 
 /// <summary>Builds <see cref="XRayGeoLayout"/> instances and computes the on-canvas image rectangle.</summary>

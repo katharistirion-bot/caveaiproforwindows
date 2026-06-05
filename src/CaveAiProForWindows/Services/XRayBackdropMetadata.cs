@@ -39,7 +39,9 @@ public static class XRayBackdropMetadataParser
     [
         "xrayBackdropImageBounds", "xrayBackdropBoundsLatLon", "xrayBackdropBbox", "xrayBackdropBounds",
         "satelliteSnapshotBounds", "satelliteBounds", "satelliteBbox", "satelliteImageBounds",
-        "geminiSatelliteBounds", "geminiSatelliteImageBounds",
+        "caveAiSatelliteBounds", "caveAiSatelliteImageBounds",
+        AndroidExportLegacyJsonKeys.SatelliteBounds,
+        AndroidExportLegacyJsonKeys.SatelliteImageBounds,
         "mapBackdropBounds", "mapSnapshotBounds", "basemapBounds", "imageBoundsLatLon", "imageBbox",
     ];
 
@@ -197,9 +199,12 @@ public static class XRayBackdropMetadataParser
             return null;
         var ext = project.ExtensionData;
 
-        var centerLat = TryReadAlias(ext, "xrayBackdropCenterLat", "satelliteCenterLat", "geminiSatelliteCenterLat", "backdropCenterLat", "snapshotCenterLat");
-        var centerLon = TryReadAlias(ext, "xrayBackdropCenterLon", "satelliteCenterLon", "geminiSatelliteCenterLon", "backdropCenterLon", "snapshotCenterLon", "xrayBackdropCenterLng", "satelliteCenterLng");
-        var zoom = TryReadAlias(ext, "xrayBackdropZoom", "satelliteZoom", "geminiSatelliteZoom", "backdropZoom", "snapshotZoom");
+        var centerLat = TryReadAlias(ext, "xrayBackdropCenterLat", "satelliteCenterLat", "caveAiSatelliteCenterLat",
+            AndroidExportLegacyJsonKeys.SatelliteCenterLat, "backdropCenterLat", "snapshotCenterLat");
+        var centerLon = TryReadAlias(ext, "xrayBackdropCenterLon", "satelliteCenterLon", "caveAiSatelliteCenterLon",
+            AndroidExportLegacyJsonKeys.SatelliteCenterLon, "backdropCenterLon", "snapshotCenterLon", "xrayBackdropCenterLng", "satelliteCenterLng");
+        var zoom = TryReadAlias(ext, "xrayBackdropZoom", "satelliteZoom", "caveAiSatelliteZoom",
+            AndroidExportLegacyJsonKeys.SatelliteZoom, "backdropZoom", "snapshotZoom");
         var pxW = TryReadAlias(ext, "xrayBackdropImageWidthPx", "satelliteImageWidthPx", "snapshotImageWidthPx", "backdropWidthPx", "imageWidthPx");
         var pxH = TryReadAlias(ext, "xrayBackdropImageHeightPx", "satelliteImageHeightPx", "snapshotImageHeightPx", "backdropHeightPx", "imageHeightPx");
 
@@ -228,8 +233,10 @@ public static class XRayBackdropMetadataParser
         if (project.ExtensionData == null)
             return null;
         var ext = project.ExtensionData;
-        var centerLat = TryReadAlias(ext, "xrayBackdropCenterLat", "satelliteCenterLat", "geminiSatelliteCenterLat");
-        var centerLon = TryReadAlias(ext, "xrayBackdropCenterLon", "satelliteCenterLon", "geminiSatelliteCenterLon", "xrayBackdropCenterLng");
+        var centerLat = TryReadAlias(ext, "xrayBackdropCenterLat", "satelliteCenterLat", "caveAiSatelliteCenterLat",
+            AndroidExportLegacyJsonKeys.SatelliteCenterLat);
+        var centerLon = TryReadAlias(ext, "xrayBackdropCenterLon", "satelliteCenterLon", "caveAiSatelliteCenterLon",
+            AndroidExportLegacyJsonKeys.SatelliteCenterLon, "xrayBackdropCenterLng");
         var spanLat = TryReadAlias(ext, "xrayBackdropSpanLatDeg", "satelliteSpanLatDeg", "backdropSpanLat", "snapshotSpanLat");
         var spanLon = TryReadAlias(ext, "xrayBackdropSpanLonDeg", "satelliteSpanLonDeg", "backdropSpanLon", "snapshotSpanLon", "xrayBackdropSpanLngDeg");
         if (centerLat == null || centerLon == null || spanLat == null || spanLon == null)

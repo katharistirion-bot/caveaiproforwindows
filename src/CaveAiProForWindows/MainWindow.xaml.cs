@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Secrets;
 using CaveAiProForWindows.ViewModels;
 using CaveAiProForWindows.Views;
 
@@ -26,7 +27,12 @@ public partial class MainWindow : Window
         AddHandler(System.Windows.DragDrop.PreviewDragOverEvent, new System.Windows.DragEventHandler(OnPreviewDragOver), handledEventsToo: true);
         AddHandler(System.Windows.DragDrop.DropEvent, new System.Windows.DragEventHandler(OnDrop), handledEventsToo: true);
 
-        Loaded += (_, _) => WindowPlacementStore.ApplyTo(this);
+        Loaded += (_, _) =>
+        {
+            WindowPlacementStore.ApplyTo(this);
+            RefreshReplicateTokenStatusUi();
+            SurveyWorkspaceNavigator.Register(this);
+        };
         Closing += (_, _) => WindowPlacementStore.SaveFrom(this);
         PreviewKeyDown += OnMainWindowPreviewKeyDown;
         App.WriteStartupLog("MainWindow constructed and Loaded wiring attached");
@@ -141,6 +147,32 @@ public partial class MainWindow : Window
             IntegrityTabItem.IsSelected = true;
     }
 
+    private void OpenPublicLibraryExternal_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            PublicLibraryCatalog.OpenMap();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, ex.Message, "Public Cave Library", MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void OpenWebCaveAiExternal_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            PublicLibraryCatalog.OpenCaveAi();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, ex.Message, "Cave AI", MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
     private void OpenDataInspector_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm && !vm.LegalTermsAccepted)
@@ -163,7 +195,7 @@ public partial class MainWindow : Window
         w.Show();
     }
 
-    private void SelectLegalSettingsTab()
+    public void SelectLegalSettingsTab()
     {
         if (LegalSettingsTabItem != null)
             LegalSettingsTabItem.IsSelected = true;
@@ -279,5 +311,61 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(ex.Message, "Export ZIP failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void RefreshReplicateTokenStatusUi()
+    {
+        if (ReplicateTokenStatusText == null)
+            return;
+        ReplicateTokenStatusText.Text = ReplicateApiTokenStore.IsConfigured()
+            ? "Status: token configured (Windows Credential Manager or environment variable)."
+            : "Status: no token saved yet.";
+    }
+
+    private void SaveReplicateApiToken_Click(object sender, RoutedEventArgs e)
+    {
+        var token = ReplicateApiTokenBox?.Password?.Trim();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            MessageBox.Show(this, "Paste your Replicate API token first.", "Replicate API token",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (!ReplicateApiTokenStore.TrySave(token))
+        {
+            MessageBox.Show(this, "Could not save the token to Windows Credential Manager.", "Replicate API token",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        ReplicateApiTokenBox!.Password = "";
+        RefreshReplicateTokenStatusUi();
+        MessageBox.Show(this, "Replicate API token saved to Windows Credential Manager.", "Replicate API token",
+            MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void ClearReplicateApiToken_Click(object sender, RoutedEventArgs e)
+    {
+        ReplicateApiTokenStore.TryClear();
+        if (ReplicateApiTokenBox != null)
+            ReplicateApiTokenBox.Password = "";
+        RefreshReplicateTokenStatusUi();
+        MessageBox.Show(this, "Cleared the saved Replicate token from Windows Credential Manager.", "Replicate API token",
+            MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>Focus PLAN tab and zoom X-Ray / Plan to the given station (called from navigator hub).</summary>
+    public void FocusStationOnWorkspace(string stationName)
+    {
+        if (string.IsNullOrWhiteSpace(stationName))
+            return;
+
+        if (MainSurveyTabControl != null)
+            MainSurveyTabControl.SelectedIndex = 0;
+
+        PlanViewControl?.ApplyExternalStationSelection(stationName);
+        PlanViewControl?.ZoomToStation(stationName);
+        OfflineXRayViewControl?.ZoomToStation(stationName);
     }
 }

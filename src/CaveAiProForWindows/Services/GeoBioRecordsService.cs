@@ -22,7 +22,10 @@ public static class GeoBioRecordsService
 
     private static readonly string[] AnalysisKeys =
     [
-        "geminiAnalysisText", "geminiAnalysis", "geminiText", "aiAnalysisText", "aiAnalysis",
+        "caveAiAnalysisText", "caveAiAnalysis", "caveAiText", "aiAnalysisText", "aiAnalysis",
+        AndroidExportLegacyJsonKeys.AnalysisText,
+        AndroidExportLegacyJsonKeys.AnalysisTextShort,
+        AndroidExportLegacyJsonKeys.AnalysisTextAlt,
         "analysisText", "analysis", "geologyAnalysisText", "geologyAnalysis",
         "biologyAnalysisText", "biologyAnalysis", "cloudAnalysisText", "cloudAnalysis",
         "summary", "report", "text",
