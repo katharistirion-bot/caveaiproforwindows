@@ -7,7 +7,7 @@ namespace CaveAiProForWindows.Services;
 /// <summary>Quick global metrics for PLAN / Sketch HUD (same reductions as traverse reduction).</summary>
 public static class SurveyPlanHudStats
 {
-    /// <returns>Station count, total traverse tape metres, vertical span ΔZ metres (stations), one-line summary.</returns>
+    /// <returns>Station count, total traverse tape metres, vertical Z span metres (stations), one-line summary.</returns>
     public static (int Stations, double TotalTapeM, double ZSpanM, string Line) Compute(CaveProjectDocument? project)
     {
         if (project == null)
@@ -34,7 +34,7 @@ public static class SurveyPlanHudStats
         var nm = string.IsNullOrWhiteSpace(project.Name) ? "Project" : project.Name.Trim();
         var st = trav.Count == 0 && stationCount == 0
             ? $"{nm}: no traverse shots yet"
-            : $"{stationCount} station(s)  ·  {sumTape.ToString("0.##", inv)} m surveyed (Σ tape)  ·  ΔZ {zSpan.ToString("0.##", inv)} m";
+            : $"{stationCount} station(s)  ·  {sumTape.ToString("0.##", inv)} m traverse  ·  Z span {zSpan.ToString("0.##", inv)} m";
 
         return (stationCount, sumTape, zSpan, st);
     }

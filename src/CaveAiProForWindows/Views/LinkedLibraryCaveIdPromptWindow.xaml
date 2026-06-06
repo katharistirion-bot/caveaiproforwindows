@@ -10,15 +10,18 @@
         Foreground="{DynamicResource Cave.Text}"
         FontFamily="Segoe UI"
         FontSize="13">
-    <Border Padding="24,20" MinWidth="400" MaxWidth="480">
+    <Border Padding="24,20" MinWidth="420" MaxWidth="520">
         <StackPanel>
             <TextBlock Text="Link to Public Cave Library" FontSize="16" FontWeight="SemiBold"
                        TextWrapping="Wrap" Margin="0,0,0,10" />
             <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" LineHeight="20"
                        Margin="0,0,0,14"
-                       Text="Enter the Firestore published_caves document id for this survey — the same value as the web map URL parameter ?cave=. You can copy it from the Public Cave Library address bar after opening a cave map." />
+                       Text="Pick a cave from the Public Library map, or paste the document id manually (same as ?cave= in the web map URL)." />
+            <Button Content="Browse Public Library…" Click="Browse_Click" Padding="10,7" Margin="0,0,0,14"
+                    HorizontalAlignment="Left"
+                    ToolTip="Open the in-app map browser and select a published cave" />
             <TextBlock Text="Document id" FontWeight="SemiBold" Margin="0,0,0,6" />
-            <TextBox x:Name="DocIdBox" Padding="8,6" MinWidth="340"
+            <TextBox x:Name="DocIdBox" Padding="8,6" MinWidth="360"
                      FontFamily="Consolas" FontSize="12"
                      ToolTip="Example: abc123XYZ from https://caveaipro.com/map?cave=abc123XYZ" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">

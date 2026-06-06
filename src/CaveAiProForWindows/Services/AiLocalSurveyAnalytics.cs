@@ -245,9 +245,9 @@ public static class AiLocalSurveyAnalytics
             var leg = $"{s.FromStation.Trim()} → {s.ToStation.Trim()}";
             var parts = new List<string>();
             if (badCompass && compassStd.HasValue)
-                parts.Add($"compass σ={compassStd.Value.ToString("0.##", CultureInfo.InvariantCulture)}°");
+                parts.Add($"compass std={compassStd.Value.ToString("0.##", CultureInfo.InvariantCulture)}°");
             if (badClino && clinoStd.HasValue)
-                parts.Add($"clino σ={clinoStd.Value.ToString("0.##", CultureInfo.InvariantCulture)}°");
+                parts.Add($"clino std={clinoStd.Value.ToString("0.##", CultureInfo.InvariantCulture)}°");
 
             var summary = $"Leg {leg}: {string.Join(", ", parts)}";
             var detail = "Standard deviation exceeds local threshold.";

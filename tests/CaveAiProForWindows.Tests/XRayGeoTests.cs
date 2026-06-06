@@ -133,4 +133,35 @@ public sealed class XRayGeoTests
         Assert.IsTrue(Math.Abs(back!.Value.Lat - 40.005) < 1e-6);
         Assert.IsTrue(Math.Abs(back.Value.Lon - 22.005) < 1e-6);
     }
+
+    [TestMethod]
+    public void XRaySurveyOverlayLayout_matches_geo_world_to_canvas_at_corners()
+    {
+        var bbox = new XRayBackdropMetadata(MinLat: 39.99, MaxLat: 40.01, MinLon: 21.99, MaxLon: 22.01, "t");
+        var displayRect = new Rect(0, 0, 1000, 1000);
+        var geo = XRayProjection.Build(40.0, 22.0, bbox, 1000, 1000, displayRect);
+        Func<float, float, Point> worldToCanvas = (x, y) => geo.WorldMetresToCanvas(x, y);
+
+        var coords = new Dictionary<string, SurveyStationGeometry.StationPlanCoords>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["A"] = new("A", 0, 0, 0),
+            ["B"] = new("B", 50, 30, -5),
+        };
+
+        var layout = XRaySurveyOverlayLayout.BuildFromSurveyBounds(
+            coords,
+            Array.Empty<SurveyStationGeometry.PlanMapSymbol>(),
+            worldToCanvas);
+        Assert.IsNotNull(layout);
+
+        var expectedA = worldToCanvas(0, 0);
+        var actualA = layout!.Value.WorldToCanvas(0, 0);
+        Assert.AreEqual(expectedA.X, actualA.X, 2.5);
+        Assert.AreEqual(expectedA.Y, actualA.Y, 2.5);
+
+        var expectedB = worldToCanvas(50, 30);
+        var actualB = layout.Value.WorldToCanvas(50, 30);
+        Assert.AreEqual(expectedB.X, actualB.X, 4.0);
+        Assert.AreEqual(expectedB.Y, actualB.Y, 4.0);
+    }
 }

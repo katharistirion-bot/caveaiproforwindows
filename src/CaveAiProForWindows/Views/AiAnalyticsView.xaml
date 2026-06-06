@@ -15,6 +15,9 @@
         </Style>
         <Style x:Key="AiResultsDataGridRow" TargetType="DataGridRow">
             <Style.Triggers>
+                <DataTrigger Binding="{Binding CanSelectStation}" Value="True">
+                    <Setter Property="Cursor" Value="Hand" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding AlertLevel}" Value="{x:Static models:AiAnalyticsAlertLevel.Critical}">
                     <Setter Property="Background" Value="{DynamicResource Cave.AnalyticsCriticalRow}" />
                     <Setter Property="FontWeight" Value="SemiBold" />
@@ -41,7 +44,7 @@
                            Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,4" />
                 <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="11.5" Margin="0,0,0,14"
                            Foreground="{DynamicResource Cave.TextMuted}"
-                           Text="Select an offline analysis engine, then run. All stages execute on this PC using local C# math and geometry — no internet, no API keys, no cloud LLMs." />
+                           Text="Select an offline analysis engine, then run. Results fuse local geometry with Android field notes (survey notes, airflow, water, leads, geological markers) from the loaded backup." />
 
                 <TextBlock DockPanel.Dock="Top" Text="Analysis model" FontWeight="SemiBold" FontSize="12.5"
                            Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
@@ -186,7 +189,7 @@
                             Command="{Binding DataContext.ExportResultsCsvCommand, ElementName=AiAnalyticsPanel}"
                             ToolTip="Save the Results grid as UTF-8 CSV for spreadsheets or GIS" />
                 </StackPanel>
-                <TextBlock DockPanel.Dock="Top" Text="Double-click a row to jump to that station on Plan / X-Ray."
+                <TextBlock DockPanel.Dock="Top" Text="Click a row with an Android field note to highlight that station on Plan, Section, and X-Ray."
                            FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Margin="16,0,16,6" />
                 <TextBlock DockPanel.Dock="Top" Text="{Binding DataContext.ResultsSummary, ElementName=AiAnalyticsPanel}"
                            TextWrapping="Wrap" FontSize="12"
@@ -205,7 +208,7 @@
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.VirtualizationMode="Recycling"
                           ScrollViewer.CanContentScroll="True"
-                          MouseDoubleClick="ResultsDataGrid_MouseDoubleClick"
+                          SelectionChanged="ResultsDataGrid_SelectionChanged"
                           HeadersVisibility="Column"
                           GridLinesVisibility="Horizontal"
                           SelectionMode="Single"

@@ -33,6 +33,14 @@ public sealed class PlanScene
     public IReadOnlyList<(float x1, float y1, float x2, float y2)> SplaySegments { get; init; } =
         Array.Empty<(float, float, float, float)>();
 
+    /// <summary>Field catalog / rock samples pinned on plan (planMapX / planMapY).</summary>
+    public IReadOnlyList<FieldCatalogMapPin> FieldCatalogPins { get; init; } =
+        Array.Empty<FieldCatalogMapPin>();
+
+    /// <summary>Traverse legs that close onto an existing station.</summary>
+    public IReadOnlyList<LoopClosingLegHighlight> LoopClosingLegs { get; init; } =
+        Array.Empty<LoopClosingLegHighlight>();
+
     public float SpanX => Math.Max(1e-6f, MaxX - MinX);
     public float SpanY => Math.Max(1e-6f, MaxY - MinY);
 }

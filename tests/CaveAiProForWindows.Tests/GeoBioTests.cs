@@ -132,6 +132,50 @@ public sealed class GeoBioTests
     }
 
     [TestMethod]
+    public void FieldCatalogEntryParser_reads_android_kind_and_taxonomy_fields()
+    {
+        var el = JsonDocument.Parse("""
+            {
+              "kind":"BACTERIA",
+              "name":"Sulfur-oxidizing biofilm",
+              "scientificName":"Thiobacillus sp.",
+              "category":"Chemolithotroph",
+              "stationTag":"S12",
+              "abundance":"common",
+              "microhabitat":"pool margin",
+              "extendedAnalysis":"Thin bacterial mat on flowstone.",
+              "photoReference":"photos/catalog/b1.jpg",
+              "recordedAt":"06 Jun 2026, 14:30"
+            }
+            """).RootElement;
+
+        var rec = FieldCatalogEntryParser.TryParse(el, "fieldCatalogEntries[0]");
+        Assert.IsNotNull(rec);
+        Assert.AreEqual(FieldCatalogEntryKind.Bacteria, rec!.FieldKind);
+        Assert.AreEqual(GeoBioCategory.Organism, rec.Category);
+        Assert.AreEqual("Thiobacillus sp.", rec.ScientificName);
+        Assert.AreEqual("Chemolithotroph", rec.TaxonomicGroup);
+        Assert.AreEqual("S12", rec.Station);
+        StringAssert.Contains(rec.CaveAiAnalysisText!, "bacterial mat");
+        Assert.AreEqual(1, rec.ImageReferences.Count);
+    }
+
+    [TestMethod]
+    public void Service_classifies_BIOTA_kind_as_organism()
+    {
+        var p = new CaveProjectDocument
+        {
+            FieldCatalogEntries = JsonDocument.Parse("""
+                [{"kind":"BIOTA","name":"Greater horseshoe bat","scientificName":"Rhinolophus ferrumequinum","category":"Chiroptera"}]
+                """).RootElement,
+        };
+        var records = GeoBioRecordsService.Build(p);
+        Assert.AreEqual(1, records.Count);
+        Assert.AreEqual(GeoBioCategory.Organism, records[0].Category);
+        Assert.AreEqual(FieldCatalogEntryKind.Biota, records[0].FieldKind);
+    }
+
+    [TestMethod]
     public void BackupPhotoIndexer_returns_empty_when_project_and_zip_are_missing()
     {
         var entries = BackupPhotoIndexer.Build(project: null, zipPath: null);

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Views;
 
@@ -109,5 +110,33 @@ public static class PlanMapRasterExporter
         pxW = Math.Max(MinExportEdgePixels, pxW);
         pxH = Math.Max(MinExportEdgePixels, pxH);
         return (pxW, pxH);
+    }
+
+    /// <summary>Off-screen 3D viewport capture (tube + labels).</summary>
+    public static byte[]? TryCapture3DPng(CaveProjectDocument project, int width = 1600, int height = 1200)
+    {
+        var viewport = new Viewport3D { Width = width, Height = height };
+        var shell = new Border { Width = width, Height = height, Background = new SolidColorBrush(Color.FromRgb(0x13, 0x14, 0x18)) };
+        var labelCanvas = new Canvas { Width = width, Height = height };
+        var root = new Grid { Width = width, Height = height };
+        root.Children.Add(viewport);
+        root.Children.Add(labelCanvas);
+
+        if (!CaveViewport3DPresenter.TryPopulate(viewport, project, shell, labelCanvas))
+            return null;
+
+        root.Measure(new Size(width, height));
+        root.Arrange(new Rect(0, 0, width, height));
+        root.UpdateLayout();
+
+        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(root);
+        CaveViewport3DPresenter.Detach(viewport, shell, labelCanvas);
+
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(rtb));
+        using var ms = new MemoryStream();
+        enc.Save(ms);
+        return ms.ToArray();
     }
 }

@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Diagnostics;
-using System.Printing;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -17,7 +16,7 @@ using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows.Views;
 
-public partial class SectionView : System.Windows.Controls.UserControl, IMapSurfaceShortcuts
+public partial class SectionView : System.Windows.Controls.UserControl, IMapSurfaceShortcuts, ISurveyMapPrintSurface
 {
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
         nameof(Project),
@@ -241,6 +240,14 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
                 _currentTool = MapCanvasEditorTool.PanZoom;
             if (StationNamesCheck != null)
                 StationNamesCheck.IsChecked = s.StationNames;
+            if (LegSurveyDetailsCheck != null)
+                LegSurveyDetailsCheck.IsChecked = s.LegSurveyDetails;
+            if (StationEnvironmentCheck != null)
+                StationEnvironmentCheck.IsChecked = s.StationEnvironment;
+            if (DepthSpanAnnotationsCheck != null)
+                DepthSpanAnnotationsCheck.IsChecked = s.DepthSpanAnnotations;
+            if (BracketMarkersCheck != null)
+                BracketMarkersCheck.IsChecked = s.BracketMarkers;
             if (CartographyOverlayCheck != null)
                 CartographyOverlayCheck.IsChecked = s.Overlay;
             if (EditorToolPan != null && EditorToolSelect != null && EditorToolDraw != null &&
@@ -277,6 +284,10 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
         var all = AppUiSettingsStore.LoadOrDefault();
         all.Section.Tool = _currentTool.ToString();
         all.Section.StationNames = StationNamesCheck?.IsChecked == true;
+        all.Section.LegSurveyDetails = LegSurveyDetailsCheck?.IsChecked != false;
+        all.Section.StationEnvironment = StationEnvironmentCheck?.IsChecked != false;
+        all.Section.DepthSpanAnnotations = DepthSpanAnnotationsCheck?.IsChecked != false;
+        all.Section.BracketMarkers = BracketMarkersCheck?.IsChecked != false;
         all.Section.Overlay = CartographyOverlayCheck?.IsChecked != false;
         if (ZoomScale != null)
             all.Section.ZoomScale = ZoomScale.ScaleX;
@@ -343,6 +354,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
 
         WireMainViewModel(DataContext as MainViewModel);
         SurveyStationSelectionHub.StationSelected += OnExternalStationSelected;
+        SurveyStationSelectionHub.SelectionCleared += OnExternalSelectionCleared;
         Redraw();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(FitMapSurfaceToHost));
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyDeferredSectionZoomFromSettings));
@@ -352,6 +364,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
     {
         PersistSectionTab();
         SurveyStationSelectionHub.StationSelected -= OnExternalStationSelected;
+        SurveyStationSelectionHub.SelectionCleared -= OnExternalSelectionCleared;
         SurveyCanvasTheme.Changed -= OnSurveyCanvasThemeChanged;
         WireMainViewModel(null);
         if (MapHostGrid != null)
@@ -403,6 +416,33 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
         _mapEditor?.OnDesignLayerCleared();
     }
 
+    private void RefreshCaveNameBanner()
+    {
+        if (CaveNameBanner == null || CaveNameBannerText == null || CaveNameBannerSubText == null)
+            return;
+
+        var p = Project;
+        if (p == null)
+        {
+            CaveNameBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var name = CaveProjectDisplayNames.GetDisplayName(p);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            CaveNameBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        CaveNameBannerText.Text = name;
+        var sub = "Section";
+        if (!string.IsNullOrWhiteSpace(p.Date))
+            sub += " · " + p.Date.Trim();
+        CaveNameBannerSubText.Text = sub;
+        CaveNameBanner.Visibility = Visibility.Visible;
+    }
+
     private void Redraw()
     {
         if (SurveyCanvas == null || DesignLayer == null || MapZoomRoot == null)
@@ -410,6 +450,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
 
         MaybeResetDesignLayerForProjectChange();
         SurveyCanvas.Children.Clear();
+        RefreshCaveNameBanner();
         var p = Project;
         if (p == null)
         {
@@ -458,10 +499,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
                 p,
                 ZipPath,
                 CurrentDrawOptions());
-            if (PlanCanvasRenderer.TryComputeSurveyLayout(scene, SurveyCanvas.Width, SurveyCanvas.Height, out var symLayout))
-                AndroidImportedSymbolPresenter.SyncDesignLayer(DesignLayer, scene, symLayout, highContrast: false);
-            else
-                AndroidImportedSymbolPresenter.ClearImported(DesignLayer);
+            AndroidImportedSymbolPresenter.ClearImported(DesignLayer);
         }
         catch (Exception ex)
         {
@@ -516,6 +554,15 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
     /// <inheritdoc />
     public void MapZoomOut() => ApplyMapZoom(zoomIn: false);
 
+    /// <inheritdoc />
+    public void UndoSketchEdit() { }
+
+    /// <inheritdoc />
+    public void RedoSketchEdit() { }
+
+    /// <inheritdoc />
+    public bool TryDeleteSelectedInk() => false;
+
     private void ApplyMapZoom(bool zoomIn)
     {
         if (ZoomScale == null || ZoomPan == null)
@@ -569,7 +616,12 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
             CartographyOverlayCheck?.IsChecked != false,
             VisualizationMode,
             intensity,
-            _surveyPickHighlight);
+            _surveyPickHighlight,
+            LegSurveyDetailsCheck?.IsChecked != false,
+            StationEnvironmentCheck?.IsChecked != false,
+            DepthSpanAnnotationsCheck?.IsChecked != false,
+            BracketMarkersCheck?.IsChecked != false,
+            AppUiSettingsStore.LoadOrDefault().Section.LoopClosureHighlights);
     }
 
     private void OnExternalStationSelected(object? sender, SurveyStationSelectionEventArgs e)
@@ -577,6 +629,14 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
         if (string.Equals(e.Source, "Section", StringComparison.OrdinalIgnoreCase))
             return;
         _surveyPickHighlight = new SurveyMapPickHighlight(false, e.StationName.Trim(), null);
+        Redraw();
+    }
+
+    private void OnExternalSelectionCleared(object? sender, SurveyStationSelectionEventArgs e)
+    {
+        if (string.Equals(e.Source, "Section", StringComparison.OrdinalIgnoreCase))
+            return;
+        _surveyPickHighlight = null;
         Redraw();
     }
 
@@ -623,7 +683,8 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
         PersistSectionTab();
     }
 
-    private void PrintSection_Click(object sender, RoutedEventArgs e)
+    /// <inheritdoc />
+    public void ShowPrintPreview()
     {
         var p = Project;
         if (p == null)
@@ -666,74 +727,64 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
                 p,
                 ZipPath,
                 CurrentDrawOptions());
-        var pd = new PrintDialog();
-        try
-        {
-            pd.PrintTicket.PageOrientation = PageOrientation.Landscape;
-        }
-        catch { /* ignore */ }
-
-        if (pd.ShowDialog() != true)
-        {
-            Redraw();
-            return;
-        }
-
-        var pw = pd.PrintableAreaWidth;
-        var ph = pd.PrintableAreaHeight;
-        if (pw <= 0 || ph <= 0)
-        {
-            MessageBox.Show("Invalid printable area.", "Print", MessageBoxButton.OK, MessageBoxImage.Warning);
-            Redraw();
-            return;
-        }
-
         if (MapZoomRoot == null)
         {
             Redraw();
             return;
         }
 
-        MapZoomRoot.Measure(new Size(MapZoomRoot.Width, MapZoomRoot.Height));
-        MapZoomRoot.Arrange(new Rect(0, 0, MapZoomRoot.Width, MapZoomRoot.Height));
-        MapZoomRoot.UpdateLayout();
-        var rtb = new RenderTargetBitmap(
-            (int)Math.Ceiling(MapZoomRoot.Width),
-            (int)Math.Ceiling(MapZoomRoot.Height),
-            96,
-            96,
-            PixelFormats.Pbgra32);
-        rtb.Render(MapZoomRoot);
-        var stack = new StackPanel { Background = Brushes.White, Width = pw };
-        var titleSuffix = scene == null ? " — map preview (no survey geometry)" : "";
-        stack.Children.Add(new TextBlock
-        {
-            Text = $"{p.Name}  ·  {p.Date}  ·  Section (survey m, CAVE AI PRO){titleSuffix}",
-            FontSize = 13,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = Brushes.Black,
-            Margin = new Thickness(24, 18, 24, 10),
-            TextWrapping = TextWrapping.Wrap,
-        });
-        var vb = new Viewbox { Width = pw - 48, Height = Math.Max(120, ph - 72), Margin = new Thickness(24, 0, 24, 24), Stretch = Stretch.Uniform };
-        vb.Child = new Image { Source = rtb };
-        stack.Children.Add(vb);
-        stack.Measure(new Size(pw, ph));
-        stack.Arrange(new Rect(0, 0, pw, ph));
-        stack.UpdateLayout();
+        var titleSuffix = scene == null ? "  ·  map preview (no survey geometry)" : "";
+        var hiContrast = PrintHiContrastCheck.IsChecked == true;
         try
         {
-            pd.PrintVisual(stack, $"CAVE AI PRO — {p.Name} section");
+            SurveyMapPrintWorkflow.ShowPreview(
+                Window.GetWindow(this),
+                p,
+                SurveyMapPrintKind.Section,
+                MapZoomRoot,
+                hiContrast,
+                titleSuffix,
+                BuildPrintCartographyContext(),
+                ResetMapViewAfterPrint);
         }
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Print", MessageBoxButton.OK, MessageBoxImage.Error);
+            ResetMapViewAfterPrint();
         }
-        finally
+    }
+
+    private void ResetMapViewAfterPrint()
+    {
+        if (ZoomPan == null || ZoomScale == null)
+            return;
+        ZoomPan.X = ZoomPan.Y = 0;
+        ZoomScale.ScaleX = ZoomScale.ScaleY = 1;
+        Redraw();
+    }
+
+    private SurveyMapPrintContext BuildPrintCartographyContext()
+    {
+        if (CartographyOverlayCheck?.IsChecked == false)
+            return new SurveyMapPrintContext { ShowCartographyOverlay = false };
+
+        var project = Project;
+        if (project == null)
+            return new SurveyMapPrintContext { ShowCartographyOverlay = false };
+
+        var scene = SectionSceneBuilder.TryBuild(project, VisualizationMode);
+        if (scene == null)
+            return new SurveyMapPrintContext { ShowCartographyOverlay = false };
+
+        var layout = PlanCanvasSurveyLayout.FromAxisAlignedBounds(
+            scene.MinX, scene.MaxX, scene.MinY, scene.MaxY,
+            SurveyCanvas?.Width ?? 960,
+            SurveyCanvas?.Height ?? 640);
+        return new SurveyMapPrintContext
         {
-            ZoomPan.X = ZoomPan.Y = 0;
-            ZoomScale.ScaleX = ZoomScale.ScaleY = 1;
-            Redraw();
-        }
+            SourcePxPerMetre = layout.PxPerMetre,
+            CanvasKind = SurveyCanvasKind.Section,
+            ShowCartographyOverlay = true,
+        };
     }
 }

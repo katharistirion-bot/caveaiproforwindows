@@ -20,7 +20,9 @@ public sealed class SketchAssistEditorHost
 
     public required Func<byte[]?> CaptureStructureMask { get; init; }
 
-    public required Action OnGenerativeRenderCompleted { get; init; }
+    public required Action<byte[], byte[]> OnGenerativeRenderCompleted { get; init; }
+
+    public Action? RefreshGenerativeOverlay { get; init; }
 
     public required Func<Window?> GetOwnerWindow { get; init; }
 
@@ -40,6 +42,7 @@ public partial class SketchAssistViewModel : ObservableObject
         _renderer = renderer ?? new ReplicateControlNetProvider();
         Prompt = AppUiSettingsStore.LoadOrDefault().GenerativeMap.DefaultPrompt;
         ShowAiRenderOnCanvas = AppUiSettingsStore.LoadOrDefault().GenerativeMap.ShowAiRenderOnCanvas;
+        GuidanceScale = AppUiSettingsStore.LoadOrDefault().GenerativeMap.GuidanceScale;
         RefreshApiTokenStatus();
     }
 
@@ -61,6 +64,8 @@ public partial class SketchAssistViewModel : ObservableObject
 
     [ObservableProperty] private string _prompt;
 
+    [ObservableProperty] private double _guidanceScale = 9;
+
     [ObservableProperty] private bool _showAiRenderOnCanvas;
 
     [ObservableProperty] private bool _hasGenerativeRender;
@@ -74,10 +79,12 @@ public partial class SketchAssistViewModel : ObservableObject
     partial void OnShowAiRenderOnCanvasChanged(bool value)
     {
         PersistGenerativePreferences();
-        _host.OnGenerativeRenderCompleted();
+        _host.RefreshGenerativeOverlay?.Invoke();
     }
 
     partial void OnPromptChanged(string value) => PersistGenerativePreferences();
+
+    partial void OnGuidanceScaleChanged(double value) => PersistGenerativePreferences();
 
     public void RefreshApiTokenStatus()
     {
@@ -157,16 +164,17 @@ public partial class SketchAssistViewModel : ObservableObject
             {
                 StructureMaskPng = mask,
                 Prompt = Prompt.Trim(),
+                GuidanceScale = GuidanceScale,
             };
 
             var progress = new Progress<string>(OnRenderProgress);
             var result = await _renderer.RenderAsync(request, progress, ct).ConfigureAwait(true);
 
-            GenerativeMapSessionCache.Set(project, result.PngBytes);
+            GenerativeMapSessionCache.Set(project, result.PngBytes, mask);
             HasGenerativeRender = true;
             ProgressValue = 100;
             StatusMessage = $"{result.ProviderName} complete ({result.PixelWidth}×{result.PixelHeight}).";
-            _host.OnGenerativeRenderCompleted();
+            _host.OnGenerativeRenderCompleted(result.PngBytes, mask);
         }
         catch (OperationCanceledException)
         {
@@ -196,7 +204,7 @@ public partial class SketchAssistViewModel : ObservableObject
             GenerativeMapSessionCache.Clear(project);
         HasGenerativeRender = false;
         StatusMessage = "Cleared AI render from this session.";
-        _host.OnGenerativeRenderCompleted();
+        _host.RefreshGenerativeOverlay?.Invoke();
     }
 
     private bool CanClearAiRender() => HasGenerativeRender;
@@ -248,6 +256,7 @@ public partial class SketchAssistViewModel : ObservableObject
         var all = AppUiSettingsStore.LoadOrDefault();
         all.GenerativeMap.DefaultPrompt = Prompt;
         all.GenerativeMap.ShowAiRenderOnCanvas = ShowAiRenderOnCanvas;
+        all.GenerativeMap.GuidanceScale = GuidanceScale;
         AppUiSettingsStore.Save(all);
     }
 }

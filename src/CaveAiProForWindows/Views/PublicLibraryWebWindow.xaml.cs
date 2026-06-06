@@ -43,8 +43,8 @@ public partial class PublicLibraryWebWindow : Window
             core.Settings.IsStatusBarEnabled = false;
             core.Settings.UserAgent = core.Settings.UserAgent + " CaveAiProForWindows/1.0";
 
-            // Passive capture of Firebase ID tokens on Firestore/Storage requests (Push to Cloud REST uploads).
-            CloudPublishWebViewHost.EnsureAuthSnifferAttached(core);
+            // postMessage bridge for Push to Cloud.
+            CloudPublishWebViewHost.EnsureAuthBridgeAttached(core);
 
             core.NewWindowRequested += (_, args) =>
             {
@@ -128,7 +128,7 @@ public partial class PublicLibraryWebWindow : Window
     }
 
     /// <summary>Sniffed Firebase Auth token from this WebView session (null until user signs in and Firestore loads).</summary>
-    public FirebaseIdToken? TryGetSniffedFirebaseToken() =>
+    public FirebaseIdToken? TryGetFirebaseToken() =>
         CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
 
     private void External_Click(object sender, RoutedEventArgs e)

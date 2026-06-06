@@ -58,6 +58,8 @@ public partial class App : System.Windows.Application
                 vm.LoadFromPaths(startupSurveyPaths);
 
             CloseSplash(splash);
+
+            _ = AppUpdateService.CheckForUpdatesOnStartupAsync(main);
         }
         catch (Exception ex)
         {

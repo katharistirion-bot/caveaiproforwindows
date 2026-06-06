@@ -45,6 +45,12 @@ public sealed class KnownCaveRecord
     [JsonPropertyName("dateAdded")]
     public long DateAdded { get; set; }
 
+    [JsonPropertyName("scientificSummary")]
+    public string ScientificSummary { get; set; } = "";
+
+    [JsonPropertyName("catalogHighlights")]
+    public List<CaveCatalogHighlight>? CatalogHighlights { get; set; }
+
     /// <summary>Gson enum name, e.g. <c>REMOTE_HIKE</c>, <c>UNSPECIFIED</c>.</summary>
     [JsonPropertyName("surfaceAccess")]
     public string? SurfaceAccess { get; set; }
@@ -88,6 +94,23 @@ public sealed class KnownCaveRecord
             return d[..137] + "…";
         }
     }
+
+    public string ScientificSummaryPreview
+    {
+        get
+        {
+            var d = ScientificSummary.Trim();
+            if (d.Length <= 160)
+                return d;
+            return d[..157] + "…";
+        }
+    }
+
+    public int CatalogHighlightsCount => CatalogHighlights?.Count ?? 0;
+
+    public bool HasCatalogHighlights => CatalogHighlightsCount > 0;
+
+    public bool HasScientificSummary => !string.IsNullOrWhiteSpace(ScientificSummary);
 
     /// <summary>Thumbnail for cards — same resolver rules as survey covers (http / file path).</summary>
     public string CoverUri => ImageUri?.Trim() ?? "";

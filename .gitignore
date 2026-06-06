@@ -17,3 +17,5 @@ TestResults/
 *.DotSettings.user
 .ionide/
 dist/
+_release_out/
+src/CaveAiProForWindows/Obfuscar.xml

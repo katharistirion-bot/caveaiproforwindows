@@ -32,6 +32,9 @@
                 <MenuItem Header="Show in _Explorer" Command="{Binding RevealCurrentFileInExplorerCommand}"
                           ToolTip="Select the open .json or .zip in File Explorer" />
                 <Separator />
+                <MenuItem Header="_Save project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S"
+                          ToolTip="Write sketch mapObjects, AI assets, and all loaded projects back to the open .json or .zip file" />
+                <Separator />
                 <MenuItem Header="_Exit" Command="{Binding ExitCommand}" />
             </MenuItem>
             <MenuItem Header="_Export">
@@ -75,6 +78,9 @@
                           ToolTip="Open the web map in your default browser." />
                 <MenuItem Header="Cave AI in _browser…" Click="OpenWebCaveAiExternal_Click"
                           ToolTip="Open /ai in your default browser." />
+                <Separator />
+                <MenuItem Header="Check for _updates…" Command="{Binding CheckForUpdatesCommand}"
+                          ToolTip="Check GitHub Releases for a new version (Velopack install required)" />
                 <Separator />
                 <MenuItem Header="_About" Command="{Binding AboutCommand}" InputGestureText="F1" />
                 <MenuItem Header="_Keyboard shortcuts…" Command="{Binding ShowKeyboardShortcutsCommand}" />
@@ -362,7 +368,7 @@
                         </TabItem>
                         <TabItem Header="SKETCH EDITOR"
                                  ToolTip="Plan survey as base map — draw and stamp symbols on a transparent overlay (same pan/zoom as PLAN)">
-                            <views:SketchEditorView VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                            <views:SketchEditorView x:Name="SketchEditorControl" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                                                     VisualizationMode="{x:Static services:SurveyVisualizationMode.Standard}"
                                                     Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                                     ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"

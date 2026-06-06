@@ -16,6 +16,7 @@ public sealed class GeoBioRecordCardViewModel
         string stationLabel,
         string sourceLabel,
         string? analysisText,
+        string? structuredFacts,
         string? detailsSummary,
         BitmapSource? heroImage,
         IReadOnlyList<GeoBioImageViewModel> extraImages)
@@ -25,6 +26,7 @@ public sealed class GeoBioRecordCardViewModel
         StationLabel = stationLabel;
         SourceLabel = sourceLabel;
         AnalysisText = analysisText ?? "";
+        StructuredFacts = structuredFacts ?? "";
         DetailsSummary = detailsSummary ?? "";
         HeroImage = heroImage;
         ExtraImages = extraImages;
@@ -35,6 +37,7 @@ public sealed class GeoBioRecordCardViewModel
     public string StationLabel { get; }
     public string SourceLabel { get; }
     public string AnalysisText { get; }
+    public string StructuredFacts { get; }
     public string DetailsSummary { get; }
     public BitmapSource? HeroImage { get; }
     public IReadOnlyList<GeoBioImageViewModel> ExtraImages { get; }
@@ -44,8 +47,12 @@ public sealed class GeoBioRecordCardViewModel
     public Visibility ExtraImagesVisibility => ExtraImages.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility AnalysisVisibility =>
         string.IsNullOrWhiteSpace(AnalysisText) ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility StructuredFactsVisibility =>
+        string.IsNullOrWhiteSpace(StructuredFacts) ? Visibility.Collapsed : Visibility.Visible;
     public Visibility DetailsVisibility =>
-        string.IsNullOrWhiteSpace(DetailsSummary) || !string.IsNullOrWhiteSpace(AnalysisText)
+        string.IsNullOrWhiteSpace(DetailsSummary) ||
+        !string.IsNullOrWhiteSpace(AnalysisText) ||
+        !string.IsNullOrWhiteSpace(StructuredFacts)
             ? Visibility.Collapsed
             : Visibility.Visible;
 
@@ -58,13 +65,45 @@ public sealed class GeoBioRecordCardViewModel
 
         return new GeoBioRecordCardViewModel(
             record.Title,
-            FormatCategory(record.Category),
+            FormatCategory(record),
             FormatStation(record),
             record.SourceLabel,
             record.CaveAiAnalysisText,
+            FormatStructuredFacts(record),
             record.DetailsSummary,
             hero,
             extras);
+    }
+
+    private static string FormatStructuredFacts(GeoBioRecord r)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(r.ScientificName))
+            parts.Add($"Scientific name: {r.ScientificName.Trim()}");
+        if (!string.IsNullOrWhiteSpace(r.TaxonomicGroup))
+            parts.Add($"Group: {r.TaxonomicGroup.Trim()}");
+        if (!string.IsNullOrWhiteSpace(r.Abundance))
+            parts.Add($"Abundance: {r.Abundance.Trim()}");
+        if (!string.IsNullOrWhiteSpace(r.LifeStage))
+            parts.Add($"Life stage: {r.LifeStage.Trim()}");
+        if (!string.IsNullOrWhiteSpace(r.Microhabitat))
+            parts.Add($"Microhabitat: {r.Microhabitat.Trim()}");
+        if (!string.IsNullOrWhiteSpace(r.Substrate))
+            parts.Add($"Substrate: {r.Substrate.Trim()}");
+        if (!string.IsNullOrWhiteSpace(r.IdConfidence))
+            parts.Add($"ID confidence: {r.IdConfidence.Trim()}");
+        if (!string.IsNullOrWhiteSpace(r.LocationDetail))
+            parts.Add($"Location: {r.LocationDetail.Trim()}");
+        if (!string.IsNullOrWhiteSpace(r.BehaviorNotes))
+            parts.Add($"Behavior: {r.BehaviorNotes.Trim()}");
+        return parts.Count == 0 ? "" : string.Join("\n", parts);
+    }
+
+    private static string FormatCategory(GeoBioRecord r)
+    {
+        if (r.FieldKind is { } fk)
+            return FieldCatalogEntryKindMapper.DisplayLabel(fk).ToUpperInvariant();
+        return FormatCategory(r.Category);
     }
 
     private static string FormatCategory(GeoBioCategory c) => c switch

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Conservative trim roots for PublishTrimmed=partial on the WPF publish profile.
+  Preserves binding/JSON/reflection surfaces; allows trimming unused framework and dependency IL.
+-->
+<linker>
+  <assembly fullname="CaveAiProForWindows" preserve="all" />
+  <assembly fullname="CommunityToolkit.Mvvm" preserve="all" />
+  <assembly fullname="PresentationFramework" preserve="all" />
+  <assembly fullname="PresentationCore" preserve="all" />
+  <assembly fullname="WindowsBase" preserve="all" />
+  <assembly fullname="System.Xaml" preserve="all" />
+  <assembly fullname="SkiaSharp" preserve="all" />
+  <assembly fullname="PDFtoImage" preserve="all" />
+  <assembly fullname="Microsoft.Web.WebView2.Wpf" preserve="all" />
+  <assembly fullname="Microsoft.Web.WebView2.Core" preserve="all" />
+</linker>

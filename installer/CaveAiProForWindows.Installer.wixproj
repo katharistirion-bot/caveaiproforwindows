@@ -42,5 +42,15 @@
     <MakeDir Directories="$(AppPublishDir)" />
     <!-- Folder publish (not single-file): WPF pack:// resources fail with PublishSingleFile on many PCs. -->
     <Exec Command="dotnet publish &quot;$(AppProjectPath)&quot; -c $(Configuration) -r win-x64 --self-contained true -p:PublishSingleFile=false -p:PublishTrimmed=false -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:CopyOutputSymbolsToPublishDirectory=false -o &quot;$(AppPublishDir)&quot;" />
+    <Exec Command="powershell -NoProfile -Command &quot;Get-ChildItem -LiteralPath '$(AppPublishDir)' -Filter *.pdb -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force&quot;" />
+  </Target>
+
+  <Target Name="CopyMsiToBuildOut" AfterTargets="Build">
+    <PropertyGroup>
+      <_BuildOutDir>$(MSBuildProjectDirectory)\..\_build_out</_BuildOutDir>
+      <_BuiltMsi>$(OutputPath)$(OutputName).msi</_BuiltMsi>
+    </PropertyGroup>
+    <MakeDir Directories="$(_BuildOutDir)" Condition="!Exists('$(_BuildOutDir)')" />
+    <Copy SourceFiles="$(_BuiltMsi)" DestinationFolder="$(_BuildOutDir)" SkipUnchangedFiles="true" Condition="Exists('$(_BuiltMsi)')" />
   </Target>
 </Project>

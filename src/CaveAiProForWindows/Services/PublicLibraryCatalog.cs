@@ -45,6 +45,18 @@ public static class PublicLibraryCatalog
 
     public static string WebCaveAiUrlEmbedded => WithEmbed(WebCaveAiUrl);
 
+    /// <summary>Secure desktop auth endpoint for WebView2 postMessage token delivery.</summary>
+    public static string DesktopAuthUrl
+    {
+        get
+        {
+            var url = WebMapUrlEmbedded;
+            return url.Contains("desktopAuth=", StringComparison.OrdinalIgnoreCase)
+                ? url
+                : url + "&desktopAuth=v1";
+        }
+    }
+
     public static void OpenInBrowser() => OpenMap();
 
     public static void ShowInAppWindow(System.Windows.Window? owner, string? startUrl = null)

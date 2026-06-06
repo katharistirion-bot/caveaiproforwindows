@@ -162,6 +162,9 @@ public static class SurveyStationGeometry
 
     public const int AndroidViewModeSection = 1;
 
+    /// <summary>Long profile / developed distance view (Android viewMode 3).</summary>
+    public const int AndroidViewModeLongProfile = 3;
+
     /// <summary>Parses <c>vectorLines</c> for a given Android <c>viewMode</c>.</summary>
     public static IReadOnlyList<PlanVectorPolyline> ParseVectorLinesForViewMode(JsonElement? vectorLinesRoot, int requiredViewMode)
     {

@@ -14,6 +14,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.Views;
 using Wpf = System.Windows;
 
@@ -74,6 +76,16 @@ public partial class MainViewModel : ObservableObject
     /// <summary>User has accepted the in-app legal disclaimer — required for exports, AI tab, and advanced tools.</summary>
     [ObservableProperty] private bool _legalTermsAccepted;
 
+    [ObservableProperty] private bool _isCloudPublishing;
+
+    [ObservableProperty] private bool _showCloudPublishProgress;
+
+    [ObservableProperty] private bool _cloudPublishIndeterminate = true;
+
+    [ObservableProperty] private double _cloudPublishProgressValue;
+
+    [ObservableProperty] private string _cloudPublishStatusMessage = "";
+
     /// <summary>Full JSON scan of <c>data.json</c> (per project: shots/photos/audio, rocks, catalog, vectorLines, keys).</summary>
     [ObservableProperty] private string _backupDataAnalyticsText = "";
 
@@ -83,6 +95,21 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>Fired when traverse data or plan station overrides change — map views should redraw.</summary>
     public event EventHandler? SurveyDataChanged;
+
+    /// <summary>First opened .json or .zip on disk (null when workspace is empty or merged from multiple files).</summary>
+    public string? PrimarySourceFilePath => _primarySourcePath;
+
+    /// <summary>Set by <see cref="MainWindow"/> — persists Sketch Editor design layer + AI assets onto the project before save.</summary>
+    public Action<CaveProjectDocument>? PersistProjectBeforeSave { get; set; }
+
+    /// <summary>Set by <see cref="MainWindow"/> — opens print preview for the active Plan / Section / X-Ray tab.</summary>
+    public Action? ShowPrintPreview { get; set; }
+
+    /// <summary>Set by <see cref="MainWindow"/> — owner window for modals during Push to Cloud.</summary>
+    public Func<Wpf.Window?>? GetOwnerWindow { get; set; }
+
+    /// <summary>Set by <see cref="MainWindow"/> — captures survey JSON and AI assets before cloud upload.</summary>
+    public Func<CloudPublishArtifactCapture?>? CaptureCloudPublishArtifacts { get; set; }
 
     public ObservableCollection<MapAssetRow> MapAssetRows { get; } = new();
 
@@ -110,6 +137,7 @@ public partial class MainViewModel : ObservableObject
     private readonly List<BioMineralCatalogRow> _bioCatalogMaster = new();
     /// <summary>Absolute paths of map files added via File → Open standalone map(s) or drag-drop; merged into the Maps tab.</summary>
     private readonly List<string> _standaloneMapPaths = new();
+    private CancellationTokenSource? _cloudPublishCts;
 
     /// <summary>When a single .zip backup is open, embedded map paths resolve against this file (Plan/Section underlay).</summary>
     public string? ActiveZipPath => _zipPath;
@@ -172,7 +200,11 @@ public partial class MainViewModel : ObservableObject
         CompareBackupsCommand.NotifyCanExecuteChanged();
         ExtractSelectedZipEntryToDiskCommand.NotifyCanExecuteChanged();
         ExtractMapAssetToDiskCommand.NotifyCanExecuteChanged();
+        SaveProjectCommand.NotifyCanExecuteChanged();
+        PublishToCloudCommand.NotifyCanExecuteChanged();
     }
+
+    partial void OnIsCloudPublishingChanged(bool value) => PublishToCloudCommand.NotifyCanExecuteChanged();
 
     partial void OnSelectedProjectChanged(CaveProjectDocument? value)
     {
@@ -193,6 +225,9 @@ public partial class MainViewModel : ObservableObject
         ExportSectionSvgCommand.NotifyCanExecuteChanged();
         ExportSectionDxfCommand.NotifyCanExecuteChanged();
         ExportSurveyQcReportCommand.NotifyCanExecuteChanged();
+        SaveProjectCommand.NotifyCanExecuteChanged();
+        PrintPreviewCommand.NotifyCanExecuteChanged();
+        PublishToCloudCommand.NotifyCanExecuteChanged();
         StatusMessage = value == null
             ? "No project selected."
             : $"{value.Name} — {value.Shots.Count} shot(s)";
@@ -404,6 +439,7 @@ public partial class MainViewModel : ObservableObject
         ExtractFullArchiveCommand.NotifyCanExecuteChanged();
         OpenLastExtractedFolderCommand.NotifyCanExecuteChanged();
         RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
+        SaveProjectCommand.NotifyCanExecuteChanged();
         ExportRegistryCsvCommand.NotifyCanExecuteChanged();
         NotifyZipEntryCommands();
         ExportMapsReportCommand.NotifyCanExecuteChanged();
@@ -420,6 +456,13 @@ public partial class MainViewModel : ObservableObject
     {
         var owner = Wpf.Application.Current.MainWindow;
         new AboutWindow { Owner = owner }.ShowDialog();
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        await AppUpdateService.CheckForUpdatesAsync(Wpf.Application.Current.MainWindow, silent: false)
+            .ConfigureAwait(true);
     }
 
     [RelayCommand]
@@ -484,9 +527,8 @@ public partial class MainViewModel : ObservableObject
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "CAVE AI PRO — JSON or backup ZIP (Ctrl+click for multiple files)",
-            Filter =
-                "JSON survey / library (*.json)|*.json|ZIP backup (*.zip)|*.zip|CaveAI (*.json;*.zip)|*.json;*.zip|All files|*.*",
+            Title = CaveAiBackupFileDialogFilters.OpenBackupTitle,
+            Filter = CaveAiBackupFileDialogFilters.OpenBackupFilter,
             Multiselect = true,
         };
         if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true) return;
@@ -710,6 +752,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             SelectedProject = first;
+            AppUiSettingsStore.ApplyFullOverlaysAfterImport();
             SourcePathDisplay = orderedPaths.Count <= 1
                 ? (orderedPaths.Count == 1 ? orderedPaths[0] : "")
                 : $"{orderedPaths.Count} files: " + string.Join("; ", orderedPaths.Take(3)) + (orderedPaths.Count > 3 ? " …" : "");
@@ -748,6 +791,7 @@ public partial class MainViewModel : ObservableObject
             ExtractPhotosCommand.NotifyCanExecuteChanged();
             ExtractFullArchiveCommand.NotifyCanExecuteChanged();
             RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
+            SaveProjectCommand.NotifyCanExecuteChanged();
             ExportRegistryCsvCommand.NotifyCanExecuteChanged();
             RefreshArchivePanel();
             NotifyZipEntryCommands();
@@ -945,8 +989,11 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedZipEntryChanged(ZipArchiveEntryItem? value) => NotifyZipEntryCommands();
 
-    partial void OnSourcePathDisplayChanged(string value) =>
+    partial void OnSourcePathDisplayChanged(string value)
+    {
         RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
+        SaveProjectCommand.NotifyCanExecuteChanged();
+    }
 
     private static string CombineTempWithArchivePath(string tempRoot, string archiveSlashPath)
     {
@@ -982,6 +1029,97 @@ public partial class MainViewModel : ObservableObject
             UseShellExecute = true,
         });
     }
+
+    private bool CanSaveProject() =>
+        LegalTermsGateOpen() &&
+        SelectedProject != null &&
+        HasSourceOnDisk() &&
+        _sourceFileCount == 1 &&
+        (Path.GetExtension(_primarySourcePath!).Equals(".json", StringComparison.OrdinalIgnoreCase) ||
+         Path.GetExtension(_primarySourcePath!).Equals(".zip", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// After a successful AI render, writes PNG assets + metadata and auto-saves the open .json/.zip
+    /// (only when a single source file is loaded).
+    /// </summary>
+    public bool TryAutoPersistGenerativeRender(
+        CaveProjectDocument project,
+        byte[] aiMapPng,
+        byte[]? structureMaskPng)
+    {
+        if (string.IsNullOrEmpty(_primarySourcePath) || _sourceFileCount != 1)
+            return false;
+        if (!File.Exists(_primarySourcePath))
+            return false;
+
+        var ext = Path.GetExtension(_primarySourcePath);
+        if (!ext.Equals(".json", StringComparison.OrdinalIgnoreCase) &&
+            !ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        try
+        {
+            GenerativeAssetPersistenceService.TryPersistAfterRender(
+                project,
+                _primarySourcePath,
+                Projects.ToList(),
+                aiMapPng,
+                structureMaskPng,
+                beforeSerialize: p =>
+                {
+                    if (ReferenceEquals(p, project))
+                        PersistProjectBeforeSave?.Invoke(p);
+                });
+
+            StatusMessage =
+                $"AI render saved — map + structure mask written to {Path.GetFileName(_primarySourcePath)}.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            UserErrorReporter.ShowWarning(
+                Wpf.Application.Current.MainWindow,
+                ex.Message,
+                "Save AI render");
+            return false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSaveProject))]
+    private void SaveProject()
+    {
+        if (SelectedProject == null || string.IsNullOrEmpty(_primarySourcePath))
+            return;
+
+        try
+        {
+            ProjectPersistenceService.Save(new ProjectPersistenceService.SaveRequest
+            {
+                Projects = Projects.ToList(),
+                PrimarySourcePath = _primarySourcePath,
+                BeforeSerialize = p =>
+                {
+                    if (ReferenceEquals(p, SelectedProject))
+                        PersistProjectBeforeSave?.Invoke(p);
+                },
+            });
+
+            StatusMessage =
+                $"Saved {Projects.Count} project(s) — sketch mapObjects and metadata written to {Path.GetFileName(_primarySourcePath)}.";
+        }
+        catch (Exception ex)
+        {
+            UserErrorReporter.ShowWarning(
+                Wpf.Application.Current.MainWindow,
+                ex.Message,
+                "Save project");
+        }
+    }
+
+    private bool CanPrintPreview() => SelectedProject != null;
+
+    [RelayCommand(CanExecute = nameof(CanPrintPreview))]
+    private void PrintPreview() => ShowPrintPreview?.Invoke();
 
     [RelayCommand(CanExecute = nameof(HasLastExtractRoot))]
     private void OpenLastExtractedFolder()
@@ -1076,7 +1214,12 @@ public partial class MainViewModel : ObservableObject
         try
         {
             using var fs = File.Create(dlg.FileName);
-            SurveySvgExporter.WritePlanSvg(SelectedProject, fs, SurveyStationGeometry.AndroidViewModePlan);
+            SurveySvgExporter.WritePlanSvg(
+                SelectedProject,
+                fs,
+                SurveyStationGeometry.AndroidViewModePlan,
+                SurveyVisualizationMode.Standard,
+                PlanCanvasDrawOptionsFactory.ForExport(SurveyCanvasKind.Plan));
             StatusMessage = "Plan SVG saved.";
             Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, "SVG saved.", "Export", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information);
         }
@@ -1138,7 +1281,12 @@ public partial class MainViewModel : ObservableObject
         try
         {
             using var fs = File.Create(dlg.FileName);
-            SurveySvgExporter.WritePlanSvg(SelectedProject, fs, SurveyStationGeometry.AndroidViewModeSection);
+            SurveySvgExporter.WritePlanSvg(
+                SelectedProject,
+                fs,
+                SurveyStationGeometry.AndroidViewModeSection,
+                SurveyVisualizationMode.Standard,
+                PlanCanvasDrawOptionsFactory.ForExport(SurveyCanvasKind.Section));
             StatusMessage = "Section SVG saved.";
             Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, "SVG saved.", "Export", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information);
         }
@@ -1703,6 +1851,77 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Save failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    private bool CanPublishToCloud() =>
+        LegalTermsGateOpen() && SelectedProject != null && !IsCloudPublishing;
+
+    [RelayCommand(CanExecute = nameof(CanPublishToCloud))]
+    private async Task PublishToCloudAsync()
+    {
+        if (_cloudPublishCts != null)
+            return;
+
+        _cloudPublishCts = new CancellationTokenSource();
+        var ct = _cloudPublishCts.Token;
+        string? lastError = null;
+
+        try
+        {
+            IsCloudPublishing = true;
+            ShowCloudPublishProgress = true;
+            CloudPublishIndeterminate = true;
+            CloudPublishProgressValue = 0;
+            CloudPublishStatusMessage = "Starting publish…";
+
+            var progress = new Progress<CloudPublishProgressUpdate>(update =>
+            {
+                CloudPublishStatusMessage = update.Message;
+                ShowCloudPublishProgress = true;
+                CloudPublishIndeterminate = update.IsIndeterminate;
+                if (update.ProgressPercent is double p && !double.IsNaN(p))
+                    CloudPublishProgressValue = p;
+                StatusMessage = update.Message;
+                if (update.HasError)
+                    lastError = update.ErrorMessage;
+            });
+
+            var metadata = await CloudPublishWorkflow.RunAsync(new CloudPublishWorkflow.Request
+            {
+                GetProject = () => SelectedProject,
+                GetLegalTermsAccepted = () => LegalTermsAccepted,
+                CaptureArtifacts = () => CaptureCloudPublishArtifacts?.Invoke(),
+                GetOwnerWindow = () => GetOwnerWindow?.Invoke(),
+                PersistLinkedLibraryCaveId = _ =>
+                {
+                    if (SelectedProject != null)
+                        PersistProjectBeforeSave?.Invoke(SelectedProject);
+                    StatusMessage = "Linked library cave id updated — save project to persist to disk.";
+                },
+                Progress = progress,
+                CancellationToken = ct,
+            }).ConfigureAwait(true);
+
+            var owner = GetOwnerWindow?.Invoke();
+            if (metadata != null)
+            {
+                CloudPublishProgressValue = 100;
+                SnackbarService.Show(owner, $"Published to Cave Library — {metadata.PublishedCaveDocId}");
+            }
+            else if (!string.IsNullOrWhiteSpace(lastError))
+            {
+                SnackbarService.Show(owner, lastError, durationMs: 6000);
+            }
+        }
+        finally
+        {
+            _cloudPublishCts?.Dispose();
+            _cloudPublishCts = null;
+            IsCloudPublishing = false;
+            CloudPublishIndeterminate = false;
+            ShowCloudPublishProgress = false;
+            PublishToCloudCommand.NotifyCanExecuteChanged();
         }
     }
 }

@@ -1,7 +1,17 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Optional overrides for PlanCanvasRenderer.TryMapBrush — omit keys to use built-in survey colours. -->
-    <SolidColorBrush x:Key="Map.TraverseStroke" Color="#FF1877F2" />
-    <SolidColorBrush x:Key="Map.WallStroke" Color="#FF4A4A4A" />
-    <SolidColorBrush x:Key="Map.SketchFill" Color="#33A0A0A0" />
+    <!-- Cave cartography palette — consumed by PlanCanvasRenderer.TryMapBrush -->
+    <SolidColorBrush x:Key="Map.TraverseStroke" Color="#FF0D9488" />
+    <SolidColorBrush x:Key="Map.TraverseGlow" Color="#550D9488" />
+    <SolidColorBrush x:Key="Map.WallStroke" Color="#FF7C4A2D" />
+    <SolidColorBrush x:Key="Map.WallStrokeAlt" Color="#FF2563EB" />
+    <SolidColorBrush x:Key="Map.SketchFill" Color="#72C4A07A" />
+    <SolidColorBrush x:Key="Map.VectorFill" Color="#4814B8A6" />
+    <SolidColorBrush x:Key="Map.StationFill" Color="#FFFFFBF5" />
+    <SolidColorBrush x:Key="Map.StationRing" Color="#FF0D9488" />
+    <SolidColorBrush x:Key="Map.SplayStroke" Color="#8894A3B8" />
+    <SolidColorBrush x:Key="Map.PassageFill" Color="#725EEAD4" />
+    <SolidColorBrush x:Key="Map.PassageStroke" Color="#CC0F766E" />
+    <SolidColorBrush x:Key="Map.CanvasWarm" Color="#FFF5EDE0" />
+    <SolidColorBrush x:Key="Map.CanvasCool" Color="#FFFCFAF6" />
 </ResourceDictionary>

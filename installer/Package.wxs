@@ -75,6 +75,8 @@
 
       <ComponentGroupRef Id="MenuShortcut" />
 
+      <ComponentGroupRef Id="DesktopShortcut" />
+
       <ComponentGroupRef Id="SurveyFileAssociations" />
 
     </Feature>
@@ -85,7 +87,7 @@
     <UIRef Id="WixUI_ErrorProgressText" />
 
     <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT"
-              Value="You can start CAVE AI PRO from the Start menu. After install, right-click a CaveAI .json or backup .zip, then Open with - CAVE AI PRO (or choose it once under Choose another app). Double-click works if you set this app as the default for that file type." />
+              Value="You can start CAVE AI PRO from the Start menu or desktop shortcut. After install, right-click a CaveAI .json or backup .zip, then Open with - CAVE AI PRO (or choose it once under Choose another app). Double-click works if you set this app as the default for that file type." />
 
   </Package>
 
@@ -138,6 +140,60 @@
         <RemoveFolder Id="RemoveCaveAiProProgramMenu" Directory="CaveAiProProgramMenu" On="uninstall" />
 
       </Component>
+
+    </ComponentGroup>
+
+  </Fragment>
+
+
+
+  <Fragment>
+
+    <StandardDirectory Id="DesktopFolder">
+
+      <Component Id="CmpDesktopShortcut" Guid="D4E5F6A7-B8C9-0123-DEF0-234567890123">
+
+        <Shortcut Id="ScDesktop"
+
+                  Name="CAVE AI PRO"
+
+                  Description="PC companion for CaveAI Pro (Android on Google Play). 64-bit desktop only."
+
+                  Target="[INSTALLFOLDER]CaveAiProForWindows.exe"
+
+                  WorkingDirectory="INSTALLFOLDER"
+
+                  Icon="CaveAppIcon" />
+
+        <RegistryValue Id="RegDesktopShortcutMarker"
+
+                       Root="HKLM"
+
+                       Key="SOFTWARE\CaveAiPro\CaveAiProForWindows"
+
+                       Name="DesktopShortcut"
+
+                       Type="integer"
+
+                       Value="1"
+
+                       KeyPath="yes" />
+
+        <RemoveFile Id="RemoveDesktopShortcutFile"
+
+                    Name="CAVE AI PRO.lnk"
+
+                    Directory="DesktopFolder"
+
+                    On="uninstall" />
+
+      </Component>
+
+    </StandardDirectory>
+
+    <ComponentGroup Id="DesktopShortcut" Directory="DesktopFolder">
+
+      <ComponentRef Id="CmpDesktopShortcut" />
 
     </ComponentGroup>
 

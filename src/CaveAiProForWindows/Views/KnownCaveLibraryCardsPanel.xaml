@@ -7,6 +7,7 @@
         <conv:CaveNameInitialConverter x:Key="CaveInitial" />
         <conv:StringNullOrEmptyToVisibilityConverter x:Key="PlaceholderWhenNoCover" />
         <conv:StringNotNullOrEmptyToVisibilityConverter x:Key="StringToVisWhenNotEmpty" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                   Padding="0,0,8,0">
@@ -130,6 +131,19 @@
                                                MaxHeight="44"
                                                TextTrimming="CharacterEllipsis"
                                                Text="{Binding DescriptionPreview}" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Cave.TextSubdued}"
+                                               TextWrapping="Wrap"
+                                               MaxHeight="36"
+                                               TextTrimming="CharacterEllipsis"
+                                               Visibility="{Binding HasScientificSummary, Converter={StaticResource BoolToVis}}"
+                                               Text="{Binding ScientificSummaryPreview}" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Cave.TextMuted}"
+                                               Visibility="{Binding HasCatalogHighlights, Converter={StaticResource BoolToVis}}"
+                                               Text="{Binding CatalogHighlightsCount, StringFormat=Catalog highlights {0}}" />
                                     <WrapPanel Margin="0,8,0,0" Orientation="Horizontal">
                                         <Border Margin="0,0,6,4"
                                                 Padding="6,2"

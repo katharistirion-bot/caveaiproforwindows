@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CaveAI Pro — paste these <intent-filter> blocks into your launcher activity in AndroidManifest.xml
+  (typically MainActivity). Keep your existing MAIN/LAUNCHER filter unchanged.
+
+  Requirements:
+  - android:exported="true" on the activity (required for ACTION_VIEW from other apps, API 31+).
+  - android:launchMode="singleTask" (recommended) so tap-to-open reuses one task and onNewIntent fires.
+
+  Example activity opening tag:
+  <activity
+      android:name=".MainActivity"
+      android:exported="true"
+      android:launchMode="singleTask"
+      ...>
+
+  Notes:
+  - content:// URIs rely on mimeType; OEM file managers often send application/octet-stream or text/plain
+    for .json — we register those and validate the display name in CaveAiBackupViewIntentHandler.
+  - file:// is legacy; pathSuffix catches Downloads taps on older devices.
+  - Do NOT add a broad intent-filter without mimeType/pathSuffix or Play Console may flag “overbroad”.
+-->
+
+<!-- ═══ content:// — primary path (SAF / DocumentsUI / OEM file managers) ═══ -->
+
+<intent-filter android:label="@string/open_caveai_backup">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="content" android:mimeType="application/zip" />
+</intent-filter>
+
+<intent-filter android:label="@string/open_caveai_backup">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="content" android:mimeType="application/json" />
+</intent-filter>
+
+<!-- OEM fallbacks when .json is mislabeled -->
+<intent-filter android:label="@string/open_caveai_backup">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="content" android:mimeType="text/plain" />
+</intent-filter>
+
+<intent-filter android:label="@string/open_caveai_backup">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="content" android:mimeType="application/octet-stream" />
+</intent-filter>
+
+<!-- ═══ file:// — legacy direct paths (some file explorers) ═══ -->
+
+<intent-filter android:label="@string/open_caveai_backup">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="file" android:mimeType="application/zip" />
+    <data android:scheme="file" android:pathSuffix=".zip" />
+</intent-filter>
+
+<intent-filter android:label="@string/open_caveai_backup">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="file" android:mimeType="application/json" />
+    <data android:scheme="file" android:pathSuffix=".json" />
+</intent-filter>
+
+<!-- Optional: “Share → CaveAI Pro” from Downloads -->
+<intent-filter android:label="@string/open_caveai_backup">
+    <action android:name="android.intent.action.SEND" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <data android:mimeType="application/zip" />
+</intent-filter>
+
+<intent-filter android:label="@string/open_caveai_backup">
+    <action android:name="android.intent.action.SEND" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <data android:mimeType="application/json" />
+</intent-filter>
+
+<!--
+  strings.xml:
+  <string name="open_caveai_backup">Open CaveAI backup</string>
+-->

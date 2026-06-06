@@ -159,11 +159,11 @@ public partial class AiAnalyticsViewModel : ObservableObject, IDisposable
 
     private bool CanExportResults() => ResultRows.Count > 0;
 
-    public void JumpToStationFromRow(AiAnalyticsMetricRow? row)
+    public void SelectStationFromRow(AiAnalyticsMetricRow? row)
     {
-        if (row == null || string.IsNullOrWhiteSpace(row.Station))
+        if (row == null || !row.CanSelectStation)
             return;
-        SurveyWorkspaceNavigator.JumpToStation(row.Station.Trim(), "AiAnalytics");
+        SurveyWorkspaceNavigator.JumpToStation(row.Station.Trim(), "Analytics");
     }
 
     [RelayCommand]
@@ -207,11 +207,8 @@ public partial class AiAnalyticsViewModel : ObservableObject, IDisposable
         try
         {
             StatusMessage = "Reading Android export…";
-            var json = await File.ReadAllTextAsync(dlg.FileName).ConfigureAwait(true);
             var fileName = Path.GetFileName(dlg.FileName);
-            var imported = string.Equals(fileName, AndroidSurveySyncService.ExportFileName, StringComparison.OrdinalIgnoreCase)
-                ? AndroidSurveyAnalyticsImporter.TryImportStandaloneExport(json, fileName)
-                : AndroidSurveyAnalyticsImporter.TryImportFromJson(json, fileName);
+            var imported = AndroidSurveySyncService.TryImportFromSyncFile(dlg.FileName, _project?.Name);
 
             if (!imported.HasObservations)
             {

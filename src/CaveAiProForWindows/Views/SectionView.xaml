@@ -16,8 +16,8 @@
                         VerticalAlignment="Center">
                 <Button Content="_Print…" Padding="14,6" Margin="0,0,0,0"
                         Style="{StaticResource Cave.AccentButton}"
-                        ToolTip="Landscape page, print preview"
-                        Click="PrintSection_Click" />
+                        Command="{Binding DataContext.PrintPreviewCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        ToolTip="Open print preview (ISO A4/A3/A2, landscape or portrait)" />
                 <CheckBox x:Name="PrintHiContrastCheck" VerticalAlignment="Center" Margin="12,0,8,0"
                           Content="High-contrast print" ToolTip="Black/white for printer" />
                 <Button Content="Zoom _out" Padding="10,6" Margin="12,0,0,0"
@@ -114,6 +114,30 @@
                                       Content="Station names" ToolTip="Label stations in the section plot"
                                       Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                       Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="LegSurveyDetailsCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Leg distances &amp; angles"
+                                      ToolTip="Tape length, azimuth, clino, ΔZ, and LRUD on each traverse leg"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="StationEnvironmentCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Station environment"
+                                      ToolTip="Temperature, humidity, O₂, CO₂, pressure at stations"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="DepthSpanAnnotationsCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Depth span callouts"
+                                      ToolTip="User depth braces from depthSpanAnnotations"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="BracketMarkersCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Bracket markers"
+                                      ToolTip="Description and temperature pins from brackets"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
                             <CheckBox x:Name="CartographyOverlayCheck" Margin="0,0,0,0"
                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                       Content="Scale bar &amp; survey compass" IsChecked="True"
@@ -133,6 +157,22 @@
                            IsHitTestVisible="False"
                            RenderOptions.BitmapScalingMode="HighQuality"
                            Source="pack://application:,,,/Assets/ic_launcher_logo.png" />
+                    <Border x:Name="CaveNameBanner" HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Margin="12,12,0,0" Panel.ZIndex="8" Padding="12,9,14,10" CornerRadius="6"
+                            MaxWidth="360" IsHitTestVisible="False"
+                            BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                            Background="{DynamicResource Cave.Surface}" Opacity="0.96"
+                            Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock x:Name="CaveNameBannerText" FontWeight="Bold"
+                                       FontSize="{DynamicResource Cave.HudTitleFontSize}"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource Cave.Text}" />
+                            <TextBlock x:Name="CaveNameBannerSubText"
+                                       FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                       Margin="0,3,0,0" Foreground="{DynamicResource Cave.TextMuted}" />
+                        </StackPanel>
+                    </Border>
                     <ScrollViewer x:Name="HostScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                                   VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                                   Background="Transparent"

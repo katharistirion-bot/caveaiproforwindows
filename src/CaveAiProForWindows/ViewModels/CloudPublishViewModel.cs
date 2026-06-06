@@ -35,8 +35,6 @@ public sealed class CloudPublishEditorHost
 /// <summary>Push to Cloud UI state for the Sketch Editor sidebar.</summary>
 public partial class CloudPublishViewModel : ObservableObject
 {
-    private static readonly TimeSpan TokenWaitTimeout = TimeSpan.FromSeconds(90);
-
     private readonly CloudPublishEditorHost _host;
     private readonly CloudPublishService _publishService;
     private CancellationTokenSource? _publishCts;
@@ -57,7 +55,7 @@ public partial class CloudPublishViewModel : ObservableObject
     [ObservableProperty] private double _progressValue;
 
     [ObservableProperty] private string _statusMessage =
-        "Sign in via Help → Public Cave Library, then publish your sketch and survey JSON.";
+        "Publish survey JSON and AI map renders to your linked Public Cave Library entry.";
 
     [ObservableProperty] private bool _hasError;
 
@@ -87,26 +85,6 @@ public partial class CloudPublishViewModel : ObservableObject
         ErrorMessage = "";
         ShowOpenLibraryHint = false;
 
-        var project = _host.GetProject();
-        if (project == null)
-        {
-            SetError("Select a survey project from the list before publishing.");
-            return;
-        }
-
-        if (!_host.GetLegalTermsAccepted())
-        {
-            SetError("Accept the disclaimer on LEGAL & SETTINGS before using Push to Cloud.");
-            return;
-        }
-
-        var docId = await ResolvePublishedCaveDocIdAsync(project).ConfigureAwait(true);
-        if (string.IsNullOrWhiteSpace(docId))
-        {
-            SetError("Publish cancelled — a Cave Library document id is required.");
-            return;
-        }
-
         _publishCts = new CancellationTokenSource();
         var ct = _publishCts.Token;
 
@@ -116,56 +94,22 @@ public partial class CloudPublishViewModel : ObservableObject
             ShowProgress = true;
             IsIndeterminate = true;
             ProgressValue = 0;
-            StatusMessage = "Waiting for Firebase sign-in token…";
 
-            if (CloudPublishWebViewHost.TokenCache.TryGetUsableToken() == null)
+            var progress = new Progress<CloudPublishProgressUpdate>(ApplyProgress);
+            var metadata = await CloudPublishWorkflow.RunAsync(new CloudPublishWorkflow.Request
             {
-                ShowOpenLibraryHint = true;
-                StatusMessage =
-                    "No Firebase token yet. Open Help → Public Cave Library, sign in with Google, browse the map briefly, then retry — or wait here while the token is captured automatically.";
-            }
+                GetProject = _host.GetProject,
+                GetLegalTermsAccepted = _host.GetLegalTermsAccepted,
+                CaptureArtifacts = _host.CaptureArtifacts,
+                GetOwnerWindow = _host.GetOwnerWindow,
+                PersistLinkedLibraryCaveId = _host.PersistLinkedLibraryCaveId,
+                PublishService = _publishService,
+                Progress = progress,
+                CancellationToken = ct,
+            }).ConfigureAwait(true);
 
-            var token = await _publishService.WaitForTokenAsync(TokenWaitTimeout, ct).ConfigureAwait(true);
-            ShowOpenLibraryHint = false;
-            IsIndeterminate = false;
-            ProgressValue = 10;
-            StatusMessage = "Token captured — preparing artifacts…";
-
-            CloudPublishArtifactCapture? capture = null;
-            await Application.Current.Dispatcher.InvokeAsync(() => capture = _host.CaptureArtifacts());
-            if (capture == null)
-            {
-                SetError("Could not capture publish artifacts from the sketch editor (no drawable plan data).");
-                return;
-            }
-
-            var bundle = new CloudPublishArtifactBundle
-            {
-                Project = project,
-                PublishedCaveDocId = docId,
-                AiMapPng = capture.AiMapPng,
-                StructureMaskPng = capture.StructureMaskPng,
-                SurveyJsonUtf8 = capture.SurveyJsonUtf8,
-            };
-
-            var progress = new Progress<string>(OnPublishProgress);
-            await _publishService.PublishAsync(bundle, token, progress, ct).ConfigureAwait(true);
-
-            ProgressValue = 100;
-            StatusMessage = $"Publish complete — updated published_caves/{docId}.";
-        }
-        catch (OperationCanceledException)
-        {
-            StatusMessage = "Publish cancelled.";
-        }
-        catch (TimeoutException ex)
-        {
-            ShowOpenLibraryHint = true;
-            SetError(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            SetError(ex.Message);
+            if (metadata != null)
+                ProgressValue = 100;
         }
         finally
         {
@@ -185,16 +129,20 @@ public partial class CloudPublishViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenPublicLibrary()
+    private async Task SignInAsync()
     {
         try
         {
             var owner = _host.GetOwnerWindow();
-            PublicLibraryCatalog.ShowMapInAppWindow(owner);
-            ShowOpenLibraryHint = true;
-            if (!IsPublishing)
-                StatusMessage =
-                    "Public Cave Library opened — sign in with Google and browse the map so a Firebase token can be captured.";
+            await DesktopAuthWindow.AcquireTokenAsync(owner, CloudPublishWebViewHost.TokenCache).ConfigureAwait(true);
+            if (CloudPublishWebViewHost.TokenCache.TryGetUsableToken() != null)
+            {
+                HasError = false;
+                ErrorMessage = "";
+                StatusMessage = "Signed in — ready to publish.";
+            }
+            else
+                StatusMessage = "Sign-in window closed without a token.";
         }
         catch (Exception ex)
         {
@@ -238,18 +186,19 @@ public partial class CloudPublishViewModel : ObservableObject
 
     public void NotifyLegalTermsChanged() => PushToCloudCommand.NotifyCanExecuteChanged();
 
-    private void OnPublishProgress(string message)
+    private void ApplyProgress(CloudPublishProgressUpdate update)
     {
-        StatusMessage = message;
-        ProgressValue = message switch
+        StatusMessage = update.Message;
+        ShowOpenLibraryHint = update.ShowAuthHint;
+        IsIndeterminate = update.IsIndeterminate;
+        if (update.ProgressPercent is double p && !double.IsNaN(p))
+            ProgressValue = p;
+
+        if (update.HasError)
         {
-            var m when m.StartsWith("Uploading AI map", StringComparison.OrdinalIgnoreCase) => 30,
-            var m when m.StartsWith("Uploading structure mask", StringComparison.OrdinalIgnoreCase) => 50,
-            var m when m.StartsWith("Uploading enriched survey", StringComparison.OrdinalIgnoreCase) => 70,
-            var m when m.StartsWith("Updating Firestore", StringComparison.OrdinalIgnoreCase) => 90,
-            var m when m.StartsWith("Publish complete", StringComparison.OrdinalIgnoreCase) => 100,
-            _ => ProgressValue,
-        };
+            HasError = true;
+            ErrorMessage = update.ErrorMessage ?? "Publish failed.";
+        }
     }
 
     private void SetError(string message)
@@ -257,28 +206,5 @@ public partial class CloudPublishViewModel : ObservableObject
         HasError = true;
         ErrorMessage = message;
         StatusMessage = "Publish failed.";
-    }
-
-    private async Task<string?> ResolvePublishedCaveDocIdAsync(CaveProjectDocument project)
-    {
-        var existing = LinkedLibraryCaveIdResolver.TryGet(project);
-        if (!string.IsNullOrWhiteSpace(existing))
-            return existing;
-
-        string? entered = null;
-        await Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            var owner = _host.GetOwnerWindow();
-            if (LinkedLibraryCaveIdPromptWindow.TryPrompt(owner, null, out var id))
-                entered = id;
-        });
-
-        if (string.IsNullOrWhiteSpace(entered))
-            return null;
-
-        LinkedLibraryCaveIdResolver.Set(project, entered);
-        _host.PersistLinkedLibraryCaveId?.Invoke(entered);
-        RefreshLinkedCaveDisplay(project);
-        return entered.Trim();
     }
 }

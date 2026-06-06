@@ -5,7 +5,10 @@ public sealed class AndroidSurveyStationObservation
 {
     public required string StationName { get; init; }
 
-    /// <summary>SurveyNote · StationAnnotation · LeadPrediction · AiClassification · EventLog · Environment</summary>
+    /// <summary>
+    /// SurveyNote · StationAnnotation · LeadPrediction · AiClassification · EventLog · Environment ·
+    /// FieldObservation · Water · Airflow · GeologicalMarker · FieldSymbol
+    /// </summary>
     public required string Category { get; init; }
 
     public required string Text { get; init; }

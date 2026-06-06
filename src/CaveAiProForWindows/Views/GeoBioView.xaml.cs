@@ -12,11 +12,16 @@ namespace CaveAiProForWindows.Views;
 
 /// <summary>
 /// GEO &amp; BIO offline reader. Splits Android scientific records (rocks, fieldCatalogEntries, geoBioRecords)
-/// into Geology and Biology sub-tabs, renders Cave AI analyses as scrollable typography, and opens any photo
-/// in <see cref="ImageLightBoxWindow"/> on click.
+/// into Geology and Biology sub-tabs, with a full field-catalog analytical table aligned to Android
+/// <c>ProjectFieldCatalogEntry</c> (biota, bacteria, plants, minerals, anthropology, etc.).
 /// </summary>
 public partial class GeoBioView : UserControl
 {
+    private sealed record KindFilterOption(string Label, FieldCatalogEntryKind? Kind);
+
+    private IReadOnlyList<GeoBioRecord> _allRecords = [];
+    private List<FieldCatalogTableRowViewModel> _catalogRows = [];
+
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
         nameof(Project),
         typeof(CaveProjectDocument),
@@ -57,16 +62,20 @@ public partial class GeoBioView : UserControl
     {
         GeologyItemsControl.ItemsSource = null;
         BiologyItemsControl.ItemsSource = null;
+        CatalogDataGrid.ItemsSource = null;
         GeologyEmptyBorder.Visibility = Visibility.Collapsed;
         BiologyEmptyBorder.Visibility = Visibility.Collapsed;
+        CatalogEmptyBorder.Visibility = Visibility.Collapsed;
         GlobalAnalysisBorder.Visibility = Visibility.Collapsed;
         GlobalAnalysisText.Text = "";
+        CatalogSummaryText.Text = "";
 
         var project = Project;
         if (project == null)
         {
             ShowEmpty(GeologyEmptyBorder, GeologyEmptyText, "Select a cave project.");
             ShowEmpty(BiologyEmptyBorder, BiologyEmptyText, "Select a cave project.");
+            ShowCatalogEmpty("Select a cave project.");
             return;
         }
 
@@ -77,19 +86,22 @@ public partial class GeoBioView : UserControl
             GlobalAnalysisBorder.Visibility = Visibility.Visible;
         }
 
-        var records = GeoBioRecordsService.Build(project);
-        var (geologyVms, biologyVms) = BuildViewModels(project, records);
+        _allRecords = GeoBioRecordsService.Build(project);
+        CatalogSummaryText.Text = FieldCatalogAnalyticsFormatter.BuildSummaryLine(_allRecords);
+
+        var (geologyVms, biologyVms) = BuildViewModels(project, _allRecords);
 
         GeologyItemsControl.ItemsSource = geologyVms.Count > 0 ? geologyVms : null;
         BiologyItemsControl.ItemsSource = biologyVms.Count > 0 ? biologyVms : null;
 
         SubtitleText.Text =
-            $"{records.Count} record(s) parsed — {geologyVms.Count} geology, {biologyVms.Count} biology. Photos open in full-screen on click.";
+            $"{_allRecords.Count} record(s) — {geologyVms.Count} geology cards, {biologyVms.Count} biology cards. " +
+            "Use CATALOG TABLE for the full Android field log (organisms, fungi, bacteria, plants, minerals).";
 
         if (geologyVms.Count == 0)
         {
             var hint = string.IsNullOrWhiteSpace(globalAnalysis)
-                ? "No rocks/mineral records or Cave AI geology analysis in this backup. Open BACKUP CONTENTS to inspect raw JSON."
+                ? "No rocks/mineral records in this backup. Add Geo/Bio samples or field catalog rows on Android, then re-export."
                 : "No itemized rock records — global Cave AI analysis is shown above.";
             ShowEmpty(GeologyEmptyBorder, GeologyEmptyText, hint);
         }
@@ -97,8 +109,86 @@ public partial class GeoBioView : UserControl
         if (biologyVms.Count == 0)
         {
             ShowEmpty(BiologyEmptyBorder, BiologyEmptyText,
-                "No biological observations recorded. Tag records with category=\"organism\" / \"flora\" / \"fauna\" on Android (or use the new geoBioRecords export) to populate this tab.");
+                "No biological rows yet. On Android use Field Catalog kinds BIOTA, BACTERIA, PLANT (bats, fungi, invertebrates, etc.) then re-export the backup.");
         }
+
+        RefreshCatalogTable();
+    }
+
+    private void RefreshCatalogTable()
+    {
+        _catalogRows = _allRecords
+            .Where(r => r.IsFieldCatalogEntry)
+            .Select(r => new FieldCatalogTableRowViewModel(r))
+            .ToList();
+
+        if (_catalogRows.Count == 0)
+        {
+            CatalogDataGrid.Visibility = Visibility.Collapsed;
+            ShowCatalogEmpty(
+                "No fieldCatalogEntries[] in this project. On Android open Field Catalog for this cave, log organisms/minerals, then Save ZIP backup.");
+            return;
+        }
+
+        CatalogDataGrid.Visibility = Visibility.Visible;
+        CatalogEmptyBorder.Visibility = Visibility.Collapsed;
+        EnsureCatalogFilterCombo();
+        ApplyCatalogFilter();
+    }
+
+    private void EnsureCatalogFilterCombo()
+    {
+        if (CatalogKindFilterCombo.Items.Count > 0)
+            return;
+
+        var options = new List<KindFilterOption> { new("All kinds", null) };
+        foreach (var kind in new[]
+                 {
+                     FieldCatalogEntryKind.Mineral,
+                     FieldCatalogEntryKind.Biota,
+                     FieldCatalogEntryKind.Bacteria,
+                     FieldCatalogEntryKind.Plant,
+                     FieldCatalogEntryKind.Anthropology,
+                     FieldCatalogEntryKind.Depth,
+                     FieldCatalogEntryKind.SurveyLength,
+                     FieldCatalogEntryKind.Model3D,
+                     FieldCatalogEntryKind.GeneralNote,
+                     FieldCatalogEntryKind.Unknown,
+                 })
+        {
+            options.Add(new KindFilterOption(FieldCatalogEntryKindMapper.DisplayLabel(kind), kind));
+        }
+
+        CatalogKindFilterCombo.ItemsSource = options;
+        CatalogKindFilterCombo.DisplayMemberPath = nameof(KindFilterOption.Label);
+        CatalogKindFilterCombo.SelectedIndex = 0;
+    }
+
+    private void ApplyCatalogFilter()
+    {
+        if (_catalogRows.Count == 0)
+            return;
+
+        var selected = CatalogKindFilterCombo.SelectedItem as KindFilterOption;
+        IEnumerable<FieldCatalogTableRowViewModel> rows = _catalogRows;
+        if (selected?.Kind is { } kind)
+        {
+            rows = _catalogRows.Where(r =>
+            {
+                var rec = _allRecords.FirstOrDefault(x =>
+                    x.IsFieldCatalogEntry && x.SourceLabel == r.Source);
+                return rec?.FieldKind == kind;
+            });
+        }
+
+        CatalogDataGrid.ItemsSource = rows.ToList();
+    }
+
+    private void CatalogKindFilterCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || _catalogRows.Count == 0)
+            return;
+        ApplyCatalogFilter();
     }
 
     private (List<GeoBioRecordCardViewModel> geo, List<GeoBioRecordCardViewModel> bio) BuildViewModels(
@@ -124,8 +214,13 @@ public partial class GeoBioView : UserControl
                     bio.Add(vm);
                     break;
                 default:
-                    // "Other / unclassified" — bucket alongside geology so the user still sees them.
-                    geo.Add(vm);
+                    if (r.FieldKind is FieldCatalogEntryKind.Biota or FieldCatalogEntryKind.Bacteria
+                        or FieldCatalogEntryKind.Plant or FieldCatalogEntryKind.Anthropology)
+                        bio.Add(vm);
+                    else if (r.FieldKind == FieldCatalogEntryKind.Mineral)
+                        geo.Add(vm);
+                    else
+                        geo.Add(vm);
                     break;
             }
         }
@@ -133,7 +228,13 @@ public partial class GeoBioView : UserControl
         return (geo, bio);
     }
 
-    private static void ShowEmpty(System.Windows.Controls.Border border, TextBlock text, string message)
+    private void ShowCatalogEmpty(string message)
+    {
+        CatalogEmptyText.Text = message;
+        CatalogEmptyBorder.Visibility = Visibility.Visible;
+    }
+
+    private static void ShowEmpty(Border border, TextBlock text, string message)
     {
         text.Text = message;
         border.Visibility = Visibility.Visible;

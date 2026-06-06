@@ -19,7 +19,7 @@ namespace CaveAiProForWindows.Views;
 /// Geo-calibrated X-Ray map: Android satellite raster + traverse overlay in WGS-84 space,
 /// with GIS-style zoom/pan, selectable stations, and optional AI render layer.
 /// </summary>
-public partial class OfflineXRayView : UserControl
+public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
 {
     private BitmapSource? _background;
     private XRayBackdropMetadata? _backdropMetadata;
@@ -36,10 +36,13 @@ public partial class OfflineXRayView : UserControl
     private readonly Dictionary<string, Ellipse> _stationDots = new(StringComparer.OrdinalIgnoreCase);
     private string? _selectedStation;
     private bool _isPanning;
+    private bool _isMiddlePanning;
     private Point _panStart;
     private double _panStartX;
     private double _panStartY;
     private bool _showAiOverlay = true;
+    private double _aiOverlayOpacity = 0.52;
+    private bool _applyingSettings;
 
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
         nameof(Project),
@@ -77,6 +80,8 @@ public partial class OfflineXRayView : UserControl
         set => SetValue(MapInventoryProperty, value);
     }
 
+    private bool _aiOverlayHandlersWired;
+
     public OfflineXRayView()
     {
         InitializeComponent();
@@ -86,18 +91,54 @@ public partial class OfflineXRayView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _showAiOverlay = AppUiSettingsStore.LoadOrDefault().GenerativeMap.ShowAiRenderOnCanvas;
-        if (AiOverlayCheck != null)
-            AiOverlayCheck.IsChecked = _showAiOverlay;
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        _showAiOverlay = settings.GenerativeMap.ShowAiRenderOnCanvas;
+        _aiOverlayOpacity = Math.Clamp(settings.GenerativeMap.XRayAiOverlayOpacity, 0.15, 0.95);
+
+        _applyingSettings = true;
+        try
+        {
+            if (AiOverlayCheck != null && !_aiOverlayHandlersWired)
+            {
+                AiOverlayCheck.IsChecked = _showAiOverlay;
+                AiOverlayCheck.Checked += AiOverlayCheck_Changed;
+                AiOverlayCheck.Unchecked += AiOverlayCheck_Changed;
+                _aiOverlayHandlersWired = true;
+            }
+
+            if (AiOverlayOpacitySlider != null)
+                AiOverlayOpacitySlider.Value = _aiOverlayOpacity;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
         SurveyStationSelectionHub.StationSelected += OnExternalStationSelected;
+        SurveyStationSelectionHub.SelectionCleared += OnExternalSelectionCleared;
         GenerativeMapSessionCache.SessionChanged += OnGenerativeMapSessionChanged;
         Refresh();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        if (AiOverlayCheck != null && _aiOverlayHandlersWired)
+        {
+            AiOverlayCheck.Checked -= AiOverlayCheck_Changed;
+            AiOverlayCheck.Unchecked -= AiOverlayCheck_Changed;
+            _aiOverlayHandlersWired = false;
+        }
+
         SurveyStationSelectionHub.StationSelected -= OnExternalStationSelected;
+        SurveyStationSelectionHub.SelectionCleared -= OnExternalSelectionCleared;
         GenerativeMapSessionCache.SessionChanged -= OnGenerativeMapSessionChanged;
+    }
+
+    private void OnExternalSelectionCleared(object? sender, SurveyStationSelectionEventArgs e)
+    {
+        if (string.Equals(e.Source, "XRay", StringComparison.OrdinalIgnoreCase))
+            return;
+        ClearStationSelection(notifyHub: false);
     }
 
     private void OnGenerativeMapSessionChanged(object? sender, GenerativeMapSessionChangedEventArgs e)
@@ -208,6 +249,7 @@ public partial class OfflineXRayView : UserControl
         UpdateAlignmentFooter();
         ApplyAiOverlay();
         FitMapToViewport();
+        Dispatcher.BeginInvoke(() => ApplyDeferredXRayViewFromSettings());
     }
 
     private void ConfigureMapCanvasSize()
@@ -257,12 +299,31 @@ public partial class OfflineXRayView : UserControl
             return;
 
         var displayRect = new Rect(0, 0, mapW, mapH);
-        var (worldToCanvas, symLayout) = BuildLayout(p, mapW, mapH, displayRect);
-        _worldToCanvas = worldToCanvas;
-        _overlayLayout = symLayout;
+        _worldToCanvas = BuildWorldToCanvas(p, mapW, mapH, displayRect);
 
         if (_backdropMetadata is { IsValid: true } md && p.Lat is { } lat0 && p.Lon is { } lon0)
             _geoLayout = XRayProjection.Build(lat0, lon0, md, mapW, mapH, displayRect);
+
+        var symbols = SurveyStationGeometry.ParsePlanMapSymbols(p).ToList();
+        _overlayLayout = _worldToCanvas != null
+            ? XRaySurveyOverlayLayout.BuildFromSurveyBounds(_coords, symbols, _worldToCanvas)
+            : null;
+    }
+
+    private Func<float, float, Point>? BuildWorldToCanvas(
+        CaveProjectDocument p,
+        double mapW,
+        double mapH,
+        Rect displayRect)
+    {
+        if (_backdropMetadata is { IsValid: true } md && p.Lat is { } lat0 && p.Lon is { } lon0)
+        {
+            var geo = XRayProjection.Build(lat0, lon0, md, mapW, mapH, displayRect);
+            return (x, y) => geo.WorldMetresToCanvas(x, y);
+        }
+
+        var (worldToCanvas, _) = BuildFitToSurveyLayout(p, displayRect);
+        return worldToCanvas;
     }
 
     private void RedrawTraverseOverlay()
@@ -372,9 +433,59 @@ public partial class OfflineXRayView : UserControl
     {
         _selectedStation = stationName.Trim();
         UpdateStationHighlightVisuals();
-        SelectionFooter.Text = $"Selected station: {_selectedStation} — highlighted on Plan and Section tabs.";
+        UpdateSelectionFooter();
         if (notifyHub)
             SurveyStationSelectionHub.Select(_selectedStation, "XRay");
+    }
+
+    private void ClearStationSelection(bool notifyHub)
+    {
+        if (string.IsNullOrEmpty(_selectedStation))
+            return;
+
+        _selectedStation = null;
+        UpdateStationHighlightVisuals();
+        SelectionFooter.Text = "";
+        if (notifyHub)
+            SurveyStationSelectionHub.ClearSelection("XRay");
+    }
+
+    private void UpdateSelectionFooter()
+    {
+        if (SelectionFooter == null || string.IsNullOrEmpty(_selectedStation))
+        {
+            if (SelectionFooter != null)
+                SelectionFooter.Text = "";
+            return;
+        }
+
+        var inv = CultureInfo.InvariantCulture;
+        var p = Project;
+        if (p == null)
+            return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"Selected station: {_selectedStation}");
+
+        if (_coords.TryGetValue(_selectedStation, out var c))
+        {
+            sb.Append($" · plan X {c.X.ToString("0.##", inv)} m, Y {c.Y.ToString("0.##", inv)} m, Z {c.Z.ToString("0.##", inv)} m");
+        }
+
+        if (_geoLayout is { } geo && _stationGps.TryGetValue(_selectedStation, out var gps))
+        {
+            sb.Append($" · WGS-84 {gps.Lat.ToString("0.######", inv)}°N, {gps.Lon.ToString("0.######", inv)}°E");
+        }
+
+        var shot = SurveyStationInspector.TryGetRepresentativeShotForStation(p, _selectedStation);
+        if (shot != null)
+        {
+            sb.Append(
+                $" · tape {shot.Distance.ToString("0.##", inv)} m, az {shot.Azimuth.ToString("0.#", inv)}°, clino {shot.Clino.ToString("0.#", inv)}°");
+        }
+
+        sb.Append(" — synced to Plan and Section.");
+        SelectionFooter.Text = sb.ToString();
     }
 
     private void UpdateStationHighlightVisuals()
@@ -399,6 +510,9 @@ public partial class OfflineXRayView : UserControl
 
     private void ApplyAiOverlay()
     {
+        if (AiOverlayCanvas == null)
+            return;
+
         AiOverlayCanvas.Children.Clear();
         if (!_showAiOverlay || Project == null || _overlayLayout is not PlanCanvasSurveyLayout layout)
             return;
@@ -422,12 +536,30 @@ public partial class OfflineXRayView : UserControl
         if (bmp == null)
             return;
 
-        GenerativeMapOverlayPresenter.Apply(AiOverlayCanvas, layout, bmp, visible: true, opacity: 0.52);
+        GenerativeMapOverlayPresenter.Apply(AiOverlayCanvas, layout, bmp, visible: true, opacity: _aiOverlayOpacity);
     }
 
     private void AiOverlayCheck_Changed(object sender, RoutedEventArgs e)
     {
+        if (_applyingSettings || AiOverlayCanvas == null)
+            return;
+
         _showAiOverlay = AiOverlayCheck?.IsChecked == true;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.GenerativeMap.ShowAiRenderOnCanvas = _showAiOverlay;
+        AppUiSettingsStore.Save(all);
+        ApplyAiOverlay();
+    }
+
+    private void AiOverlayOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_applyingSettings || AiOverlayOpacitySlider == null)
+            return;
+
+        _aiOverlayOpacity = Math.Clamp(AiOverlayOpacitySlider.Value, 0.15, 0.95);
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.GenerativeMap.XRayAiOverlayOpacity = _aiOverlayOpacity;
+        AppUiSettingsStore.Save(all);
         ApplyAiOverlay();
     }
 
@@ -440,7 +572,8 @@ public partial class OfflineXRayView : UserControl
         var w = Math.Max(0, MapZoomRoot.ActualWidth);
         var h = Math.Max(0, MapZoomRoot.ActualHeight);
         var clamped = new Point(Math.Clamp(focus.X, 0, w), Math.Clamp(focus.Y, 0, h));
-        MapZoomInteractions.TryApplyZoomStep(ZoomScale, ZoomPan, e.Delta > 0, clamped);
+        if (MapZoomInteractions.TryApplyZoomStep(ZoomScale, ZoomPan, e.Delta > 0, clamped))
+            PersistXRayView();
     }
 
     private void ZoomIn_Click(object sender, RoutedEventArgs e) => ApplyMapZoom(true);
@@ -452,14 +585,43 @@ public partial class OfflineXRayView : UserControl
         if (ZoomScale == null || ZoomPan == null)
             return;
         var focus = new Point(ZoomScale.CenterX, ZoomScale.CenterY);
-        MapZoomInteractions.TryApplyZoomStep(ZoomScale, ZoomPan, zoomIn, focus);
+        if (MapZoomInteractions.TryApplyZoomStep(ZoomScale, ZoomPan, zoomIn, focus))
+            PersistXRayView();
     }
 
     private void FitView_Click(object sender, RoutedEventArgs e) => FitMapToViewport();
 
-    private void ResetView_Click(object sender, RoutedEventArgs e) => ResetMapView();
+    /// <inheritdoc />
+    public void MapZoomIn() => ApplyMapZoom(zoomIn: true);
 
-    private void ResetMapView()
+    /// <inheritdoc />
+    public void MapZoomOut() => ApplyMapZoom(zoomIn: false);
+
+    /// <inheritdoc />
+    public void ClearMapSelectionAndRedraw() => ClearStationSelection(notifyHub: true);
+
+    /// <inheritdoc />
+    public void ApplyMapEditorTool(MapCanvasEditorTool tool)
+    {
+        if (tool == MapCanvasEditorTool.PanZoom)
+            return;
+    }
+
+    /// <inheritdoc />
+    public void ResetMapView() => ResetMapViewInternal();
+
+    /// <inheritdoc />
+    public void UndoSketchEdit() { }
+
+    /// <inheritdoc />
+    public void RedoSketchEdit() { }
+
+    /// <inheritdoc />
+    public bool TryDeleteSelectedInk() => false;
+
+    private void ResetView_Click(object sender, RoutedEventArgs e) => ResetMapViewInternal();
+
+    private void ResetMapViewInternal()
     {
         if (ZoomPan == null || ZoomScale == null)
             return;
@@ -468,6 +630,7 @@ public partial class OfflineXRayView : UserControl
         ZoomScale.ScaleX = 1;
         ZoomScale.ScaleY = 1;
         FitMapToViewport();
+        PersistXRayView();
     }
 
     private void FitMapToViewport()
@@ -498,6 +661,48 @@ public partial class OfflineXRayView : UserControl
         var scaledH = mapH * scale;
         ZoomPan.X = (hostW - scaledW) * 0.5;
         ZoomPan.Y = (hostH - scaledH) * 0.5;
+        PersistXRayView();
+    }
+
+    private void PersistXRayView()
+    {
+        if (_applyingSettings || ZoomScale == null || ZoomPan == null)
+            return;
+
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.XRay.ZoomScale = ZoomScale.ScaleX;
+        all.XRay.PanX = ZoomPan.X;
+        all.XRay.PanY = ZoomPan.Y;
+        AppUiSettingsStore.Save(all);
+    }
+
+    private void ApplyDeferredXRayViewFromSettings()
+    {
+        var s = AppUiSettingsStore.LoadOrDefault().XRay;
+        if (ZoomScale == null || ZoomPan == null)
+            return;
+
+        _applyingSettings = true;
+        try
+        {
+            var zx = Math.Clamp(s.ZoomScale > 0 ? s.ZoomScale : 1, MapZoomInteractions.MinScale, MapZoomInteractions.MaxScale);
+            ZoomScale.ScaleX = zx;
+            ZoomScale.ScaleY = zx;
+            ZoomPan.X = s.PanX;
+            ZoomPan.Y = s.PanY;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+    }
+
+    private void MapCanvas_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle || e.OriginalSource is Ellipse)
+            return;
+        BeginPan(e.GetPosition(MapHostGrid), captureMiddle: true);
+        e.Handled = true;
     }
 
     private void MapCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -506,23 +711,35 @@ public partial class OfflineXRayView : UserControl
             return;
         if (e.ClickCount == 2)
         {
-            ResetMapView();
+            ResetMapViewInternal();
             e.Handled = true;
             return;
         }
 
-        _isPanning = true;
-        _panStart = e.GetPosition(MapHostGrid);
+        if (e.OriginalSource is Canvas or Image)
+            ClearStationSelection(notifyHub: true);
+
+        BeginPan(e.GetPosition(MapHostGrid), captureLeft: true);
+    }
+
+    private void BeginPan(Point hostPt, bool captureLeft = false, bool captureMiddle = false)
+    {
+        _isPanning = captureLeft;
+        _isMiddlePanning = captureMiddle;
+        _panStart = hostPt;
         _panStartX = ZoomPan?.X ?? 0;
         _panStartY = ZoomPan?.Y ?? 0;
-        MapCanvas.CaptureMouse();
+        if (captureLeft)
+            MapCanvas.CaptureMouse();
+        else if (captureMiddle)
+            MapCanvas.CaptureMouse();
     }
 
     private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
     {
         UpdateCursorGeo(e.GetPosition(MapCanvas));
 
-        if (!_isPanning || ZoomPan == null)
+        if (!_isPanning && !_isMiddlePanning || ZoomPan == null)
             return;
 
         var pos = e.GetPosition(MapHostGrid);
@@ -530,19 +747,29 @@ public partial class OfflineXRayView : UserControl
         ZoomPan.Y = _panStartY + (pos.Y - _panStart.Y);
     }
 
-    private void MapCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void MapCanvas_PreviewMouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (e.ChangedButton != MouseButton.Middle || !_isMiddlePanning)
+            return;
+        EndPan();
+        e.Handled = true;
+    }
+
+    private void MapCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => EndPan();
+
+    private void EndPan()
+    {
+        if (_isPanning || _isMiddlePanning)
+            PersistXRayView();
         _isPanning = false;
+        _isMiddlePanning = false;
         MapCanvas.ReleaseMouseCapture();
     }
 
     private void MapCanvas_MouseLeave(object sender, MouseEventArgs e)
     {
-        if (_isPanning)
-        {
-            _isPanning = false;
-            MapCanvas.ReleaseMouseCapture();
-        }
+        if (_isPanning || _isMiddlePanning)
+            EndPan();
     }
 
     private void UpdateCursorGeo(Point canvasPt)
@@ -625,38 +852,6 @@ public partial class OfflineXRayView : UserControl
         Canvas.SetLeft(tb, 12);
         Canvas.SetTop(tb, 12);
         TraverseLayer.Children.Add(tb);
-    }
-
-    private (Func<float, float, Point> worldToCanvas, PlanCanvasSurveyLayout? symbolLayout) BuildLayout(
-        CaveProjectDocument p,
-        double mapW,
-        double mapH,
-        Rect displayRect)
-    {
-        if (_backdropMetadata is { IsValid: true } md && p.Lat is { } lat0 && p.Lon is { } lon0)
-        {
-            var geo = XRayProjection.Build(lat0, lon0, md, mapW, mapH, displayRect);
-            var pxPerLonDeg = displayRect.Width / Math.Max(1e-12, md.MaxLon - md.MinLon);
-            var pxPerMetre = pxPerLonDeg * geo.LonPerMetre;
-            var symLayout = BuildSymbolLayoutFromGeoMapping(geo, pxPerMetre);
-            return ((float x, float y) => geo.WorldMetresToCanvas(x, y), symLayout);
-        }
-
-        return BuildFitToSurveyLayout(p, displayRect);
-    }
-
-    private static PlanCanvasSurveyLayout BuildSymbolLayoutFromGeoMapping(XRayGeoLayout geo, double pxPerMetre)
-    {
-        const double worldSpan = 100000;
-        var entrance = geo.WorldMetresToCanvas(0, 0);
-        return new PlanCanvasSurveyLayout(
-            WMinX: 0,
-            WMaxX: worldSpan,
-            WMinY: 0,
-            WMaxY: worldSpan,
-            OriginX: entrance.X,
-            OriginY: entrance.Y - worldSpan * pxPerMetre,
-            Scale: pxPerMetre);
     }
 
     private (Func<float, float, Point> worldToCanvas, PlanCanvasSurveyLayout? symbolLayout) BuildFitToSurveyLayout(

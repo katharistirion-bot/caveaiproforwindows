@@ -92,10 +92,7 @@ public static class AndroidSurveySyncService
         {
             var json = File.ReadAllText(dbPath);
             projects = ExplorationDataLoader.DeserializeProjectsFromText(json);
-            var pick = PickProject(projects, matchProjectName);
-            contexts.Add(pick != null
-                ? AndroidSurveyAnalyticsImporter.BuildFromProject(pick, DatabaseFileName)
-                : AndroidSurveyAnalyticsImporter.TryImportFromJson(json, DatabaseFileName));
+            contexts.Add(ImportDatabaseJson(json, DatabaseFileName, matchProjectName, projects));
         }
 
         if (hasExport)
@@ -118,6 +115,44 @@ public static class AndroidSurveySyncService
             Context = merged,
             DatabaseProjects = projects,
         };
+    }
+
+    /// <summary>Imports a single Android sync JSON file (database, export, or backup data.json).</summary>
+    public static AndroidSurveyAnalyticsContext TryImportFromSyncFile(
+        string filePath,
+        string? matchProjectName = null)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return new AndroidSurveyAnalyticsContext();
+
+        var json = File.ReadAllText(filePath);
+        var fileName = Path.GetFileName(filePath);
+
+        if (string.Equals(fileName, ExportFileName, StringComparison.OrdinalIgnoreCase))
+            return AndroidSurveyAnalyticsImporter.TryImportStandaloneExport(json, fileName);
+
+        if (string.Equals(fileName, DatabaseFileName, StringComparison.OrdinalIgnoreCase))
+        {
+            var projects = ExplorationDataLoader.DeserializeProjectsFromText(json);
+            return ImportDatabaseJson(json, fileName, matchProjectName, projects);
+        }
+
+        return AndroidSurveyAnalyticsImporter.TryImportFromJson(json, fileName);
+    }
+
+    private static AndroidSurveyAnalyticsContext ImportDatabaseJson(
+        string json,
+        string sourceLabel,
+        string? matchProjectName,
+        IReadOnlyList<CaveProjectDocument> projects)
+    {
+        if (projects.Count == 0)
+            return AndroidSurveyAnalyticsImporter.TryImportFromJson(json, sourceLabel);
+
+        var pick = PickProject(projects, matchProjectName);
+        return pick != null
+            ? AndroidSurveyAnalyticsImporter.BuildFromProject(pick, sourceLabel)
+            : AndroidSurveyAnalyticsImporter.TryImportFromJson(json, sourceLabel);
     }
 
     private static CaveProjectDocument? PickProject(

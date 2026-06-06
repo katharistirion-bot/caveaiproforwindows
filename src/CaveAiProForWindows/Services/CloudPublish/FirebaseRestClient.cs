@@ -52,7 +52,7 @@ public sealed class FirebaseRestClient : IDisposable
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
         req.Content = new ByteArrayContent(content);
-        req.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        req.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
 
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
@@ -140,6 +140,8 @@ public sealed class FirebaseRestClient : IDisposable
             pairs.Add(new("surveyJsonMediaUrl", metadata.SurveyJsonMediaUrl));
         if (!string.IsNullOrWhiteSpace(metadata.SurveyArchiveSchemaVersion))
             pairs.Add(new("surveyArchiveSchemaVersion", metadata.SurveyArchiveSchemaVersion));
+        if (!string.IsNullOrWhiteSpace(metadata.SurveyOverlaySummary))
+            pairs.Add(new("surveyOverlaySummary", metadata.SurveyOverlaySummary));
 
         var fields = FirestoreFieldBuilder.BuildFields(pairs);
         var docPath = $"published_caves/{metadata.PublishedCaveDocId.Trim()}";

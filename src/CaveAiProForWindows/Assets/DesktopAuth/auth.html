@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CAVE AI PRO — Sign in</title>
+  <style>
+    body { font-family: Segoe UI, sans-serif; margin: 2rem; color: #1a1a1a; }
+    button { padding: 0.6rem 1.2rem; font-size: 1rem; cursor: pointer; }
+    .hint { color: #555; margin-top: 1rem; max-width: 36rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>CAVE AI PRO — Desktop sign-in</h1>
+  <p class="hint">Use this fallback page when the main Cave Library auth endpoint is unavailable. After sign-in, your Firebase ID token is delivered securely to the desktop app via postMessage.</p>
+  <button id="signin" type="button">Sign in with Google</button>
+  <p id="status" class="hint"></p>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script>
+    (function () {
+      var cfg = window.__CAVEAI_FIREBASE_CONFIG__;
+      if (!cfg || !cfg.apiKey) {
+        document.getElementById('status').textContent = 'Firebase config not injected — set CAVEAIPRO_FIREBASE_API_KEY for the desktop build.';
+        return;
+      }
+      firebase.initializeApp(cfg);
+      var auth = firebase.auth();
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+      function deliver(token) {
+        if (!token) return;
+        if (window.caveAiDesktopAuth && window.caveAiDesktopAuth.deliverToken) {
+          window.caveAiDesktopAuth.deliverToken(token);
+        }
+      }
+
+      auth.onAuthStateChanged(function (user) {
+        if (user) {
+          user.getIdToken().then(deliver);
+          document.getElementById('status').textContent = 'Signed in as ' + (user.email || user.uid);
+        }
+      });
+
+      document.getElementById('signin').addEventListener('click', function () {
+        var provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(function (err) {
+          document.getElementById('status').textContent = err.message || String(err);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

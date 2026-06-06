@@ -1,5 +1,8 @@
+using System.Windows;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.Services.SketchAssist;
+using CaveAiProForWindows.Views;
 
 namespace CaveAiProForWindows.Services.CloudPublish;
 
@@ -20,7 +23,7 @@ public sealed class CloudPublishArtifactBundle
 }
 
 /// <summary>
-/// Orchestrates zero-touch publish: waits for sniffed token, uploads Storage objects, PATCHes Firestore.
+/// Orchestrates Push to Cloud: secure WebView2 auth, Storage uploads, Firestore PATCH.
 /// </summary>
 public sealed class CloudPublishService
 {
@@ -34,7 +37,28 @@ public sealed class CloudPublishService
     }
 
     /// <summary>
-    /// Waits until a usable ID token appears in the cache (user must be signed in inside Public Library WebView).
+    /// Returns a cached token or opens the secure sign-in WebView2 dialog.
+    /// </summary>
+    public async Task<FirebaseIdToken> AcquireTokenAsync(
+        Window? owner,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = _tokenCache.TryGetUsableToken();
+        if (existing != null)
+            return existing;
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        linked.CancelAfter(timeout);
+
+        _ = Application.Current.Dispatcher.InvokeAsync(async () =>
+            await DesktopAuthWindow.AcquireTokenAsync(owner, _tokenCache).ConfigureAwait(true));
+
+        return await WaitForTokenAsync(timeout, linked.Token).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Waits until a usable ID token appears in the cache (e.g. after sign-in in any attached WebView).
     /// </summary>
     public async Task<FirebaseIdToken> WaitForTokenAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     {
@@ -47,7 +71,7 @@ public sealed class CloudPublishService
         using var timer = new CancellationTokenSource(timeout);
         using var timerReg = timer.Token.Register(() =>
             tcs.TrySetException(new TimeoutException(
-                "No Firebase ID token was captured. Open Help → Public Cave Library, sign in with Google, browse the map briefly, then retry Push to Cloud.")));
+                "Firebase sign-in timed out. Use Publish to Cloud to open the secure sign-in window, sign in with Google, then retry.")));
 
         void OnToken(object? _, FirebaseIdToken t)
         {
@@ -131,6 +155,7 @@ public sealed class CloudPublishService
             StructureMaskUrl = maskUrl,
             SurveyJsonStoragePath = surveyPath,
             SurveyJsonMediaUrl = surveyUrl,
+            SurveyOverlaySummary = SurveyAnnotationReportFormatter.BuildOverlaySummary(bundle.Project),
             SurveyArchiveSchemaVersion = bundle.Project.SurveyArchiveSchemaVersion,
             UpdatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         };
@@ -140,9 +165,15 @@ public sealed class CloudPublishService
         return metadata;
     }
 
-    /// <summary>Build survey JSON bytes using the same exporter as portable ZIP.</summary>
-    public static byte[] SerializeProjectJsonUtf8(CaveProjectDocument project) =>
-        System.Text.Encoding.UTF8.GetBytes(SurveyPortableZipExporter.SerializeSingleProjectArray(project));
+    /// <summary>Build survey JSON bytes using the same exporter as portable ZIP (normalized for publish).</summary>
+    public static byte[] SerializeProjectJsonUtf8(CaveProjectDocument project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        CaveProjectJsonWriteNormalizer.Prepare(project);
+        if (string.IsNullOrWhiteSpace(project.SurveyArchiveSchemaVersion))
+            project.SurveyArchiveSchemaVersion = "2";
+        return System.Text.Encoding.UTF8.GetBytes(SurveyPortableZipExporter.SerializeSingleProjectArray(project));
+    }
 
     /// <summary>Capture structure mask PNG from current sketch editor state.</summary>
     public static byte[]? TryCaptureStructureMask(

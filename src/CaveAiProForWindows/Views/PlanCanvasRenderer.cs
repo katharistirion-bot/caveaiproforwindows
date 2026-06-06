@@ -139,22 +139,30 @@ public static class PlanCanvasRenderer
         }
         else
         {
-            sketchFill = new SolidColorBrush(Color.FromArgb(0x7A, 0xD8, 0xD1, 0xC6));
-            vectorFill = new SolidColorBrush(Color.FromArgb(0x3A, 0xC9, 0x9A, 0x71));
-            stationFill = Brushes.White;
-            symbolFill = new SolidColorBrush(Color.FromRgb(0xA8, 0x55, 0xD7));
-            legend = new SolidColorBrush(Color.FromRgb(0x4A, 0x4D, 0x52));
+            sketchFill = new SolidColorBrush(Color.FromArgb(0x88, 0xC4, 0xA0, 0x7A));
+            vectorFill = new SolidColorBrush(Color.FromArgb(0x45, 0x14, 0xB8, 0xA6));
+            stationFill = new SolidColorBrush(Color.FromRgb(0xFF, 0xFB, 0xF5));
+            symbolFill = new SolidColorBrush(Color.FromRgb(0xD9, 0x46, 0xEF));
+            legend = new SolidColorBrush(Color.FromRgb(0x3D, 0x4F, 0x5C));
         }
 
-        Brush traverseStd = new SolidColorBrush(Color.FromRgb(0xC4, 0x86, 0x53));
-        var splayStd = new SolidColorBrush(Color.FromArgb(200, 0x90, 0x90, 0x98));
-        Brush wallStd = new SolidColorBrush(Color.FromRgb(0x2C, 0x3E, 0x50));
+        Brush traverseStd = new SolidColorBrush(Color.FromRgb(0x0D, 0x94, 0x88));
+        var splayStd = new SolidColorBrush(Color.FromArgb(0x99, 0x94, 0xA3, 0xB8));
+        Brush wallStd = new SolidColorBrush(Color.FromRgb(0x7C, 0x4A, 0x2D));
+        Brush wallAlt = new SolidColorBrush(Color.FromRgb(0x25, 0x63, 0xEB));
         if (!v.UsesDarkSurveyCanvas() && !SurveyCanvasTheme.IsDark)
         {
             traverseStd = TryMapBrush("Map.TraverseStroke") ?? traverseStd;
             wallStd = TryMapBrush("Map.WallStroke") ?? wallStd;
+            wallAlt = TryMapBrush("Map.WallStrokeAlt") ?? wallAlt;
             if (TryMapBrush("Map.SketchFill") is SolidColorBrush sf)
                 sketchFill = sf;
+            if (TryMapBrush("Map.VectorFill") is SolidColorBrush vf)
+                vectorFill = vf;
+            if (TryMapBrush("Map.StationFill") is SolidColorBrush stf)
+                stationFill = stf;
+            if (TryMapBrush("Map.SplayStroke") is SolidColorBrush spl)
+                splayStd = spl;
         }
 
         return new SurveyVectorStyle(
@@ -166,10 +174,10 @@ public static class PlanCanvasRenderer
             TraverseStroke: traverseStd,
             SplayStroke: splayStd,
             WallStrokePrimary: wallStd,
-            WallStrokeAlt: wallStd,
-            AlternateWallStrokes: false,
-            SplayOpacity: v.ShowSplayXRayGeometry() ? 0.88 : 0.52,
-            DashedTraverse: true);
+            WallStrokeAlt: wallAlt,
+            AlternateWallStrokes: !v.UsesDarkSurveyCanvas() && !SurveyCanvasTheme.IsDark,
+            SplayOpacity: v.ShowSplayXRayGeometry() ? 0.88 : 0.58,
+            DashedTraverse: false);
     }
 
     private static byte ScaleAlpha(byte a, double mul)
@@ -186,15 +194,18 @@ public static class PlanCanvasRenderer
             CartographicIntensity.Balanced => 1.0,
             _ => 1.35,
         };
-        var baseColor = dark ? Color.FromRgb(12, 13, 16) : Color.FromRgb(248, 247, 244);
-        var major = dark ? Color.FromArgb(ScaleAlpha(30, gridMul), 130, 140, 160) : Color.FromArgb(ScaleAlpha(34, gridMul), 90, 100, 115);
-        var minor = dark ? Color.FromArgb(ScaleAlpha(14, gridMul), 130, 140, 160) : Color.FromArgb(ScaleAlpha(18, gridMul), 110, 118, 130);
-        var dot = dark ? Color.FromArgb(ScaleAlpha(24, gridMul), 145, 160, 182) : Color.FromArgb(ScaleAlpha(26, gridMul), 105, 112, 124);
+        var warm = TryMapBrush("Map.CanvasWarm") as SolidColorBrush;
+        var cool = TryMapBrush("Map.CanvasCool") as SolidColorBrush;
+        var baseTop = dark ? Color.FromRgb(14, 16, 22) : (warm?.Color ?? Color.FromRgb(0xF5, 0xED, 0xE0));
+        var baseBottom = dark ? Color.FromRgb(8, 9, 12) : (cool?.Color ?? Color.FromRgb(0xFC, 0xFA, 0xF6));
+        var major = dark ? Color.FromArgb(ScaleAlpha(36, gridMul), 130, 150, 175) : Color.FromArgb(ScaleAlpha(38, gridMul), 120, 108, 92);
+        var minor = dark ? Color.FromArgb(ScaleAlpha(16, gridMul), 130, 140, 160) : Color.FromArgb(ScaleAlpha(22, gridMul), 160, 148, 132);
+        var dot = dark ? Color.FromArgb(ScaleAlpha(28, gridMul), 145, 160, 182) : Color.FromArgb(ScaleAlpha(32, gridMul), 130, 118, 102);
         var tile = 24.0;
 
         var group = new DrawingGroup();
         group.Children.Add(new GeometryDrawing(
-            new SolidColorBrush(baseColor),
+            new LinearGradientBrush(baseTop, baseBottom, new Point(0, 0), new Point(1, 1)),
             null,
             new RectangleGeometry(new Rect(0, 0, tile, tile))));
         group.Children.Add(new GeometryDrawing(
@@ -641,8 +652,10 @@ public static class PlanCanvasRenderer
         }
         else
         {
-            lrudPlanFill = new SolidColorBrush(Color.FromArgb((byte)(splayXRay ? 0x40 : 0x55), 0xC8, 0xCC, 0xD4));
-            lrudPlanStroke = new SolidColorBrush(Color.FromArgb(0xAA, 0x58, 0x5C, 0x62));
+            var passageFill = TryMapBrush("Map.PassageFill") as SolidColorBrush;
+            var passageStroke = TryMapBrush("Map.PassageStroke") as SolidColorBrush;
+            lrudPlanFill = passageFill ?? new SolidColorBrush(Color.FromArgb((byte)(splayXRay ? 0x48 : 0x72), 0x5E, 0xEA, 0xD4));
+            lrudPlanStroke = passageStroke ?? new SolidColorBrush(Color.FromArgb(0xCC, 0x0F, 0x76, 0x6E));
         }
 
         var lrudProfileFill = new SolidColorBrush(
@@ -1069,6 +1082,25 @@ public static class PlanCanvasRenderer
         {
             var pa = ToScreen(x1, y1);
             var pb = ToScreen(x2, y2);
+            if (!highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
+            {
+                var glowBrush = TryMapBrush("Map.TraverseGlow") as SolidColorBrush
+                              ?? new SolidColorBrush(Color.FromArgb(0x55, 0x0D, 0x94, 0x88));
+                var glow = new Line
+                {
+                    X1 = pa.X,
+                    Y1 = pa.Y,
+                    X2 = pb.X,
+                    Y2 = pb.Y,
+                    Stroke = glowBrush,
+                    StrokeThickness = vectorStrokeThickness * 2.4,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round,
+                    Opacity = opt.CartographicIntensity == CartographicIntensity.Rich ? 0.85 : 0.65,
+                };
+                AddVectorElement(glow);
+            }
+
             var leg = new Line
             {
                 X1 = pa.X,
@@ -1081,7 +1113,7 @@ public static class PlanCanvasRenderer
                 StrokeEndLineCap = PenLineCap.Round,
                 StrokeLineJoin = PenLineJoin.Round,
             };
-            if (sty.DashedTraverse && opt.CartographicIntensity != CartographicIntensity.Subtle)
+            if (sty.DashedTraverse && opt.CartographicIntensity == CartographicIntensity.Subtle)
                 leg.StrokeDashArray = new DoubleCollection { 4.5, 3.2 };
             AddVectorElement(leg);
         }
@@ -1119,79 +1151,205 @@ public static class PlanCanvasRenderer
         var stationDot = Math.Max(6.0, Math.Min(20.0, pxPerMetre * 0.4));
         var stationHalf = stationDot * 0.5;
 
+        var stationRingBrush = TryMapBrush("Map.StationRing") ?? sty.TraverseStroke;
+
         foreach (var c in scene.Stations.Values)
         {
             var pt = ToScreen(c.X, c.Y);
+            if (!highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
+            {
+                var ring = stationDot * (opt.CartographicIntensity == CartographicIntensity.Rich ? 2.05 : 1.75);
+                var halo = new Ellipse
+                {
+                    Width = ring,
+                    Height = ring,
+                    Fill = new SolidColorBrush(Color.FromArgb(0x38, 0x0D, 0x94, 0x88)),
+                    Stroke = stationRingBrush,
+                    StrokeThickness = Math.Max(1.0, vectorStrokeThickness * 0.35),
+                    Opacity = 0.9,
+                };
+                Canvas.SetLeft(halo, pt.X - ring * 0.5);
+                Canvas.SetTop(halo, pt.Y - ring * 0.5);
+                AddVectorElement(halo);
+            }
+
             var el = new Ellipse
             {
                 Width = stationDot,
                 Height = stationDot,
                 Fill = sty.StationFill,
-                Stroke = sty.TraverseStroke,
-                StrokeThickness = Math.Max(1.6, vectorStrokeThickness * 0.62),
+                Stroke = stationRingBrush,
+                StrokeThickness = Math.Max(1.8, vectorStrokeThickness * 0.68),
             };
+            if (!highContrast && opt.CartographicIntensity == CartographicIntensity.Rich)
+            {
+                el.Effect = new DropShadowEffect
+                {
+                    Color = Color.FromArgb(255, 13, 148, 136),
+                    BlurRadius = 8,
+                    ShadowDepth = 0,
+                    Opacity = 0.45,
+                };
+            }
+
             Canvas.SetLeft(el, pt.X - stationHalf);
             Canvas.SetTop(el, pt.Y - stationHalf);
             AddVectorElement(el);
         }
 
-        // Android mapSymbols / sketch stamps are drawn on the design layer (see AndroidImportedSymbolPresenter).
-
-        if (opt.ShowStationNames)
+        foreach (var sym in scene.Symbols)
         {
-            foreach (var c in scene.Stations.Values)
-            {
-                var pt = ToScreen(c.X, c.Y);
-                var lab = new TextBlock
-                {
-                    Text = c.Name,
-                    FontSize = 10.5,
-                    FontWeight = FontWeights.SemiBold,
-                    Foreground = sty.Legend,
-                };
-                if (!highContrast)
-                {
-                    lab.Effect = new DropShadowEffect
-                    {
-                        BlurRadius = 3,
-                        ShadowDepth = 0,
-                        Color = SurveyCanvasTheme.IsDark ? Colors.Black : Colors.White,
-                        Opacity = 0.85,
-                    };
-                }
+            var symEl = AndroidMapSymbolVisualFactory.CreateVisual(sym, planLayout, highContrast);
+            AddVectorElement(symEl);
+        }
 
-                Canvas.SetLeft(lab, pt.X + 7);
-                Canvas.SetTop(lab, pt.Y - 14);
-                AddVectorElement(lab);
+        foreach (var pin in scene.FieldCatalogPins)
+        {
+            var pt = ToScreen(pin.X, pin.Y);
+            var sub = pin.ScientificName != null ? pin.ScientificName : pin.Title;
+            var chip = SurveyMapLabelStyle.BuildCaveTitlePlate(
+                pin.Title,
+                pin.CategoryLabel + (pin.ScientificName != null ? "\n" + pin.ScientificName : ""),
+                darkCanvas,
+                highContrast,
+                maxWidth: 200);
+            Canvas.SetLeft(chip, pt.X + 6);
+            Canvas.SetTop(chip, pt.Y - 8);
+            AddVectorElement(chip);
+        }
+
+        if (opt.ShowLoopClosureHighlights)
+        {
+            foreach (var loop in scene.LoopClosingLegs)
+            {
+                if (!scene.Stations.TryGetValue(loop.FromStation, out var a) ||
+                    !scene.Stations.TryGetValue(loop.ToStation, out var b))
+                    continue;
+                var p1 = ToScreen(a.X, a.Y);
+                var p2 = ToScreen(b.X, b.Y);
+                var warn = highContrast
+                    ? Brushes.OrangeRed
+                    : new SolidColorBrush(Color.FromArgb(220, 234, 88, 12));
+                AddVectorElement(new Line
+                {
+                    X1 = p1.X,
+                    Y1 = p1.Y,
+                    X2 = p2.X,
+                    Y2 = p2.Y,
+                    Stroke = warn,
+                    StrokeThickness = Math.Max(3.5, vectorStrokeThickness * 1.4),
+                    StrokeDashArray = new DoubleCollection { 6, 4 },
+                });
+                var mid = ToScreen(loop.MidX, loop.MidY);
+                var loopChip = SurveyMapLabelStyle.BuildCaveTitlePlate(
+                    loop.Label,
+                    $"{loop.FromStation} → {loop.ToStation}",
+                    darkCanvas,
+                    highContrast,
+                    maxWidth: 160);
+                Canvas.SetLeft(loopChip, mid.X - 40);
+                Canvas.SetTop(loopChip, mid.Y - 22);
+                AddVectorElement(loopChip);
             }
         }
 
-        if (opt.ShowStationZDepth)
-        {
-            var inv = CultureInfo.InvariantCulture;
-            foreach (var c in scene.Stations.Values)
-            {
-                var pt = ToScreen(c.X, c.Y);
-                var zLab = new TextBlock
-                {
-                    Text = $"Z {c.Z.ToString("0.##", inv)} m",
-                    FontSize = 9.75,
-                    Foreground = sty.Legend,
-                };
-                if (!highContrast)
-                {
-                    zLab.Effect = new DropShadowEffect
-                    {
-                        BlurRadius = 2,
-                        ShadowDepth = 0,
-                        Color = SurveyCanvasTheme.IsDark ? Colors.Black : Colors.White,
-                        Opacity = 0.8,
-                    };
-                }
+        // User sketch stamps on DesignLayer are merged at export time (SketchEditorPublishCapture).
 
-                Canvas.SetLeft(zLab, pt.X + 7);
-                Canvas.SetTop(zLab, opt.ShowStationNames ? pt.Y + 4 : pt.Y - 12);
-                AddVectorElement(zLab);
+        SurveyMapLabelLayoutResult? labelLayout = null;
+        if (stationImageResolveProject != null &&
+            (opt.ShowLegSurveyDetails || opt.ShowStationEnvironment || opt.ShowDepthSpanAnnotations ||
+             opt.ShowBracketMarkers || opt.ShowStationNames || opt.ShowStationZDepth))
+        {
+            var annotations = SurveyMapAnnotationsBuilder.Build(
+                stationImageResolveProject,
+                scene,
+                opt.AnnotationViewMode,
+                opt.ShowLegSurveyDetails,
+                opt.ShowStationEnvironment);
+            labelLayout = SurveyMapLabelLayout.Resolve(
+                stationImageResolveProject,
+                scene,
+                annotations,
+                opt,
+                ToScreen,
+                pxPerMetre);
+
+            if (opt.ShowDepthSpanAnnotations)
+                foreach (var span in annotations.DepthSpans)
+                    SurveyMapAnnotationRenderer.DrawDepthSpan(span, ToScreen, pxPerMetre, darkCanvas, highContrast, AddVectorElement);
+
+            if (opt.ShowBracketMarkers)
+                foreach (var br in annotations.Brackets)
+                    SurveyMapAnnotationRenderer.DrawBracket(br, ToScreen, darkCanvas, highContrast, AddVectorElement);
+
+            SurveyMapAnnotationRenderer.DrawResolvedLayout(
+                labelLayout,
+                opt,
+                ToScreen,
+                pxPerMetre,
+                darkCanvas,
+                highContrast,
+                AddVectorElement);
+        }
+
+        if (labelLayout != null)
+        {
+            if (opt.ShowStationNames)
+            {
+                foreach (var c in labelLayout.StationNames)
+                {
+                    var pt = ToScreen(c.X, c.Y);
+                    AddVectorElement(SurveyMapLabelStyle.StationNameChip(
+                        c.Name,
+                        new Point(pt.X + 4, pt.Y - 20),
+                        darkCanvas,
+                        highContrast));
+                }
+            }
+
+            if (opt.ShowStationZDepth)
+            {
+                var inv = CultureInfo.InvariantCulture;
+                foreach (var c in labelLayout.StationZ)
+                {
+                    var pt = ToScreen(c.X, c.Y);
+                    var y = opt.ShowStationNames ? pt.Y - 2 : pt.Y - 16;
+                    AddVectorElement(SurveyMapLabelStyle.StationZChip(
+                        "Z " + c.Z.ToString("0.##", inv) + " m",
+                        new Point(pt.X + 4, y),
+                        darkCanvas,
+                        highContrast));
+                }
+            }
+        }
+        else
+        {
+            if (opt.ShowStationNames)
+            {
+                foreach (var c in scene.Stations.Values)
+                {
+                    var pt = ToScreen(c.X, c.Y);
+                    AddVectorElement(SurveyMapLabelStyle.StationNameChip(
+                        c.Name,
+                        new Point(pt.X + 4, pt.Y - 20),
+                        darkCanvas,
+                        highContrast));
+                }
+            }
+
+            if (opt.ShowStationZDepth)
+            {
+                var inv = CultureInfo.InvariantCulture;
+                foreach (var c in scene.Stations.Values)
+                {
+                    var pt = ToScreen(c.X, c.Y);
+                    var y = opt.ShowStationNames ? pt.Y - 2 : pt.Y - 16;
+                    AddVectorElement(SurveyMapLabelStyle.StationZChip(
+                        "Z " + c.Z.ToString("0.##", inv) + " m",
+                        new Point(pt.X + 4, y),
+                        darkCanvas,
+                        highContrast));
+                }
             }
         }
 
@@ -1242,6 +1400,30 @@ public static class PlanCanvasRenderer
                 (float)wSpanX,
                 (float)wSpanY);
         }
+
+        AddCaveTitlePlate(drawingCanvas, stationImageResolveProject, opt, darkCanvas, highContrast, AddChildZ);
+    }
+
+    private static void AddCaveTitlePlate(
+        Canvas drawingCanvas,
+        CaveProjectDocument? project,
+        PlanCanvasDrawOptions opt,
+        bool darkCanvas,
+        bool highContrast,
+        Action<Canvas, UIElement, int> addChildZ)
+    {
+        var displayName = CaveProjectDisplayNames.GetDisplayName(project);
+        if (string.IsNullOrWhiteSpace(displayName))
+            return;
+
+        var subtitle = opt.CanvasKind == SurveyCanvasKind.Section ? "Section" : "Plan";
+        if (!string.IsNullOrWhiteSpace(project?.Date))
+            subtitle += "  ·  " + project.Date.Trim();
+
+        var plate = SurveyMapLabelStyle.BuildCaveTitlePlate(displayName, subtitle, darkCanvas, highContrast);
+        Canvas.SetLeft(plate, 14);
+        Canvas.SetTop(plate, 12);
+        addChildZ(drawingCanvas, plate, ZIndexCartographyChrome);
     }
 
     private static double NiceScaleBarMetres(double rawMetres)

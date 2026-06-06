@@ -1,6 +1,5 @@
 using System.IO;
 using System.Windows.Media.Imaging;
-using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.Secrets;
 
 namespace CaveAiProForWindows.Services.GenerativeMap;
@@ -37,10 +36,15 @@ public sealed class ReplicateControlNetProvider : IGenerativeMapRenderer
             throw new ArgumentException("Prompt is required.", nameof(request));
 
         progress?.Report("Preparing structure mask for ControlNet…");
-        var scribbleInput = StructureMaskControlNetPreprocessor.PrepareScribbleInput(request.StructureMaskPng)
+        var prepared = StructureMaskControlNetPreprocessor.PrepareScribbleInput(request.StructureMaskPng)
             ?? throw new InvalidOperationException("Could not preprocess the structure mask PNG.");
 
-        var dataUri = "data:image/png;base64," + Convert.ToBase64String(scribbleInput);
+        var apiResolution = request.ImageResolution ?? Math.Max(prepared.ApiWidth, prepared.ApiHeight);
+        progress?.Report(
+            $"ControlNet input {prepared.ApiWidth}×{prepared.ApiHeight} px " +
+            $"(survey export {prepared.SourceWidth}×{prepared.SourceHeight}, image_resolution={apiResolution})…");
+
+        var dataUri = "data:image/png;base64," + Convert.ToBase64String(prepared.PngBytes);
         var input = new Dictionary<string, object?>
         {
             ["image"] = dataUri,
@@ -49,7 +53,7 @@ public sealed class ReplicateControlNetProvider : IGenerativeMapRenderer
             ["n_prompt"] = request.NegativePrompt,
             ["scale"] = request.GuidanceScale,
             ["ddim_steps"] = request.Steps,
-            ["image_resolution"] = request.ImageResolution.ToString(),
+            ["image_resolution"] = apiResolution.ToString(),
             ["num_samples"] = "1",
         };
         if (request.Seed is int seed)
@@ -69,39 +73,30 @@ public sealed class ReplicateControlNetProvider : IGenerativeMapRenderer
             ?? throw new InvalidOperationException("Replicate prediction succeeded but returned no output URL.");
 
         progress?.Report("Downloading generated map…");
-        var pngBytes = await ReplicateApiClient.DownloadBytesAsync(outputUrl, cancellationToken)
+        var apiPngBytes = await ReplicateApiClient.DownloadBytesAsync(outputUrl, cancellationToken)
             .ConfigureAwait(false);
-        if (pngBytes.Length < 64)
+        if (apiPngBytes.Length < 64)
             throw new InvalidOperationException("Downloaded image was unexpectedly small.");
 
-        var (w, h) = TryReadPngDimensions(pngBytes);
+        progress?.Report(
+            $"Mapping AI render back to survey canvas ({prepared.SourceWidth}×{prepared.SourceHeight})…");
+        var canvasPngBytes = StructureMaskControlNetPreprocessor.ResizePngToDimensions(
+                                 apiPngBytes,
+                                 prepared.SourceWidth,
+                                 prepared.SourceHeight)
+                             ?? apiPngBytes;
+
         progress?.Report("Generative render complete.");
 
         return new GenerativeMapRenderResult
         {
-            PngBytes = pngBytes,
+            PngBytes = canvasPngBytes,
             ProviderName = ProviderName,
             ProviderPredictionId = finished.Id,
-            PixelWidth = w,
-            PixelHeight = h,
+            PixelWidth = prepared.SourceWidth,
+            PixelHeight = prepared.SourceHeight,
+            ApiInputWidth = prepared.ApiWidth,
+            ApiInputHeight = prepared.ApiHeight,
         };
-    }
-
-    private static (int Width, int Height) TryReadPngDimensions(byte[] png)
-    {
-        try
-        {
-            using var ms = new MemoryStream(png);
-            var img = new BitmapImage();
-            img.BeginInit();
-            img.CacheOption = BitmapCacheOption.OnLoad;
-            img.StreamSource = ms;
-            img.EndInit();
-            return (img.PixelWidth, img.PixelHeight);
-        }
-        catch
-        {
-            return (0, 0);
-        }
     }
 }

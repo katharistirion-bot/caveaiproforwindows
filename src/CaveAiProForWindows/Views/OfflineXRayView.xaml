@@ -27,18 +27,32 @@
                 <CheckBox x:Name="AiOverlayCheck"
                           Content="AI render overlay"
                           VerticalAlignment="Center"
-                          Margin="0,0,12,0"
-                          IsChecked="True"
+                          Margin="0,0,8,0"
                           ToolTip="Toggle generative map render (from Sketch Editor) as a transparent layer"
-                          Checked="AiOverlayCheck_Changed"
-                          Unchecked="AiOverlayCheck_Changed"
                           Foreground="{DynamicResource Cave.TextSubdued}" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0"
+                            ToolTip="Blend opacity for the generative AI map on the geo-calibrated canvas">
+                    <TextBlock Text="Opacity" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
+                               Foreground="{DynamicResource Cave.TextMuted}" />
+                    <Slider x:Name="AiOverlayOpacitySlider"
+                            Width="88"
+                            Minimum="0.15"
+                            Maximum="0.95"
+                            Value="0.52"
+                            TickFrequency="0.1"
+                            IsSnapToTickEnabled="False"
+                            VerticalAlignment="Center"
+                            ValueChanged="AiOverlayOpacitySlider_ValueChanged" />
+                </StackPanel>
                 <Button Content="Zoom out" Padding="10,6" Margin="0,0,6,0" Click="ZoomOut_Click"
                         ToolTip="Zoom out (mouse wheel toward cursor)" />
                 <Button Content="Zoom in" Padding="10,6" Margin="0,0,6,0" Click="ZoomIn_Click"
                         ToolTip="Zoom in (mouse wheel toward cursor)" />
                 <Button Content="Fit view" Padding="10,6" Margin="0,0,6,0" Click="FitView_Click"
                         ToolTip="Fit entire geo map in viewport" />
+                <Button Content="Print…" Padding="10,6" Margin="0,0,6,0"
+                        Command="{Binding DataContext.PrintPreviewCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        ToolTip="Open print preview (ISO A4/A3/A2, landscape or portrait)" />
                 <Button Content="Export geo PNG…" Padding="10,6" Margin="0,0,6,0" Click="ExportGeoMap_Click"
                         ToolTip="Save satellite raster with .pgw world file for QGIS (requires bounding box metadata)" />
                 <Button Content="Reset" Padding="10,6" Click="ResetView_Click"
@@ -71,6 +85,8 @@
                             </TransformGroup>
                         </Grid.RenderTransform>
                         <Canvas x:Name="MapCanvas" Background="Black"
+                                PreviewMouseDown="MapCanvas_PreviewMouseDown"
+                                PreviewMouseUp="MapCanvas_PreviewMouseUp"
                                 MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown"
                                 MouseMove="MapCanvas_MouseMove"
                                 MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp"

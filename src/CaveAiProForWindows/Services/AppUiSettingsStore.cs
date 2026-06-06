@@ -49,4 +49,15 @@ public static class AppUiSettingsStore
             /* ignore */
         }
     }
+
+    /// <summary>After Android backup import, enable full survey overlays on all map tabs.</summary>
+    public static void ApplyFullOverlaysAfterImport()
+    {
+        var all = LoadOrDefault();
+        all.SurveyDetailDensity = SurveyDetailDensityParser.ToPersistedString(SurveyDetailDensity.Full);
+        SurveyDetailDensityMapper.ApplyToMapTab(all.Plan, SurveyDetailDensity.Full);
+        SurveyDetailDensityMapper.ApplyToMapTab(all.Sketch, SurveyDetailDensity.Full);
+        SurveyDetailDensityMapper.ApplyToMapTab(all.Section, SurveyDetailDensity.Full);
+        Save(all);
+    }
 }

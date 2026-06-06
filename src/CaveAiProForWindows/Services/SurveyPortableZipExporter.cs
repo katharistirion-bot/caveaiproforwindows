@@ -52,5 +52,9 @@ public static class SurveyPortableZipExporter
 
     /// <summary>Same top-level shape as CaveAI backup: <c>[ { ... } ]</c>.</summary>
     public static string SerializeSingleProjectArray(CaveProjectDocument project) =>
-        JsonSerializer.Serialize(new[] { project }, WriteJson);
+        SerializeProjectArray(new[] { project });
+
+    /// <summary>Serializes one or more projects as a Gson-compatible JSON array.</summary>
+    public static string SerializeProjectArray(IReadOnlyList<CaveProjectDocument> projects) =>
+        JsonSerializer.Serialize(projects, WriteJson);
 }

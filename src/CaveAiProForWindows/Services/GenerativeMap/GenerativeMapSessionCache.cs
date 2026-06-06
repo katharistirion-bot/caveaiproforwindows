@@ -33,7 +33,7 @@ public static class GenerativeMapSessionCache
             return Entries.TryGetValue(key, out var entry) ? entry : null;
     }
 
-    public static void Set(CaveProjectDocument project, byte[] pngBytes)
+    public static void Set(CaveProjectDocument project, byte[] pngBytes, byte[]? structureMaskPng = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         var bitmap = LoadFrozenBitmap(pngBytes);
@@ -41,6 +41,7 @@ public static class GenerativeMapSessionCache
         {
             PngBytes = pngBytes,
             Bitmap = bitmap,
+            StructureMaskPng = structureMaskPng is { Length: > 0 } ? structureMaskPng : null,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         lock (Gate)
@@ -96,6 +97,8 @@ public sealed class GenerativeMapSessionEntry
     public required byte[] PngBytes { get; init; }
 
     public required BitmapSource Bitmap { get; init; }
+
+    public byte[]? StructureMaskPng { get; init; }
 
     public DateTimeOffset UpdatedAtUtc { get; init; }
 }

@@ -105,6 +105,9 @@ public static class PlanSceneBuilder
         foreach (var sym in symbols)
             Consider(sym.X, sym.Y);
 
+        foreach (var pin in FieldCatalogMapPinCollector.Collect(p))
+            Consider(pin.X, pin.Y);
+
         foreach (var s in p.Shots.Where(x => x.IsTraverseLeg))
         {
             if (coords.TryGetValue(s.FromStation, out var fa))
@@ -161,6 +164,8 @@ public static class PlanSceneBuilder
             Symbols = symbols,
             StationAttachedImages = stationAttached,
             SplaySegments = splaySegs,
+            FieldCatalogPins = FieldCatalogMapPinCollector.Collect(p),
+            LoopClosingLegs = SurveyLoopClosureHighlighter.Detect(p),
         };
     }
 

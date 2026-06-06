@@ -49,6 +49,30 @@ public sealed class CloudPublishTests
         StringAssert.Contains(url, "token=abc-def");
     }
 
+    [TestMethod]
+    public void DesktopAuthProtocol_parses_valid_token_message()
+    {
+        var payload = """{"sub":"uid123","exp":4102444800,"iat":1700000000}""";
+        var jwt = "aaa." + Base64UrlEncode(payload) + ".sig";
+        var json = $$"""{"type":"caveai-desktop-auth-token","idToken":"{{jwt}}"}""";
+        Assert.IsTrue(DesktopAuthProtocol.TryParseTokenMessage(json, out var token));
+        Assert.IsNotNull(token);
+        Assert.AreEqual("uid123", token!.Subject);
+    }
+
+    [TestMethod]
+    public void DesktopAuthProtocol_rejects_unknown_message_type()
+    {
+        var json = """{"type":"other","idToken":"x.y.z"}""";
+        Assert.IsFalse(DesktopAuthProtocol.TryParseTokenMessage(json, out _));
+    }
+
+    [TestMethod]
+    public void DesktopAuthProtocol_rejects_malformed_json()
+    {
+        Assert.IsFalse(DesktopAuthProtocol.TryParseTokenMessage("{not json", out _));
+    }
+
     private static string Base64UrlEncode(string json)
     {
         var bytes = Encoding.UTF8.GetBytes(json);

@@ -20,6 +20,7 @@ public partial class MainWindow : Window
         var vm = new MainViewModel();
         DataContext = vm;
         InputBindings.Add(new KeyBinding(vm.OpenFileCommand, Key.O, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(vm.SaveProjectCommand, Key.S, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(vm.CloseWorkspaceCommand, Key.W, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(vm.AboutCommand, new KeyGesture(Key.F1)));
 
@@ -32,6 +33,11 @@ public partial class MainWindow : Window
             WindowPlacementStore.ApplyTo(this);
             RefreshReplicateTokenStatusUi();
             SurveyWorkspaceNavigator.Register(this);
+            vm.PersistProjectBeforeSave = project =>
+            {
+                if (ReferenceEquals(vm.SelectedProject, project))
+                    SketchEditorControl.TryPersistSessionToProject(project);
+            };
         };
         Closing += (_, _) => WindowPlacementStore.SaveFrom(this);
         PreviewKeyDown += OnMainWindowPreviewKeyDown;
@@ -68,6 +74,8 @@ public partial class MainWindow : Window
                 return pv;
             if (o is SketchEditorView sk)
                 return sk;
+            if (o is OfflineXRayView xray)
+                return xray;
             if (o is SectionView sec)
                 return sec;
         }

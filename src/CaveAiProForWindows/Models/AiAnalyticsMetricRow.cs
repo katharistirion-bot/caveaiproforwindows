@@ -19,6 +19,14 @@ public sealed class AiAnalyticsMetricRow
 
     public bool IsPriorityAlert => AlertLevel >= AiAnalyticsAlertLevel.Priority;
 
+    public bool HasAndroidFieldNote => !string.IsNullOrWhiteSpace(AndroidContext);
+
+    /// <summary>True when a single click should highlight this station across Plan / Section / X-Ray.</summary>
+    public bool CanSelectStation =>
+        HasAndroidFieldNote &&
+        !string.IsNullOrWhiteSpace(Station) &&
+        !string.Equals(Station.Trim(), "—", StringComparison.Ordinal);
+
     public string AlertLabel => AlertLevel switch
     {
         AiAnalyticsAlertLevel.Critical => "CRITICAL",

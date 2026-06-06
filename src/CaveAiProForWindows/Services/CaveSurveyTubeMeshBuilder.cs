@@ -223,6 +223,44 @@ public static class CaveSurveyTubeMeshBuilder
         return mesh;
     }
 
+    /// <summary>Thin cylindrical segments (splays, vectors, depth braces).</summary>
+    public static MeshGeometry3D? BuildLineSegmentsMesh(
+        IEnumerable<(Point3D A, Point3D B)> segments,
+        double radius,
+        int ringSegments = 4)
+    {
+        var positions = new List<Point3D>();
+        var indices = new List<int>();
+        foreach (var (aPt, bPt) in segments)
+        {
+            var a = new Vector3D(aPt.X, aPt.Y, aPt.Z);
+            var b = new Vector3D(bPt.X, bPt.Y, bPt.Z);
+            var t = b - a;
+            if (t.Length < 1e-5)
+                continue;
+            t.Normalize();
+            if (!TryEllipseBasis(t, out var rAxis, out var uAxis))
+                continue;
+            var offset = new Vector3D(0, 0, 0);
+            var baseA = positions.Count;
+            AppendEllipseRing(positions, a, t, rAxis, uAxis, offset, radius, radius, ringSegments);
+            var baseB = positions.Count;
+            AppendEllipseRing(positions, b, t, rAxis, uAxis, offset, radius, radius, ringSegments);
+            StitchRings(indices, baseA, baseB, ringSegments);
+        }
+
+        if (positions.Count < 3)
+            return null;
+        var mesh = new MeshGeometry3D
+        {
+            Positions = new Point3DCollection(positions),
+            TriangleIndices = new Int32Collection(indices),
+        };
+        mesh.Normals = ComputeVertexNormals(mesh.Positions, mesh.TriangleIndices);
+        mesh.Freeze();
+        return mesh;
+    }
+
     private static void AppendSphereMesh(
         List<Point3D> positions,
         List<int> indices,

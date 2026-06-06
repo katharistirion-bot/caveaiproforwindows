@@ -92,6 +92,11 @@ public static class AndroidSurveyAnalyticsImporter
             CopyJsonArrayOntoProject(root, project, "sectionSketches");
             CopyJsonArrayOntoProject(root, project, "mapObjects");
 
+            CopyJsonNullableArrayOntoProject(root, project, "fieldCatalogEntries");
+            CopyJsonNullableArrayOntoProject(root, project, "rocks");
+            CopyJsonArrayOntoProject(root, project, "mapSymbols");
+            CopyJsonArrayOntoProject(root, project, "brackets");
+
             project.ExtensionData ??= new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in LeadPredictionArrayKeys
                          .Concat(StationAnnotationArrayKeys)
@@ -173,6 +178,28 @@ public static class AndroidSurveyAnalyticsImporter
             case "mapObjects":
                 project.MapObjects = el.Clone();
                 break;
+            case "mapSymbols":
+                project.MapSymbols = el.Clone();
+                break;
+            case "brackets":
+                project.Brackets = el.Clone();
+                break;
+        }
+    }
+
+    private static void CopyJsonNullableArrayOntoProject(JsonElement root, CaveProjectDocument project, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var el) || el.ValueKind != JsonValueKind.Array)
+            return;
+
+        switch (propertyName)
+        {
+            case "fieldCatalogEntries":
+                project.FieldCatalogEntries = el.Clone();
+                break;
+            case "rocks":
+                project.Rocks = el.Clone();
+                break;
         }
     }
 
@@ -186,7 +213,11 @@ public static class AndroidSurveyAnalyticsImporter
         var planCoords = SurveyStationGeometry.CalculatePlanCoordinates(project);
 
         ExtractShotSurveyNotes(project, observations);
+        ExtractShotSensorObservations(project, observations);
         ExtractEnvironmentSnapshots(project, observations);
+        ExtractGeoBioFieldRecords(project, observations, planCoords);
+        ExtractBrackets(project, observations, planCoords);
+        ExtractMapSymbolObservations(project, observations, planCoords);
         ExtractAiClassifications(project, observations);
         ExtractSurveyEventLog(project, observations);
         ExtractDepthSpanAnnotations(project, observations, stationNames);
@@ -262,11 +293,264 @@ public static class AndroidSurveyAnalyticsImporter
     {
         foreach (var snap in project.StationEnvironmentSnapshots)
         {
-            if (string.IsNullOrWhiteSpace(snap.Notes) || string.IsNullOrWhiteSpace(snap.StationName))
+            if (string.IsNullOrWhiteSpace(snap.StationName))
                 continue;
-            AddObservation(list, snap.StationName, "Environment", snap.Notes.Trim(), "stationEnvironmentSnapshots");
+
+            if (!string.IsNullOrWhiteSpace(snap.Notes))
+                AddObservation(list, snap.StationName, "Environment", snap.Notes.Trim(), "stationEnvironmentSnapshots");
+
+            var sensors = FormatEnvironmentSnapshotSensors(snap);
+            if (!string.IsNullOrWhiteSpace(sensors))
+                AddObservation(list, snap.StationName, "FieldObservation", sensors, "stationEnvironmentSnapshots:sensors");
         }
     }
+
+    private static void ExtractShotSensorObservations(CaveProjectDocument project, List<AndroidSurveyStationObservation> list)
+    {
+        foreach (var shot in project.Shots)
+        {
+            if (!shot.IsTraverseLeg)
+                continue;
+
+            var from = shot.FromStation.Trim();
+            if (string.IsNullOrEmpty(from))
+                continue;
+
+            var compact = ShotEnvironment.TryFormatCompactMapLine(shot);
+            if (!string.IsNullOrWhiteSpace(compact))
+            {
+                AddObservation(list, from, "FieldObservation", compact, "shot sensors");
+            }
+
+            if (shot.ExtensionData == null)
+                continue;
+
+            foreach (var key in ShotFieldObservationExtensionKeys)
+            {
+                if (!shot.ExtensionData.TryGetValue(key, out var el))
+                    continue;
+                var text = FormatExtensionObservation(key, el);
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
+                var category = ClassifyFieldObservationCategory(key, text);
+                AddObservation(list, from, category, text, $"shot extension:{key}");
+            }
+        }
+    }
+
+    private static void ExtractGeoBioFieldRecords(
+        CaveProjectDocument project,
+        List<AndroidSurveyStationObservation> list,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> planCoords)
+    {
+        foreach (var rec in GeoBioRecordsService.Build(project))
+        {
+            var station = rec.Station?.Trim();
+            if (string.IsNullOrWhiteSpace(station) && !string.IsNullOrWhiteSpace(rec.CoordinatesSummary))
+            {
+                if (TryParseCoordsSummary(rec.CoordinatesSummary, out var sx, out var sy) && planCoords.Count > 0)
+                    station = AndroidSurveyStationMatcher.FindNearestStation(sx, sy, planCoords);
+            }
+
+            if (string.IsNullOrWhiteSpace(station))
+                continue;
+
+            var text = BuildGeoBioObservationText(rec);
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            var category = rec.Category switch
+            {
+                GeoBioCategory.Organism => "FieldObservation",
+                GeoBioCategory.Rock => "GeologicalMarker",
+                _ => rec.IsFieldCatalogEntry ? "FieldObservation" : "GeologicalMarker",
+            };
+
+            AddObservation(list, station, category, text, rec.SourceLabel);
+        }
+    }
+
+    private static void ExtractBrackets(
+        CaveProjectDocument project,
+        List<AndroidSurveyStationObservation> list,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> planCoords)
+    {
+        if (project.Brackets.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var el in project.Brackets.EnumerateArray())
+        {
+            if (el.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var station = ReadStationFromObject(el);
+            if (string.IsNullOrWhiteSpace(station) &&
+                TryReadSurveyXY(el, out var sx, out var sy) &&
+                planCoords.Count > 0)
+                station = AndroidSurveyStationMatcher.FindNearestStation(sx, sy, planCoords);
+
+            var desc = ReadStringProperty(el, "description", "note", "label", "text");
+            var temp = ReadStringProperty(el, "temperature", "tempC", "temp");
+            var text = JoinBits(desc, temp);
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            AddObservation(list, station ?? "—", "StationAnnotation", text, "brackets");
+        }
+    }
+
+    private static void ExtractMapSymbolObservations(
+        CaveProjectDocument project,
+        List<AndroidSurveyStationObservation> list,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> planCoords)
+    {
+        foreach (var sym in SurveyStationGeometry.ParsePlanMapSymbols(project))
+        {
+            var station = AndroidSurveyStationMatcher.FindNearestStation(sym.X, sym.Y, planCoords);
+            if (string.IsNullOrWhiteSpace(station))
+                continue;
+
+            var label = MapSymbolIconResolver.ExportLabel(sym);
+            if (string.IsNullOrWhiteSpace(label))
+                label = "Map symbol";
+
+            var kind = AndroidSketchSymbolKindMapper.Resolve(sym.SymbolId, sym.Label, sym.IconKey);
+            var category = ClassifyMapSymbolCategory(kind, sym.Label, sym.IconKey, sym.SymbolId, label);
+            AddObservation(list, station, category, label.Trim(), "mapSymbols");
+        }
+    }
+
+    private static readonly string[] ShotFieldObservationExtensionKeys =
+    [
+        "airflow", "airFlow", "airFlowMps", "draft", "draftDirection", "draftStrength", "wind", "blow",
+        "waterLevel", "waterDepthM", "waterDepth", "waterPresent", "water", "poolDepthM", "streamFlow",
+    ];
+
+    private static string FormatEnvironmentSnapshotSensors(StationEnvironmentSnapshot snap)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var parts = new List<string>();
+        if (snap.ManualAmbientTempCelsius is float mt)
+            parts.Add($"Temp {mt.ToString("0.#", inv)} °C");
+        if (snap.AmbientBleTempCelsius is float bt)
+            parts.Add($"Temp (BLE) {bt.ToString("0.#", inv)} °C");
+        if (snap.ManualRelativeHumidityPct is float mh)
+            parts.Add($"RH {mh.ToString("0.#", inv)} %");
+        if (snap.AmbientBleRelativeHumidityPct is float bh)
+            parts.Add($"RH (BLE) {bh.ToString("0.#", inv)} %");
+        if (snap.Co2Ppm is float co2)
+            parts.Add($"CO₂ {co2.ToString("0", inv)} ppm");
+        if (snap.BarometricPressureHpa is float bp)
+            parts.Add($"{bp.ToString("0", inv)} hPa");
+        return parts.Count == 0 ? "" : string.Join(" · ", parts);
+    }
+
+    private static string BuildGeoBioObservationText(GeoBioRecord rec)
+    {
+        var parts = new List<string> { rec.Title };
+        if (!string.IsNullOrWhiteSpace(rec.ScientificName) &&
+            !rec.ScientificName.Equals(rec.Title, StringComparison.OrdinalIgnoreCase))
+            parts.Add(rec.ScientificName);
+        if (!string.IsNullOrWhiteSpace(rec.ShortNote))
+            parts.Add(rec.ShortNote);
+        if (!string.IsNullOrWhiteSpace(rec.BehaviorNotes))
+            parts.Add(rec.BehaviorNotes);
+        if (!string.IsNullOrWhiteSpace(rec.DetailsSummary))
+            parts.Add(rec.DetailsSummary);
+        return string.Join(" · ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    private static bool TryParseCoordsSummary(string summary, out float x, out float y)
+    {
+        x = y = 0;
+        var parts = summary.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2)
+            return false;
+        return float.TryParse(parts[0], System.Globalization.NumberStyles.Float,
+                   System.Globalization.CultureInfo.InvariantCulture, out x) &&
+               float.TryParse(parts[1], System.Globalization.NumberStyles.Float,
+                   System.Globalization.CultureInfo.InvariantCulture, out y);
+    }
+
+    private static string? FormatExtensionObservation(string key, JsonElement el)
+    {
+        if (el.ValueKind == JsonValueKind.String)
+            return el.GetString()?.Trim();
+        if (el.ValueKind == JsonValueKind.Number && el.TryGetSingle(out var f))
+            return $"{HumanizeExtensionKey(key)}: {f.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        if (el.ValueKind == JsonValueKind.True)
+            return HumanizeExtensionKey(key);
+        if (el.ValueKind == JsonValueKind.False)
+            return null;
+        return null;
+    }
+
+    private static string ClassifyFieldObservationCategory(string key, string text)
+    {
+        var k = key.ToLowerInvariant();
+        if (k.Contains("water", StringComparison.Ordinal) || k.Contains("pool", StringComparison.Ordinal) ||
+            k.Contains("stream", StringComparison.Ordinal))
+            return "Water";
+        if (k.Contains("air", StringComparison.Ordinal) || k.Contains("draft", StringComparison.Ordinal) ||
+            k.Contains("wind", StringComparison.Ordinal) || k.Contains("blow", StringComparison.Ordinal))
+            return "Airflow";
+        if (ContainsAirflowKeyword(text))
+            return "Airflow";
+        if (ContainsWaterKeyword(text))
+            return "Water";
+        return "FieldObservation";
+    }
+
+    private static string ClassifyMapSymbolCategory(
+        SketchEditorSymbolKind kind,
+        string? label,
+        string? iconKey,
+        string? symbolId,
+        string exportLabel)
+    {
+        var combined = string.Join(' ',
+            new[] { label, iconKey, symbolId, exportLabel }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+        if (kind == SketchEditorSymbolKind.WaterPool || ContainsWaterKeyword(combined))
+            return "Water";
+        if (ContainsAirflowKeyword(combined) ||
+            (symbolId ?? "").Contains("air_draft", StringComparison.OrdinalIgnoreCase) ||
+            (iconKey ?? "").Contains("air_draft", StringComparison.OrdinalIgnoreCase))
+            return "Airflow";
+        if (kind is SketchEditorSymbolKind.RockBlock or SketchEditorSymbolKind.StalactiteSpeleothem
+                or SketchEditorSymbolKind.FlowstoneCurtain or SketchEditorSymbolKind.SandMudFloor)
+            return "GeologicalMarker";
+        return "FieldSymbol";
+    }
+
+    private static bool ContainsWaterKeyword(string? text) =>
+        !string.IsNullOrWhiteSpace(text) &&
+        (text.Contains("water", StringComparison.OrdinalIgnoreCase) ||
+         text.Contains("pool", StringComparison.OrdinalIgnoreCase) ||
+         text.Contains("stream", StringComparison.OrdinalIgnoreCase) ||
+         text.Contains("lake", StringComparison.OrdinalIgnoreCase) ||
+         text.Contains("river", StringComparison.OrdinalIgnoreCase));
+
+    private static bool ContainsAirflowKeyword(string? text) =>
+        !string.IsNullOrWhiteSpace(text) &&
+        (text.Contains("air", StringComparison.OrdinalIgnoreCase) ||
+         text.Contains("draft", StringComparison.OrdinalIgnoreCase) ||
+         text.Contains("wind", StringComparison.OrdinalIgnoreCase) ||
+         text.Contains("blow", StringComparison.OrdinalIgnoreCase));
+
+    private static string HumanizeExtensionKey(string key) =>
+        key switch
+        {
+            "airFlowMps" => "Airflow",
+            "draftDirection" => "Draft direction",
+            "draftStrength" => "Draft strength",
+            "waterLevel" => "Water level",
+            "waterDepthM" or "waterDepth" => "Water depth",
+            "waterPresent" => "Water present",
+            "poolDepthM" => "Pool depth",
+            "streamFlow" => "Stream flow",
+            _ => char.ToUpperInvariant(key[0]) + key[1..],
+        };
 
     private static void ExtractAiClassifications(CaveProjectDocument project, List<AndroidSurveyStationObservation> list)
     {

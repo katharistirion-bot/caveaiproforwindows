@@ -27,11 +27,15 @@ public sealed class GenerativeMapRenderRequest
 
     public double GuidanceScale { get; init; } = 9;
 
-    public int ImageResolution { get; init; } = 768;
-
     public int Steps { get; init; } = 25;
 
     public int? Seed { get; init; }
+
+    /// <summary>
+    /// Optional override for Replicate <c>image_resolution</c>. When null, derived from the downscaled mask
+    /// (longest edge ≤ 1024, multiple of 8).
+    /// </summary>
+    public int? ImageResolution { get; init; }
 }
 
 public sealed class GenerativeMapRenderResult
@@ -42,7 +46,13 @@ public sealed class GenerativeMapRenderResult
 
     public string? ProviderPredictionId { get; init; }
 
+    /// <summary>Final PNG size aligned to the survey export bounding box (canvas overlay).</summary>
     public int PixelWidth { get; init; }
 
     public int PixelHeight { get; init; }
+
+    /// <summary>Dimensions sent to Replicate after GPU-safe downscale.</summary>
+    public int ApiInputWidth { get; init; }
+
+    public int ApiInputHeight { get; init; }
 }

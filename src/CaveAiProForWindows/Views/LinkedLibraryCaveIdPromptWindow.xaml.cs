@@ -28,17 +28,34 @@ public partial class LinkedLibraryCaveIdPromptWindow : Window
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
-        var text = DocIdBox.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            MessageBox.Show(this, "Enter the Cave Library document id.", "Required", MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            DocIdBox.Focus();
+        if (!TryValidateAndAccept(DocIdBox.Text))
             return;
+        DialogResult = true;
+    }
+
+    private void Browse_Click(object sender, RoutedEventArgs e)
+    {
+        if (LibraryCavePickerWindow.TryPick(this, out var picked) && !string.IsNullOrWhiteSpace(picked))
+        {
+            DocIdBox.Text = picked.Trim();
+            if (TryValidateAndAccept(picked))
+                DialogResult = true;
+        }
+    }
+
+    private bool TryValidateAndAccept(string? text)
+    {
+        var trimmed = text?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            MessageBox.Show(this, "Enter the Cave Library document id or browse the map.", "Required",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            DocIdBox.Focus();
+            return false;
         }
 
-        EnteredDocId = text;
-        DialogResult = true;
+        EnteredDocId = trimmed;
+        return true;
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

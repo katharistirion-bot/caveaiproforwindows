@@ -123,6 +123,48 @@ public sealed class AndroidPipelineTests
     }
 
     [TestMethod]
+    public void ParsePlanMapSymbols_reads_android_icon_field()
+    {
+        var doc = new CaveProjectDocument();
+        doc.MapSymbols = JsonDocument.Parse(
+            """
+            [
+              {"icon":"__UIS__helictite__","x":5,"y":6,"viewMode":0},
+              {"icon":"💧","x":1,"y":2,"viewMode":0}
+            ]
+            """).RootElement;
+        var list = SurveyStationGeometry.ParsePlanMapSymbols(doc).ToList();
+        Assert.AreEqual(2, list.Count);
+        Assert.AreEqual("__UIS__helictite__", list[0].IconKey);
+        Assert.AreEqual("💧", list[1].IconKey);
+    }
+
+    [TestMethod]
+    public void MapSymbolIconResolver_resolves_uis_and_emoji_icons()
+    {
+        var uis = new SurveyStationGeometry.PlanMapSymbol(0, 0, 0, null, 1, 0, "__UIS__rimstone__", null, null);
+        var uisResolved = MapSymbolIconResolver.Resolve(uis, highContrast: false);
+        Assert.AreEqual(MapSymbolIconResolver.RenderMode.VectorPath, uisResolved.Mode);
+        Assert.IsNotNull(uisResolved.Geometry);
+        Assert.IsTrue(uisResolved.NormalizedUisSpace);
+        Assert.AreEqual("Rimstone / gour (UIS)", MapSymbolIconResolver.ExportLabel(uis));
+
+        var emoji = new SurveyStationGeometry.PlanMapSymbol(0, 0, 0, null, 1, 0, "🌊", null, null);
+        var emojiResolved = MapSymbolIconResolver.Resolve(emoji, highContrast: false);
+        Assert.AreEqual(MapSymbolIconResolver.RenderMode.VectorPath, emojiResolved.Mode);
+        Assert.AreEqual("Water pool (UIS)", MapSymbolIconResolver.ExportLabel(emoji));
+    }
+
+    [TestMethod]
+    public void UisCaveSymbolGeometryCatalog_covers_android_palette()
+    {
+        Assert.IsTrue(UisCaveSymbolGeometryCatalog.AllSlugs.Count >= 38);
+        Assert.IsTrue(UisCaveSymbolGeometryCatalog.TryGetGeometry("stalactite", out _));
+        Assert.IsTrue(UisCaveSymbolGeometryCatalog.TryParseStoredIcon("__UIS__ladder__", out var slug));
+        Assert.AreEqual("ladder", slug);
+    }
+
+    [TestMethod]
     public void ShotImportNormalizer_reads_nested_angles_object()
     {
         var s = new ShotRecord

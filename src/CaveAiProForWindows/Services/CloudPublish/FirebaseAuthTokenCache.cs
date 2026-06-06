@@ -1,6 +1,6 @@
 namespace CaveAiProForWindows.Services.CloudPublish;
 
-/// <summary>Thread-safe holder for the most recent Firebase ID token sniffed from WebView2.</summary>
+/// <summary>Thread-safe holder for the most recent Firebase ID token from the desktop auth bridge.</summary>
 public sealed class FirebaseAuthTokenCache
 {
     private readonly object _gate = new();

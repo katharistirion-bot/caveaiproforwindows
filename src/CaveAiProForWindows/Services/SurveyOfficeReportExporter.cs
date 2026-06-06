@@ -18,6 +18,15 @@ public static class SurveyOfficeReportExporter
         sb.AppendLine("=== Traverse statistics & QC ===");
         sb.AppendLine(TraverseQcStats.BuildSummaryText(project).TrimEnd());
         sb.AppendLine();
+        sb.AppendLine("=== Map symbol inventory ===");
+        sb.AppendLine(MapSymbolInventoryFormatter.BuildInventoryText(project).TrimEnd());
+        sb.AppendLine();
+        sb.AppendLine("=== Field catalog (Geo / Bio / organisms) ===");
+        sb.AppendLine(FieldCatalogAnalyticsFormatter.BuildSummaryLine(GeoBioRecordsService.Build(project)).TrimEnd());
+        sb.AppendLine();
+        sb.AppendLine("=== Map survey overlays ===");
+        sb.AppendLine(SurveyAnnotationReportFormatter.BuildOverlaySummary(project).TrimEnd());
+        sb.AppendLine();
         sb.AppendLine("=== End of report ===");
 
         var preamble = Encoding.UTF8.GetPreamble();

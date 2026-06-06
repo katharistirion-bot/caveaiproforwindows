@@ -1,0 +1,126 @@
+# Release pipeline: tag push → build/test → publish → sign → package → GitHub Release assets.
+#
+# Assets per release:
+#   - CaveAiProForWindows-{tag}-win-x64.zip        (portable single-file exe)
+#   - CaveAiProForWindows-{tag}-Setup.msi          (WiX per-machine installer, InstallationGuard)
+#   - CaveAiProForWindows-{tag}-Setup.exe          (Velopack installer)
+#   - Velopack delta packages (*.nupkg + releases.win.json) for in-app auto-update
+#
+# Optional GitHub secrets:
+#   WINDOWS_CERT_BASE64   — Authenticode PFX (base64)
+#   WINDOWS_CERT_PASSWORD — PFX password
+#   CAVEAIPRO_FIREBASE_API_KEY — baked into offline auth fallback at build time (optional)
+#
+# Manual dry run: Actions → Release → Run workflow
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run_tag:
+        description: "Tag label for artifact names (workflow_dispatch only)"
+        required: false
+        default: "v0.0.0-manual"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Resolve release tag
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { '${{ inputs.dry_run_tag }}' }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Inject Firebase web config (optional)
+        shell: pwsh
+        env:
+          CAVEAIPRO_FIREBASE_API_KEY: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CAVEAIPRO_FIREBASE_API_KEY)) {
+            Write-Host 'No CAVEAIPRO_FIREBASE_API_KEY secret — offline auth fallback will require local env var.'
+            exit 0
+          }
+          $cfg = @{
+            apiKey = $env:CAVEAIPRO_FIREBASE_API_KEY
+            authDomain = 'caveaipro-5950e.firebaseapp.com'
+            projectId = 'caveaipro-5950e'
+            storageBucket = 'caveaipro-5950e.appspot.com'
+          } | ConvertTo-Json -Compress
+          $path = 'src/CaveAiProForWindows/Assets/DesktopAuth/firebase-config.json'
+          Set-Content -Path $path -Value $cfg -Encoding utf8
+          Write-Host "Wrote $path for Release build."
+
+      - name: Restore
+        run: dotnet restore CaveAiProForWindows.sln
+
+      - name: Build (Release, obfuscated)
+        run: dotnet build src/CaveAiProForWindows/CaveAiProForWindows.csproj -c Release --no-restore
+
+      - name: Test (full suite, no filter)
+        run: dotnet test tests/CaveAiProForWindows.Tests/CaveAiProForWindows.Tests.csproj -c Debug --no-restore --verbosity minimal
+
+      - name: Publish + smoke test
+        shell: pwsh
+        env:
+          CAVEAI_DEV_SKIP_INSTALL_CHECK: "1"
+        run: ./tools/smoke-publish.ps1 -SkipTests -LaunchSmokeTest -SmokeSeconds 10
+
+      - name: Code sign published exe (optional)
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $exe = Join-Path $PWD 'src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/win-x64/CaveAiProForWindows.exe'
+          ./tools/sign-release.ps1 -Files $exe
+
+      - name: Package ZIP, MSI, and Velopack
+        id: package
+        shell: pwsh
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: ./tools/package-release.ps1 -Tag $env:TAG
+
+      - name: Code sign release installers (optional)
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          ./tools/sign-release.ps1 -Files @(
+            '${{ steps.package.outputs.msi_path }}',
+            '${{ steps.package.outputs.setup_path }}'
+          )
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: _release_out/**/*
+
+      - name: Upload workflow_dispatch artifacts
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package-${{ steps.tag.outputs.tag }}
+          path: _release_out/**/*
+          if-no-files-found: error

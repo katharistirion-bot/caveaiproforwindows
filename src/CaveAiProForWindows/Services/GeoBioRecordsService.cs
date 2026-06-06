@@ -28,6 +28,7 @@ public static class GeoBioRecordsService
         AndroidExportLegacyJsonKeys.AnalysisTextAlt,
         "analysisText", "analysis", "geologyAnalysisText", "geologyAnalysis",
         "biologyAnalysisText", "biologyAnalysis", "cloudAnalysisText", "cloudAnalysis",
+        "extendedAnalysis", "detailedDescription", "scientificInfo",
         "summary", "report", "text",
     ];
 
@@ -52,7 +53,7 @@ public static class GeoBioRecordsService
     {
         var list = new List<GeoBioRecord>();
         AppendArray(list, project.Rocks, "rocks", isRockSourceFallback: true);
-        AppendArray(list, project.FieldCatalogEntries, "fieldCatalogEntries", isRockSourceFallback: false);
+        AppendFieldCatalogArray(list, project.FieldCatalogEntries);
         if (project.ExtensionData != null)
         {
             foreach (var key in new[] { "geoBioRecords", "GeoBioRecords", "scientificRecords", "scienceRecords" })
@@ -63,6 +64,27 @@ public static class GeoBioRecordsService
         }
 
         return list;
+    }
+
+    internal static GeoBioCategory InferCategoryPublic(JsonElement el) => InferCategory(el);
+
+    internal static IReadOnlyList<string> ReadImageReferencesPublic(JsonElement el) => ReadImageReferences(el);
+
+    internal static string PickCoordinatesSummaryPublic(JsonElement el) =>
+        BiosMineralsAndRegistryBuilder_PickCoordinatesSummary(el);
+
+    private static void AppendFieldCatalogArray(List<GeoBioRecord> list, JsonElement? rootNullable)
+    {
+        if (rootNullable is not { ValueKind: JsonValueKind.Array } root)
+            return;
+        var i = 0;
+        foreach (var el in root.EnumerateArray())
+        {
+            var parsed = FieldCatalogEntryParser.TryParse(el, $"fieldCatalogEntries[{i}]");
+            if (parsed != null)
+                list.Add(parsed);
+            i++;
+        }
     }
 
     private static void AppendArray(
@@ -111,6 +133,13 @@ public static class GeoBioRecordsService
 
     private static GeoBioCategory? ReadCategory(JsonElement el)
     {
+        if (el.TryGetProperty("kind", out var kindEl) && kindEl.ValueKind == JsonValueKind.String)
+        {
+            var fk = FieldCatalogEntryKindMapper.Parse(kindEl.GetString());
+            if (fk != FieldCatalogEntryKind.Unknown)
+                return FieldCatalogEntryKindMapper.ToGeoBioCategory(fk);
+        }
+
         foreach (var key in CategoryKeys)
         {
             if (!el.TryGetProperty(key, out var v) || v.ValueKind != JsonValueKind.String)
@@ -127,7 +156,9 @@ public static class GeoBioRecordsService
                 s.Contains("flora", StringComparison.Ordinal) || s.Contains("fauna", StringComparison.Ordinal) ||
                 s.Contains("species", StringComparison.Ordinal) || s.Contains("plant", StringComparison.Ordinal) ||
                 s.Contains("animal", StringComparison.Ordinal) || s.Contains("insect", StringComparison.Ordinal) ||
-                s.Contains("bat", StringComparison.Ordinal) || s.Contains("crusta", StringComparison.Ordinal))
+                s.Contains("bat", StringComparison.Ordinal) || s.Contains("crusta", StringComparison.Ordinal) ||
+                s.Contains("fungi", StringComparison.Ordinal) || s.Contains("mycel", StringComparison.Ordinal) ||
+                s.Contains("bacter", StringComparison.Ordinal) || s.Contains("biota", StringComparison.Ordinal))
                 return GeoBioCategory.Organism;
             if (s == "mixed" || s == "other" || s == "unknown")
                 return GeoBioCategory.Other;

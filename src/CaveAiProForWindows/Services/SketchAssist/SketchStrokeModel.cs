@@ -11,6 +11,8 @@ public sealed class SketchStrokeModel
     /// <summary>Provenance: <c>designLayer</c>, <c>procedural</c>, etc.</summary>
     public string Source { get; init; } = "designLayer";
 
+    public DesignLayerInkMetadata? Metadata { get; init; }
+
     public bool IsDrawable => Points.Count >= 2;
 }
 

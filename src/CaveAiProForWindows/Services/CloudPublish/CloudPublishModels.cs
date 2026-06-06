@@ -26,6 +26,9 @@ public sealed class CloudPublishMetadata
 
     public string? SurveyJsonMediaUrl { get; init; }
 
+    /// <summary>Human-readable overlay summary (distances, pins, loops) for website metadata.</summary>
+    public string? SurveyOverlaySummary { get; init; }
+
     public string? SurveyArchiveSchemaVersion { get; init; }
 
     public string SourceClient { get; init; } = "windows";

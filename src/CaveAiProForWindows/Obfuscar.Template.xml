@@ -1,0 +1,49 @@
+<?xml version='1.0'?>
+<!--
+  Generated from Obfuscar.Template.xml at Release build time (see build/Obfuscation.targets).
+  Tokens @INPATH@ and @OUTPATH@ are replaced with absolute build output directories.
+-->
+<Obfuscator>
+  <Var name="InPath" value="@INPATH@" />
+  <Var name="OutPath" value="@OUTPATH@" />
+  <Var name="LogFile" value="@OUTPATH@\obfuscar.log" />
+
+  <!-- Rename + control-flow + string hiding for implementation code -->
+  <Var name="KeepPublicApi" value="false" />
+  <Var name="HidePrivateApi" value="true" />
+  <Var name="RenameProperties" value="true" />
+  <Var name="RenameEvents" value="true" />
+  <Var name="RenameFields" value="true" />
+  <Var name="UseUnicodeNames" value="true" />
+  <Var name="ReuseNames" value="false" />
+  <Var name="HideStrings" value="true" />
+  <Var name="OptimizeMethods" value="true" />
+  <Var name="SuppressIldasm" value="true" />
+  <Var name="RegenerateDebugInfo" value="false" />
+
+  <AssemblySearchPath path="@INPATH@" />
+  <AssemblySearchPath path="@CORE_REF_PATH@" />
+  <AssemblySearchPath path="@DESKTOP_REF_PATH@" />
+
+  <Module file="@INPATH@CaveAiProForWindows.dll" />
+
+  <!-- WPF shell (x:Class / Application entry) -->
+  <SkipType name="CaveAiProForWindows.App" />
+  <SkipType name="CaveAiProForWindows.MainWindow" />
+  <SkipType name="CaveAiProForWindows.GeneratedInternalTypeHelper" />
+
+  <!-- JSON data models (System.Text.Json property names / round-trip with Android) -->
+  <SkipNamespace name="CaveAiProForWindows.Models" />
+
+  <!-- MVVM binding surface -->
+  <SkipNamespace name="CaveAiProForWindows.ViewModels" />
+
+  <!-- XAML code-behind + named controls -->
+  <SkipNamespace name="CaveAiProForWindows.Views" />
+
+  <!-- Value converters referenced from XAML -->
+  <SkipNamespace name="CaveAiProForWindows.Converters" />
+
+  <!-- Serialization / persistence helpers (reflection + stable JSON shapes) -->
+  <SkipNamespace name="CaveAiProForWindows.Services.Persistence" />
+</Obfuscator>

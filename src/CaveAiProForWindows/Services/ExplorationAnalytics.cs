@@ -89,8 +89,15 @@ public static class ExplorationAnalytics
                 sb.AppendLine("TLS / mesh OBJ uri: present (Android path — extract full archive to copy blobs).");
         }
 
-        var nMapSym = ArrCountPrimaryOrExt(p.MapSymbols, ext, "mapSymbols");
-        if (nMapSym > 0) sb.AppendLine($"Map symbols: {nMapSym}");
+        var planSyms = SurveyStationGeometry.ParsePlanMapSymbols(p);
+        var secSyms = SurveyStationGeometry.ParseSectionMapSymbols(p);
+        if (planSyms.Count > 0 || secSyms.Count > 0)
+            sb.AppendLine($"Map symbols: {planSyms.Count} plan · {secSyms.Count} section/profile (Android icon palette, auto-synced)");
+        else
+        {
+            var nMapSym = ArrCountPrimaryOrExt(p.MapSymbols, ext, "mapSymbols");
+            if (nMapSym > 0) sb.AppendLine($"Map symbols (raw JSON count): {nMapSym}");
+        }
         var nSketch = ArrCountPrimaryOrExt(p.Sketches, ext, "sketches");
         if (nSketch > 0) sb.AppendLine($"Plan sketches (polylines): {nSketch}");
         var nSketchLayer = ArrCountPrimaryOrExt(p.SketchLayer, ext, "sketchLayer");

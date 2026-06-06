@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Generates Obfuscar.xml from Obfuscar.Template.xml using the active $(TargetDir).
+  MSBuild.Obfuscar runs the Obfuscator target on Release builds only.
+-->
+<Project>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <ObfuscatorEnabled Condition="'$(ObfuscatorEnabled)' == ''">true</ObfuscatorEnabled>
+  </PropertyGroup>
+
+  <Target Name="_ResolveObfuscarReferencePaths"
+          Returns="$(_ObfCoreRefPath);$(_ObfDesktopRefPath)">
+    <Exec Command="powershell -NoProfile -Command &quot;$root = Join-Path '$(NuGetPackageRoot)' 'microsoft.netcore.app.ref'; $pack = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Sort-Object { [Version]$_.Name } -Descending | Select-Object -First 1; if (-not $pack) { exit 1 }; $path = Join-Path $pack.FullName 'ref\net8.0'; if (-not (Test-Path (Join-Path $path 'System.Text.Json.dll'))) { exit 1 }; Write-Output $path&quot;"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="Low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_ObfCoreRefPath" />
+    </Exec>
+    <Exec Command="powershell -NoProfile -Command &quot;$root = Join-Path '$(NuGetPackageRoot)' 'microsoft.windowsdesktop.app.ref'; $pack = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Sort-Object { [Version]$_.Name } -Descending | Select-Object -First 1; if (-not $pack) { exit 1 }; $path = Join-Path $pack.FullName 'ref\net8.0'; if (-not (Test-Path (Join-Path $path 'PresentationFramework.dll'))) { exit 1 }; Write-Output $path&quot;"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="Low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_ObfDesktopRefPath" />
+    </Exec>
+    <PropertyGroup>
+      <_ObfCoreRefPath>$([System.IO.Path]::GetFullPath('$(_ObfCoreRefPath.Trim())'))$([System.IO.Path]::DirectorySeparatorChar)</_ObfCoreRefPath>
+      <_ObfDesktopRefPath>$([System.IO.Path]::GetFullPath('$(_ObfDesktopRefPath.Trim())'))$([System.IO.Path]::DirectorySeparatorChar)</_ObfDesktopRefPath>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="_GenerateObfuscarConfiguration"
+          BeforeTargets="Obfuscator"
+          DependsOnTargets="_ResolveObfuscarReferencePaths"
+          Condition="'$(Configuration)' == 'Release' and '$(ObfuscatorEnabled)' == 'true'">
+    <PropertyGroup>
+      <_ObfInPath>$([System.IO.Path]::GetFullPath('$(TargetDir)'))</_ObfInPath>
+      <_ObfOutPath>$([System.IO.Path]::GetFullPath('$(TargetDir)obfuscated\'))</_ObfOutPath>
+      <_ObfTemplatePath>$(MSBuildProjectDirectory)\Obfuscar.Template.xml</_ObfTemplatePath>
+      <_ObfConfigPath>$(MSBuildProjectDirectory)\Obfuscar.xml</_ObfConfigPath>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(_ObfTemplatePath)')"
+           Text="Missing Obfuscar template at $(_ObfTemplatePath)" />
+    <Error Condition="!Exists('$(_ObfCoreRefPath)System.Text.Json.dll')"
+           Text="Unable to resolve .NET reference assemblies for Obfuscar from NuGet packages." />
+    <Error Condition="!Exists('$(_ObfDesktopRefPath)PresentationFramework.dll')"
+           Text="Unable to resolve WPF reference assemblies for Obfuscar from NuGet packages." />
+
+    <ReadLinesFromFile File="$(_ObfTemplatePath)">
+      <Output TaskParameter="Lines" ItemName="_ObfTemplateLines" />
+    </ReadLinesFromFile>
+
+    <ItemGroup>
+      <_ObfConfigLines Include="@(_ObfTemplateLines->Replace('@INPATH@', '$(_ObfInPath)')->Replace('@OUTPATH@', '$(_ObfOutPath)')->Replace('@CORE_REF_PATH@', '$(_ObfCoreRefPath)')->Replace('@DESKTOP_REF_PATH@', '$(_ObfDesktopRefPath)'))" />
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(_ObfConfigPath)"
+                      Lines="@(_ObfConfigLines)"
+                      Overwrite="true"
+                      Encoding="UTF-8" />
+  </Target>
+
+  <Target Name="_RemoveObfuscarConfiguration"
+          BeforeTargets="Obfuscator"
+          Condition="'$(Configuration)' == 'Release' and '$(ObfuscatorEnabled)' != 'true'">
+    <Delete Files="$(MSBuildProjectDirectory)\Obfuscar.xml" Condition="Exists('$(MSBuildProjectDirectory)\Obfuscar.xml')" />
+  </Target>
+</Project>

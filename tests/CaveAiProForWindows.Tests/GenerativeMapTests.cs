@@ -92,15 +92,56 @@ public sealed class GenerativeMapTests
     }
 
     [TestMethod]
+    public void ControlNetMaskDimensions_downscales_longest_edge_to_1024_multiples_of_8()
+    {
+        var (w, h) = ControlNetMaskDimensions.ComputeApiDimensions(9600, 6400);
+        Assert.AreEqual(1024, Math.Max(w, h));
+        Assert.IsTrue(ControlNetMaskDimensions.IsMultipleOf8(w));
+        Assert.IsTrue(ControlNetMaskDimensions.IsMultipleOf8(h));
+        Assert.IsTrue(Math.Abs(w / (double)h - 9600 / 6400.0) < 0.02);
+    }
+
+    [TestMethod]
+    public void ControlNetMaskDimensions_preserves_small_masks_with_snap()
+    {
+        var (w, h) = ControlNetMaskDimensions.ComputeApiDimensions(512, 256);
+        Assert.AreEqual(512, w);
+        Assert.AreEqual(256, h);
+    }
+
+    [TestMethod]
     public void StructureMaskPreprocessor_inverts_and_downscales_png()
     {
         SketchAssistTestsRunSta.Run(() =>
         {
-            var whiteOnBlack = CreateSolidPng(256, 128, white: true);
-            var prepared = StructureMaskControlNetPreprocessor.PrepareScribbleInput(whiteOnBlack, maxEdgePixels: 128);
+            var whiteOnBlack = CreateSolidPng(2048, 1024, white: true);
+            var prepared = StructureMaskControlNetPreprocessor.PrepareScribbleInput(whiteOnBlack);
             Assert.IsNotNull(prepared);
-            Assert.IsTrue(prepared!.Length > 64);
-            Assert.AreEqual(0x89, prepared[0]);
+            Assert.AreEqual(2048, prepared!.SourceWidth);
+            Assert.AreEqual(1024, prepared.SourceHeight);
+            Assert.AreEqual(1024, Math.Max(prepared.ApiWidth, prepared.ApiHeight));
+            Assert.IsTrue(ControlNetMaskDimensions.IsMultipleOf8(prepared.ApiWidth));
+            Assert.IsTrue(ControlNetMaskDimensions.IsMultipleOf8(prepared.ApiHeight));
+            Assert.IsTrue(prepared.PngBytes.Length > 64);
+            Assert.AreEqual(0x89, prepared.PngBytes[0]);
+
+            var (outW, outH) = StructureMaskControlNetPreprocessor.TryReadPngDimensions(prepared.PngBytes);
+            Assert.AreEqual(prepared.ApiWidth, outW);
+            Assert.AreEqual(prepared.ApiHeight, outH);
+        });
+    }
+
+    [TestMethod]
+    public void StructureMaskPreprocessor_upscales_api_png_back_to_source_dimensions()
+    {
+        SketchAssistTestsRunSta.Run(() =>
+        {
+            var apiPng = CreateSolidPng(1024, 512, white: false);
+            var restored = StructureMaskControlNetPreprocessor.ResizePngToDimensions(apiPng, 4000, 2000);
+            Assert.IsNotNull(restored);
+            var (w, h) = StructureMaskControlNetPreprocessor.TryReadPngDimensions(restored!);
+            Assert.AreEqual(4000, w);
+            Assert.AreEqual(2000, h);
         });
     }
 

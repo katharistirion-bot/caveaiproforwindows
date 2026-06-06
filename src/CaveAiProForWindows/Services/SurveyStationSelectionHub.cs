@@ -5,6 +5,8 @@ public static class SurveyStationSelectionHub
 {
     public static event EventHandler<SurveyStationSelectionEventArgs>? StationSelected;
 
+    public static event EventHandler<SurveyStationSelectionEventArgs>? SelectionCleared;
+
     public static void Select(string stationName, string source, bool requestZoom = false)
     {
         if (string.IsNullOrWhiteSpace(stationName))
@@ -13,6 +15,13 @@ public static class SurveyStationSelectionHub
         StationSelected?.Invoke(
             null,
             new SurveyStationSelectionEventArgs(stationName.Trim(), source, requestZoom));
+    }
+
+    public static void ClearSelection(string source)
+    {
+        SelectionCleared?.Invoke(
+            null,
+            new SurveyStationSelectionEventArgs("", source, requestZoom: false));
     }
 
     public static void JumpTo(string stationName, string source) =>

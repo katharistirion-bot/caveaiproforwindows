@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using CaveAiProForWindows.Services.SketchAssist;
 
 namespace CaveAiProForWindows.Services;
 
@@ -26,6 +27,21 @@ public sealed class MapCanvasEditorController
 
     private Polyline? _activeDraw;
     private Ellipse? _selectMarker;
+    private Rectangle? _inkSelectionFrame;
+    private UIElement? _selectedInk;
+    private UIElement? _lastErasedInk;
+    private bool _isErasing;
+
+    /// <summary>Invoked when the user finishes a freehand stroke or places a symbol stamp.</summary>
+    public Action? DesignLayerModified { get; set; }
+
+    /// <summary>Invoked after a new stroke or symbol is committed (for undo history).</summary>
+    public Action<UIElement>? InkAdded { get; set; }
+
+    /// <summary>Invoked after ink is removed (element, index before removal).</summary>
+    public Action<UIElement, int>? InkRemoved { get; set; }
+
+    public UIElement? SelectedInk => _selectedInk;
 
     public MapCanvasEditorController(
         Canvas designCanvas,
@@ -50,7 +66,7 @@ public sealed class MapCanvasEditorController
         e.Handled = true;
     }
 
-    /// <summary>Left: pan in Pan mode, else select / freehand / symbol — wire from <see cref="UIElement.MouseLeftButtonDown"/>.</summary>
+    /// <summary>Left: pan in Pan mode, else select / freehand / symbol / erase.</summary>
     public void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed)
@@ -59,7 +75,6 @@ public sealed class MapCanvasEditorController
         var tool = _getTool();
         if (tool == MapCanvasEditorTool.PanZoom)
         {
-            // Second press of a double-click is reserved for "reset view" on the map surface (handled in the view).
             if (e.ClickCount >= 2)
                 return;
             StartPan(e, MouseButton.Left);
@@ -72,6 +87,13 @@ public sealed class MapCanvasEditorController
         switch (tool)
         {
             case MapCanvasEditorTool.Select:
+                if (TrySelectInkAt(pt))
+                {
+                    e.Handled = true;
+                    break;
+                }
+
+                ClearInkSelection();
                 EnsureSelectMarker();
                 Canvas.SetLeft(_selectMarker!, pt.X - 6);
                 Canvas.SetTop(_selectMarker!, pt.Y - 6);
@@ -79,13 +101,15 @@ public sealed class MapCanvasEditorController
                 e.Handled = true;
                 break;
             case MapCanvasEditorTool.DrawFreehand:
+                ClearInkSelection();
                 _activeDraw = new Polyline
                 {
                     Stroke = Brushes.Black,
-                    StrokeThickness = 1.5,
+                    StrokeThickness = SketchStrokeStyleDefaults.DefaultStrokeWidthPx,
                     StrokeLineJoin = PenLineJoin.Round,
                     StrokeStartLineCap = PenLineCap.Round,
                     StrokeEndLineCap = PenLineCap.Round,
+                    Tag = DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx),
                 };
                 _activeDraw.Points.Add(pt);
                 _designCanvas.Children.Add(_activeDraw);
@@ -93,13 +117,21 @@ public sealed class MapCanvasEditorController
                 e.Handled = true;
                 break;
             case MapCanvasEditorTool.PlaceSymbol:
+                ClearInkSelection();
                 StampSketchSymbol(pt);
+                e.Handled = true;
+                break;
+            case MapCanvasEditorTool.Erase:
+                _isErasing = true;
+                _lastErasedInk = null;
+                TryEraseAt(pt);
+                _designCanvas.CaptureMouse();
                 e.Handled = true;
                 break;
         }
     }
 
-    /// <summary>Pan drag or extend freehand stroke.</summary>
+    /// <summary>Pan drag, extend freehand stroke, or drag-erase.</summary>
     public void OnMouseMove(object sender, MouseEventArgs e)
     {
         if (_isPanning)
@@ -110,21 +142,45 @@ public sealed class MapCanvasEditorController
             return;
         }
 
+        if (_getTool() == MapCanvasEditorTool.Erase && _isErasing && e.LeftButton == MouseButtonState.Pressed)
+        {
+            TryEraseAt(e.GetPosition(_designCanvas));
+            return;
+        }
+
         if (_activeDraw == null || e.LeftButton != MouseButtonState.Pressed)
             return;
         var pt = e.GetPosition(_designCanvas);
         _activeDraw.Points.Add(pt);
     }
 
-    /// <summary>Ends left-drag pan or releases freehand stroke — wire from <see cref="UIElement.MouseLeftButtonUp"/>.</summary>
+    /// <summary>Ends left-drag pan, freehand stroke, or erase drag.</summary>
     public void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (_isPanning && _panButton == MouseButton.Left)
             EndPan();
 
+        if (_isErasing && e.LeftButton == MouseButtonState.Released)
+        {
+            _isErasing = false;
+            _lastErasedInk = null;
+            if (_designCanvas.IsMouseCaptured)
+                _designCanvas.ReleaseMouseCapture();
+        }
+
         if (_activeDraw != null && e.LeftButton == MouseButtonState.Released)
         {
             _designCanvas.ReleaseMouseCapture();
+            if (_activeDraw.Points.Count >= 2)
+            {
+                InkAdded?.Invoke(_activeDraw);
+                DesignLayerModified?.Invoke();
+            }
+            else
+            {
+                _designCanvas.Children.Remove(_activeDraw);
+            }
+
             _activeDraw = null;
         }
     }
@@ -136,7 +192,128 @@ public sealed class MapCanvasEditorController
             EndPan();
     }
 
-    public void OnMouseLeave(object sender, MouseEventArgs e) => EndPan();
+    public void OnMouseLeave(object sender, MouseEventArgs e)
+    {
+        EndPan();
+        if (_isErasing)
+        {
+            _isErasing = false;
+            _lastErasedInk = null;
+            if (_designCanvas.IsMouseCaptured)
+                _designCanvas.ReleaseMouseCapture();
+        }
+    }
+
+    public bool TrySelectInkAt(Point canvasPoint, double toleranceDip = 10)
+    {
+        var hit = DesignLayerInkHitTest.FindTopmostHit(_designCanvas, canvasPoint, toleranceDip);
+        if (hit == null)
+            return false;
+
+        SelectInk(hit);
+        return true;
+    }
+
+    public bool DeleteSelectedInk() =>
+        _selectedInk != null && RemoveInkElement(_selectedInk);
+
+    public bool RemoveInkElement(UIElement element)
+    {
+        if (!DesignLayerInkHitTest.IsEditableInk(element))
+            return false;
+
+        var idx = _designCanvas.Children.IndexOf(element);
+        if (idx < 0)
+            return false;
+
+        if (ReferenceEquals(_selectedInk, element))
+            ClearInkSelection();
+
+        _designCanvas.Children.Remove(element);
+        InkRemoved?.Invoke(element, idx);
+        DesignLayerModified?.Invoke();
+        return true;
+    }
+
+    public void ClearInkSelection()
+    {
+        _selectedInk = null;
+        if (_inkSelectionFrame != null)
+            _inkSelectionFrame.Visibility = Visibility.Collapsed;
+    }
+
+    public void ClearTransientSelectHighlight()
+    {
+        if (_selectMarker != null)
+            _selectMarker.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Call after <c>DesignCanvas.Children.Clear()</c> so internal references are dropped.</summary>
+    public void OnDesignLayerCleared()
+    {
+        _selectMarker = null;
+        _inkSelectionFrame = null;
+        _selectedInk = null;
+        _activeDraw = null;
+        _isPanning = false;
+        _isErasing = false;
+        _lastErasedInk = null;
+    }
+
+    private void SelectInk(UIElement element)
+    {
+        ClearTransientSelectHighlight();
+        _selectedInk = element;
+        EnsureInkSelectionFrame();
+        UpdateInkSelectionFrame(element);
+        _inkSelectionFrame!.Visibility = Visibility.Visible;
+    }
+
+    private void TryEraseAt(Point pt)
+    {
+        var hit = DesignLayerInkHitTest.FindTopmostHit(_designCanvas, pt);
+        if (hit == null || ReferenceEquals(hit, _lastErasedInk))
+            return;
+
+        _lastErasedInk = hit;
+        RemoveInkElement(hit);
+    }
+
+    private void EnsureInkSelectionFrame()
+    {
+        if (_inkSelectionFrame != null)
+            return;
+
+        _inkSelectionFrame = new Rectangle
+        {
+            Stroke = new SolidColorBrush(Color.FromArgb(0xFF, 0x38, 0xB2, 0xAC)),
+            StrokeThickness = 2,
+            StrokeDashArray = new DoubleCollection { 4, 3 },
+            Fill = Brushes.Transparent,
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed,
+            Tag = DesignLayerInkHitTest.SelectionFrameTag,
+        };
+        _designCanvas.Children.Add(_inkSelectionFrame);
+    }
+
+    private void UpdateInkSelectionFrame(UIElement element)
+    {
+        if (_inkSelectionFrame == null)
+            return;
+
+        var bounds = DesignLayerInkHitTest.GetInkBounds(element);
+        if (bounds.IsEmpty)
+        {
+            _inkSelectionFrame.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        Canvas.SetLeft(_inkSelectionFrame, bounds.X);
+        Canvas.SetTop(_inkSelectionFrame, bounds.Y);
+        _inkSelectionFrame.Width = bounds.Width;
+        _inkSelectionFrame.Height = bounds.Height;
+    }
 
     private void StartPan(MouseButtonEventArgs e, MouseButton button)
     {
@@ -148,12 +325,12 @@ public sealed class MapCanvasEditorController
         _designCanvas.CaptureMouse();
     }
 
-    public void EndPan()
+    private void EndPan()
     {
         if (!_isPanning)
             return;
         _isPanning = false;
-        if (_designCanvas.IsMouseCaptured)
+        if (_designCanvas.IsMouseCaptured && _activeDraw == null && !_isErasing)
             _designCanvas.ReleaseMouseCapture();
     }
 
@@ -195,23 +372,12 @@ public sealed class MapCanvasEditorController
             Height = SketchSymbolDefinitions.StampDisplaySize,
             Stretch = Stretch.Uniform,
             Child = path,
+            Tag = DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx),
         };
         Canvas.SetLeft(vb, anchorCenter.X - half);
         Canvas.SetTop(vb, anchorCenter.Y - half);
         _designCanvas.Children.Add(vb);
-    }
-
-    public void ClearTransientSelectHighlight()
-    {
-        if (_selectMarker != null)
-            _selectMarker.Visibility = Visibility.Collapsed;
-    }
-
-    /// <summary>Call after <c>DesignCanvas.Children.Clear()</c> so internal references are dropped.</summary>
-    public void OnDesignLayerCleared()
-    {
-        _selectMarker = null;
-        _activeDraw = null;
-        _isPanning = false;
+        InkAdded?.Invoke(vb);
+        DesignLayerModified?.Invoke();
     }
 }

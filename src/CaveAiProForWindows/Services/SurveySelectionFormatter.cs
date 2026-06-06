@@ -135,6 +135,32 @@ public static class ShotEnvironment
         return sb.ToString();
     }
 
+    /// <summary>Single-line label for map overlays (prefers manual over BLE readings).</summary>
+    public static string? TryFormatCompactMapLine(ShotRecord s)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        var parts = new List<string>();
+
+        var temp = s.ManualAmbientTempCelsius ?? s.AmbientBleTempCelsius;
+        if (temp is float t)
+            parts.Add(t.ToString("0.#", inv) + " \u00b0C");
+
+        var rh = s.ManualRelativeHumidityPct ?? s.AmbientBleRelativeHumidityPct;
+        if (rh is float h)
+            parts.Add(h.ToString("0.#", inv) + " %RH");
+
+        if (s.AtmosphericO2VolPct is float o2)
+            parts.Add("O\u2082 " + o2.ToString("0.#", inv) + "%");
+
+        if (s.Co2Ppm is float co2)
+            parts.Add("CO\u2082 " + co2.ToString("0", inv));
+
+        if (s.BarometricPressureHpa is float bp)
+            parts.Add(bp.ToString("0", inv) + " hPa");
+
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
     private static readonly string[] InterestingExtensionKeys =
     {
         "ambientBleTempCelsius", "manualAmbientTempCelsius", "ambientBleRelativeHumidityPct",

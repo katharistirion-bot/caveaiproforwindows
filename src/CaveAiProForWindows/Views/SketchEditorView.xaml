@@ -42,7 +42,24 @@
                     <RadioButton x:Name="SketchToolSymbol" GroupName="SketchEditorTools"
                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                  Content="Insert symbol" Checked="SketchToolSymbol_Checked"
+                                 Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
+                    <RadioButton x:Name="SketchToolErase" GroupName="SketchEditorTools"
+                                 FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                 Content="Erase" Checked="SketchToolErase_Checked"
                                  Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,10" />
+
+                    <TextBlock Text="Edit" FontWeight="SemiBold"
+                               FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                               Foreground="{DynamicResource Cave.Text}"
+                               Margin="0,0,0,6" />
+                    <StackPanel x:Name="SketchEditToolsPanel" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button Content="Undo" Padding="10,6" Margin="0,0,6,0"
+                                Command="{Binding UndoCommand}"
+                                ToolTip="Undo last sketch edit (Ctrl+Z)" />
+                        <Button Content="Redo" Padding="10,6"
+                                Command="{Binding RedoCommand}"
+                                ToolTip="Redo (Ctrl+Y)" />
+                    </StackPanel>
 
                     <TextBlock Text="Map zoom" FontWeight="SemiBold"
                                FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
@@ -68,28 +85,44 @@
                             BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" CornerRadius="4"
                             Background="{DynamicResource Cave.CanvasBackdrop}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <ToggleButton x:Name="SymbolPaletteRock" Width="44" Height="40" Margin="0,0,6,0"
-                                          ToolTip="Rock / block" Padding="4" Background="Transparent"
+                            <ToggleButton x:Name="SymbolPaletteRock" Width="40" Height="36" Margin="0,0,4,0"
+                                          ToolTip="Rock / block" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
                                           Checked="SymbolPalette_Checked"
                                           Content="{DynamicResource SketchGlyphRock}" />
-                            <ToggleButton x:Name="SymbolPaletteWater" Width="44" Height="40" Margin="0,0,6,0"
-                                          ToolTip="Water / pool" Padding="4" Background="Transparent"
+                            <ToggleButton x:Name="SymbolPaletteWater" Width="40" Height="36" Margin="0,0,4,0"
+                                          ToolTip="Water / pool" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
                                           Checked="SymbolPalette_Checked"
                                           Content="{DynamicResource SketchGlyphWater}" />
-                            <ToggleButton x:Name="SymbolPaletteSpele" Width="44" Height="40"
-                                          ToolTip="Stalactite / speleothem" Padding="4" Background="Transparent"
+                            <ToggleButton x:Name="SymbolPaletteSpele" Width="40" Height="36" Margin="0,0,4,0"
+                                          ToolTip="Stalactite / speleothem" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
                                           Checked="SymbolPalette_Checked"
                                           Content="{DynamicResource SketchGlyphSpele}" />
+                            <ToggleButton x:Name="SymbolPaletteFlow" Width="40" Height="36" Margin="0,0,4,0"
+                                          ToolTip="Flowstone / curtain" Padding="2" Background="Transparent"
+                                          BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                          Checked="SymbolPalette_Checked" Content="Fl" FontSize="11" />
+                            <ToggleButton x:Name="SymbolPaletteSand" Width="40" Height="36" Margin="0,0,4,0"
+                                          ToolTip="Sand / mud floor" Padding="2" Background="Transparent"
+                                          BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                          Checked="SymbolPalette_Checked" Content="Sd" FontSize="11" />
+                            <ToggleButton x:Name="SymbolPalettePit" Width="40" Height="36" Margin="0,0,4,0"
+                                          ToolTip="Shaft / pit" Padding="2" Background="Transparent"
+                                          BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                          Checked="SymbolPalette_Checked" Content="Pt" FontSize="11" />
+                            <ToggleButton x:Name="SymbolPaletteAid" Width="40" Height="36"
+                                          ToolTip="Rope / ladder / fixed aid" Padding="2" Background="Transparent"
+                                          BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                          Checked="SymbolPalette_Checked" Content="Ld" FontSize="11" />
                         </StackPanel>
                     </Border>
 
                     <TextBlock Margin="0,10,0,10" TextWrapping="Wrap"
                                FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                Foreground="{DynamicResource Cave.TextMuted}"
-                               Text="Select mode: click a station marker or traverse leg · empty click collapses inspector · Esc restores overview · Ctrl+1 Pan · 2 Select · … Symbol: stamp + click · Draw: drag · Wheel zoom (cursor) · left/middle-drag pan · double-click map (Pan): reset view." />
+                               Text="Select: click sketch ink or survey · Delete removes selected ink · Erase: drag over strokes/symbols · Undo Ctrl+Z · Redo Ctrl+Y · Ctrl+1 Pan · 2 Select · 3 Draw · 4 Symbol · 5 Erase · Wheel zoom · double-click (Pan): reset view." />
 
                     <Separator Margin="0,0,0,10" />
 
@@ -106,6 +139,30 @@
                     <CheckBox x:Name="SketchStationZDepthCheck" Margin="0,0,0,8"
                               FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                               Content="Show Z (elevation)" ToolTip="Plan-frame Z (m) beside each station"
+                              Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                              Foreground="{DynamicResource Cave.Text}" />
+                    <CheckBox x:Name="SketchLegSurveyDetailsCheck" Margin="0,0,0,8"
+                              FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                              IsChecked="True" Content="Leg distances &amp; angles"
+                              ToolTip="Tape length, azimuth, clino, ΔZ, and LRUD on each traverse leg"
+                              Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                              Foreground="{DynamicResource Cave.Text}" />
+                    <CheckBox x:Name="SketchStationEnvironmentCheck" Margin="0,0,0,8"
+                              FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                              IsChecked="True" Content="Station environment"
+                              ToolTip="Temperature, humidity, O₂, CO₂, pressure at stations"
+                              Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                              Foreground="{DynamicResource Cave.Text}" />
+                    <CheckBox x:Name="SketchDepthSpanAnnotationsCheck" Margin="0,0,0,8"
+                              FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                              IsChecked="True" Content="Depth span callouts"
+                              ToolTip="User depth braces from depthSpanAnnotations"
+                              Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                              Foreground="{DynamicResource Cave.Text}" />
+                    <CheckBox x:Name="SketchBracketMarkersCheck" Margin="0,0,0,8"
+                              FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                              IsChecked="True" Content="Bracket markers"
+                              ToolTip="Description and temperature pins from brackets"
                               Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                               Foreground="{DynamicResource Cave.Text}" />
                     <CheckBox x:Name="SketchCartographyOverlayCheck" Margin="0,0,0,0"
@@ -129,6 +186,45 @@
                         <ComboBoxItem Content="Balanced" Tag="Balanced" />
                         <ComboBoxItem Content="Rich" Tag="Rich" />
                     </ComboBox>
+
+                    <Separator Margin="0,4,0,10" />
+
+                    <StackPanel x:Name="ProceduralAssistPanel">
+                        <TextBlock Text="Procedural Assist" FontWeight="SemiBold"
+                                   FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                   Foreground="{DynamicResource Cave.Text}"
+                                   Margin="0,0,0,6" />
+                        <TextBlock TextWrapping="Wrap"
+                                   FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                   Foreground="{DynamicResource Cave.TextMuted}"
+                                   Margin="0,0,0,8"
+                                   Text="Auto-draw LRUD wall outlines and place survey/catalog symbols on the design layer from traverse data." />
+                        <CheckBox Content="LRUD wall outlines" Margin="0,0,0,6"
+                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                  IsChecked="{Binding IncludeWallOutlines}"
+                                  Foreground="{DynamicResource Cave.Text}" />
+                        <CheckBox Content="Map symbols" Margin="0,0,0,6"
+                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                  IsChecked="{Binding IncludeMapSymbols}"
+                                  Foreground="{DynamicResource Cave.Text}" />
+                        <CheckBox Content="Field catalog pins" Margin="0,0,0,8"
+                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                  IsChecked="{Binding IncludeFieldCatalogPins}"
+                                  Foreground="{DynamicResource Cave.Text}" />
+                        <Button Content="Generate from survey" Margin="0,0,0,6" Padding="10,8"
+                                FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                Style="{StaticResource Cave.AccentButton}"
+                                Command="{Binding GenerateProceduralCommand}" />
+                        <Button Content="Accept procedural" Margin="0,0,0,6" Padding="10,6"
+                                FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                Command="{Binding AcceptProceduralCommand}" />
+                        <Button Content="Clear procedural" Margin="0,0,0,6" Padding="10,6"
+                                FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                Command="{Binding ClearProceduralCommand}" />
+                        <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap"
+                                   FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                   Foreground="{DynamicResource Cave.TextSubdued}" />
+                    </StackPanel>
 
                     <Separator Margin="0,4,0,10" />
 
@@ -156,6 +252,11 @@
                                  AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56" MaxHeight="120"
                                  VerticalScrollBarVisibility="Auto" Padding="8,6" Margin="0,0,0,8"
                                  FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}" />
+                        <TextBlock Text="Guidance scale" FontWeight="SemiBold"
+                                   FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                   Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,4" />
+                        <Slider Minimum="1" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
+                                Value="{Binding GuidanceScale}" Margin="0,0,0,8" />
                         <CheckBox Content="Show AI render on canvas" Margin="0,0,0,8"
                                   FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                   IsChecked="{Binding ShowAiRenderOnCanvas}"
@@ -199,7 +300,7 @@
                                    FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                    Foreground="{DynamicResource Cave.TextMuted}"
                                    Margin="0,0,0,8"
-                                   Text="Upload AI map, structure mask, and enriched survey JSON to your linked Public Cave Library entry. Sign in via Help → Public Cave Library first." />
+                                   Text="Upload AI map, structure mask, and enriched survey JSON to your linked Public Cave Library entry. Sign in securely when prompted." />
                         <TextBlock Text="{Binding LinkedCaveIdDisplay}" TextWrapping="Wrap"
                                    FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                    Foreground="{DynamicResource Cave.TextSubdued}"
@@ -212,11 +313,11 @@
                                 FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                 Style="{StaticResource Cave.AccentButton}"
                                 Command="{Binding PushToCloudCommand}"
-                                ToolTip="Requires Firebase sign-in captured from the Public Cave Library window" />
-                        <Button Content="Open Public Library" Margin="0,0,0,8" Padding="10,6"
+                                ToolTip="Opens secure sign-in, then uploads survey JSON and AI assets to Firestore + Storage" />
+                        <Button Content="Sign in…" Margin="0,0,0,8" Padding="10,6"
                                 FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                Command="{Binding OpenPublicLibraryCommand}"
-                                ToolTip="Open Help → Public Cave Library in-app — sign in and browse the map to capture a token" />
+                                Command="{Binding SignInCommand}"
+                                ToolTip="Open secure WebView2 sign-in (Firebase ID token via postMessage)" />
 
                         <Border Visibility="{Binding ShowOpenLibraryHint, Converter={StaticResource BoolToVis}}"
                                 Margin="0,0,0,8" Padding="8,6" CornerRadius="4"
@@ -225,7 +326,7 @@
                             <TextBlock TextWrapping="Wrap"
                                        FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                        Foreground="{DynamicResource Cave.Accent}"
-                                       Text="Open Public Cave Library, sign in with Google, and browse a cave map briefly so a Firebase token can be captured." />
+                                       Text="Sign in with Google in the secure sign-in window when Push to Cloud asks for authentication." />
                         </Border>
 
                         <ProgressBar Height="8" Margin="0,0,0,6"
@@ -301,9 +402,13 @@
                             BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
                             Background="{DynamicResource Cave.Surface}" Opacity="0.96">
                         <StackPanel>
+                            <TextBlock x:Name="HudCaveNameText" FontWeight="Bold"
+                                       FontSize="{DynamicResource Cave.HudTitleFontSize}"
+                                       TextWrapping="Wrap" Margin="0,0,0,4"
+                                       Foreground="{DynamicResource Cave.Text}" Text="—" />
                             <TextBlock Text="Survey summary" FontWeight="SemiBold"
-                                       FontSize="{DynamicResource Cave.HudTitleFontSize}" Margin="0,0,0,8"
-                                       Foreground="{DynamicResource Cave.Text}" />
+                                       FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}" Margin="0,0,0,8"
+                                       Foreground="{DynamicResource Cave.TextMuted}" />
                             <TextBlock x:Name="HudStationCountText" TextWrapping="Wrap"
                                        FontSize="{DynamicResource Cave.HudFontSize}"
                                        Foreground="{DynamicResource Cave.TextSubdued}" />

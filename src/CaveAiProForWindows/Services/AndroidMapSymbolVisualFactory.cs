@@ -13,7 +13,7 @@ namespace CaveAiProForWindows.Services;
 /// </summary>
 public static class AndroidMapSymbolVisualFactory
 {
-    /// <summary>Creates a positioned symbol (Path in Viewbox) at survey coordinates.</summary>
+    /// <summary>Creates a positioned symbol (Path in Viewbox, or emoji TextBlock) at survey coordinates.</summary>
     public static UIElement CreateVisual(
         SurveyStationGeometry.PlanMapSymbol sym,
         PlanCanvasSurveyLayout layout,
@@ -24,14 +24,36 @@ public static class AndroidMapSymbolVisualFactory
                          SketchSymbolDefinitions.DefaultSymbolWorldSpanMetres * Math.Max(0.12, sym.Scale);
         spanWorldM = Math.Clamp(spanWorldM, 0.08, 80.0);
         var basePx = Math.Clamp(spanWorldM * layout.PxPerMetre, 8.0, 560.0);
-        var (kind, ink) = AndroidSymbolIdGeometryCatalog.ResolveInk(sym.SymbolId, sym.Label, sym.IconKey);
+        var resolved = MapSymbolIconResolver.Resolve(sym, highContrast);
+
+        if (resolved.Mode == MapSymbolIconResolver.RenderMode.EmojiGlyph && !string.IsNullOrEmpty(resolved.Emoji))
+        {
+            var tb = new TextBlock
+            {
+                Text = resolved.Emoji,
+                FontSize = Math.Clamp(basePx * 0.78, 10, 420),
+                TextAlignment = TextAlignment.Center,
+                IsHitTestVisible = false,
+                ToolTip = BuildTooltip(sym, resolved.DisplayLabel),
+            };
+            tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var w = Math.Max(basePx, tb.DesiredSize.Width);
+            var h = Math.Max(basePx, tb.DesiredSize.Height);
+            tb.Width = w;
+            tb.Height = h;
+            tb.RenderTransformOrigin = new Point(0.5, 0.5);
+            tb.RenderTransform = new RotateTransform(sym.RotationDegrees);
+            Canvas.SetLeft(tb, anchor.X - w * 0.5);
+            Canvas.SetTop(tb, anchor.Y - h * 0.5);
+            return tb;
+        }
 
         var path = new Path
         {
-            Data = ink.Geometry,
-            Stroke = highContrast ? Brushes.White : ink.Stroke,
-            Fill = highContrast ? Brushes.White : ink.Fill,
-            StrokeThickness = Math.Max(0.65, basePx / SketchSymbolDefinitions.ViewboxNominalSize * 1.05),
+            Data = resolved.Geometry ?? Geometry.Empty,
+            Stroke = resolved.Stroke,
+            Fill = resolved.Fill,
+            StrokeThickness = Math.Max(0.65, basePx / NominalViewboxSize(resolved) * 1.05),
             StrokeLineJoin = PenLineJoin.Round,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
@@ -46,31 +68,32 @@ public static class AndroidMapSymbolVisualFactory
             IsHitTestVisible = false,
             RenderTransformOrigin = new Point(0.5, 0.5),
             RenderTransform = new RotateTransform(sym.RotationDegrees),
-            ToolTip = BuildTooltip(sym, kind),
+            ToolTip = BuildTooltip(sym, resolved.DisplayLabel),
         };
         Canvas.SetLeft(vb, anchor.X - basePx * 0.5);
         Canvas.SetTop(vb, anchor.Y - basePx * 0.5);
         return vb;
     }
 
-    private static string BuildTooltip(SurveyStationGeometry.PlanMapSymbol sym, SketchEditorSymbolKind kind)
+    private static double NominalViewboxSize(MapSymbolIconResolver.ResolvedMapSymbol resolved) =>
+        resolved.NormalizedUisSpace ? 2.0 : SketchSymbolDefinitions.ViewboxNominalSize;
+
+    private static string BuildTooltip(SurveyStationGeometry.PlanMapSymbol sym, string displayLabel)
     {
-        var parts = new List<string>();
+        var parts = new List<string> { displayLabel };
         if (!string.IsNullOrWhiteSpace(sym.SymbolId))
             parts.Add($"id:{sym.SymbolId.Trim()}");
-        if (!string.IsNullOrWhiteSpace(sym.Label))
-            parts.Add(sym.Label.Trim());
         if (!string.IsNullOrWhiteSpace(sym.IconKey) &&
-            !string.Equals(sym.IconKey, sym.Label, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(sym.IconKey, displayLabel, StringComparison.OrdinalIgnoreCase))
             parts.Add(sym.IconKey.Trim());
-        parts.Add($"stamp → {kind}");
         if (sym.ScaleSurveyMetres is { } sm)
             parts.Add($"span {sm:0.##} m");
         else
-            parts.Add($"scale ×{sym.Scale:0.##} (→ ~{SketchSymbolDefinitions.DefaultSymbolWorldSpanMetres * Math.Max(0.12, sym.Scale):0.##} m nominal)");
+            parts.Add($"scale ×{sym.Scale:0.##}");
         if (System.Math.Abs(sym.Z) > 1e-4f)
-            parts.Add($"Z {sym.Z:0.##} m (metadata)");
-        parts.Add($"rotation {sym.RotationDegrees:0.#}°");
+            parts.Add($"Z {sym.Z:0.##} m");
+        if (System.Math.Abs(sym.RotationDegrees) > 0.01f)
+            parts.Add($"rotation {sym.RotationDegrees:0.#}°");
         parts.Add($"survey ({sym.X:0.##}, {sym.Y:0.##}) m");
         return string.Join(" · ", parts);
     }

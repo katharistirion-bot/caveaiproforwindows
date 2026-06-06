@@ -6,15 +6,17 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
-using CaveAiProForWindows.Models;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
+using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.CloudPublish;
 using CaveAiProForWindows.Services.GenerativeMap;
+using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.Services.SketchAssist;
 using CaveAiProForWindows.ViewModels;
 
@@ -129,7 +131,10 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     private MainViewModel? _wiredMainVm;
     private CloudPublishViewModel? _cloudPublish;
     private SketchAssistViewModel? _sketchAssist;
+    private ProceduralSketchViewModel? _proceduralSketch;
+    private SketchEditorViewModel? _sketchPersistence;
     private CaveProjectDocument? _designLayerProjectScope;
+    private bool _designLayerHydrated;
     private PlanScene? _interactivePlanScene;
     private PlanCanvasSurveyLayout _surveyHitLayout;
     private bool _surveyHitLayoutReady;
@@ -260,7 +265,18 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         SyncSymbolPaletteEnabled();
         WireMainViewModel(DataContext as MainViewModel);
         EnsureCloudPublishViewModel();
+        EnsureProceduralSketchViewModel();
         EnsureSketchAssistViewModel();
+        EnsureSketchPersistenceViewModel();
+        if (_editor != null)
+        {
+            _editor.DesignLayerModified = SyncDesignLayerToInMemoryProject;
+            _editor.InkAdded = OnInkAdded;
+            _editor.InkRemoved = OnInkRemoved;
+        }
+
+        if (SketchEditToolsPanel != null)
+            SketchEditToolsPanel.DataContext = _sketchPersistence;
         ResetPropertiesPanelToSummary();
         Redraw();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
@@ -290,8 +306,10 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         if (ReferenceEquals(Project, _designLayerProjectScope))
             return;
         _designLayerProjectScope = Project;
+        _designLayerHydrated = false;
         DesignLayer.Children.Clear();
         _editor?.OnDesignLayerCleared();
+        _sketchPersistence?.ClearHistory();
         InvalidateSurveyPickState(true);
     }
 
@@ -360,7 +378,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         PropertyStationLegNameText.Text = "Global cave stats";
         PropertyCoordinatesText.Text = $"Stations: {stations}  |  Traverse legs: {legs}";
         PropertySurveyDataText.Text =
-            $"Total length: {totalTape.ToString("0.##", inv)} m  |  Depth span (ΔZ): {zSpan.ToString("0.##", inv)} m";
+            $"Total length: {totalTape.ToString("0.##", inv)} m  |  Vertical span (Z): {zSpan.ToString("0.##", inv)} m";
         PropertyWallDimensionsText.Text = "Use Select mode and click a station or leg.";
         SetPropertyAndroidPayloadText(AndroidSurveyPayloadFormatter.FormatProjectContext(p));
 
@@ -558,15 +576,24 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                 SketchStationNamesCheck.IsChecked = s.StationNames;
             if (SketchStationZDepthCheck != null)
                 SketchStationZDepthCheck.IsChecked = s.StationZ;
+            if (SketchLegSurveyDetailsCheck != null)
+                SketchLegSurveyDetailsCheck.IsChecked = s.LegSurveyDetails;
+            if (SketchStationEnvironmentCheck != null)
+                SketchStationEnvironmentCheck.IsChecked = s.StationEnvironment;
+            if (SketchDepthSpanAnnotationsCheck != null)
+                SketchDepthSpanAnnotationsCheck.IsChecked = s.DepthSpanAnnotations;
+            if (SketchBracketMarkersCheck != null)
+                SketchBracketMarkersCheck.IsChecked = s.BracketMarkers;
             if (SketchCartographyOverlayCheck != null)
                 SketchCartographyOverlayCheck.IsChecked = s.Overlay;
             SyncCartographicIntensityCombo(AppUiSettingsStore.LoadOrDefault().CartographicIntensity);
-            if (SketchToolPan != null && SketchToolSelect != null && SketchToolDraw != null && SketchToolSymbol != null)
+            if (SketchToolPan != null && SketchToolSelect != null && SketchToolDraw != null && SketchToolSymbol != null && SketchToolErase != null)
             {
                 SketchToolPan.IsChecked = _currentTool == MapCanvasEditorTool.PanZoom;
                 SketchToolSelect.IsChecked = _currentTool == MapCanvasEditorTool.Select;
                 SketchToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
                 SketchToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
+                SketchToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
             }
         }
         finally
@@ -595,6 +622,10 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         all.Sketch.Tool = _currentTool.ToString();
         all.Sketch.StationNames = SketchStationNamesCheck?.IsChecked != false;
         all.Sketch.StationZ = SketchStationZDepthCheck?.IsChecked == true;
+        all.Sketch.LegSurveyDetails = SketchLegSurveyDetailsCheck?.IsChecked != false;
+        all.Sketch.StationEnvironment = SketchStationEnvironmentCheck?.IsChecked != false;
+        all.Sketch.DepthSpanAnnotations = SketchDepthSpanAnnotationsCheck?.IsChecked != false;
+        all.Sketch.BracketMarkers = SketchBracketMarkersCheck?.IsChecked != false;
         all.Sketch.Overlay = SketchCartographyOverlayCheck?.IsChecked != false;
         if (CartographicIntensityCombo?.SelectedItem is ComboBoxItem { Tag: string tag })
             all.CartographicIntensity = tag;
@@ -623,25 +654,33 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         var p = Project;
         if (p == null)
         {
+            if (HudCaveNameText != null)
+                HudCaveNameText.Text = "—";
             HudStationCountText.Text = "Open a cave project.";
             HudLengthText.Text = "Survey stats appear after you load data.";
             HudZSpanText.Text = "";
             return;
         }
 
+        if (HudCaveNameText != null)
+        {
+            var caveName = CaveProjectDisplayNames.GetDisplayName(p);
+            HudCaveNameText.Text = string.IsNullOrWhiteSpace(caveName) ? "Unnamed cave" : caveName;
+        }
+
         var travLegs = p.Shots?.Count(s => s.IsTraverseLeg) ?? 0;
         if (travLegs == 0)
         {
             HudStationCountText.Text = "No traverse yet — add shots with to ≠ \"-\", export from CaveAI Pro.";
-            HudLengthText.Text = "Total surveyed length (Σ tape): —";
-            HudZSpanText.Text = "ΔZ (stations): —";
+            HudLengthText.Text = "Total traverse length: —";
+            HudZSpanText.Text = "Vertical span (station Z): —";
             return;
         }
 
         var (st, tape, dz, _) = SurveyPlanHudStats.Compute(p);
         HudStationCountText.Text = st <= 0 ? "Stations: —" : $"Stations: {st}";
-        HudLengthText.Text = $"Total surveyed length (Σ traverse tape): {tape.ToString("0.##", inv)} m";
-        HudZSpanText.Text = $"Maximum depth span (ΔZ of stations): {dz.ToString("0.##", inv)} m";
+        HudLengthText.Text = $"Total traverse length: {tape.ToString("0.##", inv)} m";
+        HudZSpanText.Text = $"Vertical span (station Z): {dz.ToString("0.##", inv)} m";
     }
 
     private PlanCanvasDrawOptions SketchDrawOptions()
@@ -653,7 +692,11 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             VisualizationMode,
             SketchStationZDepthCheck?.IsChecked == true,
             intensity,
-            _surveyPickHighlight);
+            _surveyPickHighlight,
+            SketchLegSurveyDetailsCheck?.IsChecked != false,
+            SketchStationEnvironmentCheck?.IsChecked != false,
+            SketchDepthSpanAnnotationsCheck?.IsChecked != false,
+            SketchBracketMarkersCheck?.IsChecked != false);
     }
 
     private void SyncCartographicIntensityCombo(string? persisted)
@@ -751,10 +794,8 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                 _interactivePlanScene = scene;
                 _surveyHitLayoutReady = PlanCanvasRenderer.TryComputeSurveyLayout(
                     scene, SurveyCanvas.Width, SurveyCanvas.Height, out _surveyHitLayout);
-                if (_surveyHitLayoutReady)
-                    AndroidImportedSymbolPresenter.SyncDesignLayer(DesignLayer, scene, _surveyHitLayout, highContrast: false);
-                else
-                    AndroidImportedSymbolPresenter.ClearImported(DesignLayer);
+                AndroidImportedSymbolPresenter.ClearImported(DesignLayer);
+                MaybeHydrateDesignLayerFromProject(p);
 
                 ApplyGenerativeMapOverlay(p);
             }
@@ -793,6 +834,16 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         SurveyCanvas.Children.Add(tb);
     }
 
+    private void MaybeHydrateDesignLayerFromProject(CaveProjectDocument project)
+    {
+        if (_designLayerHydrated || DesignLayer == null || !_surveyHitLayoutReady)
+            return;
+        _designLayerHydrated = true;
+        var added = DesignLayerMapObjectsHydrator.TryHydrate(DesignLayer, _surveyHitLayout, project);
+        if (added > 0)
+            _sketchPersistence?.ClearHistory();
+    }
+
     private void SyncSymbolPaletteEnabled()
     {
         if (SymbolPaletteRoot != null)
@@ -807,6 +858,14 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             return;
         if (SymbolPaletteSpele is { IsChecked: true })
             return;
+        if (SymbolPaletteFlow is { IsChecked: true })
+            return;
+        if (SymbolPaletteSand is { IsChecked: true })
+            return;
+        if (SymbolPalettePit is { IsChecked: true })
+            return;
+        if (SymbolPaletteAid is { IsChecked: true })
+            return;
         SymbolPaletteRock.IsChecked = true;
     }
 
@@ -818,9 +877,17 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         {
             _ when ReferenceEquals(t, SymbolPaletteRock) => SketchEditorSymbolKind.RockBlock,
             _ when ReferenceEquals(t, SymbolPaletteWater) => SketchEditorSymbolKind.WaterPool,
+            _ when ReferenceEquals(t, SymbolPaletteFlow) => SketchEditorSymbolKind.FlowstoneCurtain,
+            _ when ReferenceEquals(t, SymbolPaletteSand) => SketchEditorSymbolKind.SandMudFloor,
+            _ when ReferenceEquals(t, SymbolPalettePit) => SketchEditorSymbolKind.PitOrShaft,
+            _ when ReferenceEquals(t, SymbolPaletteAid) => SketchEditorSymbolKind.FixedAid,
             _ => SketchEditorSymbolKind.StalactiteSpeleothem,
         };
-        foreach (ToggleButton sibling in new ToggleButton[] { SymbolPaletteRock, SymbolPaletteWater, SymbolPaletteSpele })
+        foreach (ToggleButton sibling in new ToggleButton[]
+                 {
+                     SymbolPaletteRock, SymbolPaletteWater, SymbolPaletteSpele, SymbolPaletteFlow,
+                     SymbolPaletteSand, SymbolPalettePit, SymbolPaletteAid,
+                 })
         {
             if (!ReferenceEquals(sibling, t))
                 sibling.IsChecked = false;
@@ -861,6 +928,14 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             EnsureSymbolPaletteHasSelection();
         }
 
+        SyncSymbolPaletteEnabled();
+        PersistSketchTab();
+    }
+
+    private void SketchToolErase_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { IsChecked: true })
+            _currentTool = MapCanvasEditorTool.Erase;
         SyncSymbolPaletteEnabled();
         PersistSketchTab();
     }
@@ -929,6 +1004,19 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
 
     private void DesignLayer_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (_currentTool == MapCanvasEditorTool.Select && DesignLayer != null)
+        {
+            var ptInk = e.GetPosition(DesignLayer);
+            if (_editor?.TrySelectInkAt(ptInk) == true)
+            {
+                UpdatePropertiesPanelForInk(_editor.SelectedInk);
+                e.Handled = true;
+                return;
+            }
+
+            _editor?.ClearInkSelection();
+        }
+
         if (_currentTool == MapCanvasEditorTool.Select
             && _surveyHitLayoutReady
             && _interactivePlanScene != null
@@ -979,9 +1067,38 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     {
         _surveyPickHighlight = null;
         _stationDetailsPaneDismissed = false;
+        _editor?.ClearInkSelection();
         ResetPropertiesPanelToSummary();
         ApplySurveyDetailsColumnExpanded(true);
         Redraw();
+    }
+
+    public void UndoSketchEdit()
+    {
+        if (_sketchPersistence?.CanUndo != true)
+            return;
+        _sketchPersistence.UndoCommand.Execute(null);
+        _editor?.ClearInkSelection();
+        ResetPropertiesPanelToSummary();
+    }
+
+    public void RedoSketchEdit()
+    {
+        if (_sketchPersistence?.CanRedo != true)
+            return;
+        _sketchPersistence.RedoCommand.Execute(null);
+        _editor?.ClearInkSelection();
+        ResetPropertiesPanelToSummary();
+    }
+
+    public bool TryDeleteSelectedInk()
+    {
+        if (_editor?.SelectedInk == null)
+            return false;
+        if (!_editor.DeleteSelectedInk())
+            return false;
+        ResetPropertiesPanelToSummary();
+        return true;
     }
 
     public void ApplyMapEditorTool(MapCanvasEditorTool tool)
@@ -998,6 +1115,8 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                 SketchToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
             if (SketchToolSymbol != null)
                 SketchToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
+            if (SketchToolErase != null)
+                SketchToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
         }
         finally
         {
@@ -1022,6 +1141,112 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         PersistSketchTab();
     }
 
+    /// <summary>Flushes design-layer strokes/symbols and AI assets onto <paramref name="project"/> before disk save.</summary>
+    public bool TryPersistSessionToProject(CaveProjectDocument project) =>
+        _sketchPersistence?.TryPersistSessionToProject(project) ?? false;
+
+    /// <summary>Updates in-memory <c>mapObjects</c> / <c>sketches</c> after each edit (no disk write).</summary>
+    private void SyncDesignLayerToInMemoryProject()
+    {
+        var p = Project;
+        if (p == null)
+            return;
+        EnsureSketchPersistenceViewModel();
+        _sketchPersistence?.TryPersistSessionToProject(p);
+    }
+
+    private void OnInkAdded(UIElement element)
+    {
+        EnsureSketchPersistenceViewModel();
+        _sketchPersistence?.RecordInkAdded(element);
+    }
+
+    private void OnInkRemoved(UIElement element, int index)
+    {
+        EnsureSketchPersistenceViewModel();
+        _sketchPersistence?.RecordInkRemoved(element, index);
+    }
+
+    private void UpdatePropertiesPanelForInk(UIElement? ink)
+    {
+        if (PropertySelectionStatusText == null
+            || PropertyStationLegNameText == null
+            || PropertyCoordinatesText == null
+            || PropertySurveyDataText == null
+            || PropertyWallDimensionsText == null)
+            return;
+
+        _surveyPickHighlight = null;
+        Redraw();
+
+        if (ink == null)
+        {
+            ResetPropertiesPanelToSummary();
+            return;
+        }
+
+        if (PropertyPaneTitleText != null)
+            PropertyPaneTitleText.Text = "Sketch object";
+        ApplyPropertyCaptionState(PropertyCaptionStyle.Overview);
+        ApplyPropertiesVisualState(PropertiesVisualState.None);
+
+        switch (ink)
+        {
+            case Polyline poly:
+                PropertySelectionStatusText.Text = "Selected freehand stroke";
+                PropertyStationLegNameText.Text = "Design-layer stroke";
+                PropertyCoordinatesText.Text = $"{poly.Points.Count} canvas points · press Delete to remove";
+                PropertySurveyDataText.Text = "Saved to mapObjects on next sync / Save project";
+                PropertyWallDimensionsText.Text = "Use Erase mode or Undo (Ctrl+Z) to revert edits";
+                SetPropertyAndroidPayloadText("—");
+                break;
+            case Viewbox:
+                PropertySelectionStatusText.Text = "Selected symbol stamp";
+                PropertyStationLegNameText.Text = "Design-layer symbol";
+                PropertyCoordinatesText.Text = "Press Delete to remove this stamp";
+                PropertySurveyDataText.Text = "Saved to mapObjects on next sync / Save project";
+                PropertyWallDimensionsText.Text = "Use Erase mode or Undo (Ctrl+Z) to revert edits";
+                SetPropertyAndroidPayloadText("—");
+                break;
+            default:
+                PropertySelectionStatusText.Text = "Selected sketch object";
+                PropertyStationLegNameText.Text = ink.GetType().Name;
+                PropertyCoordinatesText.Text = "Press Delete to remove";
+                PropertySurveyDataText.Text = "—";
+                PropertyWallDimensionsText.Text = "—";
+                SetPropertyAndroidPayloadText("—");
+                break;
+        }
+
+        ApplySurveyDetailsColumnExpanded(true);
+    }
+
+    private void EnsureSketchPersistenceViewModel()
+    {
+        if (_sketchPersistence != null)
+            return;
+
+        _sketchPersistence = new SketchEditorViewModel(new SketchEditorPersistenceHost
+        {
+            GetProject = () => Project,
+            GetDesignLayer = () => DesignLayer,
+            GetSurveyLayout = () => _surveyHitLayout,
+            IsSurveyLayoutReady = () => _surveyHitLayoutReady && Project != null,
+            CaptureStructureMask = () =>
+            {
+                var p = Project;
+                if (p == null || SurveyCanvas == null || DesignLayer == null)
+                    return null;
+                return CloudPublishService.TryCaptureStructureMask(
+                    p,
+                    DesignLayer,
+                    SurveyCanvas.Width,
+                    SurveyCanvas.Height);
+            },
+            GetPrimarySourcePath = () => _wiredMainVm?.PrimarySourceFilePath,
+        });
+    }
+
     private void EnsureCloudPublishViewModel()
     {
         if (_cloudPublish != null || CloudPublishPanel == null)
@@ -1033,15 +1258,39 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             GetLegalTermsAccepted = () => _wiredMainVm?.LegalTermsAccepted == true,
             CaptureArtifacts = TryCapturePublishArtifacts,
             GetOwnerWindow = () => Window.GetWindow(this),
-            PersistLinkedLibraryCaveId = id =>
+            PersistLinkedLibraryCaveId = _ =>
             {
+                var p = Project;
+                if (p != null)
+                    TryPersistSessionToProject(p);
                 if (_wiredMainVm != null)
-                    _wiredMainVm.StatusMessage = $"Linked library cave id set to {id.Trim()}.";
+                    _wiredMainVm.StatusMessage = "Linked library cave id updated — save project to persist to disk.";
             },
         });
 
         CloudPublishPanel.DataContext = _cloudPublish;
         _cloudPublish.NotifyProjectChanged(Project);
+    }
+
+    private void EnsureProceduralSketchViewModel()
+    {
+        if (_proceduralSketch != null || ProceduralAssistPanel == null)
+            return;
+
+        _proceduralSketch = new ProceduralSketchViewModel(new ProceduralSketchEditorHost
+        {
+            GetProject = () => Project,
+            IsSurveyLayoutReady = () => _surveyHitLayoutReady && Project != null,
+            GetSurveyLayout = () => _surveyHitLayout,
+            GetDesignLayer = () => DesignLayer,
+            OnDesignLayerChanged = () =>
+            {
+                SyncDesignLayerToInMemoryProject();
+                _proceduralSketch?.NotifyProjectChanged();
+            },
+        });
+        ProceduralAssistPanel.DataContext = _proceduralSketch;
+        _proceduralSketch.NotifyProjectChanged();
     }
 
     private void EnsureSketchAssistViewModel()
@@ -1070,7 +1319,22 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                     SurveyCanvas.Width,
                     SurveyCanvas.Height);
             },
-            OnGenerativeRenderCompleted = () => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Redraw)),
+            OnGenerativeRenderCompleted = (aiPng, maskPng) =>
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+                {
+                    Redraw();
+                    if (Project != null && _wiredMainVm != null && aiPng.Length > 0)
+                    {
+                        _wiredMainVm.TryAutoPersistGenerativeRender(
+                            Project,
+                            aiPng,
+                            maskPng.Length > 0 ? maskPng : null);
+                    }
+                });
+            },
+            RefreshGenerativeOverlay = () =>
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Redraw)),
             GetOwnerWindow = () => Window.GetWindow(this),
             OpenLegalSettingsTab = () =>
             {
@@ -1109,18 +1373,22 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             show && entry != null);
     }
 
+    public CloudPublishArtifactCapture? TryCaptureCloudPublishArtifacts() => TryCapturePublishArtifacts();
+
     private CloudPublishArtifactCapture? TryCapturePublishArtifacts()
     {
         var p = Project;
         if (p == null || SurveyCanvas == null || DesignLayer == null)
             return null;
 
+        TryPersistSessionToProject(p);
+
         var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
         var generative = GenerativeMapSessionCache.TryGet(p)?.PngBytes;
         var aiMap = generative ?? SketchEditorPublishCapture.TryCaptureAiMapPng(
             p,
             VisualizationMode,
-            SketchDrawOptions(),
+            PlanCanvasDrawOptionsFactory.ForExport(SurveyCanvasKind.Plan, VisualizationMode),
             underlays,
             ZipPath,
             DesignLayer,
@@ -1133,14 +1401,15 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             SurveyCanvas.Width,
             SurveyCanvas.Height);
 
-        if (aiMap == null && mask == null)
+        var surveyJson = CloudPublishService.SerializeProjectJsonUtf8(p);
+        if (aiMap == null && mask == null && surveyJson.Length == 0)
             return null;
 
         return new CloudPublishArtifactCapture
         {
             AiMapPng = aiMap,
             StructureMaskPng = mask,
-            SurveyJsonUtf8 = CloudPublishService.SerializeProjectJsonUtf8(p),
+            SurveyJsonUtf8 = surveyJson,
         };
     }
 }

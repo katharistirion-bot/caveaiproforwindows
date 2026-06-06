@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using CaveAiProForWindows.Services;
 
 namespace CaveAiProForWindows.Services.SketchAssist;
 
@@ -40,7 +41,9 @@ public static class DesignLayerSurveyConverter
                         stamps.Add(stamp);
                     break;
                 case Ellipse:
-                    // Transient select marker from MapCanvasEditorController — ignore.
+                    // Transient select marker or ink selection frame — ignore.
+                    break;
+                case Rectangle rect when Equals(rect.Tag, DesignLayerInkHitTest.SelectionFrameTag):
                     break;
             }
         }
@@ -64,7 +67,13 @@ public static class DesignLayerSurveyConverter
         PlanCanvasSurveyLayout layout,
         out SketchStrokeModel stroke)
     {
-        stroke = new SketchStrokeModel { Source = "designLayer" };
+        var meta = poly.Tag as DesignLayerInkMetadata;
+        stroke = new SketchStrokeModel
+        {
+            Source = meta?.Source ?? SketchStrokeStyleDefaults.DesignLayerSource,
+            Metadata = meta,
+        };
+
         foreach (var pt in poly.Points)
         {
             var (wx, wy) = CanvasPointToSurvey(pt.X, pt.Y, layout);

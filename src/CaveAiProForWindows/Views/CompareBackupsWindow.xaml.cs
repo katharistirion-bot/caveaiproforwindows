@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 
@@ -11,6 +12,8 @@ public partial class CompareBackupsWindow : Window
 {
     private string? _pathA;
     private string? _pathB;
+    private Dictionary<string, CaveProjectDocument> _mapA = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, CaveProjectDocument> _mapB = new(StringComparer.OrdinalIgnoreCase);
 
     public CompareBackupsWindow()
     {
@@ -26,7 +29,8 @@ public partial class CompareBackupsWindow : Window
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
-            Filter = "CaveAI (*.json;*.zip)|*.json;*.zip|All|*.*",
+            Title = "Compare CaveAI backups",
+            Filter = CaveAiBackupFileDialogFilters.CompareBackupsFilter,
         };
         if (dlg.ShowDialog() != true)
             return;
@@ -47,15 +51,18 @@ public partial class CompareBackupsWindow : Window
         {
             var listA = ExplorationDataLoader.LoadAuto(_pathA!).ToList();
             var listB = ExplorationDataLoader.LoadAuto(_pathB!).ToList();
-            var mapA = listA.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-            var mapB = listB.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-            var names = mapA.Keys.Union(mapB.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+            _mapA = listA.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            _mapB = listB.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            var names = _mapA.Keys.Union(_mapB.Keys, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
             var rows = (ObservableCollection<ProjectDiffRow>)DiffGrid.ItemsSource;
             rows.Clear();
             foreach (var name in names)
             {
-                mapA.TryGetValue(name, out var a);
-                mapB.TryGetValue(name, out var b);
+                _mapA.TryGetValue(name, out var a);
+                _mapB.TryGetValue(name, out var b);
                 var sa = a?.Shots.Count ?? -1;
                 var sb = b?.Shots.Count ?? -1;
                 var ra = a?.RocksCount ?? -1;
@@ -72,11 +79,38 @@ public partial class CompareBackupsWindow : Window
                     ca < 0 ? "—" : ca.ToString(),
                     cb < 0 ? "—" : cb.ToString()));
             }
+
+            if (rows.Count > 0)
+                DiffGrid.SelectedIndex = 0;
+            else
+                ClearPreviews();
         }
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Compare backups", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    private void DiffGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DiffGrid.SelectedItem is not ProjectDiffRow row)
+        {
+            ClearPreviews();
+            return;
+        }
+
+        PreviewTitle.Text = $"Plan preview — {row.ProjectName}";
+        _mapA.TryGetValue(row.ProjectName, out var a);
+        _mapB.TryGetValue(row.ProjectName, out var b);
+        PreviewA.Source = CompareBackupPlanPreview.TryRenderMiniPlan(a);
+        PreviewB.Source = CompareBackupPlanPreview.TryRenderMiniPlan(b);
+    }
+
+    private void ClearPreviews()
+    {
+        PreviewTitle.Text = "Plan preview (select a row)";
+        PreviewA.Source = null;
+        PreviewB.Source = null;
     }
 
     public sealed record ProjectDiffRow(

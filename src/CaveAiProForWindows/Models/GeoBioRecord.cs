@@ -4,8 +4,8 @@ namespace CaveAiProForWindows.Models;
 
 /// <summary>
 /// One unified scientific record — a geological sample (rock / mineral / formation) or a biological observation
-/// (organism / flora / fauna). Built from Android <c>rocks</c>, <c>fieldCatalogEntries</c>, or the newer
-/// <c>geoBioRecords</c> array. The <see cref="Category"/> drives placement in the GEO &amp; BIO tab.
+/// (organism / flora / fauna / bacteria / fungi). Built from Android <c>rocks</c>, <c>fieldCatalogEntries</c>,
+/// or <c>geoBioRecords</c>. The <see cref="Category"/> drives placement in the GEO &amp; BIO tab.
 /// </summary>
 public sealed class GeoBioRecord
 {
@@ -33,21 +33,48 @@ public sealed class GeoBioRecord
 
     public string Title { get; }
 
-    /// <summary>Origin in JSON for diagnostics (e.g. <c>rocks[3]</c>, <c>fieldCatalogEntries[1]</c>, <c>geoBioRecords[7]</c>).</summary>
+    /// <summary>Origin in JSON (e.g. <c>fieldCatalogEntries[3]</c>).</summary>
     public string SourceLabel { get; }
 
     public string? Station { get; }
 
-    /// <summary>Free-form Cave AI analysis text (full, untruncated for the GEO &amp; BIO panel).</summary>
     public string? CaveAiAnalysisText { get; }
 
-    /// <summary>Path / URI references — resolve through <see cref="Services.MapAssetOpener.TryEnsureLocalFilePath"/>.</summary>
     public IReadOnlyList<string> ImageReferences { get; }
 
-    /// <summary>Compact rendering of the JSON object's other fields (used as fallback caption).</summary>
     public string DetailsSummary { get; }
 
     public string? CoordinatesSummary { get; }
+
+    /// <summary>Android field-catalog row type when sourced from <c>fieldCatalogEntries</c>.</summary>
+    public FieldCatalogEntryKind? FieldKind { get; init; }
+
+    public string? ScientificName { get; init; }
+
+    /// <summary>Taxonomic or thematic group (e.g. Arachnida, Chiroptera, mineral crust).</summary>
+    public string? TaxonomicGroup { get; init; }
+
+    public string? Abundance { get; init; }
+
+    public string? LifeStage { get; init; }
+
+    public string? Microhabitat { get; init; }
+
+    public string? LocationDetail { get; init; }
+
+    public string? BehaviorNotes { get; init; }
+
+    public string? IdConfidence { get; init; }
+
+    public string? Substrate { get; init; }
+
+    public string? ShortNote { get; init; }
+
+    public string? RecordedAt { get; init; }
+
+    public string? EntryId { get; init; }
+
+    public bool IsFieldCatalogEntry => SourceLabel.StartsWith("fieldCatalogEntries", StringComparison.Ordinal);
 }
 
 /// <summary>High-level type used to split records across the Geology / Biology UI tabs.</summary>

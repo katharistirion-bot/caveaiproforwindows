@@ -77,7 +77,7 @@ public static class TraverseQcStats
         {
             var ratio = sumH / sumTape;
             sb.AppendLine(
-                $"Plan projection ratio (Σ distance·cos(clino) / Σ tape): {ratio.ToString("0.###", inv)}  (→1 if flat legs, lower if steep).");
+                $"Plan projection ratio (sum distance·cos(clino) / sum tape): {ratio.ToString("0.###", inv)}  (→1 if flat legs, lower if steep).");
         }
 
         AppendGraphQc(sb, trav, inv);

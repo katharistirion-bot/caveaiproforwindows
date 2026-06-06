@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.ViewModels;
 
@@ -75,9 +74,9 @@ public partial class AiAnalyticsView : UserControl
         return (ModelListBox?.SelectedItem as ListBoxItem)?.Tag as string;
     }
 
-    private void ResultsDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private void ResultsDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ResultsDataGrid?.SelectedItem is AiAnalyticsMetricRow row)
-            _viewModel?.JumpToStationFromRow(row);
+            _viewModel?.SelectStationFromRow(row);
     }
 }

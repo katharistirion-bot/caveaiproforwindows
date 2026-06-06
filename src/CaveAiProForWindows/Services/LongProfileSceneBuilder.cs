@@ -74,6 +74,8 @@ public static class LongProfileSceneBuilder
             Symbols = Array.Empty<SurveyStationGeometry.PlanMapSymbol>(),
             StationAttachedImages = Array.Empty<StationAttachedImageRef>(),
             SplaySegments = Array.Empty<(float, float, float, float)>(),
+            FieldCatalogPins = FieldCatalogMapPinCollector.Collect(p),
+            LoopClosingLegs = SurveyLoopClosureHighlighter.Detect(p),
         };
     }
 }

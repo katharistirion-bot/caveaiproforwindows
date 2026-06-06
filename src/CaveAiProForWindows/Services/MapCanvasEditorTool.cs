@@ -14,4 +14,7 @@ public enum MapCanvasEditorTool
 
     /// <summary>Left-click to drop a simple cave-symbol marker.</summary>
     PlaceSymbol,
+
+    /// <summary>Click or drag to erase user ink (stroke-level hit testing).</summary>
+    Erase,
 }

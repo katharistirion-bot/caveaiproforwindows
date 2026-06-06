@@ -18,7 +18,12 @@
                        Margin="0,4,0,0"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource Cave.TextMuted}"
-                       Text="Cave AI analyses, rock textures, and organism observations bundled by Android — fully offline." />
+                       Text="Cave AI analyses, rock textures, organisms, bacteria, plants, and per-cave field catalog — fully offline from Android backup JSON." />
+            <TextBlock x:Name="CatalogSummaryText"
+                       FontSize="11.5"
+                       Margin="0,6,0,0"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource Cave.TextSubdued}" />
         </StackPanel>
 
         <TabControl Grid.Row="1" Margin="0,10,0,0"
@@ -137,6 +142,14 @@
                                                                FontSize="11"
                                                                VerticalAlignment="Center" />
                                                 </WrapPanel>
+
+                                                <TextBlock Text="{Binding StructuredFacts}"
+                                                           Margin="0,0,0,8"
+                                                           FontSize="12"
+                                                           LineHeight="18"
+                                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding StructuredFactsVisibility}" />
 
                                                 <ScrollViewer MaxHeight="280"
                                                               VerticalScrollBarVisibility="Auto"
@@ -267,6 +280,14 @@
                                                                VerticalAlignment="Center" />
                                                 </WrapPanel>
 
+                                                <TextBlock Text="{Binding StructuredFacts}"
+                                                           Margin="0,0,0,8"
+                                                           FontSize="12"
+                                                           LineHeight="18"
+                                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding StructuredFactsVisibility}" />
+
                                                 <ScrollViewer MaxHeight="280"
                                                               VerticalScrollBarVisibility="Auto"
                                                               Visibility="{Binding AnalysisVisibility}">
@@ -303,6 +324,70 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
+            </TabItem>
+
+            <TabItem x:Name="CatalogTableTab" Header="CATALOG TABLE">
+                <Grid Margin="0,4,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="Filter kind:" VerticalAlignment="Center" Margin="0,0,8,0"
+                                   Foreground="{DynamicResource Cave.TextMuted}" />
+                        <ComboBox x:Name="CatalogKindFilterCombo" MinWidth="200"
+                                  SelectionChanged="CatalogKindFilterCombo_SelectionChanged" />
+                    </StackPanel>
+
+                    <DataGrid x:Name="CatalogDataGrid"
+                              Grid.Row="1"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="True"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              RowBackground="{DynamicResource Cave.DataGridRow}"
+                              AlternatingRowBackground="{DynamicResource Cave.DataGridRowAlt}"
+                              Background="{DynamicResource Cave.Surface}"
+                              BorderBrush="{DynamicResource Cave.Border}"
+                              Foreground="{DynamicResource Cave.Text}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" />
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="140" />
+                            <DataGridTextColumn Header="Scientific name" Binding="{Binding ScientificName}" Width="150" />
+                            <DataGridTextColumn Header="Group / category" Binding="{Binding TaxonomicGroup}" Width="120" />
+                            <DataGridTextColumn Header="Station" Binding="{Binding Station}" Width="70" />
+                            <DataGridTextColumn Header="Abundance" Binding="{Binding Abundance}" Width="80" />
+                            <DataGridTextColumn Header="Life stage" Binding="{Binding LifeStage}" Width="80" />
+                            <DataGridTextColumn Header="Microhabitat" Binding="{Binding Microhabitat}" Width="110" />
+                            <DataGridTextColumn Header="Substrate" Binding="{Binding Substrate}" Width="90" />
+                            <DataGridTextColumn Header="ID conf." Binding="{Binding IdConfidence}" Width="70" />
+                            <DataGridTextColumn Header="Analysis" Binding="{Binding AnalysisPreview}" Width="2*" />
+                            <DataGridTextColumn Header="Photo" Binding="{Binding HasPhoto}" Width="48" />
+                            <DataGridTextColumn Header="Recorded" Binding="{Binding RecordedAt}" Width="120" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border x:Name="CatalogEmptyBorder"
+                            Grid.Row="1"
+                            Padding="12"
+                            CornerRadius="6"
+                            Background="{DynamicResource Cave.BannerTint}"
+                            BorderBrush="{DynamicResource Cave.Border}"
+                            BorderThickness="1"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="CatalogEmptyText"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Cave.TextMuted}" />
+                    </Border>
+                </Grid>
             </TabItem>
         </TabControl>
     </Grid>
