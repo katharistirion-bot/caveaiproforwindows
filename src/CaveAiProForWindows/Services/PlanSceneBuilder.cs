@@ -49,7 +49,13 @@ public static class PlanSceneBuilder
                 wallPolys = new[] { ribbon }.Concat(wallPolys).ToList();
         }
 
-        var symbols = SurveyStationGeometry.ParsePlanMapSymbols(p);
+        var symbols = SurveyStationGeometry.ParsePlanMapSymbols(p).ToList();
+        if (visualization == SurveyVisualizationMode.Standard)
+        {
+            symbols.AddRange(
+                CaveAiProForWindows.Services.Visualization.CaveMappingSymbolPlacer.BuildAutoPlanSymbols(
+                    p, coords, p.Shots));
+        }
 
         var splaySegs = new List<(float x1, float y1, float x2, float y2)>();
         if (visualization == SurveyVisualizationMode.Plan2Tone)
@@ -166,6 +172,7 @@ public static class PlanSceneBuilder
             SplaySegments = splaySegs,
             FieldCatalogPins = FieldCatalogMapPinCollector.Collect(p),
             LoopClosingLegs = SurveyLoopClosureHighlighter.Detect(p),
+            LrudQcHighlights = LrudRibbonQcScanner.Scan(p, coords, wallPolys, minX, maxX, minY, maxY),
         };
     }
 

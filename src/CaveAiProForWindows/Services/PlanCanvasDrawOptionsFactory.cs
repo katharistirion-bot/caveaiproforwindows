@@ -1,4 +1,5 @@
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.Visualization;
 
 namespace CaveAiProForWindows.Services;
 
@@ -25,7 +26,10 @@ public static class PlanCanvasDrawOptionsFactory
                 tab.StationEnvironment,
                 tab.DepthSpanAnnotations,
                 tab.BracketMarkers,
-                tab.LoopClosureHighlights);
+                tab.LoopClosureHighlights,
+                tab.LrudRibbonQcHighlights,
+                tab.ShowCoordinateGrid,
+                showWallHatching: tab.ShowWallHatching);
         }
 
         return PlanCanvasDrawOptions.ForPlan(
@@ -39,17 +43,47 @@ public static class PlanCanvasDrawOptionsFactory
             tab.StationEnvironment,
             tab.DepthSpanAnnotations,
             tab.BracketMarkers,
-            tab.LoopClosureHighlights);
+            tab.LoopClosureHighlights,
+            tab.LrudRibbonQcHighlights,
+            tab.ShowCoordinateGrid,
+            showWallHatching: tab.ShowWallHatching);
     }
 
     /// <summary>Full survey labels for SVG/PNG/office parity with on-screen Full density.</summary>
     public static PlanCanvasDrawOptions ForExport(
         SurveyCanvasKind kind,
-        SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard) =>
-        SurveyDetailDensityMapper.ToDrawOptions(
+        SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard)
+    {
+        var opt = SurveyDetailDensityMapper.ToDrawOptions(
             SurveyDetailDensity.Full,
             kind,
             visualization,
             CartographicIntensity.Rich,
             overlay: true);
+        return opt with { ShowCartographyOverlay = true };
+    }
+
+    /// <summary>Print-quality export preset: clean print visual mode, full labels, scale bar, north arrow.</summary>
+    public static PlanCanvasDrawOptions ForExportPrint(
+        SurveyCanvasKind kind,
+        SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard,
+        CaveProjectDocument? project = null)
+    {
+        var opt = ForExport(kind, visualization) with
+        {
+            RenderPreset = CartographicRenderPreset.Print,
+            ShowWallHatching = true,
+        };
+        if (project != null)
+        {
+            opt = opt with
+            {
+                ExportMetadata = CaveMappingExportMetadata.FromProject(
+                    project,
+                    canvasKind: kind),
+            };
+        }
+
+        return opt;
+    }
 }

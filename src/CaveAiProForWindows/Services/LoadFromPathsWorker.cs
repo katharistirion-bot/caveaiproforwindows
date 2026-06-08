@@ -108,6 +108,8 @@ public static class LoadFromPathsWorker
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        SurveySiteTypeResolver.EnrichProjectsFromLibrary(merged, libraryAccumulator);
+
         var orderedPaths = loadedPaths;
         string? zipPath = orderedPaths.Count == 1 &&
                           string.Equals(Path.GetExtension(orderedPaths[0]), ".zip", StringComparison.OrdinalIgnoreCase)

@@ -13,6 +13,12 @@ public sealed record SurveyMapLabelLayoutResult(
 /// <summary>Screen-space thinning so dense traverses (many short legs) stay readable at fit zoom.</summary>
 public static class SurveyMapLabelLayout
 {
+    /// <summary>Below this px/m, leg chips and environment pills are hidden (on-screen LOD only).</summary>
+    public const double LegEnvironmentLodThresholdPxPerMetre = 8.0;
+
+    /// <summary>Below this px/m, station Z labels are reduced to traverse ends only.</summary>
+    public const double StationZLodThresholdPxPerMetre = 4.0;
+
     private const double LegChipWidthPx = 76;
     private const double LegChipHeightPx = 54;
     private const double NameChipWidthPx = 58;
@@ -34,24 +40,31 @@ public static class SurveyMapLabelLayout
         var ordered = OrderStations(project, scene);
         var occupancy = new List<Rect>();
 
+        var showLegs = opt.ShowLegSurveyDetails && pxPerMetre >= LegEnvironmentLodThresholdPxPerMetre;
+        var showEnv = opt.ShowStationEnvironment && pxPerMetre >= LegEnvironmentLodThresholdPxPerMetre;
+        var showStationZ = opt.ShowStationZDepth;
+        var stationZSource = ordered;
+        if (showStationZ && pxPerMetre < StationZLodThresholdPxPerMetre && ordered.Count > 2)
+            stationZSource = new[] { ordered[0], ordered[^1] };
+
         var stationNames = opt.ShowStationNames
             ? FilterStationNames(ordered, toScreen, pxPerMetre, occupancy)
             : Array.Empty<SurveyStationGeometry.StationPlanCoords>();
 
-        var stationZ = opt.ShowStationZDepth
-            ? FilterStationZ(ordered, toScreen, pxPerMetre, occupancy, opt.ShowStationNames)
+        var stationZ = showStationZ
+            ? FilterStationZ(stationZSource, toScreen, pxPerMetre, occupancy, opt.ShowStationNames)
             : Array.Empty<SurveyStationGeometry.StationPlanCoords>();
 
-        var legs = opt.ShowLegSurveyDetails
+        var legs = showLegs
             ? FilterLegLabels(annotations.LegLabels, toScreen, pxPerMetre, occupancy)
             : Array.Empty<SurveyLegMapLabel>();
 
-        var env = opt.ShowStationEnvironment
+        var env = showEnv
             ? FilterStationEnvironment(
                 annotations.StationEnvironment,
                 toScreen,
                 opt.ShowStationNames,
-                opt.ShowStationZDepth,
+                showStationZ,
                 occupancy)
             : Array.Empty<SurveyStationEnvMapLabel>();
 

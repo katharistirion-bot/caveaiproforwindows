@@ -6,47 +6,305 @@
   <style>
     body { font-family: Segoe UI, sans-serif; margin: 2rem; color: #1a1a1a; }
     button { padding: 0.6rem 1.2rem; font-size: 1rem; cursor: pointer; }
-    .hint { color: #555; margin-top: 1rem; max-width: 36rem; line-height: 1.5; }
+    .hint { color: #555; margin-top: 1rem; max-width: 40rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .error { color: #b00020; }
   </style>
+  <script>
+    (function () {
+      var MISSING = 'Firebase config not injected — set CAVEAIPRO_FIREBASE_API_KEY for the desktop build.';
+
+      function readConfig() {
+        var cfg = window.__CAVEAI_FIREBASE_CONFIG__;
+        return (cfg && cfg.apiKey) ? cfg : null;
+      }
+
+      window.caveAiWaitForFirebaseConfig = function (timeoutMs) {
+        timeoutMs = timeoutMs || 8000;
+        return new Promise(function (resolve, reject) {
+          var existing = readConfig();
+          if (existing) return resolve(existing);
+
+          var timer = setTimeout(function () {
+            window.removeEventListener('caveai-firebase-config', onEvent);
+            reject(new Error(MISSING));
+          }, timeoutMs);
+
+          function onEvent() {
+            var cfg = readConfig();
+            if (!cfg) return;
+            clearTimeout(timer);
+            window.removeEventListener('caveai-firebase-config', onEvent);
+            resolve(cfg);
+          }
+
+          window.addEventListener('caveai-firebase-config', onEvent);
+          existing = readConfig();
+          if (existing) {
+            clearTimeout(timer);
+            window.removeEventListener('caveai-firebase-config', onEvent);
+            resolve(existing);
+          }
+        });
+      };
+    })();
+  </script>
 </head>
 <body>
   <h1>CAVE AI PRO — Desktop sign-in</h1>
-  <p class="hint">Use this fallback page when the main Cave Library auth endpoint is unavailable. After sign-in, your Firebase ID token is delivered securely to the desktop app via postMessage.</p>
-  <button id="signin" type="button">Sign in with Google</button>
-  <p id="status" class="hint"></p>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <p class="hint">Google sign-in uses redirect inside WebView2. After you pick an account and return here, your Firebase ID token is sent to the desktop app.</p>
+  <!-- CAVEAI_AUTH_FLOW: host-redirect-v2 — host navigates to Firebase handler; C# REST exchange on OAuth callback. Do NOT use signInWithRedirect here. -->
+  <button id="signin" type="button" disabled>Sign in with Google</button>
+  <p id="status" class="hint">Loading sign-in…</p>
   <script>
     (function () {
-      var cfg = window.__CAVEAI_FIREBASE_CONFIG__;
-      if (!cfg || !cfg.apiKey) {
-        document.getElementById('status').textContent = 'Firebase config not injected — set CAVEAIPRO_FIREBASE_API_KEY for the desktop build.';
-        return;
+      var FIREBASE_VERSION = '10.14.1';
+      var SDK_BASE = 'https://www.gstatic.com/firebasejs/' + FIREBASE_VERSION + '/';
+      var REDIRECT_RESULT_TIMEOUT_MS = 12000;
+      var CONFIG_TIMEOUT_MS = 8000;
+      var SDK_LOAD_TIMEOUT_MS = 15000;
+
+      var statusEl = document.getElementById('status');
+      var signInBtn = document.getElementById('signin');
+      var firebaseCfg = null;
+      var signInInFlight = false;
+      var initFinished = false;
+
+      function formatError(err) {
+        if (!err) return 'Unknown error';
+        if (typeof err === 'string') return err;
+        var parts = [];
+        if (err.code) parts.push(String(err.code));
+        if (err.message) parts.push(String(err.message));
+        return parts.length ? parts.join(': ') : String(err);
       }
-      firebase.initializeApp(cfg);
-      var auth = firebase.auth();
-      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+      function postHostConsole(level, message) {
+        postHostMessage({ type: 'caveai-auth-console', level: level, message: message });
+      }
+
+      function log() {
+        var msg = Array.prototype.slice.call(arguments).join(' ');
+        try { console.log.apply(console, arguments); } catch (e) {}
+        postHostConsole('log', msg);
+      }
+
+      function logError() {
+        var msg = Array.prototype.slice.call(arguments).join(' ');
+        try { console.error.apply(console, arguments); } catch (e) {}
+        postHostConsole('error', msg);
+      }
+
+      function setStatus(message, isError) {
+        statusEl.textContent = message || '';
+        statusEl.className = isError ? 'hint error' : 'hint';
+        if (isError) logError('[auth.html]', message);
+        else log('[auth.html]', message);
+      }
+
+      function postHostMessage(payload) {
+        try {
+          if (window.chrome && window.chrome.webview)
+            window.chrome.webview.postMessage(JSON.stringify(payload));
+        } catch (e) {
+          logError('postHostMessage failed', e);
+        }
+      }
+
+      function reportError(context, err) {
+        var msg = context + ': ' + formatError(err);
+        setStatus(msg, true);
+        postHostMessage({ type: 'caveai-auth-error', message: msg });
+        signInBtn.disabled = false;
+        signInInFlight = false;
+      }
+
+      function withTimeout(promise, ms, label) {
+        return Promise.race([
+          promise,
+          new Promise(function (_, reject) {
+            setTimeout(function () {
+              reject(new Error(label + ' timed out after ' + ms + 'ms'));
+            }, ms);
+          })
+        ]);
+      }
+
+      function loadScript(url) {
+        return new Promise(function (resolve, reject) {
+          var s = document.createElement('script');
+          s.src = url;
+          s.async = false;
+          s.onload = function () { resolve(url); };
+          s.onerror = function () {
+            reject(new Error('Failed to load script: ' + url));
+          };
+          document.head.appendChild(s);
+        });
+      }
+
+      function loadFirebaseSdk() {
+        if (typeof firebase !== 'undefined' && firebase.auth)
+          return Promise.resolve();
+        setStatus('Loading Firebase SDK…', false);
+        return loadScript(SDK_BASE + 'firebase-app-compat.js')
+          .then(function () { return loadScript(SDK_BASE + 'firebase-auth-compat.js'); })
+          .then(function () {
+            if (typeof firebase === 'undefined' || !firebase.auth)
+              throw new Error('Firebase SDK loaded but firebase.auth is missing');
+          });
+      }
 
       function deliver(token) {
         if (!token) return;
-        if (window.caveAiDesktopAuth && window.caveAiDesktopAuth.deliverToken) {
-          window.caveAiDesktopAuth.deliverToken(token);
+        window.__CAVEAI_DESKTOP_ID_TOKEN__ = token;
+        function tryDeliver() {
+          if (window.caveAiDesktopAuth && window.caveAiDesktopAuth.deliverToken) {
+            window.caveAiDesktopAuth.deliverToken(token);
+            return true;
+          }
+          return false;
+        }
+        if (!tryDeliver()) {
+          var n = 0;
+          var timer = setInterval(function () {
+            if (tryDeliver() || ++n > 48) clearInterval(timer);
+          }, 250);
         }
       }
 
-      auth.onAuthStateChanged(function (user) {
-        if (user) {
-          user.getIdToken().then(deliver);
-          document.getElementById('status').textContent = 'Signed in as ' + (user.email || user.uid);
-        }
-      });
+      function deliverUserToken(user) {
+        if (!user) return Promise.resolve();
+        return user.getIdToken()
+          .then(function (token) {
+            if (!token) throw new Error('getIdToken returned empty token');
+            deliver(token);
+            setStatus('Signed in as ' + (user.email || user.uid), false);
+          })
+          .catch(function (err) {
+            reportError('getIdToken', err);
+            return Promise.reject(err);
+          });
+      }
 
-      document.getElementById('signin').addEventListener('click', function () {
-        var provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider).catch(function (err) {
-          document.getElementById('status').textContent = err.message || String(err);
+      function buildGoogleRedirectUrl(cfg) {
+        var authDomain = cfg.authDomain || (cfg.projectId + '.firebaseapp.com');
+        var continueUrl = window.location.href.split('#')[0];
+        return 'https://' + authDomain + '/__/auth/handler'
+          + '?apiKey=' + encodeURIComponent(cfg.apiKey)
+          + '&appName=' + encodeURIComponent('[DEFAULT]')
+          + '&authType=signInViaRedirect'
+          + '&redirectUrl=' + encodeURIComponent(continueUrl)
+          + '&providerId=google.com'
+          + '&v=' + FIREBASE_VERSION;
+      }
+
+      function ensureFirebaseApp(cfg) {
+        if (firebase.apps && firebase.apps.length)
+          return firebase.app();
+        return firebase.initializeApp(cfg);
+      }
+
+      function finishReady(auth) {
+        if (initFinished) return;
+        initFinished = true;
+
+        if (auth.currentUser) {
+          deliverUserToken(auth.currentUser).catch(function (err) {
+            reportError('currentUser getIdToken', err);
+          });
+          return;
+        }
+
+        signInBtn.disabled = false;
+        var isError = statusEl.className.indexOf('error') >= 0;
+        var isSignedIn = (statusEl.textContent || '').indexOf('Signed in as') === 0;
+        if (!isError && !isSignedIn)
+          setStatus('Ready — sign in with Google.', false);
+      }
+
+      function wireSignIn(auth) {
+        signInBtn.addEventListener('click', function () {
+          if (signInInFlight) return;
+          signInInFlight = true;
+          signInBtn.disabled = true;
+          setStatus('Redirecting to Google…', false);
+          // host-redirect-v2: single path — host WebView navigates to Firebase handler; token captured in C# on OAuth callback.
+          postHostMessage({ type: 'caveai-auth-redirect-fallback', url: buildGoogleRedirectUrl(firebaseCfg) });
         });
-      });
+
+        auth.onAuthStateChanged(function (user) {
+          if (!user) return;
+          deliverUserToken(user).catch(function (err) {
+            reportError('onAuthStateChanged getIdToken', err);
+          });
+        });
+      }
+
+      function processRedirectResult(auth) {
+        setStatus('Checking redirect result…', false);
+        return withTimeout(
+          auth.getRedirectResult(),
+          REDIRECT_RESULT_TIMEOUT_MS,
+          'getRedirectResult'
+        )
+          .then(function (result) {
+            if (result && result.error)
+              throw result.error;
+            if (result && result.user) {
+              setStatus('Completing sign-in…', false);
+              return deliverUserToken(result.user);
+            }
+          })
+          .catch(function (err) {
+            var code = err && err.code ? String(err.code) : '';
+            var msg = formatError(err);
+            if (code === 'auth/no-auth-event') {
+              log('getRedirectResult: no pending redirect (first visit)');
+              return;
+            }
+            if (msg.indexOf('timed out') >= 0) {
+              reportError('getRedirectResult', err);
+              return;
+            }
+            reportError('getRedirectResult', err);
+          });
+      }
+
+      window.onerror = function (_msg, _src, _line, _col, err) {
+        reportError('window.onerror', err || _msg);
+        return false;
+      };
+
+      window.onunhandledrejection = function (ev) {
+        reportError('unhandledrejection', ev.reason || ev);
+      };
+
+      setStatus('Waiting for Firebase config…', false);
+
+      withTimeout(window.caveAiWaitForFirebaseConfig(CONFIG_TIMEOUT_MS), CONFIG_TIMEOUT_MS + 500, 'caveAiWaitForFirebaseConfig')
+        .then(function (cfg) {
+          firebaseCfg = cfg;
+          log('Firebase config ready', cfg.projectId, cfg.authDomain);
+          return withTimeout(loadFirebaseSdk(), SDK_LOAD_TIMEOUT_MS, 'loadFirebaseSdk');
+        })
+        .then(function () {
+          ensureFirebaseApp(firebaseCfg);
+          var auth = firebase.auth();
+          return auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+            .catch(function (err) {
+              logError('setPersistence failed (continuing)', formatError(err));
+            })
+            .then(function () {
+              wireSignIn(auth);
+              return processRedirectResult(auth);
+            })
+            .then(function () {
+              finishReady(auth);
+            });
+        })
+        .catch(function (err) {
+          reportError('init', err);
+        });
     })();
   </script>
 </body>

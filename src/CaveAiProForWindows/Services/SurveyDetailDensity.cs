@@ -32,6 +32,7 @@ public static class SurveyDetailDensityMapper
                 tab.DepthSpanAnnotations = false;
                 tab.BracketMarkers = false;
                 tab.LoopClosureHighlights = false;
+                tab.LrudRibbonQcHighlights = false;
                 break;
             case SurveyDetailDensity.Standard:
                 tab.StationNames = true;
@@ -41,6 +42,7 @@ public static class SurveyDetailDensityMapper
                 tab.DepthSpanAnnotations = true;
                 tab.BracketMarkers = false;
                 tab.LoopClosureHighlights = true;
+                tab.LrudRibbonQcHighlights = true;
                 break;
             default:
                 tab.StationNames = true;
@@ -50,6 +52,7 @@ public static class SurveyDetailDensityMapper
                 tab.DepthSpanAnnotations = true;
                 tab.BracketMarkers = true;
                 tab.LoopClosureHighlights = true;
+                tab.LrudRibbonQcHighlights = true;
                 break;
         }
     }

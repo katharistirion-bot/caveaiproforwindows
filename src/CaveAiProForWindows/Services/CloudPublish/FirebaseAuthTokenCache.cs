@@ -35,6 +35,7 @@ public sealed class FirebaseAuthTokenCache
             _current = token;
         }
 
+        FirebaseAuthTokenStore.TrySave(token);
         TokenUpdated?.Invoke(this, token);
     }
 
@@ -42,5 +43,7 @@ public sealed class FirebaseAuthTokenCache
     {
         lock (_gate)
             _current = null;
+
+        FirebaseAuthTokenStore.TryClear();
     }
 }

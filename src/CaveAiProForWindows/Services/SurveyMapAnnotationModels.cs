@@ -8,7 +8,8 @@ public sealed record SurveyLegMapLabel(
     float PerpOffsetY,
     string PrimaryLine,
     string? SecondaryLine,
-    string? LrudLine);
+    string? LrudLine,
+    string? ChainageLine = null);
 
 /// <summary>User-drawn depth span brace between two tap points (Android <c>DepthSpanAnnotation</c>).</summary>
 public sealed record SurveyDepthSpanMapLabel(

@@ -18,7 +18,15 @@ public sealed class CloudPublishMetadata
 {
     public required string PublishedCaveDocId { get; init; }
 
-    public string? CartographyImageUrl { get; init; }
+    /// <summary>HTTPS cartography image URLs for Android Public Library (<c>cartographyImageUrls</c>).</summary>
+    public IReadOnlyList<string>? CartographyImageUrls { get; init; }
+
+    [Obsolete("Use CartographyImageUrls — Android reads cartographyImageUrls (array).")]
+    public string? CartographyImageUrl
+    {
+        get => CartographyImageUrls is { Count: > 0 } urls ? urls[0] : null;
+        init => CartographyImageUrls = string.IsNullOrWhiteSpace(value) ? null : new[] { value };
+    }
 
     public string? StructureMaskUrl { get; init; }
 
@@ -34,4 +42,18 @@ public sealed class CloudPublishMetadata
     public string SourceClient { get; init; } = "windows";
 
     public long UpdatedAtUtcMs { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+}
+
+/// <summary>Subset of a Firestore <c>published_caves</c> document for library download.</summary>
+public sealed class PublishedCaveDocument
+{
+    public string DocumentId { get; init; } = "";
+
+    public string? CaveName { get; init; }
+
+    public string? SurveyJsonUrl { get; init; }
+
+    public string? SurveyJsonMediaUrl { get; init; }
+
+    public IReadOnlyList<string>? CartographyImageUrls { get; init; }
 }

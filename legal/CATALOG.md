@@ -4,7 +4,7 @@ This folder collects **legal texts** typically required or recommended for a des
 
 **Distribution:** Android app via **Google Play**; **CAVE AI PRO** desktop installer **separately**, for **PCs with Microsoft Windows** only — see [00-DISTRIBUTION-PLATFORMS.md](00-DISTRIBUTION-PLATFORMS.md).
 
-> **Important:** These files are **templates**. They must be reviewed by **legal counsel**; fill in publisher details (`[FILL IN]`), governing law, and version before public release or store listing.
+> **Publisher:** All documents name **Georgios Kourentzis** as publisher, copyright holder, and data controller. Review by **legal counsel** is still recommended before store listing or commercial distribution; postal/VAT details are available on request via caveaipro@gmail.com.
 
 ## Document index
 

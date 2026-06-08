@@ -1,13 +1,20 @@
 # 14. Contact — CAVE AI PRO
 
-Central reference for the other legal documents in the `legal/` folder.
+Central reference for legal, privacy, and trademark enquiries.
 
 ---
 
-## Contact
+## Publisher / Developer / Data controller
 
-**Georgios Kourentzis** — [caveaipro@gmail.com](mailto:caveaipro@gmail.com)
+**Georgios Kourentzis**
 
----
+- **Email:** [caveaipro@gmail.com](mailto:caveaipro@gmail.com)  
+- **Products:** CAVE AI PRO (Windows), CaveAI Pro (Android), Public Library (www.caveaipro.com)
 
-*For postal address, VAT/Tax ID, and other publisher details, see [09-IMPRESSUM-PUBLISHER.md](09-IMPRESSUM-PUBLISHER.md) when completed.*
+## Intellectual property
+
+Copyright and trademarks are held by **Georgios Kourentzis**. See [12-TRADEMARKS.md](12-TRADEMARKS.md) and [09-IMPRESSUM-PUBLISHER.md](09-IMPRESSUM-PUBLISHER.md).
+
+## Postal address
+
+Available upon request at the email above for GDPR data-subject requests and formal legal correspondence.

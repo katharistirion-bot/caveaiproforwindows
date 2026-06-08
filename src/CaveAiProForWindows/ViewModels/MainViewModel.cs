@@ -15,6 +15,9 @@ using CommunityToolkit.Mvvm.Input;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.GenerativeMap;
+using CaveAiProForWindows.Services.Legal;
+using CaveAiProForWindows.Services.Localization;
 using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.Views;
 using Wpf = System.Windows;
@@ -24,6 +27,9 @@ namespace CaveAiProForWindows.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private string _windowTitle = "CAVE AI PRO — Survey workstation";
+
+    /// <summary>Toolbar subtitle with assembly version (e.g. Survey workstation · v1.2.1).</summary>
+    public string ToolbarVersionText { get; } = $"Survey workstation · v{AppMetadata.InformationalVersion}";
 
     [ObservableProperty] private string _sourcePathDisplay = "";
 
@@ -85,6 +91,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private double _cloudPublishProgressValue;
 
     [ObservableProperty] private string _cloudPublishStatusMessage = "";
+
+    [ObservableProperty] private bool _androidSyncBannerVisible;
+
+    [ObservableProperty] private string _androidSyncBannerMessage = "";
+
+    [ObservableProperty] private int _collaborationUnreadCount;
 
     /// <summary>Full JSON scan of <c>data.json</c> (per project: shots/photos/audio, rocks, catalog, vectorLines, keys).</summary>
     [ObservableProperty] private string _backupDataAnalyticsText = "";
@@ -175,6 +187,12 @@ public partial class MainViewModel : ObservableObject
     partial void OnLegalTermsAcceptedChanged(bool value)
     {
         LegalTermsAcceptanceStore.Save(value);
+        if (value)
+        {
+            App.WriteStartupLog(
+                $"Legal terms accepted (document v{LegalTexts.DocumentVersion}, UTC {DateTime.UtcNow:O})");
+        }
+
         NotifyLegalGateCommands();
     }
 
@@ -466,6 +484,20 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenDiagnosticFolder()
+    {
+        if (DiagnosticLogPaths.TryOpenFolder())
+            return;
+
+        Wpf.MessageBox.Show(
+            Wpf.Application.Current.MainWindow,
+            "Could not open the diagnostic folder.\r\n\r\n" + DiagnosticLogPaths.AppDataDirectory,
+            "CAVE AI PRO",
+            Wpf.MessageBoxButton.OK,
+            Wpf.MessageBoxImage.Warning);
+    }
+
+    [RelayCommand]
     private void OpenPublicLibraryCatalog()
     {
         try
@@ -621,8 +653,114 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenRecent(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        if (RecentPathFileOps.IsDirectory(path))
+        {
+            SnackbarService.RevealInExplorer(path);
+            return;
+        }
+
+        if (!File.Exists(path))
+            return;
         LoadFromPath(path);
+    }
+
+    [RelayCommand]
+    private void RemoveRecent(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        RecentPathsStore.Remove(path);
+        RefreshRecentUi();
+    }
+
+    [RelayCommand]
+    private void RevealRecentPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !RecentPathFileOps.Exists(path))
+            return;
+        SnackbarService.RevealInExplorer(path);
+    }
+
+    [RelayCommand]
+    private void RenameRecentPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        if (!RecentPathFileOps.Exists(path))
+        {
+            Wpf.MessageBox.Show(
+                GetOwnerWindow?.Invoke(),
+                "This path no longer exists — removing it from the list.",
+                "Recent files",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
+            RecentPathsStore.Remove(path);
+            RefreshRecentUi();
+            return;
+        }
+
+        if (!RecentPathRenameWindow.TryPrompt(GetOwnerWindow?.Invoke(), path, out var newPath) ||
+            string.IsNullOrWhiteSpace(newPath))
+            return;
+
+        RecentPathsStore.ReplacePath(path, newPath);
+        ApplyRecentPathSessionUpdate(path, newPath);
+        RefreshRecentUi();
+        SnackbarService.Show($"Renamed to {Path.GetFileName(newPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))}");
+    }
+
+    [RelayCommand]
+    private void DeleteRecentPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        if (!RecentPathFileOps.Exists(path))
+        {
+            RecentPathsStore.Remove(path);
+            RefreshRecentUi();
+            return;
+        }
+
+        var isDir = RecentPathFileOps.IsDirectory(path);
+        var message = isDir
+            ? $"Delete this folder and everything inside it?\n\n{path}"
+            : $"Delete this file permanently?\n\n{path}";
+        var owner = GetOwnerWindow?.Invoke();
+        if (Wpf.MessageBox.Show(owner, message, isDir ? "Delete folder" : "Delete file",
+                Wpf.MessageBoxButton.YesNo, Wpf.MessageBoxImage.Warning) != Wpf.MessageBoxResult.Yes)
+            return;
+
+        if (!RecentPathFileOps.TryDelete(path, out var error))
+        {
+            Wpf.MessageBox.Show(owner, error ?? "Delete failed.", "Delete", Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Error);
+            return;
+        }
+
+        RecentPathsStore.Remove(path);
+        if (string.Equals(_primarySourcePath, path, StringComparison.OrdinalIgnoreCase))
+            CloseWorkspace();
+        RefreshRecentUi();
+        SnackbarService.Show(isDir ? "Folder deleted." : "File deleted.");
+    }
+
+    private void ApplyRecentPathSessionUpdate(string oldPath, string newPath)
+    {
+        if (!string.Equals(_primarySourcePath, oldPath, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _primarySourcePath = newPath;
+        if (_zipPath != null && string.Equals(_zipPath, oldPath, StringComparison.OrdinalIgnoreCase))
+            _zipPath = newPath;
+        if (_auxiliaryZipForMaps != null &&
+            string.Equals(_auxiliaryZipForMaps, oldPath, StringComparison.OrdinalIgnoreCase))
+            _auxiliaryZipForMaps = newPath;
+
+        SourcePathDisplay = newPath;
+        WindowTitle = $"CAVE AI PRO — {Path.GetFileName(newPath)}";
+        RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
+        SaveProjectCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Opens a path from drag-and-drop or automation; only .json / .zip are accepted.</summary>
@@ -723,6 +861,10 @@ public partial class MainViewModel : ObservableObject
 
             _sourceFileCount = orderedPaths.Count;
             _primarySourcePath = orderedPaths.Count > 0 ? orderedPaths[0] : null;
+            if (_primarySourcePath != null &&
+                _primarySourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(_primarySourcePath))
+                _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(_primarySourcePath);
             _zipPath = work.IntegrityZipPath;
             _auxiliaryZipForMaps = work.AuxiliaryZipForMaps;
             OnPropertyChanged(nameof(ActiveZipPath));
@@ -1035,12 +1177,14 @@ public partial class MainViewModel : ObservableObject
         SelectedProject != null &&
         HasSourceOnDisk() &&
         _sourceFileCount == 1 &&
+        AiRenderSaveService.CanAutoSaveBesideSource(_primarySourcePath) &&
         (Path.GetExtension(_primarySourcePath!).Equals(".json", StringComparison.OrdinalIgnoreCase) ||
          Path.GetExtension(_primarySourcePath!).Equals(".zip", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// After a successful AI render, writes PNG assets + metadata and auto-saves the open .json/.zip
-    /// (only when a single source file is loaded).
+    /// (only when a single source file is loaded). Prompts for export when the source is read-only
+    /// or in a Windows cache folder (e.g. INetCache).
     /// </summary>
     public bool TryAutoPersistGenerativeRender(
         CaveProjectDocument project,
@@ -1057,22 +1201,35 @@ public partial class MainViewModel : ObservableObject
             !ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
             return false;
 
+        var saveRequest = new AiRenderSaveService.SaveAfterRenderRequest
+        {
+            Project = project,
+            PrimarySourcePath = _primarySourcePath,
+            AllProjectsInSource = Projects.ToList(),
+            AiMapPng = aiMapPng,
+            StructureMaskPng = structureMaskPng,
+            BeforeSerialize = p =>
+            {
+                if (ReferenceEquals(p, project))
+                    PersistProjectBeforeSave?.Invoke(p);
+            },
+        };
+
         try
         {
-            GenerativeAssetPersistenceService.TryPersistAfterRender(
-                project,
-                _primarySourcePath,
-                Projects.ToList(),
-                aiMapPng,
-                structureMaskPng,
-                beforeSerialize: p =>
-                {
-                    if (ReferenceEquals(p, project))
-                        PersistProjectBeforeSave?.Invoke(p);
-                });
+            if (AiRenderSaveService.CanAutoSaveBesideSource(_primarySourcePath))
+            {
+                if (!AiRenderSaveService.TryAutoSaveAfterRender(saveRequest))
+                    return false;
 
-            StatusMessage =
-                $"AI render saved — map + structure mask written to {Path.GetFileName(_primarySourcePath)}.";
+                StatusMessage =
+                    $"AI render saved — map + structure mask written to {Path.GetFileName(_primarySourcePath)}.";
+                return true;
+            }
+
+            if (!PromptExportGenerativeRender(saveRequest))
+                return false;
+
             return true;
         }
         catch (Exception ex)
@@ -1083,6 +1240,51 @@ public partial class MainViewModel : ObservableObject
                 "Save AI render");
             return false;
         }
+    }
+
+    private bool PromptExportGenerativeRender(AiRenderSaveService.SaveAfterRenderRequest request)
+    {
+        var ext = Path.GetExtension(request.PrimarySourcePath);
+        var filter = ext.Equals(".json", StringComparison.OrdinalIgnoreCase)
+            ? "CaveAI JSON|*.json"
+            : "CaveAI ZIP backup|*.zip";
+
+        var dlg = new SaveFileDialog
+        {
+            Title = "Save AI render — choose export location",
+            Filter = filter,
+            FileName = AiRenderSaveService.SuggestExportFileName(request.Project, request.PrimarySourcePath),
+            InitialDirectory = AiRenderSavePathPolicy.GetDefaultExportInitialDirectory(),
+        };
+
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+        {
+            StatusMessage =
+                "AI render kept in this session — export cancelled (source file is in a read-only or Windows cache folder).";
+            return false;
+        }
+
+        AiRenderSaveService.TryExportAfterRender(new AiRenderSaveService.ExportAfterRenderRequest
+        {
+            Project = request.Project,
+            PrimarySourcePath = request.PrimarySourcePath,
+            AllProjectsInSource = request.AllProjectsInSource,
+            AiMapPng = request.AiMapPng,
+            StructureMaskPng = request.StructureMaskPng,
+            BeforeSerialize = request.BeforeSerialize,
+            DestinationPath = dlg.FileName,
+        });
+
+        RecentPathsStore.Push(dlg.FileName);
+        StatusMessage =
+            $"AI render exported — map + structure mask saved to {dlg.FileName}";
+        Wpf.MessageBox.Show(
+            Wpf.Application.Current.MainWindow,
+            $"AI render and survey metadata saved to:\n{dlg.FileName}",
+            "Save AI render",
+            Wpf.MessageBoxButton.OK,
+            Wpf.MessageBoxImage.Information);
+        return true;
     }
 
     [RelayCommand(CanExecute = nameof(CanSaveProject))]
@@ -1452,6 +1654,243 @@ public partial class MainViewModel : ObservableObject
         new CompareBackupsWindow { Owner = owner }.ShowDialog();
     }
 
+    [RelayCommand(CanExecute = nameof(LegalTermsGateOpen))]
+    private void CompareSurveys()
+    {
+        var owner = Wpf.Application.Current.MainWindow;
+        new SurveyCompareWindow { Owner = owner }.ShowDialog();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShowLoopClosureAssistant))]
+    private void ShowLoopClosureAssistant()
+    {
+        if (SelectedProject == null)
+            return;
+        var owner = Wpf.Application.Current.MainWindow;
+        new LoopClosureAssistantWindow(SelectedProject) { Owner = owner }.ShowDialog();
+    }
+
+    private bool CanShowLoopClosureAssistant() => LegalTermsGateOpen() && SelectedProject != null;
+
+    [RelayCommand(CanExecute = nameof(CanRepublishToCloud))]
+    private async Task RepublishToCloudAsync() =>
+        await RunCloudPublishForProjectsAsync(new[] { SelectedProject! }, requireLinkedId: true).ConfigureAwait(true);
+
+    [RelayCommand(CanExecute = nameof(CanRepublishBatch))]
+    private async Task RepublishAllWithAiAsync()
+    {
+        var targets = Projects.Where(HasRepublishableAiAssets).ToList();
+        await RunCloudPublishForProjectsAsync(targets, requireLinkedId: true).ConfigureAwait(true);
+    }
+
+    private bool CanRepublishToCloud() =>
+        LegalTermsGateOpen() && SelectedProject != null && !IsCloudPublishing &&
+        !string.IsNullOrWhiteSpace(LinkedLibraryCaveIdResolver.TryGet(SelectedProject)) &&
+        HasRepublishableAiAssets(SelectedProject);
+
+    private bool CanRepublishBatch() =>
+        LegalTermsGateOpen() && !IsCloudPublishing && Projects.Any(HasRepublishableAiAssets);
+
+    private static bool HasRepublishableAiAssets(CaveProjectDocument? p)
+    {
+        if (p == null)
+            return false;
+        if (GenerativeMapSessionCache.TryGet(p)?.PngBytes is { Length: > 0 })
+            return true;
+        return !string.IsNullOrWhiteSpace(ProjectAiAssetPersistence.TryReadAiMapRelativePath(p));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanBatchAiRender))]
+    private async Task BatchAiRenderAsync()
+    {
+        if (_batchAiCts != null)
+            return;
+
+        if (!GenerativeAiAccessGate.EnsureConfigured(Wpf.Application.Current.MainWindow, out var gateErr))
+        {
+            StatusMessage = gateErr ?? "Cloud AI access required.";
+            return;
+        }
+
+        var eligible = Projects.Where(p => BatchAiRenderService.TryBuildStructureMask(p) is { Length: > 0 }).ToList();
+        if (eligible.Count == 0)
+        {
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                "No loaded projects have traverse data for a structure mask.",
+                "Batch AI render",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
+            return;
+        }
+
+        var settings = AppUiSettingsStore.LoadOrDefault().GenerativeMap;
+        _batchAiCts = new CancellationTokenSource();
+        var ct = _batchAiCts.Token;
+        try
+        {
+            IsCloudPublishing = true;
+            ShowCloudPublishProgress = true;
+            CloudPublishIndeterminate = false;
+            CloudPublishProgressValue = 0;
+
+            var service = new BatchAiRenderService();
+            var progress = new Progress<(int Index, int Total, string Message)>(u =>
+            {
+                CloudPublishStatusMessage = u.Message;
+                CloudPublishProgressValue = u.Total > 0 ? 100.0 * u.Index / u.Total : 0;
+                StatusMessage = u.Message;
+            });
+
+            var results = await service.RenderAllAsync(
+                eligible,
+                settings.DefaultPrompt,
+                GenerativeMapPromptPresets.TryGet(settings.SelectedPromptPresetId)?.NegativePrompt ?? "",
+                settings.GuidanceScale,
+                progress,
+                (project, ai, mask) =>
+                {
+                    TryAutoPersistGenerativeRender(project, ai, mask);
+                    return true;
+                },
+                ct).ConfigureAwait(true);
+
+            var ok = results.Count(r => r.Success);
+            var fail = results.Count - ok;
+            StatusMessage = fail == 0
+                ? $"Batch AI render complete — {ok} project(s)."
+                : $"Batch AI render — {ok} OK, {fail} failed.";
+            SnackbarService.Show(Wpf.Application.Current.MainWindow, StatusMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Batch AI render cancelled.";
+        }
+        finally
+        {
+            _batchAiCts?.Dispose();
+            _batchAiCts = null;
+            IsCloudPublishing = false;
+            ShowCloudPublishProgress = false;
+            RepublishToCloudCommand.NotifyCanExecuteChanged();
+            RepublishAllWithAiCommand.NotifyCanExecuteChanged();
+            BatchAiRenderCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private CancellationTokenSource? _batchAiCts;
+
+    private bool CanBatchAiRender() =>
+        LegalTermsGateOpen() && !IsCloudPublishing && Projects.Count > 0;
+
+    [RelayCommand(CanExecute = nameof(LegalTermsGateOpen))]
+    private async Task DownloadPublicLibraryBackupAsync()
+    {
+        var owner = Wpf.Application.Current.MainWindow;
+        if (!LibraryCavePickerWindow.TryPick(owner, out var docId) || string.IsNullOrWhiteSpace(docId))
+            return;
+
+        var dlg = new SaveFileDialog
+        {
+            Title = "Download Public Library backup",
+            Filter = "CaveAI ZIP|*.zip|JSON|*.json",
+            FileName = docId + ".zip",
+            DefaultExt = ".zip",
+        };
+        if (dlg.ShowDialog(owner) != true)
+            return;
+
+        try
+        {
+            IsCloudPublishing = true;
+            ShowCloudPublishProgress = true;
+            CloudPublishIndeterminate = true;
+            CloudPublishStatusMessage = "Downloading from Public Library…";
+            var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+            var progress = new Progress<string>(m =>
+            {
+                CloudPublishStatusMessage = m;
+                StatusMessage = m;
+            });
+            var result = await PublicLibraryBackupDownloader.DownloadAsync(
+                docId,
+                dlg.FileName,
+                token,
+                progress).ConfigureAwait(true);
+            StatusMessage = $"Downloaded {result.CaveName ?? docId} — {result.AssetCount} asset(s).";
+            SnackbarService.Show(owner, StatusMessage);
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(owner, ex.Message, "Download failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsCloudPublishing = false;
+            ShowCloudPublishProgress = false;
+        }
+    }
+
+    private async Task RunCloudPublishForProjectsAsync(
+        IReadOnlyList<CaveProjectDocument> targets,
+        bool requireLinkedId)
+    {
+        if (_cloudPublishCts != null || targets.Count == 0)
+            return;
+
+        _cloudPublishCts = new CancellationTokenSource();
+        var ct = _cloudPublishCts.Token;
+        try
+        {
+            IsCloudPublishing = true;
+            ShowCloudPublishProgress = true;
+            CloudPublishIndeterminate = true;
+            CloudPublishStatusMessage = "Re-publishing…";
+
+            foreach (var project in targets)
+            {
+                if (requireLinkedId && string.IsNullOrWhiteSpace(LinkedLibraryCaveIdResolver.TryGet(project)))
+                    continue;
+
+                var previous = SelectedProject;
+                SelectedProject = project;
+                var progress = new Progress<CloudPublishProgressUpdate>(u =>
+                {
+                    CloudPublishStatusMessage = u.Message;
+                    StatusMessage = u.Message;
+                });
+
+                await CloudPublishWorkflow.RunAsync(new CloudPublishWorkflow.Request
+                {
+                    GetProject = () => project,
+                    GetLegalTermsAccepted = () => LegalTermsAccepted,
+                    CaptureArtifacts = () => CloudPublishArtifactCollector.Collect(
+                        project,
+                        () => CaptureCloudPublishArtifacts?.Invoke(),
+                        PersistProjectBeforeSave),
+                    GetOwnerWindow = () => GetOwnerWindow?.Invoke(),
+                    PersistLinkedLibraryCaveId = _ => PersistProjectBeforeSave?.Invoke(project),
+                    Progress = progress,
+                    CancellationToken = ct,
+                }).ConfigureAwait(true);
+
+                SelectedProject = previous;
+            }
+
+            StatusMessage = $"Re-published {targets.Count} project(s) to Public Library.";
+        }
+        finally
+        {
+            _cloudPublishCts?.Dispose();
+            _cloudPublishCts = null;
+            IsCloudPublishing = false;
+            ShowCloudPublishProgress = false;
+            RepublishToCloudCommand.NotifyCanExecuteChanged();
+            RepublishAllWithAiCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+
     private void RefreshRecentUi()
     {
         RecentPaths.Clear();
@@ -1603,6 +2042,182 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanExportTherion))]
+    private void ExportTherionProject()
+    {
+        if (SelectedProject == null) return;
+        var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export Therion project folder",
+            Filter = "Folder marker|*.therionfolder",
+            FileName = $"{safe}.therionfolder",
+            AddExtension = true,
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true) return;
+        var folder = Path.Combine(Path.GetDirectoryName(dlg.FileName) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), safe + "-therion");
+        try
+        {
+            var result = TherionProjectExporter.ExportProjectFolder(SelectedProject, folder);
+            StatusMessage = $"Therion project exported ({result.WrittenFiles.Count} files): {folder}";
+            SnackbarService.Show(Wpf.Application.Current.MainWindow, $"Therion project saved — {result.WrittenFiles.Count} files.");
+            Process.Start(new ProcessStartInfo { FileName = folder, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShareCollaboration))]
+    private async Task ShareCollaborationAsync()
+    {
+        if (SelectedProject == null) return;
+        await ProjectCollaborationWindow.ShareAndOpenAsync(SelectedProject, GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow);
+    }
+
+    private bool CanShareCollaboration() => LegalTermsGateOpen() && SelectedProject != null;
+
+    private DateTime? _lastLoadedBackupWriteUtc;
+
+    private string? _pendingAndroidBackupPath;
+
+    public void NotifyAndroidBackupDetected(string zipPath)
+    {
+        if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
+            return;
+
+        _pendingAndroidBackupPath = zipPath;
+        var name = Path.GetFileName(zipPath);
+        AndroidSyncBannerMessage = AppStrings.AndroidSyncBannerMessage(name);
+        AndroidSyncBannerVisible = true;
+        StatusMessage = AppStrings.AndroidSyncBannerStatus(name);
+        SnackbarService.Show(Wpf.Application.Current.MainWindow, AppStrings.AndroidSyncSnackbar(name));
+    }
+
+    [RelayCommand]
+    private void ReloadPendingAndroidBackup()
+    {
+        if (string.IsNullOrWhiteSpace(_pendingAndroidBackupPath))
+            return;
+        var path = _pendingAndroidBackupPath;
+        AndroidSyncBannerVisible = false;
+        _pendingAndroidBackupPath = null;
+        LoadFromPath(path);
+        _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(path);
+        StatusMessage = AppStrings.AndroidSyncReloaded(Path.GetFileName(path));
+        SnackbarService.Show(Wpf.Application.Current.MainWindow, AppStrings.AndroidSyncReloaded(Path.GetFileName(path)));
+    }
+
+    [RelayCommand]
+    private void DismissAndroidSyncBanner()
+    {
+        AndroidSyncBannerVisible = false;
+        _pendingAndroidBackupPath = null;
+    }
+
+    /// <summary>Called when a new CaveAI_Backup_*.zip appears in the Android sync folder.</summary>
+    public void TryAutoReloadAndroidBackup(string zipPath)
+    {
+        if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
+            return;
+
+        var settings = AppUiSettingsStore.LoadOrDefault().AndroidSync;
+        var name = Path.GetFileName(zipPath);
+        if (!settings.AutoReloadBackupZip)
+        {
+            NotifyAndroidBackupDetected(zipPath);
+            return;
+        }
+
+        if (string.Equals(_primarySourcePath, zipPath, StringComparison.OrdinalIgnoreCase))
+        {
+            var lastLoaded = _lastLoadedBackupWriteUtc;
+            var diskWrite = File.GetLastWriteTimeUtc(zipPath);
+            if (lastLoaded.HasValue && diskWrite <= lastLoaded.Value.AddSeconds(1))
+                return;
+            if (settings.AutoReloadBackupZip)
+            {
+                LoadFromPath(zipPath);
+                _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(zipPath);
+                StatusMessage = AppStrings.AndroidSyncReloaded(name);
+                SnackbarService.Show(Wpf.Application.Current.MainWindow, AppStrings.AndroidSyncReloaded(name));
+                return;
+            }
+        }
+
+        NotifyAndroidBackupDetected(zipPath);
+    }
+
+    /// <summary>When JSON sync files change, attempt to load the newest backup ZIP in the same folder.</summary>
+    public void TryAutoReloadFromSyncFolder(string syncFolder)
+    {
+        if (string.IsNullOrWhiteSpace(syncFolder))
+            return;
+        var zip = AndroidSurveySyncService.TryFindLatestBackupZip(syncFolder);
+        if (zip != null)
+            TryAutoReloadAndroidBackup(zip);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void ExportAndroidBackupZip()
+    {
+        if (SelectedProject == null)
+            return;
+        var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export Android backup ZIP",
+            Filter = "CaveAI backup ZIP|*.zip",
+            FileName = $"CaveAI_Backup_{safe}.zip",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            PersistProjectBeforeSave?.Invoke(SelectedProject);
+            AndroidBackupZipExporter.ExportSingleProject(
+                SelectedProject,
+                dlg.FileName,
+                string.Equals(Path.GetExtension(_primarySourcePath), ".zip", StringComparison.OrdinalIgnoreCase)
+                    ? _primarySourcePath
+                    : _zipPath,
+                PersistProjectBeforeSave);
+            StatusMessage = "Android backup ZIP saved: " + dlg.FileName;
+            SnackbarService.ShowFileSaved(dlg.FileName, "Android backup —");
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void ExportCaveReportPdf()
+    {
+        if (SelectedProject == null)
+            return;
+        var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export cave report PDF",
+            Filter = "PDF|*.pdf",
+            FileName = $"{safe}_cave_report.pdf",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            CaveSurveyReportPdfExporter.Export(SelectedProject, dlg.FileName, ActiveZipPathForMaps);
+            StatusMessage = "Cave report PDF saved.";
+            SnackbarService.Show(Wpf.Application.Current.MainWindow, "Cave report PDF saved.");
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanExportStationsCsv))]
     private void ExportStationsCsv()
     {
@@ -1664,6 +2279,94 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Batch export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportAllProjectsToFolder))]
+    private void ExportAllMapsToFolder()
+    {
+        if (Projects.Count == 0)
+            return;
+        var dlg = new OpenFolderDialog { Title = "Folder for batch map export (SVG/PNG per project)" };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            var result = SurveyBatchMapExporter.ExportAllMapsToFolder(Projects.ToList(), dlg.FolderName);
+            StatusMessage = $"Map batch: {result.FilesWritten} file(s) for {result.ProjectCount} project(s).";
+            var msg = result.Errors.Count == 0
+                ? $"Wrote {result.FilesWritten} map file(s) to:\n{dlg.FolderName}"
+                : $"Wrote {result.FilesWritten} file(s); errors:\n" + string.Join("\n", result.Errors.Take(8));
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, msg, "Map batch export",
+                Wpf.MessageBoxButton.OK,
+                result.Errors.Count > 0 ? Wpf.MessageBoxImage.Warning : Wpf.MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void ExportLongProfileSvg()
+    {
+        if (SelectedProject == null)
+            return;
+        if (PlanSceneBuilder.TryBuild(SelectedProject, SurveyStationGeometry.AndroidViewModePlan, SurveyVisualizationMode.LongProfile) == null)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, "No long profile geometry.", "Export", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information);
+            return;
+        }
+
+        var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export long profile SVG",
+            Filter = "SVG|*.svg",
+            FileName = $"{safe}_longprofile.svg",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            using var fs = File.Create(dlg.FileName);
+            SurveySvgExporter.WritePlanSvg(
+                SelectedProject,
+                fs,
+                SurveyStationGeometry.AndroidViewModePlan,
+                SurveyVisualizationMode.LongProfile,
+                PlanCanvasDrawOptionsFactory.ForExport(SurveyCanvasKind.Plan, SurveyVisualizationMode.LongProfile));
+            StatusMessage = "Long profile SVG saved.";
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void ExportSurveyBooklet()
+    {
+        if (SelectedProject == null)
+            return;
+        var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export survey booklet PDF",
+            Filter = "PDF|*.pdf",
+            FileName = $"{safe}_booklet.pdf",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            CaveSurveyBookletExportService.ExportBooklet(SelectedProject, dlg.FileName);
+            StatusMessage = "Survey booklet PDF saved.";
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, "Booklet PDF saved.", "Export", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
         }
     }
 

@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="12,8,12,6" LastChildFill="False">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
+            <StackPanel x:Name="PlanMapToolbarPanel" DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
                         VerticalAlignment="Center">
                 <Button Content="_Print plan…" Padding="14,6" Margin="0,0,0,0"
                         Style="{StaticResource Cave.AccentButton}"
@@ -54,6 +54,79 @@
                         VerticalAlignment="Stretch">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="5">
+                            <StackPanel x:Name="Viewport3DToolsPanel" Visibility="Collapsed" Margin="0,0,0,10">
+                                <TextBlock x:Name="Viewport3DToolsTitle" Text="3D tools" FontWeight="SemiBold"
+                                           FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                           Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
+                                <TextBlock x:Name="Viewport3DOrbitHint" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                           Text="Drag to orbit · wheel to zoom · click station to select" />
+                                <CheckBox x:Name="Viewport3DShowLabelsCheck" Margin="0,0,0,8"
+                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                          IsChecked="False" Content="Show 3D labels"
+                                          ToolTip="Uncheck to hide all floating station and leg labels on the 3D map"
+                                          Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                          Foreground="{DynamicResource Cave.Text}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8"
+                                            ToolTip="Label chip size on the 3D viewport">
+                                    <TextBlock x:Name="Viewport3DLabelSizeLabel" Text="Label size" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
+                                               Foreground="{DynamicResource Cave.TextMuted}" />
+                                    <ComboBox x:Name="Viewport3DLabelSizeCombo" Width="110"
+                                              SelectionChanged="CartographyOptions_Changed"
+                                              FontSize="{DynamicResource Cave.ToolSidebarFontSize}">
+                                        <ComboBoxItem Content="Small" Tag="Small" IsSelected="True" />
+                                        <ComboBoxItem Content="Medium" Tag="Medium" />
+                                        <ComboBoxItem Content="Large" Tag="Large" />
+                                    </ComboBox>
+                                </StackPanel>
+                                <CheckBox x:Name="Viewport3DShowSplinesCheck" Margin="0,0,0,8"
+                                          IsChecked="True" Content="Splays &amp; vectors"
+                                          Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                          Foreground="{DynamicResource Cave.Text}" />
+                                <CheckBox x:Name="Viewport3DTopographyCheck" Margin="0,0,0,8"
+                                          Content="Topography grid"
+                                          Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                          Foreground="{DynamicResource Cave.Text}" />
+                                <CheckBox x:Name="Viewport3DDemCheck" Margin="0,0,0,8"
+                                          Content="DEM surface (station Z)"
+                                          Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                          Foreground="{DynamicResource Cave.Text}" />
+                                <CheckBox x:Name="Viewport3DSectionCutCheck" Margin="0,0,0,8"
+                                          Content="Section cut plane"
+                                          Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                          Foreground="{DynamicResource Cave.Text}" />
+                                <ComboBox x:Name="Viewport3DSectionCutAxisCombo" Margin="0,0,0,8"
+                                          SelectionChanged="CartographyOptions_Changed"
+                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}">
+                                    <ComboBoxItem Content="Horizontal (Z)" Tag="HorizontalZ" IsSelected="True" />
+                                    <ComboBoxItem Content="Vertical (X)" Tag="VerticalX" />
+                                    <ComboBoxItem Content="Vertical (Y)" Tag="VerticalY" />
+                                </ComboBox>
+                                <Slider x:Name="Viewport3DSectionCutSlider" Minimum="0.05" Maximum="0.95" Value="0.5"
+                                        Margin="0,0,0,10" ValueChanged="CartographyOptions_Changed" />
+                                <Button x:Name="Viewport3DResetLabelsButton" Margin="0,0,0,6" Padding="8,5"
+                                        Content="Reset 3D labels" Click="Viewport3DResetLabels_Click"
+                                        ToolTip="Turn on all 3D labels: stations, symbols, field catalog, Android snapshots, AI tags" />
+                                <Button x:Name="Viewport3DSurveyLabelsPresetButton" Margin="0,0,0,6" Padding="8,5"
+                                        Content="Survey labels" Click="Viewport3DSurveyLabelsPreset_Click"
+                                        ToolTip="Station names, map symbols, and field catalog only" />
+                                <Button x:Name="Viewport3DCleanPresetButton" Margin="0,0,0,6" Padding="8,5"
+                                        Content="Clean 3D preset" Click="Viewport3DCleanPreset_Click" />
+                                <Button x:Name="Viewport3DFlyThroughButton" Margin="0,0,0,6" Padding="8,5"
+                                        Content="Fly-through" Click="Viewport3DFlyThrough_Click" />
+                                <Button x:Name="RecordFlyThroughButton" Margin="0,0,0,6" Padding="8,5"
+                                        Content="Record fly-through…" Click="RecordFlyThrough_Click" />
+                                <Button x:Name="Export3DPngButton" Margin="0,0,0,6" Padding="8,5"
+                                        Content="Export 3D PNG" Click="Export3DPng_Click" />
+                                <Button x:Name="Export3DObjButton" Margin="0,0,0,6" Padding="8,5"
+                                        Content="Export 3D OBJ…" Click="Export3DObj_Click" />
+                                <Button x:Name="Export3DGltfButton" Margin="0,0,0,10" Padding="8,5"
+                                        Content="Export 3D glTF…" Click="Export3DGltf_Click" />
+                                <Separator Margin="0,0,0,4" />
+                            </StackPanel>
+
+                            <StackPanel x:Name="PlanDrawingToolsSection">
                             <TextBlock Text="Drawing mode" FontWeight="SemiBold"
                                        FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                        Foreground="{DynamicResource Cave.Text}"
@@ -71,9 +144,13 @@
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Draw" Checked="EditorToolDraw_Checked"
                                          Foreground="{DynamicResource Cave.Text}" />
-                            <RadioButton x:Name="EditorToolSymbol" GroupName="PlanMapEditorTools" Margin="0,0,0,10"
+                            <RadioButton x:Name="EditorToolSymbol" GroupName="PlanMapEditorTools" Margin="0,0,0,6"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Symbol" Checked="EditorToolSymbol_Checked"
+                                         Foreground="{DynamicResource Cave.Text}" />
+                            <RadioButton x:Name="EditorToolErase" GroupName="PlanMapEditorTools" Margin="0,0,0,10"
+                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                         Content="Erase" Checked="EditorToolErase_Checked"
                                          Foreground="{DynamicResource Cave.Text}" />
 
                             <Separator Margin="0,0,0,10" />
@@ -109,9 +186,11 @@
                                        FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                        Foreground="{DynamicResource Cave.TextMuted}"
                                        Text="Select mode: click a station marker (or traverse leg); click empty map to collapse this panel · Esc restores overview · Ctrl+1 Pan · 2 Select · 3 Draw · 4 Symbol · 0 reset · +/− zoom. Wheel zoom (cursor) · left/middle-drag pan · double-click map: reset view." />
+                            </StackPanel>
 
-                            <Separator Margin="0,0,0,10" />
+                            <Separator x:Name="PlanCartographySeparator" Margin="0,0,0,10" />
 
+                            <StackPanel x:Name="PlanCartographySection">
                             <TextBlock Text="Map cartography style" FontWeight="SemiBold"
                                        FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                        Foreground="{DynamicResource Cave.Text}"
@@ -137,8 +216,10 @@
                                 <ComboBoxItem Content="Standard" Tag="Standard" />
                                 <ComboBoxItem Content="Full" Tag="Full" />
                             </ComboBox>
+                            </StackPanel>
 
-                            <TextBlock Text="Plan display" FontWeight="SemiBold"
+                            <StackPanel x:Name="PlanDisplayOptionsSection">
+                            <TextBlock x:Name="PlanDisplaySectionTitle" Text="Plan display" FontWeight="SemiBold"
                                        FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                        Foreground="{DynamicResource Cave.Text}"
                                        Margin="0,0,0,8" />
@@ -155,7 +236,7 @@
                             <CheckBox x:Name="LegSurveyDetailsCheck" Margin="0,0,0,8"
                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                       IsChecked="True" Content="Leg distances &amp; angles"
-                                      ToolTip="Tape length, azimuth, clino, ΔZ, and LRUD on each traverse leg"
+                                      ToolTip="Tape length, azimuth, clino, dZ, and LRUD on each traverse leg"
                                       Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                       Foreground="{DynamicResource Cave.Text}" />
                             <CheckBox x:Name="StationEnvironmentCheck" Margin="0,0,0,8"
@@ -176,18 +257,91 @@
                                       ToolTip="Description and temperature pins from brackets"
                                       Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                       Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="Viewport3DMapSymbolsCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Map symbols (Android)"
+                                      ToolTip="UIS / sketch symbols from mapSymbols and mapObjects"
+                                      Visibility="Collapsed"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="Viewport3DFieldCatalogCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Field catalog / geo-bio"
+                                      ToolTip="Field catalog pins, rocks, and station-linked biology/geology notes"
+                                      Visibility="Collapsed"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="Viewport3DStationSnapshotsCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Station env. snapshots"
+                                      ToolTip="Per-station BLE / manual temperature, humidity, CO₂ from Android schema v2"
+                                      Visibility="Collapsed"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="Viewport3DAiTagsCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="AI classification tags"
+                                      ToolTip="On-device AI labels linked to stations or shots"
+                                      Visibility="Collapsed"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
                             <CheckBox x:Name="LoopClosureHighlightsCheck" Margin="0,0,0,8"
                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                       IsChecked="True" Content="Loop closure highlights"
-                                      ToolTip="Highlight loop-closing traverse legs and misclosure"
+                                      ToolTip="Highlight loop-closing traverse legs with misclosure (m/mm) and severity colour"
                                       Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                       Foreground="{DynamicResource Cave.Text}" />
-                            <CheckBox x:Name="CartographyOverlayCheck" Margin="0,0,0,0"
+                            <CheckBox x:Name="LrudRibbonQcCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="LRUD ribbon QC"
+                                      ToolTip="Highlight missing LRUD, zero-width passages, and degenerate wall ribbons"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="WallHatchingCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      Content="Wall hatching (LRUD fill)"
+                                      ToolTip="Diagonal rock hatching inside filled passage polygons (Rich / print exports)"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="CoordinateGridCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      Content="Coordinate grid (m)"
+                                      ToolTip="Survey-metre grid aligned to plan coordinates"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="CartographyOverlayCheck" Margin="0,0,0,8"
                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                       IsChecked="True" Content="Scale bar &amp; survey compass"
                                       ToolTip="Scale bar and compass rose (bottom-right of map)"
                                       Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                       Foreground="{DynamicResource Cave.Text}" />
+
+                            </StackPanel>
+
+                            <StackPanel x:Name="PlanAiUnderlaySection">
+                            <TextBlock Text="AI render underlay" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                       Foreground="{DynamicResource Cave.Text}"
+                                       Margin="0,8,0,8" />
+                            <CheckBox x:Name="PlanAiUnderlayCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Show AI render on Plan"
+                                      ToolTip="Generative map from Sketch Editor as a raster underlay beneath vectors"
+                                      Checked="PlanAiUnderlay_Changed" Unchecked="PlanAiUnderlay_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                                        ToolTip="Blend opacity for the generative AI map underlay">
+                                <TextBlock Text="Opacity" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
+                                           Foreground="{DynamicResource Cave.TextMuted}" />
+                                <Slider x:Name="PlanAiUnderlayOpacitySlider"
+                                        Width="120"
+                                        Minimum="0.15"
+                                        Maximum="0.95"
+                                        Value="0.52"
+                                        ValueChanged="PlanAiUnderlayOpacitySlider_ValueChanged" />
+                            </StackPanel>
+                            </StackPanel>
+
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
@@ -213,8 +367,29 @@
                             <Grid>
                                 <Viewport3D x:Name="HostViewport3D" ClipToBounds="True"
                                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                                <Canvas x:Name="Viewport3DLabelCanvas" IsHitTestVisible="False"
-                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                                <Canvas x:Name="Viewport3DLabelCanvas"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                        IsHitTestVisible="False" />
+                                <Border x:Name="Viewport3DFloatingToolbar" HorizontalAlignment="Right"
+                                        VerticalAlignment="Top" Margin="0,12,12,0" Padding="6,5" CornerRadius="6"
+                                        Visibility="Collapsed" IsHitTestVisible="True"
+                                        BorderBrush="#FF0D9488" BorderThickness="1"
+                                        Background="#E8151B22">
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox x:Name="Viewport3DFloatShowLabelsCheck" VerticalAlignment="Center"
+                                                  Margin="0,0,8,0" Content="Labels" FontSize="11"
+                                                  Foreground="#FFE8F6F3"
+                                                  Checked="Viewport3DFloatShowLabels_Changed"
+                                                  Unchecked="Viewport3DFloatShowLabels_Changed"
+                                                  ToolTip="Show or hide floating station labels on the 3D map" />
+                                        <Button Content="Clean" Padding="8,4" Margin="0,0,6,0" FontSize="11"
+                                                Click="Viewport3DCleanPreset_Click"
+                                                ToolTip="Hide labels and splines for a clear 3D view" />
+                                        <Button Content="Export PNG" Padding="8,4" FontSize="11"
+                                                Click="Export3DPng_Click"
+                                                ToolTip="Save the current 3D view as PNG" />
+                                    </StackPanel>
+                                </Border>
                                 <Border x:Name="Viewport3DCaveBanner" HorizontalAlignment="Left" VerticalAlignment="Top"
                                         Margin="12,12,0,0" Padding="12,9,14,10" CornerRadius="6"
                                         MaxWidth="420" IsHitTestVisible="False"
@@ -389,7 +564,7 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="2" Margin="12,0,12,8" TextWrapping="Wrap"
+        <TextBlock x:Name="PlanViewFooterHint" Grid.Row="2" Margin="12,0,12,8" TextWrapping="Wrap"
                    FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                    Foreground="{DynamicResource Cave.TextMuted}" MaxHeight="44" TextTrimming="CharacterEllipsis"
                    Text="Plan — survey metres (CaveAI Pro reduction). Main window tabs: PLAN, 3D MODEL, LONG PROFILE, X-RAY, PLAN 2-TONE. Zoom: wheel (toward cursor) or toolbar. Pan: left or middle drag. Double-click map (Pan mode): reset view." />

@@ -169,19 +169,23 @@ public static class BiosMineralsAndRegistryBuilder
         return n;
     }
 
+    // Greek substrings match field notes/catalog text from Android exports (not UI labels).
     private static readonly string[] MineralHints =
     {
         "mineral", "crystal", "geol", "geology", "ore", "stalact", "stalagm", "calcite", "aragonite",
         "gypsum", "limestone", "dolomite", "quartz", "speleothem", "rock type", "litho", "strat",
-        "ορυκ", "γεωλ", "σταλακ", "σταλαγ", "ασβεστ", "χαλαζ", "ανυδ", "σπηλαι", "πέτρ",
+        "\u03BF\u03C1\u03C5\u03BA", "\u03B3\u03B5\u03C9\u03BB", "\u03C3\u03C4\u03B1\u03BB\u03B1\u03BA", "\u03C3\u03C4\u03B1\u03BB\u03B1\u03B3",
+        "\u03B1\u03C3\u03B2\u03B5\u03C3\u03C4", "\u03C7\u03B1\u03BB\u03B1\u03B6", "\u03B1\u03BD\u03C5\u03B4", "\u03C3\u03C0\u03B7\u03BB\u03B1\u03B9", "\u03C0\u03AD\u03C4\u03C1",
     };
 
     private static readonly string[] BioHints =
     {
         "species", "fauna", "flora", "fungi", "animal", "plant", "insect", "bat", "arthrop",
         "crustace", "arachn", "mollusc", "worm", "nematod", "bacter", "bio", "taxon", "dna",
-        "tissue", "organism", "troglob", "troglof", "χλωρο", "φυτ", "ζωο", "έμβι", "βιοτ",
-        "ιχθ", "ακρίδ", "αλισ", "μύκη", "κοράλλ", "φωκ", "νυχτερίδ",
+        "tissue", "organism", "troglob", "troglof",
+        "\u03C7\u03BB\u03C9\u03C1\u03BF", "\u03C6\u03C5\u03C4", "\u03B6\u03C9\u03BF", "\u03AD\u03BC\u03B2\u03B9", "\u03B2\u03B9\u03BF\u03C4",
+        "\u03B9\u03C7\u03B8", "\u03B1\u03BA\u03C1\u03AF\u03B4", "\u03B1\u03BB\u03B9\u03C2", "\u03BC\u03CD\u03BA\u03B7", "\u03BA\u03BF\u03C1\u03AC\u03BB\u03BB",
+        "\u03C6\u03C9\u03BA", "\u03BD\u03C5\u03C7\u03C4\u03B5\u03C1\u03AF\u03B4",
     };
 
     private static string SummarizeObject(JsonElement obj, int maxLen)

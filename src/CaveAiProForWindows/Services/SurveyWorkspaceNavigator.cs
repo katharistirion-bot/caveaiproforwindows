@@ -24,6 +24,14 @@ public static class SurveyWorkspaceNavigator
         main.Dispatcher.BeginInvoke(() => main.FocusStationOnWorkspace(stationName.Trim()));
     }
 
+    public static void OpenGeoBioTab()
+    {
+        if (_mainWindowRef?.TryGetTarget(out var main) != true || main == null)
+            return;
+
+        main.Dispatcher.BeginInvoke(() => main.FocusGeoBioTab());
+    }
+
     public static bool TryGetMainWindow(out MainWindow? mainWindow)
     {
         mainWindow = null;

@@ -83,13 +83,9 @@ public partial class DesktopAuthWindow : Window
 
             CloudPublishWebViewHost.EnsureAuthBridgeAttached(core);
             DesktopAuthFallback.TryRegisterVirtualHost(core);
+            await DesktopAuthFallback.EnsureFirebaseConfigScriptRegisteredAsync(core).ConfigureAwait(true);
 
-            core.NewWindowRequested += (_, args) =>
-            {
-                args.Handled = true;
-                if (!string.IsNullOrWhiteSpace(args.Uri))
-                    core.Navigate(args.Uri);
-            };
+            WebView2AuthPopupHost.WirePopupHandling(core, this, IsAllowedNavigation);
 
             core.NavigationStarting += (_, args) =>
             {
@@ -112,19 +108,19 @@ public partial class DesktopAuthWindow : Window
                 }
             };
 
-            core.NavigationCompleted += async (_, args) =>
-            {
-                if (!args.IsSuccess || core == null)
-                    return;
-                if (DesktopAuthFallback.IsFallbackUri(core.Source))
-                    await DesktopAuthFallback.InjectFirebaseConfigAsync(core).ConfigureAwait(true);
-            };
-
             _cache.TokenUpdated += OnCacheTokenUpdated;
             Closed += (_, _) => _cache.TokenUpdated -= OnCacheTokenUpdated;
 
             StatusText.Text = "Sign in with Google on the page below…";
-            core.Navigate(PublicLibraryCatalog.DesktopAuthUrl);
+            if (DesktopAuthFallback.HasUsableFirebaseConfig())
+            {
+                await DesktopAuthFallback.PrepareFallbackNavigationAsync(core).ConfigureAwait(true);
+                core.Navigate(DesktopAuthFallback.FallbackUri);
+            }
+            else
+            {
+                core.Navigate(PublicLibraryCatalog.DesktopAuthUrl);
+            }
         }
         catch (Exception ex)
         {

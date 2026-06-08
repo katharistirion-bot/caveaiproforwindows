@@ -328,6 +328,10 @@ public static class SurveyLrudWallGeometry
     }
 
     /// <summary>Each inner list is an ordered DFS walk of one traverse connected component (same as plan ribbon).</summary>
+    public static IReadOnlyList<IReadOnlyList<(string wf, string wt, ShotRecord sh)>> GetOrderedTraverseWalks(
+        IReadOnlyList<ShotRecord> shots) =>
+        EnumerateOrderedTraverseWalks(shots);
+
     private static List<List<(string wf, string wt, ShotRecord sh)>> EnumerateOrderedTraverseWalks(
         IReadOnlyList<ShotRecord> shots)
     {
@@ -501,8 +505,8 @@ public static class SurveyLrudWallGeometry
         if (ceiling.Count < 2 || floor.Count < 2)
             return null;
 
-        var ceilingD = DensifyPlanChain(ceiling, densifyStepM);
-        var floorD = DensifyPlanChain(floor, densifyStepM);
+        var ceilingD = SurveyCatmullRomSampler.SampleOpenPlanChain(DensifyPlanChain(ceiling, densifyStepM), densifyStepM);
+        var floorD = SurveyCatmullRomSampler.SampleOpenPlanChain(DensifyPlanChain(floor, densifyStepM), densifyStepM);
         var ring = new List<(float x, float y)>(ceilingD.Count + floorD.Count);
         ring.AddRange(ceilingD);
         for (var i = floorD.Count - 1; i >= 0; i--)
@@ -550,8 +554,8 @@ public static class SurveyLrudWallGeometry
         if (left.Count < 2 || right.Count < 2)
             return null;
 
-        var leftD = DensifyPlanChain(left, densifyStepM);
-        var rightD = DensifyPlanChain(right, densifyStepM);
+        var leftD = SurveyCatmullRomSampler.SampleOpenPlanChain(DensifyPlanChain(left, densifyStepM), densifyStepM);
+        var rightD = SurveyCatmullRomSampler.SampleOpenPlanChain(DensifyPlanChain(right, densifyStepM), densifyStepM);
         var ring = new List<(float x, float y)>(leftD.Count + rightD.Count + 32);
         ring.AddRange(leftD);
         for (var i = rightD.Count - 1; i >= 0; i--)

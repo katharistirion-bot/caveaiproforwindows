@@ -8,6 +8,11 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location $RepoRoot
 
+$injectScript = Join-Path $RepoRoot 'tools/inject-firebase-config.ps1'
+Write-Host 'Injecting Firebase client config (build-time API key)…'
+& $injectScript -RepoRoot $RepoRoot -AllowPlaceholder
+if ($LASTEXITCODE -ne 0) { throw 'inject-firebase-config.ps1 failed.' }
+
 $version = $Tag -replace '^v', ''
 if ([string]::IsNullOrWhiteSpace($version)) { throw 'Tag must not be empty.' }
 
@@ -15,13 +20,25 @@ $pubDir = Join-Path $RepoRoot 'src/CaveAiProForWindows/bin/Release/net8.0-window
 $exe = Join-Path $pubDir 'CaveAiProForWindows.exe'
 if (-not (Test-Path -LiteralPath $exe)) { throw "Missing published exe: $exe" }
 
+$configSrc = Join-Path $RepoRoot 'src/CaveAiProForWindows/Assets/DesktopAuth/firebase-config.json'
+$configDest = Join-Path $pubDir 'Assets/DesktopAuth/firebase-config.json'
+$configDestDir = Split-Path -Parent $configDest
+if (-not (Test-Path -LiteralPath $configDestDir)) {
+    New-Item -ItemType Directory -Force -Path $configDestDir | Out-Null
+}
+Copy-Item -LiteralPath $configSrc -Destination $configDest -Force
+Write-Host "OK: synced firebase-config.json to publish output"
+
 $outDir = Join-Path $RepoRoot '_release_out'
 if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
 New-Item -ItemType Directory -Path $outDir | Out-Null
 
 # --- Portable ZIP (single-file exe + export_assets tree) ---
-$zipStaging = Join-Path $env:RUNNER_TEMP 'release-zip-staging'
-if (-not $env:RUNNER_TEMP) { $zipStaging = Join-Path ([IO.Path]::GetTempPath()) 'release-zip-staging' }
+if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+    $zipStaging = Join-Path ([IO.Path]::GetTempPath()) 'release-zip-staging'
+} else {
+    $zipStaging = Join-Path $env:RUNNER_TEMP 'release-zip-staging'
+}
 if (Test-Path $zipStaging) { Remove-Item $zipStaging -Recurse -Force }
 New-Item -ItemType Directory -Force -Path (Join-Path $zipStaging 'export_assets/windows') | Out-Null
 Set-Content -Path (Join-Path $zipStaging 'export_assets/windows/.gitkeep') -Value '' -Encoding utf8
@@ -59,7 +76,8 @@ if ($LASTEXITCODE -ne 0) {
     dotnet tool update --global vpk
 }
 
-$vpkExe = (Get-Command vpk -ErrorAction SilentlyContinue)?.Source
+$vpkCmd = Get-Command vpk -ErrorAction SilentlyContinue
+$vpkExe = if ($vpkCmd) { $vpkCmd.Source } else { $null }
 if (-not $vpkExe) { throw 'Velopack CLI (vpk) not available after dotnet tool install.' }
 
 & $vpkExe pack `

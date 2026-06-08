@@ -1,17 +1,18 @@
 # Disclaimer — data accuracy & safety — CAVE AI PRO
 
-**Version:** [FILL IN]  
-**Publisher:** Georgios Kourentzis — [14-CONTACT.md](14-CONTACT.md)
+**Version:** 1.2  
+**Date:** 6 June 2026  
+**Publisher:** **Georgios Kourentzis** — [14-CONTACT.md](14-CONTACT.md)
 
 ---
 
 ## 1. Not professional advice
 
-**CAVE AI PRO** is a software tool. It **does not** replace professional judgment in topography, caving, mineralogy, biology, workplace safety in caves, or legal/insurance advice.
+**CAVE AI PRO** is a software tool published by **Georgios Kourentzis**. It **does not** replace professional judgment in topography, caving, mineralogy, biology, workplace safety in caves, or legal/insurance advice.
 
 ## 2. Accuracy and completeness
 
-Outputs (including CSV exports, Survex `.svx`, drawings, QC) depend on the **quality and completeness** of imported data and on algorithm **assumptions**. The publisher **does not** warrant that outputs are fit for production, commercial, or safe use without **independent verification** (e.g. Survex/Cavern, Therion, your organization’s procedures).
+Outputs (CSV, Survex `.svx`, Therion, DXF, drawings, QC) depend on imported data and algorithm assumptions. **Georgios Kourentzis does not warrant** fitness for production or safety without **independent verification**.
 
 ## 3. Caving and physical safety
 
@@ -19,15 +20,15 @@ Caving involves **risk of serious injury or death**. The Software **does not** r
 
 ## 4. Limitation of liability
 
-To the maximum extent permitted by law, the publisher **disclaims** express or implied warranties and **is not** liable for indirect, consequential, or special damages, data loss, business interruption, or third-party claims, except where law prohibits such exclusion.
+To the maximum extent permitted by law, **Georgios Kourentzis** disclaims warranties and is not liable for indirect, consequential, or special damages, data loss, or third-party claims, except where law prohibits exclusion.
 
 ## 5. Third-party data
 
-If you process third-party data (e.g. a shared project), you are responsible for a **lawful basis** and **information** of data subjects under GDPR or other law.
+If you process third-party data, you are responsible for lawful basis and information of data subjects under GDPR or other law.
 
 ## 6. Medical / biological interpretation
 
-[FILL IN if catalog shows biological/mineral entries: “Catalog information is indicative; it is not diagnosis or scientific species identification.”]
+Catalog information (Bio/Mineral, field entries) is **indicative**; it is not diagnosis, medical advice, or authoritative species identification.
 
 ## 7. Contact
 

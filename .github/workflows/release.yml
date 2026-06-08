@@ -77,8 +77,6 @@ jobs:
 
       - name: Publish + smoke test
         shell: pwsh
-        env:
-          CAVEAI_DEV_SKIP_INSTALL_CHECK: "1"
         run: ./tools/smoke-publish.ps1 -SkipTests -LaunchSmokeTest -SmokeSeconds 10
 
       - name: Code sign published exe (optional)
@@ -108,13 +106,38 @@ jobs:
             '${{ steps.package.outputs.setup_path }}'
           )
 
+      - name: Prepare release notes body
+        if: github.ref_type == 'tag'
+        id: changelog
+        shell: pwsh
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          $version = $env:TAG -replace '^v',''
+          $body = ./tools/extract-changelog-section.ps1 -Version $version
+          "body<<EOF" >> $env:GITHUB_OUTPUT
+          $body >> $env:GITHUB_OUTPUT
+          "EOF" >> $env:GITHUB_OUTPUT
+
+      - name: Warn when code signing secrets missing (tag release)
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERT_BASE64)) {
+            Write-Warning 'WINDOWS_CERT_BASE64 is not configured — release artifacts will be UNSIGNED.'
+            Write-Warning 'See docs/CODE-SIGNING.md to configure Authenticode signing.'
+          }
+
       - name: Create GitHub Release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.body }}
+          generate_release_notes: false
           files: _release_out/**/*
 
       - name: Upload workflow_dispatch artifacts

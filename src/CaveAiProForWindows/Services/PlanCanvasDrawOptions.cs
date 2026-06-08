@@ -1,5 +1,7 @@
 namespace CaveAiProForWindows.Services;
 
+using CaveAiProForWindows.Services.Visualization;
+
 /// <summary>Plan / section canvas options aligned with typical cave survey cartography (labels, scale bar).</summary>
 public enum SurveyCanvasKind
 {
@@ -20,7 +22,13 @@ public sealed record PlanCanvasDrawOptions(
     bool ShowStationEnvironment = true,
     bool ShowDepthSpanAnnotations = true,
     bool ShowBracketMarkers = true,
-    bool ShowLoopClosureHighlights = true)
+    bool ShowLoopClosureHighlights = true,
+    bool ShowLrudQcHighlights = true,
+    bool ShowCoordinateGrid = false,
+    bool ShowSymbolLegend = false,
+    bool ShowWallHatching = false,
+    CartographicRenderPreset RenderPreset = CartographicRenderPreset.Field,
+    CaveMappingExportMetadata? ExportMetadata = null)
 {
     public int AnnotationViewMode =>
         CanvasKind == SurveyCanvasKind.Section
@@ -40,10 +48,17 @@ public sealed record PlanCanvasDrawOptions(
         bool showStationEnvironment = true,
         bool showDepthSpanAnnotations = true,
         bool showBracketMarkers = true,
-        bool showLoopClosureHighlights = true) =>
+        bool showLoopClosureHighlights = true,
+        bool showLrudQcHighlights = true,
+        bool showCoordinateGrid = false,
+        bool showSymbolLegend = false,
+        bool showWallHatching = false,
+        CartographicRenderPreset renderPreset = CartographicRenderPreset.Field,
+        CaveMappingExportMetadata? exportMetadata = null) =>
         new(stationNames, overlay, SurveyCanvasKind.Plan, visualization, showStationZDepth, cartographicIntensity,
             pickHighlight, showLegSurveyDetails, showStationEnvironment, showDepthSpanAnnotations, showBracketMarkers,
-            showLoopClosureHighlights);
+            showLoopClosureHighlights, showLrudQcHighlights, showCoordinateGrid, showSymbolLegend, showWallHatching,
+            renderPreset, exportMetadata);
 
     public static PlanCanvasDrawOptions ForSection(
         bool stationNames,
@@ -55,8 +70,15 @@ public sealed record PlanCanvasDrawOptions(
         bool showStationEnvironment = true,
         bool showDepthSpanAnnotations = true,
         bool showBracketMarkers = true,
-        bool showLoopClosureHighlights = true) =>
+        bool showLoopClosureHighlights = true,
+        bool showLrudQcHighlights = true,
+        bool showCoordinateGrid = false,
+        bool showSymbolLegend = false,
+        bool showWallHatching = false,
+        CartographicRenderPreset renderPreset = CartographicRenderPreset.Field,
+        CaveMappingExportMetadata? exportMetadata = null) =>
         new(stationNames, overlay, SurveyCanvasKind.Section, visualization, ShowStationZDepth: false,
             cartographicIntensity, pickHighlight, showLegSurveyDetails, showStationEnvironment,
-            showDepthSpanAnnotations, showBracketMarkers, showLoopClosureHighlights);
+            showDepthSpanAnnotations, showBracketMarkers, showLoopClosureHighlights, showLrudQcHighlights,
+            showCoordinateGrid, showSymbolLegend, showWallHatching, renderPreset, exportMetadata);
 }

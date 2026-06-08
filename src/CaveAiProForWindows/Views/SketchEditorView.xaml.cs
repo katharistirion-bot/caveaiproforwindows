@@ -1336,10 +1336,15 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             RefreshGenerativeOverlay = () =>
                 Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Redraw)),
             GetOwnerWindow = () => Window.GetWindow(this),
-            OpenLegalSettingsTab = () =>
+            ShowRenderCompare = (mask, ai) =>
             {
-                if (Window.GetWindow(this) is MainWindow mw)
-                    mw.SelectLegalSettingsTab();
+                var owner = Window.GetWindow(this);
+                new AiRenderCompareWindow(mask, ai, owner).ShowDialog();
+            },
+            OpenApiSettings = () =>
+            {
+                ApiSettingsWindow.Show(Window.GetWindow(this));
+                _sketchAssist?.RefreshApiTokenStatus();
             },
         });
 

@@ -64,6 +64,7 @@ public static class DesignLayerMapObjectsSerializer
                     ["surveyY"] = stamp.SurveyY,
                     ["symbolId"] = SketchEditorSymbolKindExporter.ToSymbolId(stamp.Kind),
                     ["viewMode"] = viewMode,
+                    ["scale"] = 1f,
                     ["sourceClient"] = WindowsSourceClient,
                 };
                 entries.Add(entry);

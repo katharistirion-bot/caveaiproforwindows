@@ -248,6 +248,14 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
                 DepthSpanAnnotationsCheck.IsChecked = s.DepthSpanAnnotations;
             if (BracketMarkersCheck != null)
                 BracketMarkersCheck.IsChecked = s.BracketMarkers;
+            if (LoopClosureHighlightsCheck != null)
+                LoopClosureHighlightsCheck.IsChecked = s.LoopClosureHighlights;
+            if (LrudRibbonQcCheck != null)
+                LrudRibbonQcCheck.IsChecked = s.LrudRibbonQcHighlights;
+            if (WallHatchingCheck != null)
+                WallHatchingCheck.IsChecked = s.ShowWallHatching;
+            if (CoordinateGridCheck != null)
+                CoordinateGridCheck.IsChecked = s.ShowCoordinateGrid;
             if (CartographyOverlayCheck != null)
                 CartographyOverlayCheck.IsChecked = s.Overlay;
             if (EditorToolPan != null && EditorToolSelect != null && EditorToolDraw != null &&
@@ -257,6 +265,8 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
                 EditorToolSelect.IsChecked = _currentTool == MapCanvasEditorTool.Select;
                 EditorToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
                 EditorToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
+                if (EditorToolErase != null)
+                    EditorToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
             }
         }
         finally
@@ -288,6 +298,10 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
         all.Section.StationEnvironment = StationEnvironmentCheck?.IsChecked != false;
         all.Section.DepthSpanAnnotations = DepthSpanAnnotationsCheck?.IsChecked != false;
         all.Section.BracketMarkers = BracketMarkersCheck?.IsChecked != false;
+        all.Section.LoopClosureHighlights = LoopClosureHighlightsCheck?.IsChecked != false;
+        all.Section.LrudRibbonQcHighlights = LrudRibbonQcCheck?.IsChecked != false;
+        all.Section.ShowWallHatching = WallHatchingCheck?.IsChecked == true;
+        all.Section.ShowCoordinateGrid = CoordinateGridCheck?.IsChecked == true;
         all.Section.Overlay = CartographyOverlayCheck?.IsChecked != false;
         if (ZoomScale != null)
             all.Section.ZoomScale = ZoomScale.ScaleX;
@@ -332,6 +346,14 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
             EnsureSymbolPaletteHasSelection();
         }
 
+        SyncSymbolPaletteEnabled();
+        PersistSectionTab();
+    }
+
+    private void EditorToolErase_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { IsChecked: true })
+            _currentTool = MapCanvasEditorTool.Erase;
         SyncSymbolPaletteEnabled();
         PersistSectionTab();
     }
@@ -621,7 +643,10 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
             StationEnvironmentCheck?.IsChecked != false,
             DepthSpanAnnotationsCheck?.IsChecked != false,
             BracketMarkersCheck?.IsChecked != false,
-            AppUiSettingsStore.LoadOrDefault().Section.LoopClosureHighlights);
+            LoopClosureHighlightsCheck?.IsChecked != false,
+            LrudRibbonQcCheck?.IsChecked != false,
+            CoordinateGridCheck?.IsChecked == true,
+            WallHatchingCheck?.IsChecked == true);
     }
 
     private void OnExternalStationSelected(object? sender, SurveyStationSelectionEventArgs e)
@@ -671,6 +696,8 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
                 EditorToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
             if (EditorToolSymbol != null)
                 EditorToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
+            if (EditorToolErase != null)
+                EditorToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
         }
         finally
         {

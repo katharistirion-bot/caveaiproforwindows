@@ -21,6 +21,8 @@ fun mergeSurveyArchiveV2Enrichment(
     calibration: SurveyCalibrationProfileJson? = null,
     aiTags: List<SurveyAiClassificationJson>? = null,
     stationSnapshots: List<StationEnvironmentSnapshotJson>? = null,
+    xrayBackdropImageUri: String? = null,
+    xrayBackdropImageBounds: JSONObject? = null,
 ) {
     // Caller should set `surveyArchiveSchemaVersion` to "2" (or bump) once when any v2 block is written.
     device?.toJson()?.let { project.put("exportDeviceContext", it) }
@@ -35,6 +37,8 @@ fun mergeSurveyArchiveV2Enrichment(
         stationSnapshots.forEach { arr.put(it.toJson()) }
         project.put("stationEnvironmentSnapshots", arr)
     }
+    xrayBackdropImageUri?.takeIf { it.isNotBlank() }?.let { project.put("xrayBackdropImageUri", it) }
+    xrayBackdropImageBounds?.let { project.put("xrayBackdropImageBounds", it) }
 }
 
 data class ExportDeviceContext(

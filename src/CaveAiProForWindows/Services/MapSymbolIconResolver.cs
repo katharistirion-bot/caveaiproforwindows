@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Media;
 
+using CaveAiProForWindows.Services.Visualization;
+
 namespace CaveAiProForWindows.Services;
 
 /// <summary>
@@ -112,6 +114,21 @@ public static class MapSymbolIconResolver
             return true;
         }
 
+        if (CaveMappingSymbolCatalog.TryParseIconKey(s, out var caveKind))
+        {
+            var geom = CaveMappingSymbolCatalog.GetGeometry(caveKind);
+            resolved = new ResolvedMapSymbol
+            {
+                Mode = RenderMode.VectorPath,
+                Geometry = geom,
+                Stroke = highContrast ? Brushes.White : UisStroke,
+                Fill = highContrast ? Brushes.White : UisFill,
+                DisplayLabel = CaveMappingSymbolCatalog.GetLabel(caveKind),
+                NormalizedUisSpace = false,
+            };
+            return true;
+        }
+
         if (UisCaveSymbolGeometryCatalog.TryParseStoredIcon(s, out var slug) &&
             UisCaveSymbolGeometryCatalog.TryGetGeometry(slug, out var uisGeom))
         {
@@ -176,6 +193,12 @@ public static class MapSymbolIconResolver
         if (string.Equals(s, DifficultNarrowPassage, StringComparison.Ordinal))
         {
             label = "Difficult narrow passage";
+            return true;
+        }
+
+        if (CaveMappingSymbolCatalog.TryParseIconKey(s, out var caveKind))
+        {
+            label = CaveMappingSymbolCatalog.GetLabel(caveKind);
             return true;
         }
 

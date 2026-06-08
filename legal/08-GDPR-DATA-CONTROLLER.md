@@ -1,35 +1,38 @@
-# GDPR — Data controller & data subject rights
+# GDPR — Data controller record — CAVE AI PRO
 
-**For users in the EU/EEA** (and where equivalent law applies).
+**Version:** 1.2  
+**Date:** 6 June 2026
 
 ---
 
-## 1. Who is the data controller?
+## Controller
 
 **Name:** Georgios Kourentzis  
-**Address:** [FILL IN: postal address for full GDPR alignment]  
-**Contact email:** [caveaipro@gmail.com](mailto:caveaipro@gmail.com) — [14-CONTACT.md](14-CONTACT.md) · **DPO:** [FILL IN if a separate DPO is required]
+**Email:** [caveaipro@gmail.com](mailto:caveaipro@gmail.com) — [14-CONTACT.md](14-CONTACT.md)  
+**Address:** Provided upon request at the contact email for GDPR and legal correspondence.  
+**DPO:** Not appointed (individual developer; contact the controller directly).
 
-## 2. Processing through the app
+## Processing activities (Windows desktop)
 
-| Activity | Categories of data | Basis (GDPR Art. 6) |
-|----------|-------------------|---------------------|
-| Opening JSON/ZIP files you choose | May contain **non**-personal or **personal** data (e.g. collaborator names in text fields) | [FILL IN: contract / legitimate interest / consent] |
-| Local error logs | Technical data, stack traces (may include file paths) | [FILL IN] |
-| [Add: cloud, support email, analytics] | [FILL IN] | [FILL IN] |
+| Activity | Data | Legal basis |
+|----------|------|-------------|
+| Opening JSON/ZIP files you choose | May contain personal or non-personal survey data | Contract / legitimate interest |
+| Local error logs | Technical data, paths | Legitimate interest |
+| Optional cloud publish | Data you submit | Consent / contract |
+| Optional Replicate BYOK | Token you store locally | Consent |
 
-## 3. Transfers outside the EU
+## Processors / transfers
 
-[FILL IN: “None” or SCC / IDTA / DPA with provider.]
+When you use Firebase, Google sign-in, Replicate, or GitHub updates, those providers process data under their terms. Transfers outside the EEA may use provider safeguards (SCCs, etc.).
 
-## 4. Rights
+## Data subject rights
 
-Access, rectification, erasure, restriction, portability, objection, and withdrawal of consent where consent is the basis. Requests: [caveaipro@gmail.com](mailto:caveaipro@gmail.com).
+Access, rectification, erasure, restriction, portability, objection: [caveaipro@gmail.com](mailto:caveaipro@gmail.com).
 
-## 5. Complaint
+## Supervisory authority
 
 Hellenic Data Protection Authority (Greece): <https://www.dpa.gr/>
 
-## 6. Automated decision-making / profiling
+## Automated decision-making
 
-[FILL IN: “Not applicable” or describe.]
+Not applicable to core survey workflows. AI features are assistive only; no solely automated decisions with legal effect.

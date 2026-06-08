@@ -63,9 +63,13 @@
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Draw" Checked="EditorToolDraw_Checked"
                                          Foreground="{DynamicResource Cave.Text}" />
-                            <RadioButton x:Name="EditorToolSymbol" GroupName="SectionMapEditorTools" Margin="0,0,0,10"
+                            <RadioButton x:Name="EditorToolSymbol" GroupName="SectionMapEditorTools" Margin="0,0,0,6"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Symbol" Checked="EditorToolSymbol_Checked"
+                                         Foreground="{DynamicResource Cave.Text}" />
+                            <RadioButton x:Name="EditorToolErase" GroupName="SectionMapEditorTools" Margin="0,0,0,10"
+                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                         Content="Erase" Checked="EditorToolErase_Checked"
                                          Foreground="{DynamicResource Cave.Text}" />
 
                             <Separator Margin="0,0,0,10" />
@@ -117,7 +121,7 @@
                             <CheckBox x:Name="LegSurveyDetailsCheck" Margin="0,0,0,8"
                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                       IsChecked="True" Content="Leg distances &amp; angles"
-                                      ToolTip="Tape length, azimuth, clino, ΔZ, and LRUD on each traverse leg"
+                                      ToolTip="Tape length, azimuth, clino, dZ, and LRUD on each traverse leg"
                                       Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                       Foreground="{DynamicResource Cave.Text}" />
                             <CheckBox x:Name="StationEnvironmentCheck" Margin="0,0,0,8"
@@ -136,6 +140,30 @@
                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                       IsChecked="True" Content="Bracket markers"
                                       ToolTip="Description and temperature pins from brackets"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="LoopClosureHighlightsCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Loop closure highlights"
+                                      ToolTip="Highlight loop-closing traverse legs with misclosure (m/mm) and severity colour"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="LrudRibbonQcCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="LRUD ribbon QC"
+                                      ToolTip="Highlight missing LRUD, zero-width passages, and degenerate wall ribbons"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="WallHatchingCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      Content="Wall hatching (LRUD fill)"
+                                      ToolTip="Diagonal rock hatching inside filled passage polygons (Rich / print exports)"
+                                      Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="CoordinateGridCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      Content="Coordinate grid (m)"
+                                      ToolTip="Survey-metre grid aligned to section coordinates"
                                       Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                       Foreground="{DynamicResource Cave.Text}" />
                             <CheckBox x:Name="CartographyOverlayCheck" Margin="0,0,0,0"

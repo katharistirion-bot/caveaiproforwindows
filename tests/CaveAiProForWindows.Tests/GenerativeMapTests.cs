@@ -146,6 +146,18 @@ public sealed class GenerativeMapTests
     }
 
     [TestMethod]
+    public void ReplicateImageResolution_snaps_to_allowed_enum_values()
+    {
+        Assert.AreEqual(768, ReplicateImageResolution.Snap(1024));
+        Assert.AreEqual(768, ReplicateImageResolution.Snap(896));
+        Assert.AreEqual(256, ReplicateImageResolution.Snap(100));
+        Assert.AreEqual(512, ReplicateImageResolution.Snap(384));
+        Assert.AreEqual(768, ReplicateImageResolution.Snap(640));
+        Assert.AreEqual("768", ReplicateImageResolution.ToApiString(1024));
+        Assert.AreEqual("512", ReplicateImageResolution.ToApiString(512));
+    }
+
+    [TestMethod]
     public void ReplicateApiClient_reads_string_output_url()
     {
         var prediction = new ReplicatePrediction

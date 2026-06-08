@@ -70,7 +70,19 @@ public static class AndroidSurveySyncService
         !string.IsNullOrWhiteSpace(folder) &&
         Directory.Exists(folder) &&
         (File.Exists(Path.Combine(folder, DatabaseFileName)) ||
-         File.Exists(Path.Combine(folder, ExportFileName)));
+         File.Exists(Path.Combine(folder, ExportFileName)) ||
+         Directory.EnumerateFiles(folder, "CaveAI_Backup_*.zip", SearchOption.TopDirectoryOnly).Any());
+
+    /// <summary>Newest <c>CaveAI_Backup_*.zip</c> in the sync folder (Android Desktop Sync export target).</summary>
+    public static string? TryFindLatestBackupZip(string? folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+            return null;
+
+        return Directory.EnumerateFiles(folder, "CaveAI_Backup_*.zip", SearchOption.TopDirectoryOnly)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+    }
 
     public static AndroidSurveySyncBundle? TryLoadBundle(string syncFolder, string? matchProjectName = null)
     {

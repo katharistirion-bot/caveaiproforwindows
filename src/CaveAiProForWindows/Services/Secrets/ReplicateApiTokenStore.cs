@@ -1,7 +1,8 @@
 namespace CaveAiProForWindows.Services.Secrets;
 
 /// <summary>
-/// Replicate API token: Windows Credential Manager first, then <c>CAVEAIPRO_REPLICATE_API_TOKEN</c> env var.
+/// BYOK Replicate API token: Windows Credential Manager first, then <c>CAVEAIPRO_REPLICATE_API_TOKEN</c> env var.
+/// Never written to ui-settings.json, survey backups, or cloud publish payloads.
 /// </summary>
 public static class ReplicateApiTokenStore
 {

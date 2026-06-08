@@ -33,6 +33,9 @@ try {
         Write-Host "Signing $file"
         & $signtool.FullName sign /fd SHA256 /f $pfxPath /p $password /tr http://timestamp.digicert.com /td SHA256 /a $file
         if ($LASTEXITCODE -ne 0) { throw "signtool failed for $file (exit $LASTEXITCODE)" }
+        Write-Host "Verifying signature on $file"
+        & $signtool.FullName verify /pa /v $file
+        if ($LASTEXITCODE -ne 0) { throw "signtool verify failed for $file (exit $LASTEXITCODE)" }
     }
 }
 finally {

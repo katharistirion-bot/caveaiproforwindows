@@ -37,7 +37,7 @@ public sealed class CloudPublishIntegrationTests
 
         var metadata = await service.PublishAsync(bundle, token!);
         Assert.AreEqual("caveDoc1", metadata.PublishedCaveDocId);
-        Assert.IsTrue(metadata.CartographyImageUrl?.Contains("token=tok1", StringComparison.Ordinal));
+        Assert.IsTrue(metadata.CartographyImageUrls?[0].Contains("token=tok1", StringComparison.Ordinal));
         Assert.AreEqual(3, handler.Requests.Count);
         StringAssert.Contains(handler.Requests[0].Uri, "firebasestorage.googleapis.com");
         StringAssert.Contains(handler.Requests[2].Uri, "published_caves/caveDoc1");

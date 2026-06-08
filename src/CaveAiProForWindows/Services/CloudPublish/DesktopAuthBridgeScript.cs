@@ -27,6 +27,15 @@ internal static class DesktopAuthBridgeScript
             lastDelivered = idToken;
             post({ type: TOKEN_TYPE, idToken: idToken });
           }
+          function deliverFromSignInWithIdpBody(body) {
+            try {
+              var data = typeof body === 'string' ? JSON.parse(body) : body;
+              if (data && data.idToken) deliver(data.idToken);
+            } catch (e) {}
+          }
+          function isSignInWithIdpUrl(url) {
+            return url && String(url).indexOf('signInWithIdp') >= 0;
+          }
           window.caveAiDesktopAuth = { deliverToken: deliver };
           window.addEventListener('message', function(ev) {
             var d = ev.data;
@@ -53,10 +62,25 @@ internal static class DesktopAuthBridgeScript
                 var t = readAuthHeader(h);
                 if (t) deliver(t);
               } catch (e) {}
-              return origFetch.apply(this, arguments);
+              var url = typeof input === 'string' ? input : (input && input.url) || '';
+              var p = origFetch.apply(this, arguments);
+              if (isSignInWithIdpUrl(url)) {
+                return p.then(function(resp) {
+                  try {
+                    resp.clone().text().then(deliverFromSignInWithIdpBody).catch(function(){});
+                  } catch (e) {}
+                  return resp;
+                });
+              }
+              return p;
             };
           }
+          var XHROpen = XMLHttpRequest.prototype.open;
           var XHRSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.open = function(method, url) {
+            try { this.__caveAiUrl = url; } catch (e) {}
+            return XHROpen.apply(this, arguments);
+          };
           var XHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
           XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
             try {
@@ -69,10 +93,19 @@ internal static class DesktopAuthBridgeScript
             try {
               var auth = this.__caveAiHeaders && this.__caveAiHeaders.authorization;
               if (auth && auth.indexOf('Bearer ') === 0) deliver(auth.substring(7).trim());
+              var url = this.__caveAiUrl || '';
+              if (isSignInWithIdpUrl(url)) {
+                this.addEventListener('load', function() {
+                  deliverFromSignInWithIdpBody(this.responseText);
+                });
+              }
             } catch (e) {}
             return XHRSend.apply(this, arguments);
           };
           post({ type: READY_TYPE });
+          if (window.__CAVEAI_DESKTOP_ID_TOKEN__) {
+            deliver(window.__CAVEAI_DESKTOP_ID_TOKEN__);
+          }
           if (/desktopAuth=v1/.test(window.location.search || '')) {
             function hookFirebase() {
               try {

@@ -20,6 +20,7 @@ public partial class AboutWindow : Window
 
         var envOrigin = Environment.GetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN");
         WebPortalBlock.Text =
+            "Releases & updates: " + AppUpdateService.GitHubRepoUrl + "/releases\n" +
             "Web portal origin: " + PublicLibraryCatalog.WebOrigin + "\n" +
             (string.IsNullOrWhiteSpace(envOrigin)
                 ? "Set CAVEAIPRO_WEB_ORIGIN if the custom domain differs from the default."

@@ -12,7 +12,7 @@ namespace CaveAiProForWindows.Services;
 /// <summary>High-resolution raster export of the full survey plan bounds (not the on-screen zoom rectangle).</summary>
 public static class PlanMapRasterExporter
 {
-    /// <summary>WPF logical DIP to ~300 DPI print scaling (300 / 96).</summary>
+    /// <summary>WPF logical DIP to <see cref="MapExportQuality.Standard"/> scaling (300 / 96).</summary>
     public const double ExportDpiScale = 300.0 / 96.0;
 
     public const int MaxExportEdgePixels = 10_000;
@@ -29,18 +29,21 @@ public static class PlanMapRasterExporter
         bool highContrast,
         PlanCanvasDrawOptions drawOptions,
         IReadOnlyList<PlanRasterUnderlay> underlays,
-        string? zipPath)
+        string? zipPath,
+        int vectorViewMode = SurveyStationGeometry.AndroidViewModePlan,
+        MapExportQuality quality = MapExportQuality.Standard)
     {
         if (visualizationMode == SurveyVisualizationMode.Pseudo3D)
             return null;
 
-        var scene = PlanSceneBuilder.TryBuild(project, SurveyStationGeometry.AndroidViewModePlan, visualizationMode);
+        var scene = PlanSceneBuilder.TryBuild(project, vectorViewMode, visualizationMode);
         if (scene == null && underlays.Count == 0)
             return null;
 
-        var (pxW, pxH) = ComputeExportPixelSize(scene);
+        var (pxW, pxH) = ComputeExportPixelSize(scene, quality);
 
         var canvas = new Canvas();
+        TextOptions.SetTextFormattingMode(canvas, TextFormattingMode.Ideal);
         if (scene == null)
         {
             PlanCanvasRenderer.DrawRasterUnderlaysOnly(
@@ -79,10 +82,18 @@ public static class PlanMapRasterExporter
         return ms.ToArray();
     }
 
-    private static (int pxW, int pxH) ComputeExportPixelSize(PlanScene? scene)
+    public static (int pxW, int pxH) ComputeExportPixelSize(PlanScene? scene, MapExportQuality quality = MapExportQuality.Standard) =>
+        ComputeExportPixelSize(
+            scene != null ? scene.SpanX : 1,
+            scene != null ? scene.SpanY : 1,
+            quality);
+
+    public static (int pxW, int pxH) ComputeExportPixelSize(
+        float spanX,
+        float spanY,
+        MapExportQuality quality = MapExportQuality.Standard)
     {
-        double spanX = scene != null ? scene.SpanX : 1;
-        double spanY = scene != null ? scene.SpanY : 1;
+        var dpiScale = quality.DpiScale();
         var aspect = spanX / Math.Max(spanY, 1e-6f);
         double bw;
         double bh;
@@ -97,8 +108,8 @@ public static class PlanMapRasterExporter
             bw = BaseLongEdgePixels * aspect;
         }
 
-        var pxW = (int)Math.Round(bw * ExportDpiScale);
-        var pxH = (int)Math.Round(bh * ExportDpiScale);
+        var pxW = (int)Math.Round(bw * dpiScale);
+        var pxH = (int)Math.Round(bh * dpiScale);
         var maxDim = Math.Max(pxW, pxH);
         if (maxDim > MaxExportEdgePixels)
         {
@@ -113,7 +124,11 @@ public static class PlanMapRasterExporter
     }
 
     /// <summary>Off-screen 3D viewport capture (tube + labels).</summary>
-    public static byte[]? TryCapture3DPng(CaveProjectDocument project, int width = 1600, int height = 1200)
+    public static byte[]? TryCapture3DPng(
+        CaveProjectDocument project,
+        int width = 1600,
+        int height = 1200,
+        Viewport3DDisplayOptions? display = null)
     {
         var viewport = new Viewport3D { Width = width, Height = height };
         var shell = new Border { Width = width, Height = height, Background = new SolidColorBrush(Color.FromRgb(0x13, 0x14, 0x18)) };
@@ -122,7 +137,7 @@ public static class PlanMapRasterExporter
         root.Children.Add(viewport);
         root.Children.Add(labelCanvas);
 
-        if (!CaveViewport3DPresenter.TryPopulate(viewport, project, shell, labelCanvas))
+        if (!CaveViewport3DPresenter.TryPopulate(viewport, project, shell, labelCanvas, display))
             return null;
 
         root.Measure(new Size(width, height));

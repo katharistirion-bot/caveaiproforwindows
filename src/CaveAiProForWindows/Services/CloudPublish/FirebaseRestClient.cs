@@ -130,14 +130,18 @@ public sealed class FirebaseRestClient : IDisposable
             new("sourceClient", metadata.SourceClient),
         };
 
-        if (!string.IsNullOrWhiteSpace(metadata.CartographyImageUrl))
-            pairs.Add(new("cartographyImageUrl", metadata.CartographyImageUrl));
+        if (metadata.CartographyImageUrls is { Count: > 0 } cartoUrls)
+            pairs.Add(new("cartographyImageUrls", cartoUrls));
         if (!string.IsNullOrWhiteSpace(metadata.StructureMaskUrl))
             pairs.Add(new("structureMaskUrl", metadata.StructureMaskUrl));
         if (!string.IsNullOrWhiteSpace(metadata.SurveyJsonStoragePath))
             pairs.Add(new("surveyJsonStoragePath", metadata.SurveyJsonStoragePath));
         if (!string.IsNullOrWhiteSpace(metadata.SurveyJsonMediaUrl))
+        {
             pairs.Add(new("surveyJsonMediaUrl", metadata.SurveyJsonMediaUrl));
+            // Android Public Library reads surveyJsonUrl for dossier merge.
+            pairs.Add(new("surveyJsonUrl", metadata.SurveyJsonMediaUrl));
+        }
         if (!string.IsNullOrWhiteSpace(metadata.SurveyArchiveSchemaVersion))
             pairs.Add(new("surveyArchiveSchemaVersion", metadata.SurveyArchiveSchemaVersion));
         if (!string.IsNullOrWhiteSpace(metadata.SurveyOverlaySummary))
@@ -146,6 +150,79 @@ public sealed class FirebaseRestClient : IDisposable
         var fields = FirestoreFieldBuilder.BuildFields(pairs);
         var docPath = $"published_caves/{metadata.PublishedCaveDocId.Trim()}";
         await PatchDocumentAsync(token, docPath, fields, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Reads <c>published_caves/{docId}</c> for Public Library download (token optional when rules allow public read).</summary>
+    public async Task<PublishedCaveDocument> GetPublishedCaveDocumentAsync(
+        string publishedDocId,
+        FirebaseIdToken? token = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(publishedDocId))
+            throw new ArgumentException("Published cave document id is required.", nameof(publishedDocId));
+
+        var docPath = $"published_caves/{publishedDocId.Trim()}";
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{docPath}";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        if (token != null)
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new FirebaseRestException(
+                $"Firestore GET failed ({(int)resp.StatusCode}): {Truncate(body)}",
+                resp.StatusCode,
+                body);
+
+        return ParsePublishedCaveDocument(body);
+    }
+
+    private static PublishedCaveDocument ParsePublishedCaveDocument(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var fields = doc.RootElement.GetProperty("fields");
+        string? ReadString(string name)
+        {
+            if (!fields.TryGetProperty(name, out var el))
+                return null;
+            if (el.TryGetProperty("stringValue", out var s))
+                return s.GetString();
+            return null;
+        }
+
+        IReadOnlyList<string>? ReadStringArray(string name)
+        {
+            if (!fields.TryGetProperty(name, out var el) || !el.TryGetProperty("arrayValue", out var arr))
+                return null;
+            if (!arr.TryGetProperty("values", out var values) || values.ValueKind != JsonValueKind.Array)
+                return null;
+            var list = new List<string>();
+            foreach (var item in values.EnumerateArray())
+            {
+                if (item.TryGetProperty("stringValue", out var s))
+                {
+                    var v = s.GetString();
+                    if (!string.IsNullOrWhiteSpace(v))
+                        list.Add(v);
+                }
+            }
+
+            return list.Count > 0 ? list : null;
+        }
+
+        return new PublishedCaveDocument
+        {
+            DocumentId = doc.RootElement.TryGetProperty("name", out var n)
+                ? n.GetString()?.Split('/').LastOrDefault() ?? ""
+                : "",
+            SurveyJsonUrl = ReadString("surveyJsonUrl"),
+            SurveyJsonMediaUrl = ReadString("surveyJsonMediaUrl"),
+            CartographyImageUrls = ReadStringArray("cartographyImageUrls"),
+            CaveName = ReadString("name") ?? ReadString("caveName"),
+        };
     }
 
     public static string BuildStorageMediaUrl(string bucket, string objectName, string? downloadToken)

@@ -15,7 +15,7 @@ public static class RasterImageDecoder
     private const int MaxUnderlayDimension = 8192;
 
     /// <summary>DPI for rasterizing PDF plan maps (first page only) for Plan/Section underlay.</summary>
-    private const int PdfUnderlayDpi = 144;
+    private const int PdfUnderlayDpi = 300;
 
     public static BitmapSource? TryLoadBitmap(string fullPath)
     {

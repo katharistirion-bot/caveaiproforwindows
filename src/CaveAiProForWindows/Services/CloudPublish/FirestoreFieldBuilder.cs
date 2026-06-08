@@ -31,8 +31,22 @@ public static class FirestoreFieldBuilder
         {
             ["timestampValue"] = dto.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"),
         },
+        IEnumerable<string> urls => EncodeStringArray(urls),
         _ => new Dictionary<string, object> { ["stringValue"] = value.ToString() ?? "" },
     };
+
+    /// <summary>Firestore REST array of string values (e.g. <c>cartographyImageUrls</c>).</summary>
+    public static Dictionary<string, object> EncodeStringArray(IEnumerable<string> values)
+    {
+        var items = values
+            .Where(u => !string.IsNullOrWhiteSpace(u))
+            .Select(u => new Dictionary<string, object> { ["stringValue"] = u.Trim() })
+            .ToList();
+        return new Dictionary<string, object>
+        {
+            ["arrayValue"] = new Dictionary<string, object> { ["values"] = items },
+        };
+    }
 }
 
 /// <summary>Firestore PATCH body wrapper.</summary>

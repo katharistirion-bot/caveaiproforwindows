@@ -124,7 +124,7 @@ public sealed class ReplicateApiClient
         var token = _tokenProvider();
         if (string.IsNullOrWhiteSpace(token))
             throw new InvalidOperationException(
-                "No Replicate API token configured. Add one under LEGAL & SETTINGS → Generative map (Replicate), or set CAVEAIPRO_REPLICATE_API_TOKEN.");
+                "No Replicate API token configured. Open Help → API Settings to save your personal token (Windows Credential Manager), or set CAVEAIPRO_REPLICATE_API_TOKEN.");
         return token.Trim();
     }
 

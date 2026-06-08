@@ -18,6 +18,17 @@ $tag = "v$version"
 
 Write-Host "Release tag: $tag" -ForegroundColor Cyan
 
+$changelog = Join-Path $RepoRoot 'CHANGELOG.md'
+if (Test-Path -LiteralPath $changelog) {
+    $header = "## [$version]"
+    $hasSection = Select-String -LiteralPath $changelog -Pattern ([regex]::Escape($header)) -Quiet
+    if (-not $hasSection) {
+        Write-Warning "CHANGELOG.md has no section '$header' — add it before tagging, or release notes step will fail."
+    }
+} else {
+    Write-Warning 'CHANGELOG.md not found.'
+}
+
 if ($DryRun) {
     Write-Host 'Dry run — no git commands executed.' -ForegroundColor Yellow
     exit 0

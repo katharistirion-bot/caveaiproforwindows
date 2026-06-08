@@ -1,29 +1,30 @@
 # Terms of Use — CAVE AI PRO
 
-**Version:** [FILL IN]  
-**Publisher:** Georgios Kourentzis — [14-CONTACT.md](14-CONTACT.md)
+**Version:** 1.2  
+**Date:** 6 June 2026  
+**Publisher:** **Georgios Kourentzis** — [14-CONTACT.md](14-CONTACT.md)
 
 ---
 
-## 1. Purpose
+## 1. Scope
 
-These terms govern use of **CAVE AI PRO** and, where applicable, related support or website services [FILL IN: URL or “none”]. This desktop product is **not** distributed through **Google Play** and is **not** the Android app; see [00-DISTRIBUTION-PLATFORMS.md](00-DISTRIBUTION-PLATFORMS.md).
+These terms govern use of **CAVE AI PRO for Windows** and related support or website services at **www.caveaipro.com**. The Windows product is **not** distributed through **Google Play**. See [00-DISTRIBUTION-PLATFORMS.md](00-DISTRIBUTION-PLATFORMS.md).
 
-## 2. Relationship to the EULA
+## 2. Licence
 
-If there is a conflict with **01-EULA-END-USER-LICENSE.md**, the document that explicitly states precedence prevails, or the EULA prevails for license matters.
+Use is subject to [01-EULA-END-USER-LICENSE.md](01-EULA-END-USER-LICENSE.md). **Georgios Kourentzis** retains all intellectual property in the Software.
 
 ## 3. Permitted use
 
-The Software is intended for [FILL IN: professional / hobby] reading and processing of data compatible with **CaveAI Pro (Android)** and its exports. Use for unlawful purposes or infringement of third-party rights in data is prohibited.
+Professional and hobby reading/processing of data compatible with **CaveAI Pro (Android)** exports. Unlawful use or infringement of third-party rights in data is prohibited.
 
 ## 4. Support
 
-[FILL IN: support level, SLA, languages, contact channels.]
+Community support via [caveaipro@gmail.com](mailto:caveaipro@gmail.com) and official channels. No guaranteed SLA for the free Windows edition.
 
-## 5. Changes to terms
+## 5. Changes
 
-The publisher may update these terms. [FILL IN: notice via app / email / website; continued use = acceptance or reinstall required.]
+The publisher may update these terms. Material changes will be reflected in app version notes or the website. Continued use after notice constitutes acceptance where permitted by law.
 
 ## 6. Contact
 

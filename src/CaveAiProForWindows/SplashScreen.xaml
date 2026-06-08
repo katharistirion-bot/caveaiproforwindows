@@ -12,8 +12,7 @@
         SizeToContent="WidthAndHeight"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
-        FontFamily="Segoe UI"
-        Icon="pack://application:,,,/Assets/logo.ico">
+        FontFamily="Segoe UI">
     <Border Width="520"
             Padding="36,28"
             CornerRadius="14"
@@ -33,12 +32,13 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Image Grid.Row="0"
-                   Source="pack://application:,,,/Assets/logo.png"
+            <Image x:Name="LogoImage"
+                   Grid.Row="0"
                    Width="120" Height="120"
                    Stretch="Uniform"
                    HorizontalAlignment="Center"
-                   RenderOptions.BitmapScalingMode="HighQuality" />
+                   RenderOptions.BitmapScalingMode="HighQuality"
+                   Visibility="Collapsed" />
 
             <TextBlock Grid.Row="1"
                        Text="CAVE AI PRO"
@@ -69,6 +69,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <ProgressBar Grid.Row="0"
+                             x:Name="ProgressBar"
                              Height="6"
                              IsIndeterminate="True"
                              Background="#FF1B1F2A"

@@ -1,7 +1,6 @@
 @echo off
 setlocal
-REM Release builds require a registered install OR this flag (see InstallationGuard).
-set "CAVEAI_DEV_SKIP_INSTALL_CHECK=1"
+REM Release builds require a registered install (Debug skips InstallationGuard).
 cd /d "%~dp0"
 
 REM Stale CaveAiProForWindows.exe / dotnet host locks the build output and can leave an old DLL running.

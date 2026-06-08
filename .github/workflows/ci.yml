@@ -40,8 +40,6 @@ jobs:
 
       - name: Publish + smoke test
         shell: pwsh
-        env:
-          CAVEAI_DEV_SKIP_INSTALL_CHECK: "1"
         run: ./tools/smoke-publish.ps1 -SkipTests -LaunchSmokeTest -SmokeSeconds 10
 
       - name: Upload published exe

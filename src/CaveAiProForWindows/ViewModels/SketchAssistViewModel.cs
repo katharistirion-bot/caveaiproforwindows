@@ -26,7 +26,10 @@ public sealed class SketchAssistEditorHost
 
     public required Func<Window?> GetOwnerWindow { get; init; }
 
-    public Action? OpenLegalSettingsTab { get; init; }
+    public Action? OpenApiSettings { get; init; }
+
+    /// <summary>After a successful render, show mask vs result comparison (optional).</summary>
+    public Action<byte[], byte[]>? ShowRenderCompare { get; init; }
 }
 
 /// <summary>Sketch Assist Phase 4 — structure mask → ControlNet generative render.</summary>
@@ -43,6 +46,8 @@ public partial class SketchAssistViewModel : ObservableObject
         Prompt = AppUiSettingsStore.LoadOrDefault().GenerativeMap.DefaultPrompt;
         ShowAiRenderOnCanvas = AppUiSettingsStore.LoadOrDefault().GenerativeMap.ShowAiRenderOnCanvas;
         GuidanceScale = AppUiSettingsStore.LoadOrDefault().GenerativeMap.GuidanceScale;
+        _selectedPromptPresetId = AppUiSettingsStore.LoadOrDefault().GenerativeMap.SelectedPromptPresetId;
+        ApplyPromptPreset(_selectedPromptPresetId, overwritePrompt: false);
         RefreshApiTokenStatus();
     }
 
@@ -56,7 +61,9 @@ public partial class SketchAssistViewModel : ObservableObject
 
     [ObservableProperty]
     private string _statusMessage =
-        "Draw on the design layer, then AI Render uses your structure mask + prompt (Replicate ControlNet).";
+        "Draw on the design layer, then AI Render uses your structure mask + prompt via CaveAI Cloud AI.";
+
+    public bool ShowDevApiSettings => GenerativeAiAccessGate.UseDirectByok;
 
     [ObservableProperty] private bool _hasError;
 
@@ -70,9 +77,16 @@ public partial class SketchAssistViewModel : ObservableObject
 
     [ObservableProperty] private bool _hasGenerativeRender;
 
-    [ObservableProperty] private string _apiTokenStatus = "Replicate API token: not configured";
+    [ObservableProperty] private string _apiTokenStatus = GenerativeAiAccessGate.StatusText();
 
     [ObservableProperty] private bool _hasApiToken;
+
+    public IReadOnlyList<GenerativeMapPromptPreset> PromptPresets { get; } = GenerativeMapPromptPresets.All;
+
+    [ObservableProperty] private string _selectedPromptPresetId = "photoreal";
+
+    [ObservableProperty] private string _negativePrompt =
+        GenerativeMapPromptPresets.TryGet("photoreal")?.NegativePrompt ?? "";
 
     partial void OnIsRenderingChanged(bool value) => AiRenderCommand.NotifyCanExecuteChanged();
 
@@ -88,10 +102,8 @@ public partial class SketchAssistViewModel : ObservableObject
 
     public void RefreshApiTokenStatus()
     {
-        HasApiToken = ReplicateApiTokenStore.IsConfigured();
-        ApiTokenStatus = HasApiToken
-            ? "Replicate API token: configured (Windows Credential Manager)"
-            : "Replicate API token: not configured — add under LEGAL & SETTINGS";
+        HasApiToken = GenerativeAiAccessGate.IsConfigured();
+        ApiTokenStatus = GenerativeAiAccessGate.StatusText();
         AiRenderCommand.NotifyCanExecuteChanged();
     }
 
@@ -126,9 +138,9 @@ public partial class SketchAssistViewModel : ObservableObject
             return;
         }
 
-        if (!ReplicateApiTokenStore.IsConfigured())
+        if (!GenerativeAiAccessGate.EnsureConfigured(_host.GetOwnerWindow(), out var gateError))
         {
-            SetError("Configure a Replicate API token under LEGAL & SETTINGS → Generative map (Replicate).");
+            SetError(gateError ?? "Cloud AI access required.");
             return;
         }
 
@@ -164,6 +176,7 @@ public partial class SketchAssistViewModel : ObservableObject
             {
                 StructureMaskPng = mask,
                 Prompt = Prompt.Trim(),
+                NegativePrompt = NegativePrompt.Trim(),
                 GuidanceScale = GuidanceScale,
             };
 
@@ -175,6 +188,7 @@ public partial class SketchAssistViewModel : ObservableObject
             ProgressValue = 100;
             StatusMessage = $"{result.ProviderName} complete ({result.PixelWidth}×{result.PixelHeight}).";
             _host.OnGenerativeRenderCompleted(result.PngBytes, mask);
+            _host.ShowRenderCompare?.Invoke(mask, result.PngBytes);
         }
         catch (OperationCanceledException)
         {
@@ -182,7 +196,20 @@ public partial class SketchAssistViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            if (GenerativeAiAccessGate.IsAuthError(ex))
+            {
+                if (GenerativeAiAccessGate.UseDirectByok)
+                {
+                    ReplicateApiTokenStore.TryClear();
+                    RefreshApiTokenStatus();
+                    ReplicateTokenGate.PromptInvalidToken(_host.GetOwnerWindow());
+                    SetError("Replicate rejected the API token. Enter a valid token in Developer API Settings.");
+                }
+                else
+                    SetError(ex.Message);
+            }
+            else
+                SetError(ex.Message);
         }
         finally
         {
@@ -216,18 +243,33 @@ public partial class SketchAssistViewModel : ObservableObject
         StatusMessage = "Cancelling AI render…";
     }
 
+    partial void OnSelectedPromptPresetIdChanged(string value) => ApplyPromptPreset(value, overwritePrompt: true);
+
+    private void ApplyPromptPreset(string? presetId, bool overwritePrompt)
+    {
+        var preset = GenerativeMapPromptPresets.TryGet(presetId);
+        if (preset == null)
+            return;
+        if (overwritePrompt)
+            Prompt = preset.Prompt;
+        NegativePrompt = preset.NegativePrompt;
+        if (overwritePrompt)
+            GuidanceScale = preset.GuidanceScale;
+        PersistGenerativePreferences();
+    }
+
     [RelayCommand]
     private void OpenApiSettings()
     {
-        _host.OpenLegalSettingsTab?.Invoke();
-        StatusMessage = "Configure your Replicate API token on LEGAL & SETTINGS.";
+        _host.OpenApiSettings?.Invoke();
+        RefreshApiTokenStatus();
     }
 
     private bool CanAiRender() =>
         !IsRendering &&
         _host.GetProject() != null &&
         _host.GetLegalTermsAccepted() &&
-        ReplicateApiTokenStore.IsConfigured();
+        GenerativeAiAccessGate.IsConfigured();
 
     private void OnRenderProgress(string message)
     {
@@ -235,6 +277,7 @@ public partial class SketchAssistViewModel : ObservableObject
         ProgressValue = message switch
         {
             var m when m.StartsWith("Preparing structure", StringComparison.OrdinalIgnoreCase) => 25,
+            var m when m.StartsWith("Submitting cloud AI", StringComparison.OrdinalIgnoreCase) => 40,
             var m when m.StartsWith("Submitting Replicate", StringComparison.OrdinalIgnoreCase) => 40,
             var m when m.StartsWith("Waiting for Replicate", StringComparison.OrdinalIgnoreCase) => 55,
             var m when m.StartsWith("Replicate:", StringComparison.OrdinalIgnoreCase) => 70,
@@ -257,6 +300,7 @@ public partial class SketchAssistViewModel : ObservableObject
         all.GenerativeMap.DefaultPrompt = Prompt;
         all.GenerativeMap.ShowAiRenderOnCanvas = ShowAiRenderOnCanvas;
         all.GenerativeMap.GuidanceScale = GuidanceScale;
+        all.GenerativeMap.SelectedPromptPresetId = SelectedPromptPresetId;
         AppUiSettingsStore.Save(all);
     }
 }

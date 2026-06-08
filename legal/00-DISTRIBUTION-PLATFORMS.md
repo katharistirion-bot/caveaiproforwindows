@@ -8,7 +8,9 @@ The **CaveAI Pro** mobile application for **Android** is obtained through the **
 
 **CAVE AI PRO** is a **desktop application for Microsoft Windows** (64-bit Windows 10 / Windows 11 as defined in the installer and documentation). It is **not** distributed via Google Play and **cannot** run on Android.
 
-Users who install CaveAI Pro from Google Play on a phone or tablet must obtain the **Windows installer separately** (e.g. MSI, Microsoft Store, or another channel the publisher provides) to run this PC companion.
+Users who install CaveAI Pro from Google Play on a phone or tablet obtain the **Windows companion from [www.caveaipro.com](https://www.caveaipro.com/#windows-download)** (Download for Windows). Android, Windows, and the web Public Library are the active channels.
+
+The recommended install is **Velopack Setup.exe** (automatic updates); MSI and portable ZIP may also be offered for advanced users. See `docs/INSTALL.md` in the Windows repo.
 
 ## Data workflow (high level)
 

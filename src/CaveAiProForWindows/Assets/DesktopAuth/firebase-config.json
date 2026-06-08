@@ -1,6 +1,6 @@
 {
-  "apiKey": "",
+  "apiKey": "REPLACE_AT_BUILD",
   "authDomain": "caveaipro-5950e.firebaseapp.com",
   "projectId": "caveaipro-5950e",
-  "storageBucket": "caveaipro-5950e.appspot.com"
+  "storageBucket": "caveaipro-5950e.firebasestorage.app"
 }

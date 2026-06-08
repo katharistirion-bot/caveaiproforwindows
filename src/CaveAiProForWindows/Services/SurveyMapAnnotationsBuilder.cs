@@ -37,6 +37,7 @@ public static class SurveyMapAnnotationsBuilder
     {
         var inv = CultureInfo.InvariantCulture;
         var coords = scene.Stations;
+        var chainageResult = SurveyTraverseChainage.TryCompute(project);
         var list = new List<SurveyLegMapLabel>();
         var index = 0;
 
@@ -59,22 +60,9 @@ public static class SurveyMapAnnotationsBuilder
             var nx = -dy / len * LegLabelPerpMetres * side;
             var ny = dx / len * LegLabelPerpMetres * side;
 
-            var primary = shot.Distance.ToString("0.##", inv) + " m";
-            var secondary = SurveyMapAnnotationText.FormatLegAngles(shot.Azimuth, shot.Clino, inv);
-
-            var dz = b.Z - a.Z;
-            if (Math.Abs(dz) > 0.005)
-                secondary += "  " + SurveyMapAnnotationText.FormatDeltaZ(dz, inv);
-
-            if (Math.Abs(shot.Depth) > 1e-5f)
-                secondary += "  d " + shot.Depth.ToString("0.##", inv);
-
-            var (L, R, U, D) = shot.EffectivePlanLrud();
-            string? lrud = null;
-            if (L + R + U + D > 0.02f)
-                lrud = SurveyMapAnnotationText.FormatLrud(L, R, U, D, inv);
-
-            list.Add(new SurveyLegMapLabel(midX, midY, nx, ny, primary, secondary, lrud));
+        var (primary, secondary, lrud, chainage) = SurveyLegLabelFormatter.FormatLegLabel(
+            shot, a, b, chainageResult, includeEndpointNames: true);
+        list.Add(new SurveyLegMapLabel(midX, midY, nx, ny, primary, secondary, lrud, chainage));
         }
 
         return list;

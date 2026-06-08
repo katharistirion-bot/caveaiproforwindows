@@ -1,7 +1,39 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CaveAiProForWindows.Services.CloudPublish;
+
+/// <summary>Firebase web client config (public identifiers + API key) for Auth in WebView2.</summary>
+public sealed class FirebaseWebClientConfig
+{
+    [JsonPropertyName("apiKey")]
+    public string ApiKey { get; init; } = "";
+
+    [JsonPropertyName("authDomain")]
+    public string AuthDomain { get; init; } = "";
+
+    [JsonPropertyName("projectId")]
+    public string ProjectId { get; init; } = FirebaseProjectConfig.DefaultProjectId;
+
+    [JsonPropertyName("storageBucket")]
+    public string StorageBucket { get; init; } = $"{FirebaseProjectConfig.DefaultProjectId}.appspot.com";
+
+    public bool IsUsable =>
+        !string.IsNullOrWhiteSpace(ApiKey)
+        && !ApiKey.Contains("REPLACE", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Shape expected by <c>firebase.initializeApp</c> in bundled auth.html.</summary>
+    public object ToFirebaseInitializeAppObject() => new
+    {
+        apiKey = ApiKey,
+        authDomain = string.IsNullOrWhiteSpace(AuthDomain)
+            ? $"{ProjectId}.firebaseapp.com"
+            : AuthDomain,
+        projectId = ProjectId,
+        storageBucket = StorageBucket,
+    };
+}
 
 /// <summary>
 /// Public Firebase project identifiers (same values shipped in the web/Android client config).
@@ -22,40 +54,68 @@ public sealed class FirebaseProjectConfig
     /// <summary>Web API key for bundled desktop auth fallback (env: CAVEAIPRO_FIREBASE_API_KEY).</summary>
     public string? WebApiKey { get; init; }
 
+    public string AuthDomain { get; init; } = $"{DefaultProjectId}.firebaseapp.com";
+
     public static FirebaseProjectConfig LoadFromEnvironment()
     {
-        var projectId = Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_PROJECT_ID");
-        var bucket = Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_STORAGE_BUCKET");
-        var apiKey = Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_API_KEY");
-        var embeddedKey = TryLoadEmbeddedWebApiKey();
+        var embedded = TryLoadEmbeddedWebClientConfig();
+        var projectId = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_PROJECT_ID"),
+            embedded?.ProjectId,
+            DefaultProjectId)!;
+        var bucket = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_STORAGE_BUCKET"),
+            embedded?.StorageBucket,
+            $"{projectId}.appspot.com")!;
+        var apiKey = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_API_KEY"),
+            embedded?.ApiKey);
+        var authDomain = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_AUTH_DOMAIN"),
+            embedded?.AuthDomain,
+            $"{projectId}.firebaseapp.com")!;
+
         return new FirebaseProjectConfig
         {
-            ProjectId = string.IsNullOrWhiteSpace(projectId) ? DefaultProjectId : projectId.Trim(),
-            StorageBucket = string.IsNullOrWhiteSpace(bucket)
-                ? $"{(string.IsNullOrWhiteSpace(projectId) ? DefaultProjectId : projectId.Trim())}.appspot.com"
-                : bucket.Trim(),
-            WebApiKey = !string.IsNullOrWhiteSpace(apiKey)
-                ? apiKey.Trim()
-                : embeddedKey,
+            ProjectId = projectId,
+            StorageBucket = bucket,
+            WebApiKey = apiKey,
+            AuthDomain = authDomain,
         };
     }
 
-    private static string? TryLoadEmbeddedWebApiKey()
+    public FirebaseWebClientConfig ToWebClientConfig() =>
+        new()
+        {
+            ApiKey = WebApiKey ?? "",
+            AuthDomain = AuthDomain,
+            ProjectId = ProjectId,
+            StorageBucket = StorageBucket,
+        };
+
+    private static FirebaseWebClientConfig? TryLoadEmbeddedWebClientConfig()
     {
         try
         {
             var path = Path.Combine(AppContext.BaseDirectory, "Assets", "DesktopAuth", "firebase-config.json");
             if (!File.Exists(path))
                 return null;
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
-            if (!doc.RootElement.TryGetProperty("apiKey", out var keyEl))
-                return null;
-            var key = keyEl.GetString()?.Trim();
-            return string.IsNullOrWhiteSpace(key) ? null : key;
+            return JsonSerializer.Deserialize<FirebaseWebClientConfig>(File.ReadAllText(path));
         }
         catch
         {
             return null;
         }
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var v in values)
+        {
+            if (!string.IsNullOrWhiteSpace(v))
+                return v.Trim();
+        }
+
+        return null;
     }
 }

@@ -1,11 +1,11 @@
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows;
@@ -19,6 +19,7 @@ public partial class App : System.Windows.Application
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         base.OnStartup(e);
         ThemePaletteSwitcher.ApplyInitial();
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         var startupSurveyPaths = CollectStartupSurveyPaths(e.Args);
         if (startupSurveyPaths.Count > 0)
@@ -45,32 +46,87 @@ public partial class App : System.Windows.Application
         }
 #endif
 
+        RunGatedStartup(startupSurveyPaths);
+    }
+
+    private void RunGatedStartup(List<string> startupSurveyPaths)
+    {
+        _ = RunGatedStartupAsync(startupSurveyPaths);
+    }
+
+    private async Task RunGatedStartupAsync(List<string> startupSurveyPaths)
+    {
+        SplashScreen? splash = null;
         try
         {
-            var splash = ShowSplash();
-            WaitForSplashWarmup(splash, MinimumSplashDuration);
+            splash = ShowSplash();
+            if (splash != null)
+                AppStartupSplashController.Register(splash);
+
+            await WaitForSplashWarmupAsync(splash, MinimumSplashDuration).ConfigureAwait(true);
+
+            splash?.SetStatus("Loading background services…");
+            Debug.WriteLine("[Startup] Background warm-up complete — opening app lock.");
+
+            using var gateCts = new CancellationTokenSource(AppStartupGateOptions.UnlockFlowTimeout);
+            bool unlocked;
+            try
+            {
+                unlocked = await AppLockBootstrapper.TryEnsureUnlockedAsync(splash, gateCts.Token)
+                    .ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteStartupLog("App lock: timed out waiting for sign-in/subscription");
+                splash?.ShowError(
+                    "Sign-in timed out",
+                    "Could not complete Google sign-in and subscription verification in time. Please try again.");
+                await Task.Delay(3500).ConfigureAwait(true);
+                Shutdown(0);
+                return;
+            }
+
+            if (!unlocked)
+            {
+                WriteStartupLog("App lock: user exited without active subscription");
+                Shutdown(0);
+                return;
+            }
+
+            CloseSplash(splash);
+            splash = null;
 
             var main = new MainWindow();
             MainWindow = main;
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
             main.Show();
             WriteStartupLog("MainWindow shown");
+            Debug.WriteLine("[Startup] MainWindow shown.");
+
             if (startupSurveyPaths.Count > 0 && main.DataContext is MainViewModel vm)
                 vm.LoadFromPaths(startupSurveyPaths);
-
-            CloseSplash(splash);
 
             _ = AppUpdateService.CheckForUpdatesOnStartupAsync(main);
         }
         catch (Exception ex)
         {
             WriteFatalLog("MainWindow startup failed", ex);
+            Debug.WriteLine("[Startup] FAILED: " + ex);
+            splash?.ShowError("Startup failed", ex.Message);
             try
             {
-                System.Windows.MessageBox.Show(
-                    FormatUserFacingError(ex),
-                    "CAVE AI PRO — startup failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                if (splash == null)
+                {
+                    System.Windows.MessageBox.Show(
+                        FormatUserFacingError(ex),
+                        "CAVE AI PRO — startup failed",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+                else
+                {
+                    await Task.Delay(4000).ConfigureAwait(true);
+                }
             }
             catch
             {
@@ -78,7 +134,11 @@ public partial class App : System.Windows.Application
             }
 
             Shutdown(1);
-            return;
+        }
+        finally
+        {
+            CloseSplash(splash);
+            AppStartupSplashController.Clear();
         }
 
         WriteStartupLog("OnStartup end");
@@ -93,7 +153,6 @@ public partial class App : System.Windows.Application
         {
             var splash = new SplashScreen();
             splash.Show();
-            // Pump the dispatcher once so the splash actually paints before MainWindow construction blocks the UI thread.
             splash.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
             return splash;
         }
@@ -104,30 +163,17 @@ public partial class App : System.Windows.Application
         }
     }
 
-    /// <summary>
-    /// Blocks until the splash has been on screen at least <paramref name="minimum"/>, while keeping the
-    /// dispatcher alive so the indeterminate progress bar continues animating.
-    /// </summary>
-    private static void WaitForSplashWarmup(SplashScreen? splash, TimeSpan minimum)
+    private static async Task WaitForSplashWarmupAsync(SplashScreen? splash, TimeSpan minimum)
     {
         if (splash == null)
             return;
+
         var sw = Stopwatch.StartNew();
-        var frame = new DispatcherFrame();
-        var timer = new DispatcherTimer(DispatcherPriority.Background, splash.Dispatcher)
+        while (sw.Elapsed < minimum)
         {
-            Interval = TimeSpan.FromMilliseconds(40),
-        };
-        timer.Tick += (_, _) =>
-        {
-            if (sw.Elapsed >= minimum)
-            {
-                timer.Stop();
-                frame.Continue = false;
-            }
-        };
-        timer.Start();
-        Dispatcher.PushFrame(frame);
+            await splash.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
+            await Task.Delay(40).ConfigureAwait(true);
+        }
     }
 
     private static void CloseSplash(SplashScreen? splash)
@@ -136,6 +182,7 @@ public partial class App : System.Windows.Application
             return;
         try
         {
+            splash.StopProgress();
             splash.Close();
         }
         catch (Exception ex)
@@ -204,7 +251,7 @@ public partial class App : System.Windows.Application
                 "CaveAiProForWindows");
             Directory.CreateDirectory(dir);
             var path = Path.Combine(dir, "last-error.txt");
-            var sb = new StringBuilder();
+            var sb = new System.Text.StringBuilder();
             sb.AppendLine(title);
             sb.AppendLine(new string('-', 60));
             sb.AppendLine(ex.ToString());

@@ -70,6 +70,10 @@ public static class ExplorationAnalytics
                 sb.AppendLine($"Cave Library link: linkedLibraryCaveId = {s}");
         }
 
+        var siteLabel = SurveySiteTypeResolver.GetMapLabel(p);
+        if (!string.IsNullOrWhiteSpace(siteLabel))
+            sb.AppendLine($"Site type: {siteLabel} ({SurveySiteType.CanonicalToken(SurveySiteTypeResolver.Resolve(p))})");
+
         var cartUris = ArrCountPrimaryOrExt(p.PublicLibraryCartographyUris, ext, "publicLibraryCartographyUris");
         if (cartUris > 0)
             sb.AppendLine($"Public Library cartography URIs in JSON: {cartUris} (use Export → Extract full archive on PC for files).");

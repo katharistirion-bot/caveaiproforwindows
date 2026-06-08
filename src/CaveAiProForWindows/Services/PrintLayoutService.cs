@@ -6,6 +6,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.Visualization;
 
 namespace CaveAiProForWindows.Services;
 
@@ -137,7 +138,10 @@ public static class PrintLayoutService
             metrics.TitleFontSize);
 
         var dateLine = string.IsNullOrWhiteSpace(project.Date) ? "—" : project.Date.Trim();
-        var meta = $"{dateLine}  ·  {request.MapKindLabel}";
+        var siteLabel = SurveySiteTypeResolver.GetMapLabel(project);
+        var meta = string.IsNullOrWhiteSpace(siteLabel)
+            ? $"{dateLine}  ·  {request.MapKindLabel}"
+            : $"{siteLabel}  ·  {dateLine}  ·  {request.MapKindLabel}";
         if (request.HighContrast)
             meta += "  ·  High contrast";
         if (!string.IsNullOrWhiteSpace(request.SubtitleSuffix))
@@ -156,9 +160,17 @@ public static class PrintLayoutService
             new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
             metrics.SummaryFontSize);
 
+        var titleBlock = BuildTitleBlockLine(request);
+        var titleBlockHeight = MeasureTextHeight(
+            titleBlock,
+            textWidth,
+            new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal),
+            metrics.SummaryFontSize);
+
         var metaTop = titleHeight + 4;
         var summaryTop = metaTop + metaHeight + 4;
-        var textStackHeight = summaryTop + summaryHeight;
+        var titleBlockTop = summaryTop + summaryHeight + 4;
+        var textStackHeight = titleBlockTop + titleBlockHeight;
         var headerHeight = Math.Max(metrics.LogoSize, textStackHeight);
 
         var logo = new Image
@@ -210,8 +222,33 @@ public static class PrintLayoutService
         FixedPage.SetTop(summary, y + summaryTop);
         page.Children.Add(summary);
 
+        if (!string.IsNullOrWhiteSpace(titleBlock))
+        {
+            var titleBlockBlock = new TextBlock
+            {
+                Text = titleBlock,
+                FontSize = metrics.SummaryFontSize,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = Brushes.Black,
+                TextWrapping = TextWrapping.Wrap,
+                Width = textWidth,
+            };
+            FixedPage.SetLeft(titleBlockBlock, textLeft);
+            FixedPage.SetTop(titleBlockBlock, y + titleBlockTop);
+            page.Children.Add(titleBlockBlock);
+        }
+
         y += headerHeight;
         return headerHeight;
+    }
+
+    private static string BuildTitleBlockLine(SurveyMapPrintRequest request)
+    {
+        var metadata = CaveMappingExportMetadata.FromProject(
+            request.Project,
+            pxPerMetre: request.Cartography?.SourcePxPerMetre,
+            canvasKind: request.Cartography?.CanvasKind ?? SurveyCanvasKind.Plan);
+        return metadata.BuildTitleBlockLine();
     }
 
     private static void AddMapFrame(
@@ -307,10 +344,16 @@ public static class PrintLayoutService
         var paperLabel = options.PaperSize.ToString();
         var orientLabel = options.Orientation == PageOrientation.Landscape ? "Landscape" : "Portrait";
         var scaleLabel = options.FitMapToPage ? "Fit to page" : "Actual size";
+        string? mapScale = null;
+        if (request.Cartography?.SourcePxPerMetre is double pxPerMetre && pxPerMetre > 0)
+            mapScale = CartographicScaleCalculator.FormatScaleLabel(pxPerMetre);
+        var mapScalePart = string.IsNullOrWhiteSpace(mapScale) || mapScale == "Scale n/a"
+            ? string.Empty
+            : $"  ·  {mapScale}";
         var footer = new TextBlock
         {
             Text =
-                $"CAVE AI PRO  ·  {paperLabel} {orientLabel} · {scaleLabel}  ·  Printed {DateTime.Now.ToString("yyyy-MM-dd HH:mm", inv)}  ·  {request.MapKindLabel}",
+                $"CAVE AI PRO  ·  {paperLabel} {orientLabel} · {scaleLabel}{mapScalePart}  ·  Printed {DateTime.Now.ToString("yyyy-MM-dd HH:mm", inv)}  ·  {request.MapKindLabel}",
             FontSize = metrics.FooterFontSize,
             Foreground = Brushes.Gray,
             Width = contentWidth,

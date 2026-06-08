@@ -23,15 +23,72 @@ public static class AppUiSettingsStore
         {
             var path = SettingsPath;
             if (!File.Exists(path))
-                return new AppUiSettingsModel();
+                return CreateFresh();
+
             var json = File.ReadAllText(path);
             var m = JsonSerializer.Deserialize<AppUiSettingsModel>(json, JsonOptions);
-            return m ?? new AppUiSettingsModel();
+            m ??= CreateFresh();
+            if (TryMigrate(m))
+                Save(m);
+            return m;
         }
         catch
         {
-            return new AppUiSettingsModel();
+            return CreateFresh();
         }
+    }
+
+    private static AppUiSettingsModel CreateFresh()
+    {
+        return new AppUiSettingsModel { SettingsSchemaVersion = AppUiSettingsSchema.Current };
+    }
+
+    private static bool TryMigrate(AppUiSettingsModel model)
+    {
+        if (model.SettingsSchemaVersion >= AppUiSettingsSchema.Current)
+            return false;
+
+        if (model.SettingsSchemaVersion < 5)
+            ApplyViewport3DCleanDefaults(model);
+
+        model.SettingsSchemaVersion = AppUiSettingsSchema.Current;
+        return true;
+    }
+
+    /// <summary>Usable 3D defaults: labels off, small chips, minimal overlay clutter.</summary>
+    public static void ApplyViewport3DCleanDefaults(AppUiSettingsModel model)
+    {
+        var p = model.Plan;
+        p.Viewport3DShowLabels = false;
+        p.Viewport3DLabelSize = Viewport3DLabelSizeScale.Small;
+        p.Viewport3DMapSymbols = false;
+        p.Viewport3DFieldCatalog = false;
+        p.Viewport3DStationSnapshots = false;
+        p.Viewport3DAiTags = false;
+    }
+
+    /// <summary>Enable all 3D viewport labels including Android map symbols, field catalog, snapshots, and AI tags.</summary>
+    public static void ApplyViewport3DFullLabels(AppUiSettingsModel model)
+    {
+        var p = model.Plan;
+        p.Viewport3DShowLabels = true;
+        p.Viewport3DMapSymbols = true;
+        p.Viewport3DFieldCatalog = true;
+        p.Viewport3DStationSnapshots = true;
+        p.Viewport3DAiTags = true;
+        p.StationNames = true;
+        p.LegSurveyDetails = true;
+        p.StationEnvironment = true;
+        p.DepthSpanAnnotations = true;
+        p.BracketMarkers = true;
+    }
+
+    /// <summary>Reset only 3D label toggles and persist (user-facing reset).</summary>
+    public static void ResetViewport3DLabels()
+    {
+        var all = LoadOrDefault();
+        ApplyViewport3DFullLabels(all);
+        Save(all);
     }
 
     public static void Save(AppUiSettingsModel model)

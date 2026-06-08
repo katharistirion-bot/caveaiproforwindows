@@ -40,7 +40,7 @@ public static class ExtendedElevationSceneBuilder
         var wallPolys = new List<SurveyStationGeometry.PlanVectorPolyline>();
         foreach (var sk in SurveyStationGeometry.ParseSectionSketchesForSectionView(p))
         {
-            var t = TransformPolylinePlanToElevation(sk, traverseLegs, planCoords, chainage);
+            var t = TransformPolylinePlanToElevationPublic(sk, traverseLegs, planCoords, chainage);
             if (t != null)
                 wallPolys.Add(t);
         }
@@ -50,7 +50,7 @@ public static class ExtendedElevationSceneBuilder
                      p.VectorLines,
                      SurveyStationGeometry.AndroidViewModeSection))
         {
-            var t = TransformPolylinePlanToElevation(v, traverseLegs, planCoords, chainage);
+            var t = TransformPolylinePlanToElevationPublic(v, traverseLegs, planCoords, chainage);
             if (t != null)
                 vectorPolys.Add(t);
         }
@@ -223,7 +223,7 @@ public static class ExtendedElevationSceneBuilder
     }
 
     /// <summary>Project a plan-metre sketch/vector polyline into (chainage, Z) by snapping each vertex to the nearest traverse leg in plan.</summary>
-    private static SurveyStationGeometry.PlanVectorPolyline? TransformPolylinePlanToElevation(
+    public static SurveyStationGeometry.PlanVectorPolyline? TransformPolylinePlanToElevationPublic(
         SurveyStationGeometry.PlanVectorPolyline pl,
         IReadOnlyList<ShotRecord> traverseLegs,
         IReadOnlyDictionary<string, StationCoords> planCoords,

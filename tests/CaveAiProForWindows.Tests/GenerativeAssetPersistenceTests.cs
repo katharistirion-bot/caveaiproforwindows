@@ -12,7 +12,7 @@ namespace CaveAiProForWindows.Tests;
 [TestClass]
 public sealed class GenerativeAssetPersistenceTests
 {
-    private static readonly byte[] SamplePng =
+    internal static readonly byte[] SamplePngBytes =
     [
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
         0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
@@ -36,7 +36,7 @@ public sealed class GenerativeAssetPersistenceTests
         try
         {
             var project = new CaveProjectDocument { Name = "TestCave", Date = "2026-01-01" };
-            ProjectAiAssetPersistence.AttachSessionAssets(project, jsonPath, SamplePng, SamplePng);
+            ProjectAiAssetPersistence.AttachSessionAssets(project, jsonPath, SamplePngBytes, SamplePngBytes);
 
             Assert.IsTrue(project.ExtensionData!.ContainsKey(ProjectAiAssetPersistence.AiGeneratedMapLocalPathKey));
             Assert.IsTrue(project.ExtensionData.ContainsKey(ProjectAiAssetPersistence.AiStructureMaskLocalPathKey));
@@ -69,7 +69,7 @@ public sealed class GenerativeAssetPersistenceTests
         try
         {
             var project = new CaveProjectDocument { Name = "HydrateCave", Date = "2026-06-01" };
-            ProjectAiAssetPersistence.AttachSessionAssets(project, jsonPath, SamplePng, SamplePng);
+            ProjectAiAssetPersistence.AttachSessionAssets(project, jsonPath, SamplePngBytes, SamplePngBytes);
 
             var reloaded = new CaveProjectDocument
             {
@@ -81,7 +81,7 @@ public sealed class GenerativeAssetPersistenceTests
             Assert.IsTrue(GenerativeAssetPersistenceService.TryHydrateSessionFromProject(reloaded, jsonPath));
             var entry = GenerativeMapSessionCache.TryGet(reloaded);
             Assert.IsNotNull(entry);
-            Assert.AreEqual(SamplePng.Length, entry!.PngBytes.Length);
+            Assert.AreEqual(SamplePngBytes.Length, entry!.PngBytes.Length);
             Assert.IsNotNull(entry.StructureMaskPng);
         }
         finally
@@ -106,8 +106,8 @@ public sealed class GenerativeAssetPersistenceTests
                 project,
                 jsonPath,
                 [project],
-                SamplePng,
-                SamplePng));
+                SamplePngBytes,
+                SamplePngBytes));
 
             var text = File.ReadAllText(jsonPath);
             Assert.IsTrue(text.Contains(ProjectAiAssetPersistence.AiGeneratedMapLocalPathKey, StringComparison.Ordinal));
@@ -144,7 +144,7 @@ public sealed class GenerativeAssetPersistenceTests
 
                 var assetEntry = zip.CreateEntry("export_assets/windows/ZipCave/ai_cartography.png");
                 using (var s = assetEntry.Open())
-                    s.Write(SamplePng, 0, SamplePng.Length);
+                    s.Write(SamplePngBytes, 0, SamplePngBytes.Length);
             }
 
             project.ExtensionData = new Dictionary<string, JsonElement>
@@ -156,7 +156,7 @@ public sealed class GenerativeAssetPersistenceTests
             var bytes = ProjectAiAssetPersistence.TryLoadAssetBytes(zipPath,
                 "export_assets/windows/ZipCave/ai_cartography.png");
             Assert.IsNotNull(bytes);
-            Assert.AreEqual(SamplePng.Length, bytes!.Length);
+            Assert.AreEqual(SamplePngBytes.Length, bytes!.Length);
         }
         finally
         {

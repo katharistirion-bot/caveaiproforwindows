@@ -13,7 +13,8 @@ if not exist "%OUT%\CaveAiProForWindows.dll" (
   dotnet publish "src\CaveAiProForWindows\CaveAiProForWindows.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=none -o "%OUT%"
   if errorlevel 1 ( pause & exit /b 1 )
 )
-REM Release exe must see a registered install; TryRun folder is dev-only (same as env in docs).
-set "CAVEAI_DEV_SKIP_INSTALL_CHECK=1"
+REM Register TryRun folder as a dev install (Release builds no longer honor env bypass).
+reg add "HKCU\SOFTWARE\CaveAiPro\CaveAiProForWindows" /v Installed /t REG_DWORD /d 1 /f >nul
+reg add "HKCU\SOFTWARE\CaveAiPro\CaveAiProForWindows" /v InstallDir /t REG_SZ /d "%OUT%" /f >nul
 start "" "%OUT%\CaveAiProForWindows.exe"
 endlocal

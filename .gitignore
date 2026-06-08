@@ -18,4 +18,9 @@ TestResults/
 .ionide/
 dist/
 _release_out/
-src/CaveAiProForWindows/Obfuscar.xml
+_store_out/
+_build_out/
+_website_upload/
+firebase/functions/node_modules/
+firebase-debug.log
+firebase-debug.*.log

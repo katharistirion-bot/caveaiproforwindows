@@ -104,4 +104,26 @@ public sealed class AndroidSurveySyncServiceTests
                 Directory.Delete(dir, true);
         }
     }
+
+    [TestMethod]
+    public void TryFindLatestBackupZip_returns_newest_file()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "caveai_zip_sync_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var older = Path.Combine(dir, "CaveAI_Backup_old.zip");
+            var newer = Path.Combine(dir, "CaveAI_Backup_new.zip");
+            File.WriteAllText(older, "a");
+            Thread.Sleep(20);
+            File.WriteAllText(newer, "b");
+            Assert.AreEqual(Path.GetFullPath(newer), Path.GetFullPath(AndroidSurveySyncService.TryFindLatestBackupZip(dir)!));
+            Assert.IsTrue(AndroidSurveySyncService.IsSyncFolder(dir));
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
+    }
 }

@@ -22,6 +22,251 @@ public static class CaveSurveyTubeMeshBuilder
     public static MeshGeometry3D? BuildTubeMesh(
         IReadOnlyList<ShotRecord> shots,
         IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        int ellipseSegments = DefaultEllipseSegments) =>
+        BuildContinuousLrudTubeMesh(shots, coords3, ellipseSegments)
+        ?? BuildPerLegLrudTubeMesh(shots, coords3, ellipseSegments);
+
+    /// <summary>
+    /// Continuous LRUD tube along traverse walks: Catmull-Rom centerline with elliptical cross-sections
+    /// interpolated from station LRUD dimensions.
+    /// </summary>
+    public static MeshGeometry3D? BuildContinuousLrudTubeMesh(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        int ellipseSegments = DefaultEllipseSegments,
+        float centerlineSampleM = 0.35f)
+    {
+        if (ellipseSegments < 3)
+            return null;
+
+        var walks = SurveyLrudWallGeometry.GetOrderedTraverseWalks(shots);
+        if (walks.Count == 0)
+            return null;
+
+        var positions = new List<Point3D>();
+        var indices = new List<int>();
+        var ringStarts = new List<int>();
+
+        foreach (var walk in walks)
+        {
+            if (!TryBuildWalkCenterlineSamples(walk, coords3, centerlineSampleM, out var samples))
+                continue;
+
+            for (var si = 0; si < samples.Count; si++)
+            {
+                var (center, lrud, tangent) = samples[si];
+                if (tangent.LengthSquared < 1e-12)
+                    continue;
+                tangent.Normalize();
+                if (!TryEllipseBasis(tangent, out var rAxis, out var uAxis))
+                    continue;
+
+                var L = lrud.L > Eps ? lrud.L : MinHalf;
+                var R = lrud.R > Eps ? lrud.R : MinHalf;
+                var U = lrud.U > Eps ? lrud.U : MinHalf;
+                var D = lrud.D > Eps ? lrud.D : MinHalf;
+                var aSemi = 0.5 * (L + R);
+                var bSemi = 0.5 * (U + D);
+                var offset = rAxis * (0.5 * (R - L)) + uAxis * (0.5 * (U - D));
+                ringStarts.Add(positions.Count);
+                AppendEllipseRing(positions, center, tangent, rAxis, uAxis, offset, aSemi, bSemi, ellipseSegments);
+            }
+
+            for (var ri = 0; ri + 1 < ringStarts.Count; ri++)
+            {
+                var baseA = ringStarts[ri];
+                var baseB = ringStarts[ri + 1];
+                if (baseB - baseA == ellipseSegments)
+                    StitchRings(indices, baseA, baseB, ellipseSegments);
+            }
+
+            ringStarts.Clear();
+        }
+
+        if (positions.Count < 3 || indices.Count < 3)
+            return null;
+
+        var mesh = new MeshGeometry3D
+        {
+            Positions = new Point3DCollection(positions),
+            TriangleIndices = new Int32Collection(indices),
+        };
+        mesh.Normals = ComputeVertexNormals(mesh.Positions, mesh.TriangleIndices);
+        mesh.Freeze();
+        return mesh;
+    }
+
+    private readonly record struct LrudSlice(float L, float R, float U, float D);
+
+    private static bool TryBuildWalkCenterlineSamples(
+        IReadOnlyList<(string wf, string wt, ShotRecord sh)> walk,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        float sampleM,
+        out List<(Vector3D center, LrudSlice lrud, Vector3D tangent)> samples)
+    {
+        samples = new List<(Vector3D, LrudSlice, Vector3D)>();
+        if (walk.Count == 0)
+            return false;
+
+        var stations = new List<string> { walk[0].wf };
+        foreach (var step in walk)
+            stations.Add(step.wt);
+
+        var anchors = new List<(Vector3D p, LrudSlice lrud)>();
+        for (var i = 0; i < stations.Count; i++)
+        {
+            var st = stations[i];
+            if (!coords3.TryGetValue(st, out var c))
+                continue;
+            if (!TryResolveStationLrud(st, i, walk, out var lrud))
+                continue;
+            anchors.Add((new Vector3D(c.X, c.Y, c.Z), lrud));
+        }
+
+        if (anchors.Count < 2)
+            return false;
+
+        var dense = SampleOpenCenterline3D(anchors, sampleM);
+        if (dense.Count < 2)
+            return false;
+
+        for (var i = 0; i < dense.Count; i++)
+        {
+            var tangent = i == 0
+                ? dense[1].p - dense[0].p
+                : i == dense.Count - 1
+                    ? dense[i].p - dense[i - 1].p
+                    : dense[i + 1].p - dense[i - 1].p;
+            samples.Add((dense[i].p, dense[i].lrud, tangent));
+        }
+
+        return samples.Count >= 2;
+    }
+
+    private static bool TryResolveStationLrud(
+        string station,
+        int index,
+        IReadOnlyList<(string wf, string wt, ShotRecord sh)> walk,
+        out LrudSlice lrud)
+    {
+        lrud = default;
+        var sumL = 0f;
+        var sumR = 0f;
+        var sumU = 0f;
+        var sumD = 0f;
+        var n = 0;
+
+        void Accumulate(ShotRecord sh, string wf, string wt)
+        {
+            if (!string.Equals(station, wf, StringComparison.Ordinal) &&
+                !string.Equals(station, wt, StringComparison.Ordinal))
+                return;
+            var (l, r, u, d) = sh.EffectivePlanLrud();
+            var reverse = string.Equals(wf, sh.ToStation, StringComparison.Ordinal) &&
+                          string.Equals(wt, sh.FromStation, StringComparison.Ordinal);
+            if (reverse)
+                (l, r) = (r, l);
+            sumL += l;
+            sumR += r;
+            sumU += u;
+            sumD += d;
+            n++;
+        }
+
+        if (index > 0)
+            Accumulate(walk[index - 1].sh, walk[index - 1].wf, walk[index - 1].wt);
+        if (index < walk.Count)
+            Accumulate(walk[index].sh, walk[index].wf, walk[index].wt);
+
+        if (n == 0)
+            return false;
+
+        lrud = new LrudSlice(sumL / n, sumR / n, sumU / n, sumD / n);
+        return true;
+    }
+
+    private static List<(Vector3D p, LrudSlice lrud)> SampleOpenCenterline3D(
+        IReadOnlyList<(Vector3D p, LrudSlice lrud)> anchors,
+        float sampleM)
+    {
+        if (anchors.Count == 1)
+            return new List<(Vector3D, LrudSlice)> { anchors[0] };
+
+        var chain = new List<(float x, float y)>(anchors.Count);
+        foreach (var a in anchors)
+            chain.Add(((float)a.p.X, (float)a.p.Y));
+
+        var zChain = anchors.Select(a => a.p.Z).ToList();
+        var lrudChain = anchors.Select(a => a.lrud).ToList();
+        var planSamples = SurveyCatmullRomSampler.SampleOpenPlanChain(chain, sampleM);
+        if (planSamples.Count < 2)
+            return new List<(Vector3D, LrudSlice)>(anchors);
+
+        var dense = new List<(Vector3D p, LrudSlice lrud)>(planSamples.Count);
+        foreach (var (x, y) in planSamples)
+        {
+            if (!TryInterpolateAlongPolyline(chain, zChain, lrudChain, x, y, out var z, out var lrud))
+                continue;
+            dense.Add((new Vector3D(x, y, z), lrud));
+        }
+
+        return dense.Count >= 2 ? dense : new List<(Vector3D, LrudSlice)>(anchors);
+    }
+
+    private static bool TryInterpolateAlongPolyline(
+        IReadOnlyList<(float x, float y)> xy,
+        IReadOnlyList<double> z,
+        IReadOnlyList<LrudSlice> lrud,
+        float x,
+        float y,
+        out double zOut,
+        out LrudSlice lrudOut)
+    {
+        zOut = 0;
+        lrudOut = default;
+        if (xy.Count < 2 || xy.Count != z.Count || xy.Count != lrud.Count)
+            return false;
+
+        var bestSeg = 0;
+        var bestT = 0.0;
+        var bestDist = double.MaxValue;
+        for (var i = 0; i < xy.Count - 1; i++)
+        {
+            var ax = xy[i].x;
+            var ay = xy[i].y;
+            var bx = xy[i + 1].x;
+            var by = xy[i + 1].y;
+            var dx = bx - ax;
+            var dy = by - ay;
+            var lenSq = dx * dx + dy * dy;
+            var t = lenSq < 1e-12 ? 0 : Math.Clamp(((x - ax) * dx + (y - ay) * dy) / lenSq, 0, 1);
+            var px = ax + t * dx;
+            var py = ay + t * dy;
+            var d = (x - px) * (x - px) + (y - py) * (y - py);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                bestSeg = i;
+                bestT = t;
+            }
+        }
+
+        zOut = z[bestSeg] + bestT * (z[bestSeg + 1] - z[bestSeg]);
+        var a = lrud[bestSeg];
+        var b = lrud[bestSeg + 1];
+        var tF = (float)bestT;
+        lrudOut = new LrudSlice(
+            a.L + tF * (b.L - a.L),
+            a.R + tF * (b.R - a.R),
+            a.U + tF * (b.U - a.U),
+            a.D + tF * (b.D - a.D));
+        return true;
+    }
+
+    /// <summary>Per-leg elliptical tubes (legacy fallback).</summary>
+    private static MeshGeometry3D? BuildPerLegLrudTubeMesh(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
         int ellipseSegments = DefaultEllipseSegments)
     {
         var legs = shots.Where(s => s.IsTraverseLeg).ToList();

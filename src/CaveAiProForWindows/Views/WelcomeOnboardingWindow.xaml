@@ -1,0 +1,27 @@
+<Window x:Class="CaveAiProForWindows.Views.WelcomeOnboardingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Welcome"
+        Height="420" Width="520"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource Cave.Background}"
+        Foreground="{DynamicResource Cave.Text}"
+        FontFamily="Segoe UI"
+        FontSize="14">
+    <Border Padding="28,24">
+        <StackPanel>
+            <TextBlock x:Name="TitleBlock" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,16" />
+            <TextBlock x:Name="StepTitleBlock" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8" />
+            <TextBlock x:Name="StepBodyBlock" TextWrapping="Wrap" LineHeight="22"
+                       Foreground="{DynamicResource Cave.TextMuted}" MinHeight="80" Margin="0,0,0,20" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="SkipButton" Content="Skip" Padding="14,8" Margin="0,0,8,0" Click="Skip_Click" />
+                <Button x:Name="BackButton" Content="Back" Padding="14,8" Margin="0,0,8,0" Click="Back_Click" />
+                <Button x:Name="NextButton" Content="Next" Padding="14,8" IsDefault="True" Click="Next_Click"
+                        Style="{StaticResource Cave.AccentButton}" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

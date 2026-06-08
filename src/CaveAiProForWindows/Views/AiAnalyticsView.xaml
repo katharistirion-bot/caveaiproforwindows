@@ -121,7 +121,7 @@
 
                 <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,8"
                            Foreground="{DynamicResource Cave.TextMuted}"
-                           Text="Place caveai_database_v1.json and android_export.json in Downloads/CaveAI, Documents/CaveAI, or your cloud Drive/CaveAI folder — or pick a folder below. Windows reloads them on change when auto-sync is on." />
+                           Text="Place caveai_database_v1.json, android_export.json, and CaveAI_Backup_*.zip in Downloads/CaveAI (or pick a folder). With auto-sync on, JSON updates refresh AI Analytics; with auto-reload on, new ZIP backups reopen the full survey." />
 
                 <Button DockPanel.Dock="Top" Content="Import Android Project…" Padding="12,8" Margin="0,0,0,6"
                         FontSize="12.5" FontWeight="SemiBold"
@@ -146,7 +146,13 @@
                           Foreground="{DynamicResource Cave.TextSubdued}" FontSize="12" />
 
                 <CheckBox DockPanel.Dock="Top" Content="Auto-run analysis when project loads"
-                          IsChecked="{Binding AutoRunAnalysisOnProjectLoad}" Margin="0,0,0,14"
+                          IsChecked="{Binding AutoRunAnalysisOnProjectLoad}" Margin="0,0,0,6"
+                          Foreground="{DynamicResource Cave.TextSubdued}" FontSize="12" />
+
+                <CheckBox DockPanel.Dock="Top"
+                          Content="Auto-reload CaveAI_Backup_*.zip (full survey sync)"
+                          IsChecked="{Binding AutoReloadBackupZip}" Margin="0,0,0,14"
+                          ToolTip="When Android exports a new backup ZIP to the sync folder, reload the entire survey in the main window"
                           Foreground="{DynamicResource Cave.TextSubdued}" FontSize="12" />
 
                 <Button DockPanel.Dock="Top" Content="Run diagnostic pipeline"

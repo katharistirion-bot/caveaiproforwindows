@@ -76,6 +76,13 @@ public sealed class CaveProjectDocument
     [JsonPropertyName("linkedLibraryCaveId")]
     public string? LinkedLibraryCaveId { get; set; }
 
+    /// <summary>
+    /// Cross-platform site class: <c>CAVE</c>, <c>MINE</c>, <c>POTHOLE</c>, <c>SPRING</c>
+    /// (mirrors Android <c>KnownCave.type</c> / Firestore <c>caveType</c>).
+    /// </summary>
+    [JsonPropertyName("surveySiteType")]
+    public string? SurveySiteType { get; set; }
+
     [JsonPropertyName("surveyEventLog")]
     public JsonElement SurveyEventLog { get; set; }
 

@@ -85,7 +85,32 @@ Each element of `sketches[]` / `sectionSketches[]` that represents a drawable st
 
 ---
 
-## 4. ZIP / integrity
+## 5. X-ray / satellite backdrop (geo calibration)
+
+Written during ZIP backup when an embedded X-ray Google Map snapshot is captured. Windows aligns the survey traverse to the satellite pixel grid using these fields.
+
+| JSON key | Type | Description |
+|----------|------|-------------|
+| `xrayBackdropImageUri` | string | Relative path inside the backup ZIP (e.g. `maps/xray/_survey_capture_<project>_XRAY.png`) or HTTPS/local URI when saved from the map screen. |
+| `xrayBackdropImageBounds` | object | WGS-84 geographic extent of the bitmap. |
+
+### `xrayBackdropImageBounds`
+
+Preferred shape (matches Windows fixture and `XRayBackdropMetadataParser`):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `minLat`, `maxLat`, `minLon`, `maxLon` | number | South/north latitude and west/east longitude in degrees. |
+
+Alternative shapes accepted on import (Windows only): `north`/`south`/`east`/`west` scalars, or `northEast` / `southWest` objects with `{ "lat", "lon" }`.
+
+Bounds are captured from the live X-ray tab [GoogleMap] visible region at snapshot time (`projection.visibleRegion.latLngBounds`).
+
+When either field is present, bump `surveyArchiveSchemaVersion` to **2**.
+
+---
+
+## 6. ZIP / integrity
 
 No change to ZIP layout. After extending `data.json`, regenerate `integrity_manifest.json` and keep `backup_manifest.json` in sync.
 

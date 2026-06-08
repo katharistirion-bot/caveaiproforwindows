@@ -65,19 +65,30 @@ public partial class CompareBackupsWindow : Window
                 _mapB.TryGetValue(name, out var b);
                 var sa = a?.Shots.Count ?? -1;
                 var sb = b?.Shots.Count ?? -1;
+                var sta = StationCount(a);
+                var stb = StationCount(b);
+                var symA = SymbolCount(a);
+                var symB = SymbolCount(b);
                 var ra = a?.RocksCount ?? -1;
                 var rb = b?.RocksCount ?? -1;
                 var ca = a?.FieldCatalogEntryCount ?? -1;
                 var cb = b?.FieldCatalogEntryCount ?? -1;
                 rows.Add(new ProjectDiffRow(
                     name,
+                    FormatCount(sta),
+                    FormatCount(stb),
+                    FormatDelta(sta, stb),
+                    FormatCount(symA),
+                    FormatCount(symB),
+                    FormatDelta(symA, symB),
                     sa < 0 ? "—" : sa.ToString(),
                     sb < 0 ? "—" : sb.ToString(),
                     sa < 0 || sb < 0 ? "—" : (sb - sa).ToString(),
                     ra < 0 ? "—" : ra.ToString(),
                     rb < 0 ? "—" : rb.ToString(),
                     ca < 0 ? "—" : ca.ToString(),
-                    cb < 0 ? "—" : cb.ToString()));
+                    cb < 0 ? "—" : cb.ToString(),
+                    BuildSummary(a, b, sta, stb, symA, symB, sa, sb, ca, cb)));
             }
 
             if (rows.Count > 0)
@@ -89,6 +100,51 @@ public partial class CompareBackupsWindow : Window
         {
             MessageBox.Show(ex.Message, "Compare backups", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    private static int StationCount(CaveProjectDocument? project) =>
+        project == null ? -1 : SurveyStationGeometry.CalculatePlanCoordinates(project).Count;
+
+    private static int SymbolCount(CaveProjectDocument? project) =>
+        project == null ? -1 : SurveyStationGeometry.ParsePlanMapSymbols(project).Count;
+
+    private static string FormatCount(int n) => n < 0 ? "—" : n.ToString();
+
+    private static string FormatDelta(int a, int b)
+    {
+        if (a < 0 || b < 0)
+            return "—";
+        var d = b - a;
+        return d == 0 ? "0" : d > 0 ? $"+{d}" : d.ToString();
+    }
+
+    private static string BuildSummary(
+        CaveProjectDocument? a,
+        CaveProjectDocument? b,
+        int sta,
+        int stb,
+        int symA,
+        int symB,
+        int sa,
+        int sb,
+        int ca,
+        int cb)
+    {
+        if (a == null)
+            return "Only in file B";
+        if (b == null)
+            return "Only in file A";
+
+        var parts = new List<string>();
+        if (sta != stb)
+            parts.Add($"stations {FormatDelta(sta, stb)}");
+        if (symA != symB)
+            parts.Add($"symbols {FormatDelta(symA, symB)}");
+        if (ca != cb)
+            parts.Add($"catalog {FormatDelta(ca, cb)}");
+        if (sa != sb)
+            parts.Add($"shots {FormatDelta(sa, sb)}");
+        return parts.Count == 0 ? "No differences" : string.Join(" · ", parts);
     }
 
     private void DiffGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -104,6 +160,8 @@ public partial class CompareBackupsWindow : Window
         _mapB.TryGetValue(row.ProjectName, out var b);
         PreviewA.Source = CompareBackupPlanPreview.TryRenderMiniPlan(a);
         PreviewB.Source = CompareBackupPlanPreview.TryRenderMiniPlan(b);
+        if (DiffSummaryText != null)
+            DiffSummaryText.Text = row.Summary;
     }
 
     private void ClearPreviews()
@@ -111,15 +169,24 @@ public partial class CompareBackupsWindow : Window
         PreviewTitle.Text = "Plan preview (select a row)";
         PreviewA.Source = null;
         PreviewB.Source = null;
+        if (DiffSummaryText != null)
+            DiffSummaryText.Text = "";
     }
 
     public sealed record ProjectDiffRow(
         string ProjectName,
+        string StationsA,
+        string StationsB,
+        string StationsDelta,
+        string SymbolsA,
+        string SymbolsB,
+        string SymbolsDelta,
         string ShotsA,
         string ShotsB,
         string ShotsDelta,
         string RocksA,
         string RocksB,
         string CatalogA,
-        string CatalogB);
+        string CatalogB,
+        string Summary);
 }

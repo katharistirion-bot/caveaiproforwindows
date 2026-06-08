@@ -42,13 +42,32 @@ if ($manifestJson.runtimeIdentifier -ne 'win-x64') {
 }
 
 if ($LaunchSmokeTest) {
-    Write-Host "Smoke launch: starting process for $SmokeSeconds second(s) (CAVEAI_DEV_SKIP_INSTALL_CHECK=1)…"
+    Write-Host "Smoke launch: registering dev install dir and starting process for $SmokeSeconds second(s)…"
+    $regPath = 'HKCU:\SOFTWARE\CaveAiPro\CaveAiProForWindows'
+    $hadReg = Test-Path -LiteralPath $regPath
+    $backupInstalled = $null
+    $backupInstallDir = $null
+    if ($hadReg) {
+        $backupInstalled = (Get-ItemProperty -LiteralPath $regPath -Name 'Installed' -ErrorAction SilentlyContinue).Installed
+        $backupInstallDir = (Get-ItemProperty -LiteralPath $regPath -Name 'InstallDir' -ErrorAction SilentlyContinue).InstallDir
+    }
+    New-Item -Path $regPath -Force | Out-Null
+    Set-ItemProperty -Path $regPath -Name 'Installed' -Value 1 -Type DWord
+    Set-ItemProperty -Path $regPath -Name 'InstallDir' -Value $pubDir
+
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $exe
     $psi.UseShellExecute = $false
-    $psi.Environment['CAVEAI_DEV_SKIP_INSTALL_CHECK'] = '1'
     $p = [System.Diagnostics.Process]::Start($psi)
-    if ($null -eq $p) { throw 'Failed to start published executable.' }
+    if ($null -eq $p) {
+        if ($hadReg) {
+            if ($null -ne $backupInstalled) { Set-ItemProperty -Path $regPath -Name 'Installed' -Value $backupInstalled -Type DWord }
+            if ($null -ne $backupInstallDir) { Set-ItemProperty -Path $regPath -Name 'InstallDir' -Value $backupInstallDir }
+        } else {
+            Remove-Item -LiteralPath $regPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        throw 'Failed to start published executable.'
+    }
     try {
         Start-Sleep -Seconds $SmokeSeconds
         if ($p.HasExited -and $p.ExitCode -ne 0) {
@@ -63,6 +82,12 @@ if ($LaunchSmokeTest) {
         if (-not $p.HasExited) {
             $null = $p.Kill()
             $p.WaitForExit(5000)
+        }
+        if ($hadReg) {
+            if ($null -ne $backupInstalled) { Set-ItemProperty -Path $regPath -Name 'Installed' -Value $backupInstalled -Type DWord } else { Remove-ItemProperty -Path $regPath -Name 'Installed' -ErrorAction SilentlyContinue }
+            if ($null -ne $backupInstallDir) { Set-ItemProperty -Path $regPath -Name 'InstallDir' -Value $backupInstallDir } else { Remove-ItemProperty -Path $regPath -Name 'InstallDir' -ErrorAction SilentlyContinue }
+        } else {
+            Remove-Item -LiteralPath $regPath -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }

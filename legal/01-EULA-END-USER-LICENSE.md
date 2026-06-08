@@ -1,8 +1,10 @@
 # End User License Agreement (EULA) — CAVE AI PRO
 
-**Document version:** [FILL IN: e.g. 1.0]  
-**Date:** [FILL IN]  
-**Publisher / licensor:** Georgios Kourentzis — contact: [14-CONTACT.md](14-CONTACT.md) — [FILL IN: legal entity, registered address, tax ID if applicable]
+**Document version:** 1.2  
+**Date:** 6 June 2026  
+**Publisher / licensor / Developer:** **Georgios Kourentzis** — [caveaipro@gmail.com](mailto:caveaipro@gmail.com) — [14-CONTACT.md](14-CONTACT.md) · [09-IMPRESSUM-PUBLISHER.md](09-IMPRESSUM-PUBLISHER.md)
+
+**Copyright © 2026 Georgios Kourentzis. All Rights Reserved.**
 
 ---
 
@@ -12,23 +14,23 @@ Installing or using **CAVE AI PRO** (the “Software”) means you accept these 
 
 ## 2. Platform and distribution
 
-The Software runs **only on Microsoft Windows** (as specified in the installer, e.g. 64-bit Windows 10 or Windows 11). It is **not** the Android application distributed on **Google Play**. If you use **CaveAI Pro** on Android from Google Play, you obtain this desktop build **separately** through channels the publisher provides (e.g. MSI, website, or Microsoft Store). The Software does **not** run on Android. See [00-DISTRIBUTION-PLATFORMS.md](00-DISTRIBUTION-PLATFORMS.md).
+The **Windows desktop** edition runs on **Microsoft Windows** 10/11 (x64). It is **not** the Android application on **Google Play**. **CaveAI Pro (Android)** is a separate product; this desktop build is distributed free as a companion (website, MSI, GitHub Releases). See [00-DISTRIBUTION-PLATFORMS.md](00-DISTRIBUTION-PLATFORMS.md).
 
 ## 3. License grant
 
-The publisher grants you a non-exclusive, non-transferable license to use the Software according to the distribution model that applies to the version you receive: [FILL IN: free / paid / trial / organizational].
+Georgios Kourentzis grants you a **personal, non-exclusive, non-transferable, revocable** licence to use the Windows Software **free of charge** for survey workstation purposes. No ownership is transferred.
 
 ## 4. Restrictions
 
-Without prior written permission, you may not: (a) reverse engineer, decompile, or attempt to access source code, except where mandatory law allows; (b) remove proprietary notices; (c) rent, sublicense, SaaS-wrap, or resell the Software; (d) use the Software in violation of law or third-party rights.
+Without prior **written permission from Georgios Kourentzis**, you may not: (a) reverse engineer, decompile, or access source code except where mandatory law allows; (b) remove copyright, trademark, or attribution notices; (c) rent, sublicense, SaaS-wrap, or resell the Software; (d) use the Developer’s name or marks misleadingly; (e) use the Software in violation of law or third-party rights.
 
 ## 5. Updates
 
-[FILL IN: The Software may check for updates automatically / manually only / does not connect to the internet.] Updates may be subject to additional terms communicated to you.
+The Software may check **GitHub Releases** (Velopack) for updates when you choose or on startup. No survey project content is uploaded for update checks. Updates may change features and are subject to this EULA unless superseded in writing.
 
-## 6. Ownership
+## 6. Ownership and intellectual property
 
-The Software, documentation, and marks are protected by intellectual property and trade secret laws. No sale of ownership—license only.
+The Software, documentation, logos, algorithms, and compilations are **owned by Georgios Kourentzis** and protected by copyright, trade secret, and trademark laws. **CAVE AI PRO** and **CaveAI Pro** identify software published by Georgios Kourentzis. See [12-TRADEMARKS.md](12-TRADEMARKS.md).
 
 ## 7. “As is”
 
@@ -36,12 +38,12 @@ The Software is provided “as is.” See **04-DISCLAIMER-LIABILITY-SAFETY.md** 
 
 ## 8. Termination
 
-The license ends automatically if you breach it. You must then delete all copies.
+The licence ends automatically if you breach it. You must then delete all copies.
 
 ## 9. Governing law and disputes
 
-[FILL IN: e.g. law of Greece, courts of Athens / arbitration / consumer ADR.] Consumers in the EU may have mandatory rights that these terms cannot waive.
+These terms are governed by the **laws of Greece**. Subject to mandatory consumer protections, exclusive jurisdiction lies with the **competent courts of Athens, Greece**. EU consumers retain mandatory rights in their country of residence. ODR platform (information only): <https://ec.europa.eu/consumers/odr>.
 
 ## 10. Contact
 
-**Georgios Kourentzis** — [caveaipro@gmail.com](mailto:caveaipro@gmail.com) — details: [14-CONTACT.md](14-CONTACT.md), [09-IMPRESSUM-PUBLISHER.md](09-IMPRESSUM-PUBLISHER.md)
+**Georgios Kourentzis** — [caveaipro@gmail.com](mailto:caveaipro@gmail.com) — [14-CONTACT.md](14-CONTACT.md), [09-IMPRESSUM-PUBLISHER.md](09-IMPRESSUM-PUBLISHER.md)

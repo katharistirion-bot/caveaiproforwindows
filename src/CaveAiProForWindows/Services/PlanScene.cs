@@ -41,6 +41,10 @@ public sealed class PlanScene
     public IReadOnlyList<LoopClosingLegHighlight> LoopClosingLegs { get; init; } =
         Array.Empty<LoopClosingLegHighlight>();
 
+    /// <summary>LRUD ribbon / wall geometry QC highlights.</summary>
+    public IReadOnlyList<LrudRibbonQcHighlight> LrudQcHighlights { get; init; } =
+        Array.Empty<LrudRibbonQcHighlight>();
+
     public float SpanX => Math.Max(1e-6f, MaxX - MinX);
     public float SpanY => Math.Max(1e-6f, MaxY - MinY);
 }

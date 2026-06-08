@@ -144,7 +144,7 @@
                     <CheckBox x:Name="SketchLegSurveyDetailsCheck" Margin="0,0,0,8"
                               FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                               IsChecked="True" Content="Leg distances &amp; angles"
-                              ToolTip="Tape length, azimuth, clino, ΔZ, and LRUD on each traverse leg"
+                              ToolTip="Tape length, azimuth, clino, dZ, and LRUD on each traverse leg"
                               Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                               Foreground="{DynamicResource Cave.Text}" />
                     <CheckBox x:Name="SketchStationEnvironmentCheck" Margin="0,0,0,8"
@@ -237,14 +237,24 @@
                                    FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                    Foreground="{DynamicResource Cave.TextMuted}"
                                    Margin="0,0,0,8"
-                                   Text="Generates a stylized map from your structure mask via Replicate ControlNet (img2img). Requires a Replicate API token in LEGAL &amp; SETTINGS." />
+                                   Text="Generates a stylized map from your structure mask via CaveAI Cloud AI (Replicate ControlNet). Sign in with your CaveAI Pro Google account; an active subscription or trial is required." />
                         <TextBlock Text="{Binding ApiTokenStatus}" TextWrapping="Wrap"
                                    FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                    Foreground="{DynamicResource Cave.TextSubdued}"
                                    Margin="0,0,0,8" />
-                        <Button Content="Open API settings…" Margin="0,0,0,8" Padding="10,6"
+                        <Button Content="Developer API settings…" Margin="0,0,0,8" Padding="10,6"
                                 FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                Command="{Binding OpenApiSettingsCommand}" />
+                                Command="{Binding OpenApiSettingsCommand}"
+                                Visibility="{Binding ShowDevApiSettings, Converter={StaticResource BoolToVis}}" />
+                        <TextBlock Text="Style preset" FontWeight="SemiBold"
+                                   FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                   Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,4" />
+                        <ComboBox ItemsSource="{Binding PromptPresets}"
+                                  SelectedValuePath="Id"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValue="{Binding SelectedPromptPresetId, Mode=TwoWay}"
+                                  Margin="0,0,0,8"
+                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}" />
                         <TextBlock Text="Prompt" FontWeight="SemiBold"
                                    FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                    Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,4" />

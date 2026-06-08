@@ -151,7 +151,7 @@ public sealed class CloudPublishService
         var metadata = new CloudPublishMetadata
         {
             PublishedCaveDocId = bundle.PublishedCaveDocId.Trim(),
-            CartographyImageUrl = aiUrl,
+            CartographyImageUrls = string.IsNullOrWhiteSpace(aiUrl) ? null : new[] { aiUrl },
             StructureMaskUrl = maskUrl,
             SurveyJsonStoragePath = surveyPath,
             SurveyJsonMediaUrl = surveyUrl,

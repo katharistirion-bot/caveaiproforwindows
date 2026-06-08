@@ -18,7 +18,13 @@
             <TextBlock x:Name="TitleBlock" Text="CAVE AI PRO" FontSize="18" FontWeight="SemiBold"
                        HorizontalAlignment="Center" Margin="0,0,0,8" />
             <TextBlock x:Name="VersionBlock" HorizontalAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
-                       Margin="0,0,0,16" />
+                       Margin="0,0,0,8" />
+            <TextBlock TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
+                       FontSize="11.5" LineHeight="17" Margin="0,0,0,12"
+                       Text="Copyright © 2026 Georgios Kourentzis. All Rights Reserved. CAVE AI PRO™ and CaveAI Pro™ are trademarks of Georgios Kourentzis." />
+            <TextBlock TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
+                       LineHeight="20" Margin="0,0,0,8"
+                       Text="Install from GitHub Releases using CaveAiProForWindows-*-Setup.exe for automatic updates. MSI and portable ZIP are also available." />
             <TextBlock TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
                        LineHeight="20"
                        Text="Survey workstation for Windows: same CaveAI Pro (Android) JSON and backup ZIP, with traverse QC, integrity checks, plan/section drawing, and professional exports—Survex, Therion, station coordinates, DXF/SVG, and batch archive of every loaded project. Desktop PC (x64) companion; not from Google Play." />

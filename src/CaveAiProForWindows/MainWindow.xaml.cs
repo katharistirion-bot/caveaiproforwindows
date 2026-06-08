@@ -1,12 +1,16 @@
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using CaveAiProForWindows.Services;
-using CaveAiProForWindows.Services.Secrets;
+using CaveAiProForWindows.Services.GenerativeMap;
+using CaveAiProForWindows.Services.Legal;
+using CaveAiProForWindows.Services.Localization;
+using CaveAiProForWindows.Services.Collaboration;
 using CaveAiProForWindows.ViewModels;
 using CaveAiProForWindows.Views;
 
@@ -14,6 +18,8 @@ namespace CaveAiProForWindows;
 
 public partial class MainWindow : Window
 {
+    private AndroidBackupZipWatcher? _androidBackupZipWatcher;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -31,15 +37,39 @@ public partial class MainWindow : Window
         Loaded += (_, _) =>
         {
             WindowPlacementStore.ApplyTo(this);
+            UiLocalizationService.LoadLanguageFromSettings();
+            if (DataContext is MainViewModel vmLoad)
+            {
+                UiLocalizationService.ApplyToMainWindow(this, vmLoad);
+            }
+            ApplyGenerativeAiUiVisibility();
             RefreshReplicateTokenStatusUi();
+            ApplyLegalDisclaimerDocument();
             SurveyWorkspaceNavigator.Register(this);
             vm.PersistProjectBeforeSave = project =>
             {
                 if (ReferenceEquals(vm.SelectedProject, project))
                     SketchEditorControl.TryPersistSessionToProject(project);
             };
+            WelcomeOnboardingWindow.ShowIfFirstRun(this);
+            StartAndroidBackupSyncWatcher(vm);
+            StartCollaborationNotifications(vm);
+            ApplyPlanViewLocalization();
+            AndroidDesktopSyncHub.SyncSettingsChanged += OnAndroidSyncSettingsChanged;
+            AndroidDesktopSyncHub.CollaborationProjectChanged += OnCollaborationProjectChanged;
+            AndroidDesktopSyncHub.SyncFilesChanged += OnAndroidSyncFilesChanged;
         };
-        Closing += (_, _) => WindowPlacementStore.SaveFrom(this);
+        Closing += (_, _) =>
+        {
+            AndroidDesktopSyncHub.SyncSettingsChanged -= OnAndroidSyncSettingsChanged;
+            AndroidDesktopSyncHub.SyncFilesChanged -= OnAndroidSyncFilesChanged;
+            AndroidDesktopSyncHub.CollaborationProjectChanged -= OnCollaborationProjectChanged;
+            _androidBackupZipWatcher?.Dispose();
+            _androidBackupZipWatcher = null;
+            _collaborationNotifications?.Dispose();
+            _collaborationNotifications = null;
+            WindowPlacementStore.SaveFrom(this);
+        };
         PreviewKeyDown += OnMainWindowPreviewKeyDown;
         App.WriteStartupLog("MainWindow constructed and Loaded wiring attached");
     }
@@ -131,6 +161,11 @@ public partial class MainWindow : Window
                 surface.ApplyMapEditorTool(MapCanvasEditorTool.PlaceSymbol);
                 e.Handled = true;
                 break;
+            case Key.D5:
+            case Key.NumPad5:
+                surface.ApplyMapEditorTool(MapCanvasEditorTool.Erase);
+                e.Handled = true;
+                break;
             case Key.D0:
             case Key.NumPad0:
                 surface.ResetMapView();
@@ -153,6 +188,26 @@ public partial class MainWindow : Window
     {
         if (IntegrityTabItem != null)
             IntegrityTabItem.IsSelected = true;
+    }
+
+    private void OpenPublicLibraryToolbar_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && vm.OpenPublicLibraryCatalogCommand.CanExecute(null))
+            vm.OpenPublicLibraryCatalogCommand.Execute(null);
+        else
+            OpenPublicLibraryInAppFallback();
+    }
+
+    private void OpenPublicLibraryInAppFallback()
+    {
+        try
+        {
+            PublicLibraryCatalog.ShowMapInAppWindow(this);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Public Cave Library", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void OpenPublicLibraryExternal_Click(object sender, RoutedEventArgs e)
@@ -321,46 +376,36 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ApplyLegalDisclaimerDocument()
+    {
+        if (LegalDisclaimerRichText == null)
+            return;
+        LegalRichTextFormatter.ApplyPlainText(LegalDisclaimerRichText, LegalTexts.FullDisclaimerAndEula);
+    }
+
+    private void ApplyGenerativeAiUiVisibility()
+    {
+        var showDevApiSettings = GenerativeAiAccessGate.UseDirectByok;
+        var devVisibility = showDevApiSettings ? Visibility.Visible : Visibility.Collapsed;
+        if (ApiSettingsMenuItem != null)
+            ApiSettingsMenuItem.Visibility = devVisibility;
+        if (ApiSettingsMenuSeparator != null)
+            ApiSettingsMenuSeparator.Visibility = devVisibility;
+        if (GenerativeAiApiSettingsButton != null)
+            GenerativeAiApiSettingsButton.Visibility = devVisibility;
+    }
+
     private void RefreshReplicateTokenStatusUi()
     {
         if (ReplicateTokenStatusText == null)
             return;
-        ReplicateTokenStatusText.Text = ReplicateApiTokenStore.IsConfigured()
-            ? "Status: token configured (Windows Credential Manager or environment variable)."
-            : "Status: no token saved yet.";
+        ReplicateTokenStatusText.Text = GenerativeAiAccessGate.StatusText();
     }
 
-    private void SaveReplicateApiToken_Click(object sender, RoutedEventArgs e)
+    private void OpenApiSettings_Click(object sender, RoutedEventArgs e)
     {
-        var token = ReplicateApiTokenBox?.Password?.Trim();
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            MessageBox.Show(this, "Paste your Replicate API token first.", "Replicate API token",
-                MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        if (!ReplicateApiTokenStore.TrySave(token))
-        {
-            MessageBox.Show(this, "Could not save the token to Windows Credential Manager.", "Replicate API token",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        ReplicateApiTokenBox!.Password = "";
+        ApiSettingsWindow.Show(this);
         RefreshReplicateTokenStatusUi();
-        MessageBox.Show(this, "Replicate API token saved to Windows Credential Manager.", "Replicate API token",
-            MessageBoxButton.OK, MessageBoxImage.Information);
-    }
-
-    private void ClearReplicateApiToken_Click(object sender, RoutedEventArgs e)
-    {
-        ReplicateApiTokenStore.TryClear();
-        if (ReplicateApiTokenBox != null)
-            ReplicateApiTokenBox.Password = "";
-        RefreshReplicateTokenStatusUi();
-        MessageBox.Show(this, "Cleared the saved Replicate token from Windows Credential Manager.", "Replicate API token",
-            MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     /// <summary>Focus PLAN tab and zoom X-Ray / Plan to the given station (called from navigator hub).</summary>
@@ -375,5 +420,83 @@ public partial class MainWindow : Window
         PlanViewControl?.ApplyExternalStationSelection(stationName);
         PlanViewControl?.ZoomToStation(stationName);
         OfflineXRayViewControl?.ZoomToStation(stationName);
+    }
+
+    public void FocusGeoBioTab()
+    {
+        if (MainSurveyTabControl != null)
+            MainSurveyTabControl.SelectedIndex = 4;
+    }
+
+    public void ApplyPlanViewLocalization()
+    {
+        foreach (var plan in FindVisualChildren<PlanView>(this))
+            UiLocalizationService.ApplyToPlanView3DTools(plan);
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        if (parent == null)
+            yield break;
+        var count = VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match)
+                yield return match;
+            foreach (var nested in FindVisualChildren<T>(child))
+                yield return nested;
+        }
+    }
+
+    private void OnCollaborationProjectChanged(object? sender, string projectId)
+    {
+        if (DataContext is MainViewModel vm)
+            Dispatcher.BeginInvoke(() => StartCollaborationNotifications(vm));
+    }
+
+    private void StartAndroidBackupSyncWatcher(MainViewModel vm)
+    {
+        _androidBackupZipWatcher?.Dispose();
+        var syncFolder = AndroidSurveySyncService.ResolveSyncFolder(
+            AppUiSettingsStore.LoadOrDefault().AndroidSync.SyncFolderPath,
+            null);
+        if (string.IsNullOrWhiteSpace(syncFolder))
+            syncFolder = AndroidSurveySyncService.DefaultSyncFolderCandidates().FirstOrDefault(Directory.Exists);
+
+        if (string.IsNullOrWhiteSpace(syncFolder))
+            return;
+
+        _androidBackupZipWatcher = new AndroidBackupZipWatcher();
+        _androidBackupZipWatcher.BackupZipChanged += (_, e) =>
+        {
+            Dispatcher.BeginInvoke(() => vm.TryAutoReloadAndroidBackup(e.ZipPath));
+        };
+        _androidBackupZipWatcher.Watch(syncFolder);
+    }
+
+    private void OnAndroidSyncSettingsChanged(object? sender, EventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            Dispatcher.BeginInvoke(() => StartAndroidBackupSyncWatcher(vm));
+    }
+
+    private void OnAndroidSyncFilesChanged(object? sender, AndroidSyncFilesChangedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+            return;
+        Dispatcher.BeginInvoke(() => vm.TryAutoReloadFromSyncFolder(e.SyncFolder));
+    }
+
+    private CollaborationNotificationService? _collaborationNotifications;
+
+    private void StartCollaborationNotifications(MainViewModel vm)
+    {
+        _collaborationNotifications?.Dispose();
+        _collaborationNotifications = new CollaborationNotificationService();
+        _collaborationNotifications.UnreadCountChanged += (_, count) =>
+            vm.CollaborationUnreadCount = count;
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        _collaborationNotifications.TrackProject(settings.CollaborationSharedProjectId);
     }
 }

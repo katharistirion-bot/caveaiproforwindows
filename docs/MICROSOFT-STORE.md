@@ -1,0 +1,134 @@
+# Microsoft Store distribution — CAVE AI PRO for Windows
+
+Packaging guide for submitting an **unsigned** `.msix` to Partner Center (the Store re-signs on upload).
+
+## Build channel (codebase)
+
+Store builds use the compile constant **`STORE_DISTRIBUTION`** (set by publish profile `MicrosoftStore-Win64`):
+
+| Behavior | Sideload (GitHub / caveaipro.com) | Microsoft Store |
+|----------|-----------------------------------|-----------------|
+| Velopack bootstrap (`Program.cs`) | Yes | **Skipped** |
+| In-app updates (`AppUpdateService`) | Velopack / GitHub | **Skipped** (Store updates) |
+| `InstallationGuard` | Registry / Velopack / MSI | **Also allows** `WindowsApps` / `ProgramData\Packages` paths |
+
+## Version
+
+Application version is centralized in `Directory.Build.props` (`<Version>`). Current release: **1.3.0** (see `CHANGELOG.md`).
+
+## Obfuscation (required before packaging)
+
+Release builds run **[Obfuscar](https://github.com/obfuscar/obfuscar)** via the `MSBuild.Obfuscar` package and `src/CaveAiProForWindows/build/Obfuscation.targets`:
+
+- Runs on **`dotnet build -c Release`** (before publish / MSIX pack).
+- Renames implementation code, hides strings, and skips WPF/XAML/JSON surfaces (`Obfuscar.Template.xml`).
+- **Subscription / Firebase entitlement logic** (`Services.Auth`, etc.) is obfuscated; only stable JSON models and MVVM binding types are skipped.
+
+Reproduce obfuscation only:
+
+```powershell
+dotnet build src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release
+```
+
+Log: `src\CaveAiProForWindows\bin\Release\net8.0-windows\obfuscar.log` (or under `win-x64\` when RID is set).
+
+Disable for local debugging: `-p:ObfuscatorEnabled=false`.
+
+## Store MSIX pipeline (unsigned)
+
+One command — build, obfuscate, publish Store profile, pack MSIX **without signing**:
+
+```powershell
+.\tools\package-store-msix.ps1
+```
+
+### What the script does
+
+1. `dotnet restore` solution
+2. `dotnet build -c Release` — Obfuscar on `CaveAiProForWindows.dll`
+3. `dotnet publish -p:PublishProfile=MicrosoftStore-Win64` — self-contained folder layout, `STORE_DISTRIBUTION`, no Velopack
+4. `makeappx pack` — unsigned MSIX from `store/Package.appxmanifest` + publish output
+
+### Output
+
+Default folder: `_store_out\`
+
+Example: `_store_out\CaveAiProForWindows-1.3.0-Store-unsigned.msix`
+
+### Manual steps (equivalent)
+
+```powershell
+dotnet restore CaveAiProForWindows.sln
+dotnet build src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release
+dotnet publish src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release -p:PublishProfile=MicrosoftStore-Win64
+.\tools\package-store-msix.ps1   # skips rebuild if already published; or run full script
+```
+
+Publish output (unpacked): `src\CaveAiProForWindows\bin\Release\net8.0-windows\publish\microsoft-store\win-x64\`
+
+### Sideload (non-Store) — existing pipeline
+
+```powershell
+.\tools\package-release.ps1 -Tag v1.3.0
+```
+
+## MSIX tooling
+
+`package-store-msix.ps1` locates `makeappx.exe` from:
+
+1. **Windows SDK** — `Program Files (x86)\Windows Kits\10\bin\<version>\x64\makeappx.exe`
+2. **NuGet fallback** — `store/msix-tool.csproj` restores `Microsoft.Windows.SDK.BuildTools`
+
+If both are missing, install the [Windows SDK](https://developer.microsoft.com/windows/downloads/windows-sdk/) (Desktop C++ workload) or run `dotnet restore store/msix-tool.csproj`.
+
+## Signing
+
+- **Do not** sign the submission `.msix` with a local or third-party certificate.
+- Upload the unsigned package to Partner Center; Microsoft re-signs for the Store.
+
+Sideload Authenticode signing is documented in [CODE-SIGNING.md](CODE-SIGNING.md) (not used for Store submission).
+
+## Partner Center — before upload
+
+**Copy exact values from Partner Center → Product management → your app → Product identity.** Do not guess or derive them from the app display name or project folder. Partner Center validation fails if **Name**, **Publisher**, or **PublisherDisplayName** differ by even one character.
+
+Update `store/Package.appxmanifest` **Identity** and **Properties** (or pass parameters to the script) so they match that page **exactly**:
+
+- **Name** — package identity (e.g. `GeorgiosKourentzis.CaveAIPro`; not the executable or project name)
+- **Publisher** — publisher ID from Product identity (e.g. `CN=54966508-95FA-45A0-B2A2-D1AF31D44DC4`; not the human-readable publisher name)
+- **PublisherDisplayName** — must match Partner Center exactly (e.g. `GeorgiosKourentzis` with no spaces; a mismatch such as `Georgios Kourentzis` causes validation **ERROR** on upload)
+- **Package family name (PFN)** — derived by Partner Center from **Name** + **Publisher** (e.g. `GeorgiosKourentzis.CaveAIPro_wvp8e4sf8kjk6`); you do not set it in the manifest, but it must match after upload
+- **Version** — stamped automatically from `Directory.Build.props` (four-part, e.g. `1.3.0.0`)
+
+Optional script overrides (use the same values as Product identity):
+
+```powershell
+.\tools\package-store-msix.ps1 -IdentityName 'GeorgiosKourentzis.CaveAIPro' -Publisher 'CN=54966508-95FA-45A0-B2A2-D1AF31D44DC4'
+```
+
+### Listing checklist
+
+- [ ] Package identity / PFN aligned with manifest
+- [ ] Store listing — description, screenshots (1920×1080), privacy policy URL
+- [ ] Age rating (IARC)
+- [ ] Capabilities — `internetClient`, `runFullTrust` (full-trust desktop)
+- [ ] **runFullTrust approval** — declare the restricted capability in Partner Center before submission: **Product management → your app → App capabilities** (or **App setup → Capabilities**), add **Run full trust**, and submit for Microsoft review if prompted. The manifest includes `<rescap:Capability Name="runFullTrust" />`; Partner Center shows a **WARNING** until this is declared and approved.
+- [ ] WebView2 — note runtime dependency in certification notes
+- [ ] Firebase / OAuth — Store redirect URIs if required for desktop auth
+- [ ] Certification — requires Google account + active CaveAI Pro (Play) subscription
+
+## Install guard
+
+Release builds from a loose folder (e.g. `Downloads`, `dist`) are blocked. Valid locations:
+
+1. **Microsoft Store** — under `\WindowsApps\` or `\ProgramData\Packages\`
+2. **Velopack** — `%LocalAppData%\CaveAiProForWindows\`
+3. **MSI / script** — registry `HKLM` or `HKCU` `SOFTWARE\CaveAiPro\CaveAiProForWindows`
+
+Debug builds skip the guard.
+
+## Related docs
+
+- [INSTALL.md](INSTALL.md) — end-user install paths
+- [CODE-SIGNING.md](CODE-SIGNING.md) — sideload signing
+- `legal/00-DISTRIBUTION-PLATFORMS.md` — product family wording

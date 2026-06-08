@@ -33,7 +33,7 @@ public sealed class GenerativeMapRenderRequest
 
     /// <summary>
     /// Optional override for Replicate <c>image_resolution</c>. When null, derived from the downscaled mask
-    /// (longest edge ≤ 1024, multiple of 8).
+    /// (longest edge ≤ 1024, multiple of 8), then snapped to the nearest allowed enum (256, 512, or 768).
     /// </summary>
     public int? ImageResolution { get; init; }
 }

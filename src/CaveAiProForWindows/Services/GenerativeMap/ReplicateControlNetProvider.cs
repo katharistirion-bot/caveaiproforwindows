@@ -6,6 +6,7 @@ namespace CaveAiProForWindows.Services.GenerativeMap;
 
 /// <summary>
 /// ControlNet scribble img2img via Replicate (<c>jagilley/controlnet-scribble</c>).
+/// Default: Firebase Callable proxy (server-side API key). Set <c>CAVEAIPRO_REPLICATE_BYOK=1</c> for direct BYOK.
 /// </summary>
 public sealed class ReplicateControlNetProvider : IGenerativeMapRenderer
 {
@@ -13,16 +14,26 @@ public sealed class ReplicateControlNetProvider : IGenerativeMapRenderer
     public const string DefaultModelVersion =
         "435061a1b5a4c1e26740464bf786efdfa9cb3a3ac488595a2de23e143fdb0117";
 
-    private readonly ReplicateApiClient _client;
+    private readonly ReplicateApiClient? _directClient;
+    private readonly ReplicateCallableProxyClient? _proxyClient;
     private readonly string _modelVersion;
 
-    public ReplicateControlNetProvider(ReplicateApiClient? client = null, string? modelVersion = null)
+    public ReplicateControlNetProvider(
+        ReplicateApiClient? directClient = null,
+        ReplicateCallableProxyClient? proxyClient = null,
+        string? modelVersion = null)
     {
-        _client = client ?? new ReplicateApiClient(ReplicateApiTokenStore.TryRead);
         _modelVersion = string.IsNullOrWhiteSpace(modelVersion) ? DefaultModelVersion : modelVersion!;
+        if (GenerativeAiAccessGate.UseDirectByok)
+            _directClient = directClient ?? new ReplicateApiClient(ReplicateApiTokenStore.TryRead);
+        else
+            _proxyClient = proxyClient ?? new ReplicateCallableProxyClient();
     }
 
-    public string ProviderName => "Replicate ControlNet Scribble";
+    public string ProviderName =>
+        GenerativeAiAccessGate.UseDirectByok
+            ? "Replicate ControlNet Scribble"
+            : "CaveAI Cloud AI (Replicate ControlNet)";
 
     public async Task<GenerativeMapRenderResult> RenderAsync(
         GenerativeMapRenderRequest request,
@@ -39,7 +50,8 @@ public sealed class ReplicateControlNetProvider : IGenerativeMapRenderer
         var prepared = StructureMaskControlNetPreprocessor.PrepareScribbleInput(request.StructureMaskPng)
             ?? throw new InvalidOperationException("Could not preprocess the structure mask PNG.");
 
-        var apiResolution = request.ImageResolution ?? Math.Max(prepared.ApiWidth, prepared.ApiHeight);
+        var rawResolution = request.ImageResolution ?? Math.Max(prepared.ApiWidth, prepared.ApiHeight);
+        var apiResolution = ReplicateImageResolution.Snap(rawResolution);
         progress?.Report(
             $"ControlNet input {prepared.ApiWidth}×{prepared.ApiHeight} px " +
             $"(survey export {prepared.SourceWidth}×{prepared.SourceHeight}, image_resolution={apiResolution})…");
@@ -53,24 +65,40 @@ public sealed class ReplicateControlNetProvider : IGenerativeMapRenderer
             ["n_prompt"] = request.NegativePrompt,
             ["scale"] = request.GuidanceScale,
             ["ddim_steps"] = request.Steps,
-            ["image_resolution"] = apiResolution.ToString(),
+            ["image_resolution"] = ReplicateImageResolution.ToApiString(rawResolution),
             ["num_samples"] = "1",
         };
         if (request.Seed is int seed)
             input["seed"] = seed;
 
-        progress?.Report("Submitting Replicate ControlNet job…");
-        var created = await _client.CreatePredictionAsync(_modelVersion, input, cancellationToken)
-            .ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(created.Id))
-            throw new InvalidOperationException("Replicate did not return a prediction id.");
+        string predictionId;
+        string outputUrl;
 
-        progress?.Report("Waiting for Replicate GPU…");
-        var finished = await _client.WaitForPredictionAsync(created.Id, progress, cancellationToken)
-            .ConfigureAwait(false);
+        if (_proxyClient != null)
+        {
+            progress?.Report("Submitting cloud AI render (secure proxy)…");
+            var proxyResult = await _proxyClient.RunPredictionAsync(_modelVersion, input, cancellationToken)
+                .ConfigureAwait(false);
+            predictionId = proxyResult.PredictionId
+                ?? throw new InvalidOperationException("Cloud proxy did not return a prediction id.");
+            outputUrl = proxyResult.OutputUrl
+                ?? throw new InvalidOperationException("Cloud proxy succeeded but returned no output URL.");
+        }
+        else
+        {
+            progress?.Report("Submitting Replicate ControlNet job…");
+            var created = await _directClient!.CreatePredictionAsync(_modelVersion, input, cancellationToken)
+                .ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(created.Id))
+                throw new InvalidOperationException("Replicate did not return a prediction id.");
 
-        var outputUrl = ReplicateApiClient.TryGetFirstOutputUrl(finished)
-            ?? throw new InvalidOperationException("Replicate prediction succeeded but returned no output URL.");
+            progress?.Report("Waiting for Replicate GPU…");
+            var finished = await _directClient.WaitForPredictionAsync(created.Id, progress, cancellationToken)
+                .ConfigureAwait(false);
+            predictionId = finished.Id ?? created.Id!;
+            outputUrl = ReplicateApiClient.TryGetFirstOutputUrl(finished)
+                ?? throw new InvalidOperationException("Replicate prediction succeeded but returned no output URL.");
+        }
 
         progress?.Report("Downloading generated map…");
         var apiPngBytes = await ReplicateApiClient.DownloadBytesAsync(outputUrl, cancellationToken)
@@ -92,7 +120,7 @@ public sealed class ReplicateControlNetProvider : IGenerativeMapRenderer
         {
             PngBytes = canvasPngBytes,
             ProviderName = ProviderName,
-            ProviderPredictionId = finished.Id,
+            ProviderPredictionId = predictionId,
             PixelWidth = prepared.SourceWidth,
             PixelHeight = prepared.SourceHeight,
             ApiInputWidth = prepared.ApiWidth,

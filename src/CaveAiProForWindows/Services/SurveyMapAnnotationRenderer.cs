@@ -231,6 +231,8 @@ public static class SurveyMapAnnotationRenderer
                     text += "\n" + leg.SecondaryLine;
                 if (!string.IsNullOrEmpty(leg.LrudLine))
                     text += "\n" + leg.LrudLine;
+                if (!string.IsNullOrEmpty(leg.ChainageLine))
+                    text += "\n" + leg.ChainageLine;
                 WriteSvgChip(xw, mx, my, text, mapX, mapY, f, 0.34f, accent: false);
             }
         }

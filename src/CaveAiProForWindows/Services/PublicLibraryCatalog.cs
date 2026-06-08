@@ -59,14 +59,44 @@ public static class PublicLibraryCatalog
 
     public static void OpenInBrowser() => OpenMap();
 
+    private static Views.PublicLibraryWebWindow? _activeWindow;
+
     public static void ShowInAppWindow(System.Windows.Window? owner, string? startUrl = null)
     {
+        if (_activeWindow != null)
+        {
+            try
+            {
+                if (_activeWindow.IsLoaded)
+                {
+                    if (_activeWindow.WindowState == System.Windows.WindowState.Minimized)
+                        _activeWindow.WindowState = System.Windows.WindowState.Normal;
+                    _activeWindow.Show();
+                    _activeWindow.Activate();
+                    _activeWindow.Focus();
+                    return;
+                }
+            }
+            catch
+            {
+                _activeWindow = null;
+            }
+        }
+
         var window = new Views.PublicLibraryWebWindow
         {
             Owner = owner,
             InitialUrl = startUrl ?? WebMapUrlEmbedded,
         };
+        window.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_activeWindow, window))
+                _activeWindow = null;
+        };
+        _activeWindow = window;
         window.Show();
+        window.Activate();
+        window.Focus();
     }
 
     public static void ShowMapInAppWindow(System.Windows.Window? owner) =>

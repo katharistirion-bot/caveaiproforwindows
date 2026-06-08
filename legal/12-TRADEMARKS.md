@@ -1,22 +1,43 @@
 # Trademarks and third-party names
 
-**CAVE AI PRO** and **CaveAI Pro** (Android) are associated with publisher **Georgios Kourentzis** ([14-CONTACT.md](14-CONTACT.md)). [FILL IN: trademark status / legal opinion.]
+**Copyright © 2026 Georgios Kourentzis. All Rights Reserved.**
 
 ---
 
-## 1. Third-party software / project names
+## 1. Marks owned by Georgios Kourentzis
 
-The application may **refer** to third-party tools or formats for compatibility or export (examples):
+The following are used to identify software, services, and content published by **Georgios Kourentzis**:
 
-- **Survex** — caving survey software; the name may be a third-party mark. Use here is **descriptive** (export compatibility for `.svx`). No affiliation or endorsement unless [FILL IN].  
-- **Microsoft**, **Windows**, **.NET** — marks of Microsoft Corporation.
+| Mark | Use |
+|------|-----|
+| **CAVE AI PRO** | Windows desktop survey workstation |
+| **CaveAI Pro** | Android application and ecosystem name |
+| **CaveAI Pro logo** | App icon and branding |
+
+These marks are **not** generic terms for caving software. Unauthorized use, imitation, or registration of confusingly similar names or logos in the same field is prohibited without prior written permission from Georgios Kourentzis.
+
+Contact for trademark/licensing enquiries: [caveaipro@gmail.com](mailto:caveaipro@gmail.com).
+
+*Registration status: common-law / unregistered marks unless otherwise noted. Legal counsel may advise on EU/national registration.*
+
+---
+
+## 2. Third-party software / project names
+
+The application may **refer** to third-party tools or formats for compatibility (descriptive use only):
+
+- **Survex** — caving survey software; descriptive reference to `.svx` export compatibility. No affiliation.  
+- **Microsoft**, **Windows**, **.NET**, **WebView2** — marks of Microsoft Corporation.  
+- **Google**, **Google Play**, **Firebase** — marks of Google LLC / affiliates.  
+- **Replicate** — optional BYOK generative AI provider.  
+- **GitHub** — update distribution.
 
 There is **no** association with the owners of these marks unless explicitly stated.
 
-## 2. Disclaimer
+## 3. Disclaimer
 
 All third-party marks belong to their respective owners.
 
-## 3. Logo usage
+## 4. Logo usage
 
-[FILL IN: policy on displaying third-party logos in UI, manuals, website.]
+Third-party logos are **not** displayed as endorsement. Only standard format icons (e.g. Windows, browser) may appear in UI where required for user recognition. Do not use Georgios Kourentzis’s marks on third-party products without permission.

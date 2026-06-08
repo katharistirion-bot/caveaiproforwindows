@@ -1,0 +1,19 @@
+{
+  "name": "caveaipro-functions",
+  "description": "Secure Replicate proxy and entitlement gates for CaveAI Pro",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "lint": "node --check index.js && node --check src/entitlement.js && node --check src/rateLimit.js && node --check src/snapImageResolution.js && node --check src/replicateProxy.js && node --check src/collaboration.js",
+    "test": "node --test test/",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.3.0"
+  },
+  "private": true
+}

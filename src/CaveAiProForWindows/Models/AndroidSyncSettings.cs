@@ -11,4 +11,7 @@ public sealed class AndroidSyncSettings
     public bool AutoRunAnalysisOnSync { get; set; } = true;
 
     public bool AutoRunAnalysisOnProjectLoad { get; set; } = true;
+
+    /// <summary>When true, auto-open the newest CaveAI_Backup_*.zip from the sync folder.</summary>
+    public bool AutoReloadBackupZip { get; set; } = true;
 }

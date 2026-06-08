@@ -1,45 +1,53 @@
-# Privacy Policy — CAVE AI PRO
+# Privacy Policy — CAVE AI PRO (Windows desktop)
 
-**Version:** [FILL IN]  
-**Date:** [FILL IN]  
-**Data controller:** Georgios Kourentzis — [caveaipro@gmail.com](mailto:caveaipro@gmail.com) — [FILL IN: postal address / DPO if required]
+**Version:** 1.2  
+**Date:** 6 June 2026  
+**Data controller:** **Georgios Kourentzis** — [caveaipro@gmail.com](mailto:caveaipro@gmail.com) — [09-IMPRESSUM-PUBLISHER.md](09-IMPRESSUM-PUBLISHER.md)
+
+**Copyright © 2026 Georgios Kourentzis. All Rights Reserved.**
 
 ---
 
 ## 1. Summary
 
-**CAVE AI PRO** (desktop) is a companion for **CaveAI Pro** on **Android** (typically from **Google Play**). The desktop edition runs on **Microsoft Windows** 10/11 (x64); it is **not** listed on Google Play (the store). The app [FILL IN: processes only local files you choose / connects to servers for …]. This policy describes what data is involved in use and how it is handled.
+**CAVE AI PRO for Windows** is a **free companion** for **CaveAI Pro (Android)**. It runs on **Microsoft Windows** 10/11 (x64); it is **not** on Google Play. By default it processes **local files you choose** (JSON/ZIP backups). Optional features may connect to the internet (Public Library WebView, Push to Cloud, update checks, optional Replicate BYOK).
 
 ## 2. Data processed by the app
 
-| Category | Description | Legal basis (examples) |
-|----------|-------------|------------------------|
-| Project files (JSON, ZIP) | Cave survey data you open locally | [FILL IN: contract / legitimate interest / consent] |
-| Error logs | [FILL IN: e.g. `%LOCALAPPDATA%\CaveAiProForWindows\last-error.txt` stored locally only] | [FILL IN] |
-| Updates | [FILL IN: if no network, state “No data is transmitted”] | — |
+| Category | Description | Legal basis (GDPR examples) |
+|----------|-------------|----------------------------|
+| Project files (JSON, ZIP) | Cave survey data you open locally | Contract / legitimate interest (Art. 6(1)(b)/(f)) |
+| Replicate API token (optional) | Stored in Windows Credential Manager if you enable AI Render | Consent / contract (Art. 6(1)(a)/(b)) — **not** uploaded with survey backups |
+| Push to Cloud / Firebase | Data you choose to publish via authenticated WebView2 session | Consent / contract |
+| Error logs | `%LOCALAPPDATA%\CaveAiProForWindows\last-error.txt`, `startup.log` — **local only** | Legitimate interest (support) |
+| Updates | Version check against GitHub Releases (Velopack) — no survey content | Legitimate interest |
 
 ## 3. Sharing with third parties
 
-[FILL IN:  
-- We **do not** transfer personal data to third parties **except** …  
-- or: We use hosting / analytics: [names, SCC, DPA].]
+We **do not sell** personal data. Third parties receive data **only when you use optional online features**:
+
+- **Google / Firebase** — sign-in and cloud publish (your action).  
+- **Replicate** — only if you supply a token and run AI Render (your action).  
+- **GitHub** — update metadata (version strings).
 
 ## 4. Retention
 
-[FILL IN: e.g. files you open remain on your disk; logs are deleted when …]
+Survey files remain on your disk under your control. Local logs remain until you delete them or uninstall. Published library content follows Firebase/website retention rules.
 
 ## 5. Rights (GDPR / local law)
 
-Where applicable, you may exercise access, rectification, erasure, restriction, portability, and objection. Requests: [caveaipro@gmail.com](mailto:caveaipro@gmail.com). You may lodge a complaint with a supervisory authority [FILL IN: e.g. Hellenic DPA — <https://www.dpa.gr/>].
+Access, rectification, erasure, restriction, portability, objection: [caveaipro@gmail.com](mailto:caveaipro@gmail.com). Supervisory authority (Greece): Hellenic Data Protection Authority — <https://www.dpa.gr/>.
 
 ## 6. Security
 
-[FILL IN: measures you apply; for a purely offline app: “Security also depends on your OS and backup practices.”]
+Reasonable technical measures; security also depends on your OS, backups, and credential hygiene.
 
 ## 7. Changes
 
-We will update this policy when processing changes. The current version will show the date in the header.
+We update this policy when processing changes. Current version and date appear in the header.
 
 ## 8. Contact
 
-[14-CONTACT.md](14-CONTACT.md) · [09-IMPRESSUM-PUBLISHER.md](09-IMPRESSUM-PUBLISHER.md)
+[14-CONTACT.md](14-CONTACT.md) · [08-GDPR-DATA-CONTROLLER.md](08-GDPR-DATA-CONTROLLER.md)
+
+Full web policy (Android + website): www.caveaipro.com/privacy

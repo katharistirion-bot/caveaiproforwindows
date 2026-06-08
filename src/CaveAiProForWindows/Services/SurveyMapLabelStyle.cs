@@ -31,10 +31,10 @@ public static class SurveyMapLabelStyle
                 : new SurveyLabelPalette(
                     ChipFill: Color.FromArgb(235, 252, 248, 240),
                     ChipBorder: Color.FromArgb(210, 180, 140, 100),
-                    Primary: Color.FromRgb(28, 52, 48),
-                    Muted: Color.FromRgb(92, 108, 104),
-                    Accent: Color.FromRgb(13, 148, 136),
-                    Leader: Color.FromArgb(120, 13, 148, 136));
+                    Primary: Color.FromRgb(44, 36, 28),
+                    Muted: Color.FromRgb(108, 92, 76),
+                    Accent: Color.FromRgb(124, 74, 45),
+                    Leader: Color.FromArgb(120, 124, 74, 45));
 
     public static UIElement LegChip(SurveyLegMapLabel leg, Point anchor, bool darkCanvas, bool highContrast)
     {
@@ -46,6 +46,8 @@ public static class SurveyMapLabelStyle
             stack.Children.Add(MakeLine(leg.SecondaryLine, 9.25, FontWeights.Normal, pal.Muted, DataFont, topMargin: 1));
         if (!string.IsNullOrEmpty(leg.LrudLine))
             stack.Children.Add(MakeLine(leg.LrudLine, 8.5, FontWeights.Normal, pal.Accent, DataFont, topMargin: 2));
+        if (!string.IsNullOrEmpty(leg.ChainageLine))
+            stack.Children.Add(MakeLine(leg.ChainageLine, 8.5, FontWeights.Normal, pal.Muted, DataFont, topMargin: 1));
 
         return WrapChip(stack, pal, anchor, legAnchor: true);
     }

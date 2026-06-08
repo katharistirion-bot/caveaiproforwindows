@@ -1,0 +1,70 @@
+{
+  "vectorLines": [
+    {
+      "points": [[0, 0], [5, 0], [5, 3]],
+      "type": "planSketch",
+      "closed": false
+    },
+    {
+      "viewMode": 0,
+      "coordinates": [[10, 10], [12, 11], [14, 10]],
+      "stroke": "wallOutline",
+      "closed": true
+    },
+    {
+      "viewMode": 1,
+      "geometry": {
+        "path": [[0, -2], [3, -4], [6, -3]]
+      },
+      "type": "sectionSketch"
+    },
+    {
+      "viewMode": 3,
+      "points": [[1, 1], [4, 2], [7, 1.5]],
+      "type": "longProfileVec"
+    },
+    {
+      "viewMode": 2,
+      "points": [[99, 99], [100, 100]],
+      "type": "pseudo3dOnly"
+    }
+  ],
+  "mapSymbols": [
+    {
+      "surveyX": 2.5,
+      "surveyY": 1.25,
+      "symbolId": "water",
+      "scale": 1.2,
+      "rotation": 15,
+      "widthSurveyM": 1.8
+    },
+    {
+      "viewMode": 1,
+      "x": 8,
+      "y": -3,
+      "symbolId": "ladder",
+      "iconKey": "fixed_aid"
+    }
+  ],
+  "mapObjects": [
+    {
+      "kind": "stroke",
+      "viewMode": 0,
+      "points": [[0, 0], [1, 0], [1, 1]]
+    },
+    {
+      "surveyX": 4,
+      "surveyY": 4,
+      "symbol": "sand",
+      "scaleSurveyMetres": 2.0
+    }
+  ],
+  "symbolsLayer": [
+    {
+      "viewMode": 0,
+      "east": 6,
+      "north": 7,
+      "icon": "__UIS__helictite__"
+    }
+  ]
+}

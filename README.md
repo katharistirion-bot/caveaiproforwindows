@@ -1,95 +1,91 @@
 # CAVE AI PRO — PC companion
 
-Companion για το **CaveAI Pro (Android)**: φορτώνει τα **ίδια** σπηλαιολογικά δεδομένα που εξάγει / αποθηκεύει το κινητό, και τα **επεξεργάζεται** στο PC (περίληψη έρευνας, εξαγωγή CSV σκοπών).
+> **Install:** [docs/INSTALL.md](docs/INSTALL.md) — download from [caveaipro.com](https://www.caveaipro.com/#windows-download) (Windows companion for active subscribers).
 
-### Διανομή (Play Store vs PC)
+Desktop companion for **CaveAI Pro (Android)**: loads the **same** speleological data the mobile app exports or saves, and processes it on PC (survey summary, shot CSV export, plan printing, Survex/Therion/DXF exports).
 
-- **CaveAI Pro (Android):** διανέμεται μέσω **Google Play** (όπως ορίζει ο εκδότης).  
-- **CAVE AI PRO (έκδοση PC, αυτό το repo):** **δεν** είναι στο Google Play· τρέχει σε **PC με Windows** (x64, Win 10/11). Λήψη/εγκατάσταση μέσω **MSI** ή άλλου καναλιού που ορίζει ο εκδότης. Αν έχεις μόνο το κινητό από το Play, για PC χρειάζεσαι **ξεχωριστό** installer.  
-- Νομική/καταστηματική διατύπωση (αγγλικά): `legal/00-DISTRIBUTION-PLATFORMS.md`.
+### Distribution (Play Store vs PC)
 
-## Συνεργασία με το Android app
+- **CaveAI Pro (Android):** distributed via **Google Play** (as defined by the publisher).
+- **CAVE AI PRO (PC, this repo):** **not** on Google Play; runs on **Windows PC** (x64, Win 10/11). **Public download** from [caveaipro.com](https://www.caveaipro.com/#windows-download) (Velopack Setup.exe / MSI). **Microsoft Store** listing is in preparation — see `docs/MICROSOFT-STORE.md`. If you only have the mobile app from Play, you need a **separate** PC installer from the website or (when available) the Microsoft Store.
+- Legal / store wording (English): `legal/00-DISTRIBUTION-PLATFORMS.md`.
+- Build channels: `docs/INSTALL.md` — sideload (`package-release.ps1`) vs Store (`PublishProfile=MicrosoftStore-Win64`, `STORE_DISTRIBUTION`).
 
-| Πηγή στο Android | Τι κάνει η έκδοση PC |
-|------------------|-------------------------|
-| **Αντίγραφο ασφαλείας ZIP** (`Downloads/CaveAI/CaveAI_Backup_*.zip`) | Διαβάζει το `data.json` μέσα στο ZIP (όπως στο `ProjectBackupZip` του repo `CaveAIPro`). |
-| Αρχείο **`caveai_database_v1.json`** (αν το αντιγράψεις από τα internal files του app) | Ίδια δομή: λίστα `CaveProject` σε JSON. |
+## Working with the Android app
 
-Μετά: άνοιγμα αρχείου → αυτόματη επιλογή πρώτου project (αν υπάρχει) → περίληψη → καρτέλα **Plan** (centerline + `vectorLines` όπως στο Android) → **Print plan…** (εκτύπωση σχεδίου, προεπισκόπηση εκτυπωτή, landscape) → **Export shots → CSV** (με στήλες LRUD), **Export traverse → Survex (.svx)**, ή (μόνο για ZIP) **Extract photos from ZIP…**.
+| Android source | What the PC app does |
+|----------------|----------------------|
+| **Backup ZIP** (`Downloads/CaveAI/CaveAI_Backup_*.zip`) | Reads `data.json` inside the ZIP (same as `ProjectBackupZip` in the `CaveAIPro` repo). |
+| **`caveai_database_v1.json`** (copied from app internal files) | Same structure: list of `CaveProject` objects in JSON. |
 
-### ZIP: ακεραιότητα αρχείων
+After opening: auto-select first project (if any) → summary → **Plan** tab (centerline + `vectorLines` as on Android) → **Print plan…** (landscape print preview) → **Export shots → CSV** (with LRUD columns), **Export traverse → Survex (.svx)**, or (ZIP only) **Extract photos from ZIP…**.
 
-Μετά το άνοιγμα ενός CaveAI backup `.zip`, εμφανίζεται γραμμή κατάστασης που συγκρίνει τα SHA-256 του `integrity_manifest.json` με τα περιεχόμενα του ZIP (όπως στο Android export).
+### ZIP integrity
 
-### Τι «κατεβαίνει» με το ZIP στο CAVE AI PRO (Windows)
+After opening a CaveAI backup `.zip`, a status line compares SHA-256 hashes from `integrity_manifest.json` against ZIP contents (same as Android export).
 
-Όταν ανοίγεις ένα **CaveAI backup `.zip`**, η εφαρμογή Windows διαβάζει πρώτα το **`data.json`** (λίστα `CaveProject` όπως στο Android). Για **Save ZIP / export μόνο του τρέχοντος σπηλαίου** στο Android, το συμβόλαιο είναι **ένα project ανά ZIP** (όχι όλη η βάση)· δες `android-reference/MapsWindowsSync.md` §0. Τα υπόλοιπα αρχεία μέσα στο ZIP **μένουν μέσα στο αρχείο**· το Windows τα ανοίγει **κατά περίπτωση** (π.χ. χάρτης ως underlay, εξαγωγή φωτογραφιών, «Explorer» από την καρτέλα Maps). Η λίστα παρακάτω είναι **ανά project / σπήλαιο** όπως στο JSON (αν το ZIP περιέχει πολλά projects, επαναλαμβάνεται για καθένα).
+### What the Windows app reads from a backup ZIP
 
-#### Αρχεία μέσα στο `.zip` (δομή αρχείου)
+When you open a **CaveAI backup `.zip`**, the Windows app reads **`data.json`** first (list of `CaveProject` as on Android). For **Save ZIP / export current cave only** on Android, the contract is **one project per ZIP** (not the full database); see `android-reference/MapsWindowsSync.md` §0. Other files stay inside the ZIP; Windows opens them **on demand** (e.g. map underlay, photo export, Explorer from the Maps tab). The list below is **per project / cave** as in the JSON (repeated for each project if the ZIP contains several).
 
-| Αρχείο / φάκελος | Ρόλος |
-|------------------|--------|
-| **`data.json`** | Όλα τα δομικά δεδομένα της έρευνας (Gson όπως στο κινητό). |
-| **`photos/`** | Αρχεία εικόνας που στο JSON εμφανίζονται ως σχετικά paths `photos/…` (κυρίως φωτογραφίες σκοπιών). |
-| **`export_assets/`** | Άλλα τοπικά αρχεία που το Android ενσωματώνει στο ZIP (ήχος σκοπιών, εικόνες Geo/Bio, LIDAR/mesh, κ.λπ.) — paths `export_assets/…` στο `data.json` *(από ενημερωμένο export του `CaveAIPro`)*. **Χάρτες:** ιδανικά κάθε χάρτης σε **δικό του υποφάκελο** μέσα στο ZIP (π.χ. `export_assets/maps/MyCave__a1b2c3d4e5/000_plan_raster_89abcdef/basemap.tif`) ώστε να μην μπερδεύονται μεταξύ τους· δες `android-reference/CaveAiProBackupZipMapExport.kt`. **Συγχρονισμός Android ↔ Windows για χάρτες (backup `.zip` μόνο):** `android-reference/MapsWindowsSync.md`. **Για διαχείριση στο PC / γραφείο:** προτίμησε **raster** (`.png`, `.tif`, `.jpg`, `.webp`, `.bmp`)· το **PDF** (πρώτη σελίδα) υποστηρίζεται και ως underlay στο Windows companion. |
-| **`backup_manifest.json`** | Μεταδεδομένα export (έκδοση, ώρα, λειτουργία «τρέχον project / όλα»). |
-| **`integrity_manifest.json`** | SHA-256 ανά αρχείο στο ZIP· το Windows το ελέγχει για ακεραιότητα. |
-| **`map_inventory.json`** | *(Νεότερο export Android)* Αναλυτική λίστα χαρτογραφικών διαδρομών ανά σπήλαιο — διαβάζεται στην καρτέλα **Backup detail**. |
-| **`README.txt`** | Σύντομη επεξήγηση της δομής του backup. |
+#### Files inside the `.zip`
 
-#### Τι περιέχει το `data.json` ανά σπήλαιο (λογικές ενότητες)
+| File / folder | Role |
+|---------------|------|
+| **`data.json`** | All structural survey data (Gson format as on mobile). |
+| **`photos/`** | Image files referenced in JSON as `photos/…` paths (mainly shot photos). |
+| **`export_assets/`** | Other local files Android embeds in the ZIP (shot audio, Geo/Bio images, LIDAR/mesh, etc.) — `export_assets/…` paths in `data.json`. **Maps:** ideally each map in its **own subfolder** inside the ZIP (e.g. `export_assets/maps/MyCave__a1b2c3d4e5/000_plan_raster_89abcdef/basemap.tif`) so they do not collide; see `android-reference/CaveAiProBackupZipMapExport.kt`. **Android ↔ Windows map sync (backup `.zip` only):** `android-reference/MapsWindowsSync.md`. **For PC / file workflows:** prefer **raster** (`.png`, `.tif`, `.jpg`, `.webp`, `.bmp`); **PDF** (first page) is also supported as an underlay on Windows. |
+| **`backup_manifest.json`** | Export metadata (version, time, current-project / all-projects mode). |
+| **`integrity_manifest.json`** | SHA-256 per file in the ZIP; Windows verifies integrity. |
+| **`map_inventory.json`** | *(Newer Android export)* Detailed map asset paths per cave — shown on the **Backup detail** tab. |
+| **`README.txt`** | Brief explanation of backup structure. |
 
-Όσα **ονομάζονται ρητά** στο μοντέλο Windows (`CaveProjectDocument` / `ShotRecord`) και όσα έρχονται ως **υπόλοιπο JSON** (`ExtensionData`) — το Android μπορεί να γράφει περισσότερα κλειδιά· το PC τα κρατά και τα σκανάρει όπου χρειάζεται (χάρτες, κατάλογοι).
+#### Logical sections in `data.json` per cave
 
-1. **Ταυτότητα & μεταδεδομένα project**  
-   `name`, `date`, `startTime`, `endTime`, συντεταγμένες εισόδου (`lat`, `lon`, `alt`), `shots` (λίστα), `vectorLines`, `rocks`, `fieldCatalogEntries`, και μέσω **ExtensionData** π.χ. `exitLat`/`exitLon`/`exitAlt`, `trackPoints`, `linkedLibraryCaveId`, `surveyEventLog`, `vehiclePark*`, `visitBaselineFingerprintJson`, `excludeEntranceCoordsFromPublicPublish`, `requireVehicleParkStep`, σκίτσα (`sketches`, `sectionSketches`), `mapSymbols`, `brackets`, `depthSpanAnnotations`, `surfaceLidarRaster`, `publicLibraryCartographyUris`, `cartographyTlsMeshObjUri`, `surveyArchiveSchemaVersion`, `surveyArchivedAtMs`, κ.ά. (όπως στο `CaveSurveyModels.kt` του Android).
+Fields explicitly named in the Windows model (`CaveProjectDocument` / `ShotRecord`) plus **remaining JSON** (`ExtensionData`) — Android may write additional keys; the PC preserves and scans them where needed (maps, catalogs).
 
-2. **Σκοπιές (`shots[]`)**  
-   Γεωμετρία traverse (`fromStation`, `toStation`, `distance`, `azimuth`, `clino`), LRUD (`l`, `r`, `u`, `d`), `notes`, `depth`, `symbol`, splays/radials όπου υπάρχουν στο JSON.  
-   Επιπλέον στο **ίδιο αντικείμενο JSON** (ακόμη κι αν δεν είναι ξεχωριστά πεδία στο C# `ShotRecord`): **`photos[]`** (paths ή URIs), **`audioMemoUri`**, τιμές BLE / χειροκίνητες (`atmosphericO2VolPct`, `ambientBleTempCelsius`, `manualAmbientTempCelsius`, `ambientBleRelativeHumidityPct`, `manualRelativeHumidityPct`, κ.λπ.).
+1. **Project identity & metadata** — `name`, `date`, `startTime`, `endTime`, entrance coords (`lat`, `lon`, `alt`), `shots`, `vectorLines`, `rocks`, `fieldCatalogEntries`, and via **ExtensionData** e.g. `exitLat`/`exitLon`/`exitAlt`, `trackPoints`, `linkedLibraryCaveId`, `surveyEventLog`, `vehiclePark*`, sketches, `mapSymbols`, `brackets`, etc. (as in Android `CaveSurveyModels.kt`).
 
-3. **Geo/Bio — δείγματα βράχου (`rocks[]`)**  
-   Π.χ. `imageUri`, `station`, τίτλος/περιγραφή ανάλυσης, `planMapX` / `planMapY`, κ.λπ.
+2. **Shots (`shots[]`)** — Traverse geometry (`fromStation`, `toStation`, `distance`, `azimuth`, `clino`), LRUD, `notes`, `depth`, `symbol`, splays/radials. Also in the same JSON object: **`photos[]`**, **`audioMemoUri`**, BLE / manual environmental readings.
 
-4. **Κατάλογος πεδίου / οργανισμοί (`fieldCatalogEntries[]`)**  
-   Κατηγορία, όνομα, σημειώσεις, επιστημονικό όνομα, αφθονία, `photoReference`, θέση σε χάρτη (`planMapX`, `planMapY`), κ.λπ.
+3. **Geo/Bio — rock samples (`rocks[]`)** — e.g. `imageUri`, `station`, analysis title/description, `planMapX` / `planMapY`.
 
-5. **Χαρτογραφία & σχέδιο**  
-   `vectorLines` (γραμμές plan/section/profile), URIs χαρτών/επικαλύψεων μέσα στο JSON (συλλέγονται δυναμικά για την καρτέλα **Maps**).
+4. **Field catalog / organisms (`fieldCatalogEntries[]`)** — Category, name, notes, scientific name, abundance, `photoReference`, map position.
 
-#### Τι κάνει η έκδοση Windows με όλα αυτά
+5. **Cartography & plan** — `vectorLines` (plan/section/profile lines), map/overlay URIs in JSON (collected dynamically for the **Maps** tab).
 
-| Δεδομένο / αρχείο | Στο Windows (ενδεικτικά) |
-|-------------------|---------------------------|
-| `data.json` (όλο το project) | Φόρτωση projects, περίληψη έρευνας, λίστα σκοπιών, **Export shots → CSV**, **Export traverse → Survex (.svx)**. |
-| `shots` + `vectorLines` | Καρτέλες **Plan** / **Section** (centerline + διανύσματα), εκτύπωση σχεδίου όπου υπάρχει. |
-| Paths `photos/…`, `export_assets/…`, `https://…` κ.λπ. στο JSON | Καρτέλα **Maps** (λίστα assets, άνοιγμα στο Explorer, εξαγωγή αρχείου, **raster underlay** όταν το αρχείο αποκωδικοποιείται — συμπεριλαμβανομένου cache για https εικόνες όπου υποστηρίζεται). |
-| `rocks` + `fieldCatalogEntries` | **Cave registry** (σύνοψη ανά σπήλαιο) και **Bio/Mineral catalog** (γραμμές από βράχους + καταχωρήσεις πεδίου). |
-| `integrity_manifest.json` + περιεχόμενα ZIP | **Έλεγχος ακεραιότητας** (banner κατάστασης). |
-| Μόνο φάκελος **`photos/`** | Εντολή **Extract photos from ZIP…** (αντιγραφή `photos/**` σε φάκελο που επιλέγεις). Τα **`export_assets/**`** δεν αντιγράφονται από αυτή την εντολή· χρησιμοποίησε την καρτέλα Maps / «Extract» ανά asset. |
+#### What Windows does with this data
 
-**Σημείωση:** Αν ανοίξεις **μόνο** `caveai_database_v1.json` χωρίς ZIP, τα τοπικά αρχεία που στο κινητό ήταν `content://` δεν υπάρχουν στο PC — χρειάζεται **πλήρες ZIP** με `photos/` και `export_assets/` (όπως το νέο export του Android) για να δουλεύουν οι ίδιες διαδρομές αρχείων.
+| Data / file | Windows usage |
+|-------------|---------------|
+| `data.json` (full project) | Load projects, survey summary, shot list, **Export shots → CSV**, **Export traverse → Survex (.svx)**. |
+| `shots` + `vectorLines` | **Plan** / **Section** tabs (centerline + vectors), plan printing where available. |
+| Paths `photos/…`, `export_assets/…`, `https://…` in JSON | **Maps** tab (asset list, Explorer, file export, **raster underlay** when decoded). |
+| `rocks` + `fieldCatalogEntries` | **Cave registry** and **Bio/Mineral catalog**. |
+| `integrity_manifest.json` + ZIP contents | **Integrity check** (status banner). |
+| **`photos/`** folder only | **Extract photos from ZIP…** (copies `photos/**` to a folder you choose). `export_assets/**` is not copied by this command — use Maps tab / per-asset Extract. |
+
+**Note:** Opening **only** `caveai_database_v1.json` without a ZIP means local files that were `content://` on mobile are not on PC — you need a **full ZIP** with `photos/` and `export_assets/` for the same file paths to work.
 
 ### Survex
 
-Το `.svx` περιέχει μόνο **traverse** σκοπιές (`*data normal from to tape compass clino`) και ένα προσωρινό `*fix` στον πρώτο σταθμό `0 0 0` — **έλεγξε** συμβάσεις/μονάδες πριν από παραγωγική χρήση (Survex/Cavern).
-
+The `.svx` file contains only **traverse** shots (`*data normal from to tape compass clino`) and a provisional `*fix` at station `0 0 0` — **verify** conventions/units before production use (Survex/Cavern).
 
 ## Build / Run
 
-### Κανονική εγκατάσταση Windows (MSI)
+### Standard Windows install (MSI)
 
-Για **κανονική εφαρμογή** (χωρίς παράθυρο CMD), χτίσε το installer και τρέξε το MSI:
+For a normal app install (no CMD window), build the installer and run the MSI:
 
-1. Εγκατάσταση [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) στο PC που **χτίζεις** το πακέτο.
-2. Διπλό κλικ **`BuildInstaller.bat`** (ή `dotnet build installer\CaveAiProForWindows.Installer.wixproj -c Release`).
-3. Ανοίγεις **`installer\bin\Release\CaveAiProForWindows-Setup.msi`** σε **Windows PC** (όχι από Google Play): εγκατάσταση σε `Program Files`, συντόμευση στο μενού Έναρξη, self-contained (δεν χρειάζεται ξεχωριστό .NET στον υπολογιστή-στόχο). Η απεγκατάσταση γίνεται από Ρυθμίσεις → Εφαρμογές.
+1. Install [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) on the build machine.
+2. Double-click **`BuildInstaller.bat`** (or `dotnet build installer\CaveAiProForWindows.Installer.wixproj -c Release`).
+3. Run **`installer\bin\Release\CaveAiProForWindows-Setup.msi`** on a **Windows PC** (not from Google Play): installs to Program Files, Start menu shortcut, self-contained (no separate .NET on target). Uninstall via Settings → Apps.
 
-Το **`run.bat`** ανοίγει την εγκατεστημένη εφαρμογή (MSI ή προηγούμενη per-user εγκατάσταση) χωρίς να κρατάει κονσόλα.
+**`run.bat`** launches the installed app (MSI or prior per-user install) without keeping a console open.
 
-Αν «δεν ανοίγει τίποτα» ή εμφανίζεται σφάλμα: δοκίμασε **`TryApp.bat`** (self-contained **φάκελος**, όχι single-file). Αν εμφανιστεί μήνυμα σφάλματος, άνοιξε και το **`%LOCALAPPDATA%\CaveAiProForWindows\last-error.txt`** (πλήρες stack trace). Υπάρχει και **`startup.log`** στον ίδιο φάκελο. Μετά **`BuildInstaller.bat`** και ξανά εγκατάσταση MSI. Αν είχες παλιό `dist\TryRun`, το `TryApp.bat` ξαναχτίζει αν λείπει το `.dll` εκεί.
+If the app does not start: try **`TryApp.bat`** (self-contained **folder**, not single-file). On error, check **`%LOCALAPPDATA%\CaveAiProForWindows\last-error.txt`** (full stack trace) and **`startup.log`** in the same folder. Re-run **`BuildInstaller.bat`** and reinstall MSI.
 
-### Ανάπτυξη από πηγή
+### Development from source
 
 ```bat
 cd /d d:\caveaiproforwindows
@@ -97,32 +93,43 @@ dotnet build
 dotnet run --project src\CaveAiProForWindows\CaveAiProForWindows.csproj
 ```
 
-Εναλλακτικά: **`Install.bat`** / **`Install-SelfContained.bat`** (PowerShell) για εγκατάσταση μόνο στο προφίλ σου, χωρίς MSI.
+Alternatively: **`Install.bat`** / **`Install-SelfContained.bat`** (PowerShell) for per-user install without MSI.
 
-## Δομή κώδικα
+### Release packaging (sideload)
 
-- `Models/` — υποσύνολο πεδίων συμβατό με Gson του Android (`Shot`, `CaveProject`).
-- `Services/ExplorationDataLoader.cs` — `*.json` ή `*.zip`.
-- `Services/ExplorationAnalytics.cs` — περίληψη + CSV UTF-8 BOM.
-- `Services/IntegrityVerifier.cs` — επαλήθευση `integrity_manifest.json`.
-- `Services/ZipPhotoExtractor.cs` — εξαγωγή `photos/**` από ZIP.
-- `Services/SurvexExporter.cs` — ελάχιστο `.svx` traverse centerline.
-- `Services/SurveyStationGeometry.cs` — ίδια μείωση σταθμών με `calculateCaveCoordinates` (Android) + ανάγνωση `vectorLines` για plan.
-- `Views/PlanView.*` — 2D προβολή σχεδίου.
+Set `CAVEAIPRO_FIREBASE_API_KEY` (or run `tools/inject-firebase-config.ps1`), then publish and package:
 
-## Πορεία: τοπογραφικό εργαλείο σπηλαίων (μαζί με CaveAI Pro — Android)
+```powershell
+dotnet publish src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release -r win-x64 -p:PublishProfile=ReleaseSingleFile-Win64
+.\tools\package-release.ps1 -Tag v1.3.0
+```
 
-**Ρόλοι:** το **κινητό (`d:\caveaipro`)** μένει κέντρο καταγραφής, χάρτη, σχεδίαση (`vectorLines`), DXF από το app, backup ZIP. Το **Windows** επεκτείνεται σε σταθμό εργασίας: ίδιο `data.json` / ZIP, περίληψη, Survex/CSV, ακεραιότητα, και σταδιακά **σχέδιο + QC** σε μεγάλη οθόνη.
+See `docs/SECURITY.md` for Firebase config injection and `docs/INSTALL.md` for distribution channels.
 
-| Φάση | Στόχος |
-|------|--------|
-| **1 — Δεδομένα** | Πλήρης ανάγνωση πεδίων χάρτη από JSON (`vectorLines` ήδη αναγνωρίζεται· περίληψη με πλήθος γραμμών). Στο Android: σταθερά exports / έκδοση schema όπου χρειάζεται. |
-| **2 — Σχέδιο PC** | Canvas 2D plan (ίδιο survey frame με το app): centerline από σκοπιές + εμφάνιση `vectorLines` ανά `viewMode`. |
-| **3 — Εξαγωγές** | DXF/SVG συγχρονισμένα με `DxfExport.kt`· βελτίωση Survex (μονάδες, σταθμοί)· προαιρετικά Therion `.th` αργότερα. |
-| **4 — QC** | Loop closure / μήκος / υποδείξεις αντιστοίχισης με λογική Android (όπου υπάρχει στο repo). |
+## Code layout
 
-Άμεσες ιδέες κώδικα: Therion `.th`, πλούσιο import `vectorLines`/`mapSymbols`, ευθυγράμμιση DXF Windows↔Android.
+- `Models/` — field subset compatible with Android Gson (`Shot`, `CaveProject`).
+- `Services/ExplorationDataLoader.cs` — `*.json` or `*.zip`.
+- `Services/ExplorationAnalytics.cs` — summary + CSV UTF-8 BOM.
+- `Services/IntegrityVerifier.cs` — `integrity_manifest.json` verification.
+- `Services/ZipPhotoExtractor.cs` — extract `photos/**` from ZIP.
+- `Services/SurvexExporter.cs` — minimal `.svx` traverse centerline.
+- `Services/SurveyStationGeometry.cs` — same station reduction as `calculateCaveCoordinates` (Android) + `vectorLines` for plan.
+- `Views/PlanView.*` — 2D plan view.
+
+## Roadmap: cave survey workstation (with CaveAI Pro — Android)
+
+**Roles:** **mobile (`d:\caveaipro`)** remains the field recording hub (map, sketching, `vectorLines`, DXF, backup ZIP). **Windows** extends to a desktop workstation: same `data.json` / ZIP, summary, Survex/CSV, integrity, and progressively **plan + QC** on a large screen.
+
+| Phase | Goal |
+|-------|------|
+| **1 — Data** | Full map-field reading from JSON (`vectorLines` already recognized; summary with line counts). Android: stable exports / schema version where needed. |
+| **2 — PC plan** | 2D plan canvas (same survey frame as app): centerline from shots + `vectorLines` by `viewMode`. |
+| **3 — Exports** | DXF/SVG aligned with `DxfExport.kt`; improved Survex (units, stations); optional Therion `.th` later. |
+| **4 — QC** | Loop closure / length / hints aligned with Android logic where available. |
+
+Near-term code ideas: Therion `.th`, richer `vectorLines`/`mapSymbols` import, DXF Windows↔Android alignment.
 
 ### CaveAI Pro (Android)
 
-Κύριο manual: στο repo `caveaipro` → `docs/CARTOGRAPHY_AND_USAGE_GUIDE.md` (survey frame, Map tab, exports). Το μοντέλο `VectorLine` / `CaveProject` ορίζεται στο `app/.../CaveSurveyModels.kt`.
+Main manual: `caveaipro` repo → `docs/CARTOGRAPHY_AND_USAGE_GUIDE.md` (survey frame, Map tab, exports). `VectorLine` / `CaveProject` model: `app/.../CaveSurveyModels.kt`.

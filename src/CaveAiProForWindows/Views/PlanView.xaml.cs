@@ -15,6 +15,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows.Views;
@@ -56,6 +57,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         var v = (PlanView)d;
         if (!v.IsLoaded)
             return;
+        v.UpdateCartographySidebarVisibility();
         v.ZoomPan.X = 0;
         v.ZoomPan.Y = 0;
         v.ZoomScale.ScaleX = 1;
@@ -169,7 +171,11 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     private PlanCanvasSurveyLayout _surveyHitLayout;
     private bool _surveyHitLayoutReady;
     private bool _applyingSettings;
+    private bool _showPlanAiUnderlay = true;
+    private double _planAiOverlayOpacity = 0.52;
     private SurveyMapPickHighlight? _surveyPickHighlight;
+    private CaveViewport3DFlyThrough? _flyThrough;
+    private CaveViewport3DFlyThroughRecorder? _flyThroughRecorder;
     /// <summary>Select mode empty-click hides the analytical column until Esc or another pick.</summary>
     private bool _stationDetailsPaneDismissed;
 
@@ -291,6 +297,14 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         PersistPlanTab();
     }
 
+    private void EditorToolErase_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.RadioButton { IsChecked: true })
+            _currentTool = MapCanvasEditorTool.Erase;
+        SyncSymbolPaletteEnabled();
+        PersistPlanTab();
+    }
+
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         SurveyCanvasTheme.Changed += OnSurveyCanvasThemeChanged;
@@ -306,6 +320,9 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             ZoomPan.Changed += MapTransform_Changed;
 
         ApplyPlanTabFromSettings();
+        ApplyGenerativePlanSettings();
+        GenerativeMapSessionCache.SessionChanged += OnGenerativeSessionChanged;
+        UpdateCartographySidebarVisibility();
         if (_currentTool == MapCanvasEditorTool.PlaceSymbol)
             EnsureSymbolPaletteHasSelection();
         else if (SymbolPaletteRock != null && SymbolPaletteWater != null && SymbolPaletteSpele != null)
@@ -328,6 +345,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         PersistPlanTab();
+        GenerativeMapSessionCache.SessionChanged -= OnGenerativeSessionChanged;
         SurveyStationSelectionHub.StationSelected -= OnExternalStationSelected;
         SurveyStationSelectionHub.SelectionCleared -= OnExternalSelectionCleared;
         SurveyCanvasTheme.Changed -= OnSurveyCanvasThemeChanged;
@@ -342,6 +360,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         UnwireMapInventory(MapInventory);
         if (HostViewport3D != null && HostViewportShell != null)
             CaveViewport3DPresenter.Detach(HostViewport3D, HostViewportShell, Viewport3DLabelCanvas);
+        _flyThrough?.Dispose();
+        _flyThrough = null;
     }
 
     private void MapTransform_Changed(object? sender, EventArgs e) => UpdateStationFloatingCardPosition();
@@ -350,6 +370,14 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     {
         if (string.Equals(e.Source, "Plan", StringComparison.OrdinalIgnoreCase))
             return;
+
+        if (VisualizationMode == SurveyVisualizationMode.Pseudo3D)
+        {
+            if (!string.Equals(e.Source, "3D", StringComparison.OrdinalIgnoreCase))
+                ApplyExternal3DStationSelection(e.StationName);
+            return;
+        }
+
         ApplyExternalStationSelection(e.StationName);
         if (e.RequestZoom)
             ZoomToStation(e.StationName);
@@ -363,6 +391,24 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         ResetPropertiesPanelToSummary();
         Redraw();
         UpdateStationFloatingCardPosition();
+    }
+
+    private void ApplyExternal3DStationSelection(string stationName)
+    {
+        if (Project == null || string.IsNullOrWhiteSpace(stationName))
+            return;
+
+        var coords = SurveyStationGeometry.CalculatePlanCoordinates(Project);
+        var match = coords.Keys.FirstOrDefault(k =>
+            string.Equals(k.Trim(), stationName.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (match == null || !coords.TryGetValue(match, out var c))
+            return;
+
+        _stationDetailsPaneDismissed = false;
+        _surveyPickHighlight = new SurveyMapPickHighlight(false, match.Trim(), null);
+        UpdatePropertiesPanel(new SurveyPickStation(match.Trim(), c));
+        CaveViewport3DPresenter.SetHighlightStation(HostViewport3D, match.Trim());
+        ApplySurveyDetailsColumnExpanded(true);
     }
 
     /// <summary>Pan/zoom so <paramref name="stationName"/> is centered in the plan viewport.</summary>
@@ -518,7 +564,9 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         PropertySelectionStatusText.Text = NoSelectionStatus;
         ApplyPropertiesVisualState(PropertiesVisualState.None);
         PropertyStationLegNameText.Text = "Global cave stats";
-        PropertyCoordinatesText.Text = $"Stations: {stations}  |  Traverse legs: {legs}";
+        var siteLabel = SurveySiteTypeResolver.GetMapLabel(p);
+        var siteLine = string.IsNullOrWhiteSpace(siteLabel) ? "" : $"Site type: {siteLabel}  |  ";
+        PropertyCoordinatesText.Text = $"{siteLine}Stations: {stations}  |  Traverse legs: {legs}";
         PropertySurveyDataText.Text =
             $"Total length: {totalTape.ToString("0.##", inv)} m  |  Vertical span (Z): {zSpan.ToString("0.##", inv)} m";
         PropertyWallDimensionsText.Text = "Use Select mode and click a station or leg.";
@@ -592,7 +640,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 ApplyPropertyCaptionState(PropertyCaptionStyle.Station);
 
                 _surveyPickHighlight = new SurveyMapPickHighlight(false, station.Name.Trim(), null);
-                SurveyStationSelectionHub.Select(station.Name.Trim(), "Plan");
+                if (VisualizationMode != SurveyVisualizationMode.Pseudo3D)
+                    SurveyStationSelectionHub.Select(station.Name.Trim(), "Plan");
                 PropertySelectionStatusText.Text = "Selected station";
                 ApplyPropertiesVisualState(PropertiesVisualState.Station);
                 PropertyStationLegNameText.Text = station.Name;
@@ -736,10 +785,38 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 DepthSpanAnnotationsCheck.IsChecked = s.DepthSpanAnnotations;
             if (BracketMarkersCheck != null)
                 BracketMarkersCheck.IsChecked = s.BracketMarkers;
+            if (Viewport3DMapSymbolsCheck != null)
+                Viewport3DMapSymbolsCheck.IsChecked = s.Viewport3DMapSymbols;
+            if (Viewport3DFieldCatalogCheck != null)
+                Viewport3DFieldCatalogCheck.IsChecked = s.Viewport3DFieldCatalog;
+            if (Viewport3DStationSnapshotsCheck != null)
+                Viewport3DStationSnapshotsCheck.IsChecked = s.Viewport3DStationSnapshots;
+            if (Viewport3DAiTagsCheck != null)
+                Viewport3DAiTagsCheck.IsChecked = s.Viewport3DAiTags;
             if (LoopClosureHighlightsCheck != null)
                 LoopClosureHighlightsCheck.IsChecked = s.LoopClosureHighlights;
+            if (LrudRibbonQcCheck != null)
+                LrudRibbonQcCheck.IsChecked = s.LrudRibbonQcHighlights;
+            if (WallHatchingCheck != null)
+                WallHatchingCheck.IsChecked = s.ShowWallHatching;
+            if (CoordinateGridCheck != null)
+                CoordinateGridCheck.IsChecked = s.ShowCoordinateGrid;
             if (CartographyOverlayCheck != null)
                 CartographyOverlayCheck.IsChecked = s.Overlay;
+            if (Viewport3DShowLabelsCheck != null)
+                Viewport3DShowLabelsCheck.IsChecked = s.Viewport3DShowLabels;
+            SyncViewport3DLabelSizeCombo(s.Viewport3DLabelSize);
+            if (Viewport3DShowSplinesCheck != null)
+                Viewport3DShowSplinesCheck.IsChecked = s.Viewport3DShowSplines;
+            if (Viewport3DTopographyCheck != null)
+                Viewport3DTopographyCheck.IsChecked = s.Viewport3DShowTopography;
+            if (Viewport3DDemCheck != null)
+                Viewport3DDemCheck.IsChecked = s.Viewport3DShowDem;
+            if (Viewport3DSectionCutCheck != null)
+                Viewport3DSectionCutCheck.IsChecked = s.Viewport3DSectionCutEnabled;
+            if (Viewport3DSectionCutSlider != null)
+                Viewport3DSectionCutSlider.Value = Math.Clamp(s.Viewport3DSectionCutPosition, 0.05, 0.95);
+            SyncSectionCutAxisCombo(s.Viewport3DSectionCutAxis);
 
             SyncCartographicIntensityCombo(AppUiSettingsStore.LoadOrDefault().CartographicIntensity);
             SyncSurveyDetailDensityCombo(AppUiSettingsStore.LoadOrDefault().SurveyDetailDensity);
@@ -751,6 +828,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 EditorToolSelect.IsChecked = _currentTool == MapCanvasEditorTool.Select;
                 EditorToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
                 EditorToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
+                if (EditorToolErase != null)
+                    EditorToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
             }
         }
         finally
@@ -771,6 +850,70 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         ZoomPan.Y = s.PanY;
     }
 
+    private void ApplyGenerativePlanSettings()
+    {
+        _applyingSettings = true;
+        try
+        {
+            var gm = AppUiSettingsStore.LoadOrDefault().GenerativeMap;
+            _showPlanAiUnderlay = gm.ShowAiRenderOnCanvas;
+            _planAiOverlayOpacity = Math.Clamp(gm.PlanAiOverlayOpacity, 0.15, 0.95);
+            if (PlanAiUnderlayCheck != null)
+                PlanAiUnderlayCheck.IsChecked = _showPlanAiUnderlay;
+            if (PlanAiUnderlayOpacitySlider != null)
+                PlanAiUnderlayOpacitySlider.Value = _planAiOverlayOpacity;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+    }
+
+    private void PersistGenerativePlanSettings()
+    {
+        if (_applyingSettings)
+            return;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.GenerativeMap.ShowAiRenderOnCanvas = _showPlanAiUnderlay;
+        all.GenerativeMap.PlanAiOverlayOpacity = _planAiOverlayOpacity;
+        AppUiSettingsStore.Save(all);
+    }
+
+    private IReadOnlyList<PlanRasterUnderlay> LoadPlanUnderlays(CaveProjectDocument project) =>
+        PlanMapUnderlayLoader.WithGenerativeUnderlay(
+            project,
+            ZipPath,
+            PlanMapUnderlayLoader.TryLoadRasterUnderlays(project, ZipPath, MapRows, MapInventory),
+            _showPlanAiUnderlay,
+            _planAiOverlayOpacity);
+
+    private void OnGenerativeSessionChanged(object? sender, GenerativeMapSessionChangedEventArgs e)
+    {
+        if (Project == null || !ReferenceEquals(e.Project, Project))
+            return;
+        if (!IsLoaded || VisualizationMode == SurveyVisualizationMode.Pseudo3D)
+            return;
+        Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(Redraw));
+    }
+
+    private void PlanAiUnderlay_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_applyingSettings)
+            return;
+        _showPlanAiUnderlay = PlanAiUnderlayCheck?.IsChecked == true;
+        PersistGenerativePlanSettings();
+        Redraw();
+    }
+
+    private void PlanAiUnderlayOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_applyingSettings || PlanAiUnderlayOpacitySlider == null)
+            return;
+        _planAiOverlayOpacity = Math.Clamp(PlanAiUnderlayOpacitySlider.Value, 0.15, 0.95);
+        PersistGenerativePlanSettings();
+        Redraw();
+    }
+
     private void PersistPlanTab()
     {
         if (_applyingSettings)
@@ -783,8 +926,25 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         all.Plan.StationEnvironment = StationEnvironmentCheck?.IsChecked != false;
         all.Plan.DepthSpanAnnotations = DepthSpanAnnotationsCheck?.IsChecked != false;
         all.Plan.BracketMarkers = BracketMarkersCheck?.IsChecked != false;
+        all.Plan.Viewport3DMapSymbols = Viewport3DMapSymbolsCheck?.IsChecked != false;
+        all.Plan.Viewport3DFieldCatalog = Viewport3DFieldCatalogCheck?.IsChecked != false;
+        all.Plan.Viewport3DStationSnapshots = Viewport3DStationSnapshotsCheck?.IsChecked != false;
+        all.Plan.Viewport3DAiTags = Viewport3DAiTagsCheck?.IsChecked != false;
         all.Plan.LoopClosureHighlights = LoopClosureHighlightsCheck?.IsChecked != false;
+        all.Plan.LrudRibbonQcHighlights = LrudRibbonQcCheck?.IsChecked != false;
+        all.Plan.ShowWallHatching = WallHatchingCheck?.IsChecked == true;
+        all.Plan.ShowCoordinateGrid = CoordinateGridCheck?.IsChecked == true;
         all.Plan.Overlay = CartographyOverlayCheck?.IsChecked != false;
+        all.Plan.Viewport3DShowLabels = Viewport3DShowLabelsCheck?.IsChecked != false;
+        if (Viewport3DLabelSizeCombo?.SelectedItem is ComboBoxItem { Tag: string labelSize })
+            all.Plan.Viewport3DLabelSize = labelSize;
+        all.Plan.Viewport3DShowSplines = Viewport3DShowSplinesCheck?.IsChecked != false;
+        all.Plan.Viewport3DShowTopography = Viewport3DTopographyCheck?.IsChecked == true;
+        all.Plan.Viewport3DShowDem = Viewport3DDemCheck?.IsChecked == true;
+        all.Plan.Viewport3DSectionCutEnabled = Viewport3DSectionCutCheck?.IsChecked == true;
+        all.Plan.Viewport3DSectionCutPosition = Viewport3DSectionCutSlider?.Value ?? 0.5;
+        if (Viewport3DSectionCutAxisCombo?.SelectedItem is ComboBoxItem { Tag: string axis })
+            all.Plan.Viewport3DSectionCutAxis = axis;
         if (CartographicIntensityCombo?.SelectedItem is System.Windows.Controls.ComboBoxItem { Tag: string tag })
             all.CartographicIntensity = tag;
         if (ZoomScale != null)
@@ -876,6 +1036,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
         try
         {
+            UpdateCartographySidebarVisibility();
+
             if (VisualizationMode != SurveyVisualizationMode.Pseudo3D)
             {
                 CaveViewport3DPresenter.Detach(HostViewport3D, HostViewportShell, Viewport3DLabelCanvas);
@@ -891,14 +1053,12 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
             if (VisualizationMode == SurveyVisualizationMode.Pseudo3D)
             {
-                InvalidateSurveyPickState(true);
+                _flyThrough?.Stop();
                 if (SurveyDetailsPane != null)
-                    SurveyDetailsPane.Visibility = Visibility.Collapsed;
+                    SurveyDetailsPane.Visibility = Visibility.Visible;
 
                 HostViewportShell.Visibility = Visibility.Visible;
                 HostScroll.Visibility = Visibility.Collapsed;
-                if (EditorToolsPanel != null)
-                    EditorToolsPanel.Visibility = Visibility.Collapsed;
                 SurveyCanvas.Children.Clear();
                 DesignLayer.Children.Clear();
                 _mapEditor?.OnDesignLayerCleared();
@@ -922,7 +1082,16 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 if (Viewport3DMessage != null)
                     Viewport3DMessage.Visibility = Visibility.Collapsed;
 
-                if (!CaveViewport3DPresenter.TryPopulate(HostViewport3D, p3, HostViewportShell, Viewport3DLabelCanvas))
+                if (!CaveViewport3DPresenter.TryPopulate(
+                        HostViewport3D,
+                        p3,
+                        HostViewportShell,
+                        Viewport3DLabelCanvas,
+                        CurrentViewport3DDisplayOptions(),
+                        OnViewport3DPick,
+                        _surveyPickHighlight is { IsLeg: false } hl ? hl.StationOrFrom : null,
+                        OnViewport3DLabelClick,
+                        CurrentViewport3DLabelScale()))
                 {
                     if (Viewport3DMessage != null)
                     {
@@ -954,7 +1123,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
             try
             {
-                var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+                var underlays = LoadPlanUnderlays(p);
                 var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModePlan, VisualizationMode);
                 if (scene == null)
                 {
@@ -1313,6 +1482,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
     private void CartographyOptions_Changed(object sender, RoutedEventArgs e)
     {
+        UpdateCartographySidebarVisibility();
         Redraw();
         PersistPlanTab();
     }
@@ -1386,8 +1556,21 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 DepthSpanAnnotationsCheck.IsChecked = s.DepthSpanAnnotations;
             if (BracketMarkersCheck != null)
                 BracketMarkersCheck.IsChecked = s.BracketMarkers;
+            if (Viewport3DMapSymbolsCheck != null)
+                Viewport3DMapSymbolsCheck.IsChecked = s.Viewport3DMapSymbols;
+            if (Viewport3DFieldCatalogCheck != null)
+                Viewport3DFieldCatalogCheck.IsChecked = s.Viewport3DFieldCatalog;
+            if (Viewport3DStationSnapshotsCheck != null)
+                Viewport3DStationSnapshotsCheck.IsChecked = s.Viewport3DStationSnapshots;
+            if (Viewport3DAiTagsCheck != null)
+                Viewport3DAiTagsCheck.IsChecked = s.Viewport3DAiTags;
             if (LoopClosureHighlightsCheck != null)
                 LoopClosureHighlightsCheck.IsChecked = s.LoopClosureHighlights;
+            if (LrudRibbonQcCheck != null)
+                LrudRibbonQcCheck.IsChecked = s.LrudRibbonQcHighlights;
+            if (Viewport3DShowLabelsCheck != null)
+                Viewport3DShowLabelsCheck.IsChecked = s.Viewport3DShowLabels;
+            SyncViewport3DLabelSizeCombo(s.Viewport3DLabelSize);
         }
         finally
         {
@@ -1395,6 +1578,441 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         }
 
         Redraw();
+    }
+
+    private Viewport3DDisplayOptions CurrentViewport3DDisplayOptions()
+    {
+        var annotations = CurrentViewport3DAnnotationOptions();
+        Viewport3DSectionCutOptions? cut = null;
+        if (Viewport3DSectionCutCheck?.IsChecked == true)
+        {
+            var axis = Viewport3DSectionCutAxis.HorizontalZ;
+            if (Viewport3DSectionCutAxisCombo?.SelectedItem is ComboBoxItem { Tag: string tag })
+                Enum.TryParse(tag, out axis);
+            cut = new Viewport3DSectionCutOptions(
+                axis,
+                Viewport3DSectionCutSlider?.Value ?? 0.5,
+                Enabled: true);
+        }
+
+        return new Viewport3DDisplayOptions(
+            annotations,
+            Viewport3DShowSplinesCheck?.IsChecked != false,
+            Viewport3DTopographyCheck?.IsChecked == true,
+            Viewport3DDemCheck?.IsChecked == true,
+            cut);
+    }
+
+    private Viewport3DAnnotationOptions CurrentViewport3DAnnotationOptions()
+    {
+        var show = Viewport3DShowLabelsCheck?.IsChecked != false;
+        if (!show)
+            return Viewport3DAnnotationOptions.AllOff;
+
+        return new Viewport3DAnnotationOptions(
+            ShowLabels: true,
+            ShowStationNames: StationNamesCheck?.IsChecked == true,
+            ShowStationZ: StationZDepthCheck?.IsChecked == true,
+            ShowLegDetails: LegSurveyDetailsCheck?.IsChecked != false,
+            ShowEnvironment: StationEnvironmentCheck?.IsChecked != false,
+            ShowDepthSpans: DepthSpanAnnotationsCheck?.IsChecked != false,
+            ShowBrackets: BracketMarkersCheck?.IsChecked != false,
+            ShowMapSymbols: Viewport3DMapSymbolsCheck?.IsChecked != false,
+            ShowFieldCatalog: Viewport3DFieldCatalogCheck?.IsChecked != false,
+            ShowStationSnapshots: Viewport3DStationSnapshotsCheck?.IsChecked != false,
+            ShowAiTags: Viewport3DAiTagsCheck?.IsChecked != false);
+    }
+
+    private void UpdateCartographySidebarVisibility()
+    {
+        var is3d = VisualizationMode == SurveyVisualizationMode.Pseudo3D;
+        var show3dLabels = Viewport3DShowLabelsCheck?.IsChecked == true;
+        var planOnly = is3d ? Visibility.Collapsed : Visibility.Visible;
+
+        if (PlanDrawingToolsSection != null)
+            PlanDrawingToolsSection.Visibility = planOnly;
+        if (PlanCartographySeparator != null)
+            PlanCartographySeparator.Visibility = planOnly;
+        if (PlanCartographySection != null)
+            PlanCartographySection.Visibility = planOnly;
+        if (PlanAiUnderlaySection != null)
+            PlanAiUnderlaySection.Visibility = planOnly;
+        if (PlanMapToolbarPanel != null)
+            PlanMapToolbarPanel.Visibility = planOnly;
+
+        if (PlanDisplaySectionTitle != null)
+            PlanDisplaySectionTitle.Visibility = is3d ? Visibility.Collapsed : Visibility.Visible;
+
+        var annotationVisibility = is3d
+            ? (show3dLabels ? Visibility.Visible : Visibility.Collapsed)
+            : Visibility.Visible;
+
+        if (PlanDisplayOptionsSection != null)
+            PlanDisplayOptionsSection.Visibility = is3d ? annotationVisibility : Visibility.Visible;
+
+        if (StationNamesCheck != null)
+            StationNamesCheck.Visibility = annotationVisibility;
+        if (StationZDepthCheck != null)
+            StationZDepthCheck.Visibility = annotationVisibility;
+        if (LegSurveyDetailsCheck != null)
+            LegSurveyDetailsCheck.Visibility = annotationVisibility;
+        if (StationEnvironmentCheck != null)
+            StationEnvironmentCheck.Visibility = annotationVisibility;
+        if (DepthSpanAnnotationsCheck != null)
+            DepthSpanAnnotationsCheck.Visibility = annotationVisibility;
+        if (BracketMarkersCheck != null)
+            BracketMarkersCheck.Visibility = annotationVisibility;
+        if (Viewport3DMapSymbolsCheck != null)
+            Viewport3DMapSymbolsCheck.Visibility = annotationVisibility;
+        if (Viewport3DFieldCatalogCheck != null)
+            Viewport3DFieldCatalogCheck.Visibility = annotationVisibility;
+        if (Viewport3DStationSnapshotsCheck != null)
+            Viewport3DStationSnapshotsCheck.Visibility = annotationVisibility;
+        if (Viewport3DAiTagsCheck != null)
+            Viewport3DAiTagsCheck.Visibility = annotationVisibility;
+
+        if (Viewport3DToolsPanel != null)
+            Viewport3DToolsPanel.Visibility = is3d ? Visibility.Visible : Visibility.Collapsed;
+        if (Viewport3DFloatingToolbar != null)
+            Viewport3DFloatingToolbar.Visibility = is3d ? Visibility.Visible : Visibility.Collapsed;
+        if (Viewport3DFloatShowLabelsCheck != null && Viewport3DShowLabelsCheck != null && !_applyingSettings)
+        {
+            _applyingSettings = true;
+            try
+            {
+                Viewport3DFloatShowLabelsCheck.IsChecked = Viewport3DShowLabelsCheck.IsChecked;
+            }
+            finally
+            {
+                _applyingSettings = false;
+            }
+        }
+        if (LoopClosureHighlightsCheck != null)
+            LoopClosureHighlightsCheck.Visibility = is3d ? Visibility.Collapsed : Visibility.Visible;
+        if (LrudRibbonQcCheck != null)
+            LrudRibbonQcCheck.Visibility = is3d ? Visibility.Collapsed : Visibility.Visible;
+        if (CoordinateGridCheck != null)
+            CoordinateGridCheck.Visibility = is3d ? Visibility.Collapsed : Visibility.Visible;
+        if (CartographyOverlayCheck != null)
+            CartographyOverlayCheck.Visibility = is3d ? Visibility.Collapsed : Visibility.Visible;
+
+        if (PlanViewFooterHint != null)
+        {
+            PlanViewFooterHint.Text = is3d
+                ? "3D MODEL — drag to orbit the cave, mouse wheel to zoom, click a station label to select. Sidebar: 3D tools (labels, fly-through, export OBJ/glTF)."
+                : "Plan — survey metres (CaveAI Pro reduction). Main window tabs: PLAN, 3D MODEL, LONG PROFILE, X-RAY, PLAN 2-TONE. Zoom: wheel (toward cursor) or toolbar. Pan: left or middle drag. Double-click map (Pan mode): reset view.";
+        }
+    }
+
+    private void SyncSectionCutAxisCombo(string? persisted)
+    {
+        if (Viewport3DSectionCutAxisCombo == null)
+            return;
+        var key = string.IsNullOrWhiteSpace(persisted) ? "HorizontalZ" : persisted.Trim();
+        foreach (ComboBoxItem item in Viewport3DSectionCutAxisCombo.Items)
+        {
+            if (item.Tag is string t && string.Equals(t, key, StringComparison.OrdinalIgnoreCase))
+            {
+                Viewport3DSectionCutAxisCombo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private void OnViewport3DPick(SurveyPickResult? pick)
+    {
+        if (pick == null)
+        {
+            _surveyPickHighlight = null;
+            ResetPropertiesPanelToSummary();
+            CaveViewport3DPresenter.SetHighlightStation(HostViewport3D, null);
+            return;
+        }
+
+        UpdatePropertiesPanel(pick);
+        if (pick is SurveyPickStation st)
+        {
+            SurveyStationSelectionHub.Select(st.Name.Trim(), "3D");
+            CaveViewport3DPresenter.SetHighlightStation(HostViewport3D, st.Name.Trim());
+        }
+        else
+        {
+            CaveViewport3DPresenter.SetHighlightStation(HostViewport3D, null);
+        }
+    }
+
+    private double CurrentViewport3DLabelScale()
+    {
+        var size = Viewport3DLabelSizeCombo?.SelectedItem is ComboBoxItem { Tag: string tag }
+            ? tag
+            : AppUiSettingsStore.LoadOrDefault().Plan.Viewport3DLabelSize;
+        return Viewport3DLabelSizeScale.Factor(size);
+    }
+
+    private void SyncViewport3DLabelSizeCombo(string? persisted)
+    {
+        if (Viewport3DLabelSizeCombo == null)
+            return;
+        var key = string.IsNullOrWhiteSpace(persisted) ? Viewport3DLabelSizeScale.Medium : persisted.Trim();
+        foreach (ComboBoxItem item in Viewport3DLabelSizeCombo.Items)
+        {
+            if (item.Tag is string t && string.Equals(t, key, StringComparison.OrdinalIgnoreCase))
+            {
+                Viewport3DLabelSizeCombo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private void OnViewport3DLabelClick(Viewport3DLabelEntry entry)
+    {
+        switch (entry.Kind)
+        {
+            case Viewport3DLabelKind.Station when !string.IsNullOrWhiteSpace(entry.TargetStation):
+            {
+                var station = entry.TargetStation.Trim();
+                SurveyStationSelectionHub.Select(station, "3D");
+                CaveViewport3DPresenter.SetHighlightStation(HostViewport3D, station);
+                if (Project != null)
+                {
+                    var coords = SurveyStationGeometry.CalculatePlanCoordinates(Project);
+                    if (coords.TryGetValue(station, out var c))
+                        UpdatePropertiesPanel(new SurveyPickStation(station, c));
+                }
+
+                SurveyWorkspaceNavigator.JumpToStation(station, "3D");
+                break;
+            }
+            case Viewport3DLabelKind.Symbol when !string.IsNullOrWhiteSpace(entry.TargetStation):
+            {
+                var station = entry.TargetStation.Trim();
+                SurveyStationSelectionHub.Select(station, "3D");
+                CaveViewport3DPresenter.SetHighlightStation(HostViewport3D, station);
+                SurveyWorkspaceNavigator.JumpToStation(station, "3D");
+                break;
+            }
+            case Viewport3DLabelKind.FieldCatalog:
+                SurveyWorkspaceNavigator.OpenGeoBioTab();
+                break;
+        }
+    }
+
+    private void Viewport3DSurveyLabelsPreset_Click(object sender, RoutedEventArgs e)
+    {
+        _applyingSettings = true;
+        try
+        {
+            if (Viewport3DShowLabelsCheck != null)
+                Viewport3DShowLabelsCheck.IsChecked = true;
+            if (StationNamesCheck != null)
+                StationNamesCheck.IsChecked = true;
+            if (StationZDepthCheck != null)
+                StationZDepthCheck.IsChecked = false;
+            if (LegSurveyDetailsCheck != null)
+                LegSurveyDetailsCheck.IsChecked = false;
+            if (StationEnvironmentCheck != null)
+                StationEnvironmentCheck.IsChecked = false;
+            if (DepthSpanAnnotationsCheck != null)
+                DepthSpanAnnotationsCheck.IsChecked = false;
+            if (BracketMarkersCheck != null)
+                BracketMarkersCheck.IsChecked = false;
+            if (Viewport3DMapSymbolsCheck != null)
+                Viewport3DMapSymbolsCheck.IsChecked = true;
+            if (Viewport3DFieldCatalogCheck != null)
+                Viewport3DFieldCatalogCheck.IsChecked = true;
+            if (Viewport3DStationSnapshotsCheck != null)
+                Viewport3DStationSnapshotsCheck.IsChecked = false;
+            if (Viewport3DAiTagsCheck != null)
+                Viewport3DAiTagsCheck.IsChecked = false;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
+        UpdateCartographySidebarVisibility();
+        Redraw();
+        PersistPlanTab();
+    }
+
+    private void Viewport3DResetLabels_Click(object sender, RoutedEventArgs e)
+    {
+        AppUiSettingsStore.ResetViewport3DLabels();
+        ApplyPlanTabFromSettings();
+        UpdateCartographySidebarVisibility();
+        Redraw();
+    }
+
+    private void Viewport3DFloatShowLabels_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_applyingSettings)
+            return;
+
+        _applyingSettings = true;
+        try
+        {
+            if (Viewport3DShowLabelsCheck != null && Viewport3DFloatShowLabelsCheck != null)
+                Viewport3DShowLabelsCheck.IsChecked = Viewport3DFloatShowLabelsCheck.IsChecked;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
+        CartographyOptions_Changed(sender, e);
+    }
+
+    private void Viewport3DCleanPreset_Click(object sender, RoutedEventArgs e)
+    {
+        _applyingSettings = true;
+        try
+        {
+            if (Viewport3DShowLabelsCheck != null)
+                Viewport3DShowLabelsCheck.IsChecked = false;
+            if (StationNamesCheck != null)
+                StationNamesCheck.IsChecked = true;
+            if (StationZDepthCheck != null)
+                StationZDepthCheck.IsChecked = false;
+            if (LegSurveyDetailsCheck != null)
+                LegSurveyDetailsCheck.IsChecked = false;
+            if (StationEnvironmentCheck != null)
+                StationEnvironmentCheck.IsChecked = false;
+            if (DepthSpanAnnotationsCheck != null)
+                DepthSpanAnnotationsCheck.IsChecked = false;
+            if (BracketMarkersCheck != null)
+                BracketMarkersCheck.IsChecked = false;
+            if (Viewport3DMapSymbolsCheck != null)
+                Viewport3DMapSymbolsCheck.IsChecked = false;
+            if (Viewport3DFieldCatalogCheck != null)
+                Viewport3DFieldCatalogCheck.IsChecked = false;
+            if (Viewport3DStationSnapshotsCheck != null)
+                Viewport3DStationSnapshotsCheck.IsChecked = false;
+            if (Viewport3DAiTagsCheck != null)
+                Viewport3DAiTagsCheck.IsChecked = false;
+            if (Viewport3DShowSplinesCheck != null)
+                Viewport3DShowSplinesCheck.IsChecked = false;
+            if (Viewport3DTopographyCheck != null)
+                Viewport3DTopographyCheck.IsChecked = false;
+            if (Viewport3DDemCheck != null)
+                Viewport3DDemCheck.IsChecked = false;
+            if (Viewport3DSectionCutCheck != null)
+                Viewport3DSectionCutCheck.IsChecked = false;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
+        UpdateCartographySidebarVisibility();
+        Redraw();
+        PersistPlanTab();
+    }
+
+    private void Viewport3DFlyThrough_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project == null || HostViewport3D == null || HostViewportShell == null)
+            return;
+
+        if (_flyThrough?.IsRunning == true)
+        {
+            _flyThrough.Stop();
+            return;
+        }
+
+        _flyThrough?.Dispose();
+        _flyThrough = new CaveViewport3DFlyThrough(HostViewport3D, HostViewportShell, Project);
+        _flyThrough.Start();
+    }
+
+    private void Export3DPng_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project == null)
+            return;
+
+        var dlg = new SaveFileDialog
+        {
+            Title = "Export 3D PNG",
+            Filter = "PNG|*.png",
+            FileName = SanitizeFileName(Project.Name) + "_3d.png",
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        var png = PlanMapRasterExporter.TryCapture3DPng(
+            Project,
+            1920,
+            1440,
+            CurrentViewport3DDisplayOptions());
+        if (png == null)
+        {
+            MessageBox.Show("Could not render 3D PNG.", "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        File.WriteAllBytes(dlg.FileName, png);
+    }
+
+    private void Export3DObj_Click(object sender, RoutedEventArgs e) =>
+        Export3DMesh(Viewport3DMeshExporter.ExportFormat.Obj, "OBJ|*.obj");
+
+    private void Export3DGltf_Click(object sender, RoutedEventArgs e) =>
+        Export3DMesh(Viewport3DMeshExporter.ExportFormat.Gltf, "glTF|*.gltf");
+
+    private void Export3DMesh(Viewport3DMeshExporter.ExportFormat format, string filter)
+    {
+        if (Project == null)
+            return;
+
+        var ext = format == Viewport3DMeshExporter.ExportFormat.Obj ? ".obj" : ".gltf";
+        var dlg = new SaveFileDialog
+        {
+            Title = "Export 3D mesh",
+            Filter = filter,
+            FileName = SanitizeFileName(Project.Name) + "_3d" + ext,
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        if (!Viewport3DMeshExporter.TryExport(Project, dlg.FileName, format, CurrentViewport3DDisplayOptions()))
+            MessageBox.Show("Could not export 3D mesh.", "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private async void RecordFlyThrough_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project == null || HostViewport3D == null || HostViewportShell == null)
+            return;
+
+        _flyThrough?.Stop();
+        _flyThroughRecorder?.Dispose();
+        _flyThroughRecorder = new CaveViewport3DFlyThroughRecorder(HostViewport3D, HostViewportShell, Project, 90);
+        _flyThroughRecorder.StartRecording();
+        await Task.Delay(3500).ConfigureAwait(true);
+        await Dispatcher.InvokeAsync(async () =>
+        {
+            var mp4Dlg = new SaveFileDialog
+            {
+                Title = "Save fly-through video (optional)",
+                Filter = "MP4|*.mp4|Skip|*.*",
+                FileName = SanitizeFileName(Project!.Name) + "_flythrough.mp4",
+            };
+            string? mp4Path = mp4Dlg.ShowDialog() == true ? mp4Dlg.FileName : null;
+            var result = await _flyThroughRecorder!.FinishAsync(mp4Path).ConfigureAwait(true);
+            if (result.UsedFfmpeg && !string.IsNullOrEmpty(result.Mp4Path))
+            {
+                MessageBox.Show($"Saved MP4:\n{result.Mp4Path}", "Fly-through", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show(
+                    $"Saved {result.FrameCount} PNG frame(s) to:\n{result.FrameDirectory}\n\n" +
+                    (result.FrameCount > 0
+                        ? "Install ffmpeg on PATH to encode MP4 automatically next time."
+                        : "No frames captured."),
+                    "Fly-through",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        });
     }
 
     private PlanCanvasDrawOptions CurrentDrawOptions()
@@ -1411,7 +2029,10 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             StationEnvironmentCheck?.IsChecked != false,
             DepthSpanAnnotationsCheck?.IsChecked != false,
             BracketMarkersCheck?.IsChecked != false,
-            LoopClosureHighlightsCheck?.IsChecked != false);
+            LoopClosureHighlightsCheck?.IsChecked != false,
+            LrudRibbonQcCheck?.IsChecked != false,
+            CoordinateGridCheck?.IsChecked == true,
+            WallHatchingCheck?.IsChecked == true);
     }
 
     private void ResetView_Click(object sender, RoutedEventArgs e) => ResetMapView();
@@ -1451,6 +2072,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 EditorToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
             if (EditorToolSymbol != null)
                 EditorToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
+            if (EditorToolErase != null)
+                EditorToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
         }
         finally
         {
@@ -1629,7 +2252,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         if (p == null)
             return null;
 
-        var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+        var underlays = LoadPlanUnderlays(p);
         return PlanMapRasterExporter.TryCapturePlanPngHighRes(
             p,
             VisualizationMode,
@@ -1638,7 +2261,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 SurveyCanvasKind.Plan,
                 VisualizationMode),
             underlays,
-            ZipPath);
+            ZipPath,
+            quality: MapExportQuality.Standard);
     }
 
     /// <inheritdoc />
@@ -1692,7 +2316,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         PlanScene? scene;
         try
         {
-            var underlaysPrint = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+            var underlaysPrint = LoadPlanUnderlays(p);
             scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModePlan, VisualizationMode);
             var hi = PrintHiContrastCheck.IsChecked == true;
             if (scene == null)

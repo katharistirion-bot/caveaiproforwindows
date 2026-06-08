@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Client apps use Firebase Callable functions (Admin SDK) for collaboration and AI.
+// Direct Firestore reads/writes from desktop/mobile should stay denied unless explicitly opened.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /user_entitlements/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /app_install_grace/{docId} {
+      allow read, write: if false;
+    }
+
+    match /shared_projects/{projectId} {
+      allow read, write: if false;
+
+      match /comments/{commentId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /user_devices/{uid} {
+      allow read, write: if false;
+
+      match /tokens/{tokenId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

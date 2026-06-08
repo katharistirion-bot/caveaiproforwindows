@@ -47,7 +47,19 @@ public static class LongProfileSceneBuilder
         var maxY = projected.Values.Max(c => c.Y);
 
         var wallPolys = SurveyLrudWallGeometry.BuildLongProfileLrudRibbonPolylines(p.Shots, projected).ToList();
-        foreach (var pl in wallPolys)
+        var traverseLegs = p.Shots.Where(s => s.IsTraverseLeg).ToList();
+        var vectorPolys = new List<SurveyStationGeometry.PlanVectorPolyline>();
+        foreach (var v in SurveyStationGeometry.ParseVectorLinesForViewMode(
+                     p.VectorLines,
+                     SurveyStationGeometry.AndroidViewModeLongProfile))
+        {
+            var t = ExtendedElevationSceneBuilder.TransformPolylinePlanToElevationPublic(
+                v, traverseLegs, coords3, chainage);
+            if (t != null)
+                vectorPolys.Add(t);
+        }
+
+        foreach (var pl in wallPolys.Concat(vectorPolys))
         {
             foreach (var (x, y) in pl.Points)
             {
@@ -59,7 +71,7 @@ public static class LongProfileSceneBuilder
         }
 
         Debug.WriteLine(
-            $"[LongProfile] stations={projected.Count}, legs={segs.Count}, chainage≈{maxX - minX:0.#} m, z≈{maxY - minY:0.#} m, lrudRibbons={wallPolys.Count}");
+            $"[LongProfile] stations={projected.Count}, legs={segs.Count}, chainage≈{maxX - minX:0.#} m, z≈{maxY - minY:0.#} m, lrudRibbons={wallPolys.Count}, vectors={vectorPolys.Count}");
 
         return new PlanScene
         {
@@ -70,12 +82,13 @@ public static class LongProfileSceneBuilder
             Stations = projected,
             TraverseSegments = segs,
             WallPolylines = wallPolys,
-            VectorPolylines = Array.Empty<SurveyStationGeometry.PlanVectorPolyline>(),
+            VectorPolylines = vectorPolys,
             Symbols = Array.Empty<SurveyStationGeometry.PlanMapSymbol>(),
             StationAttachedImages = Array.Empty<StationAttachedImageRef>(),
             SplaySegments = Array.Empty<(float, float, float, float)>(),
             FieldCatalogPins = FieldCatalogMapPinCollector.Collect(p),
             LoopClosingLegs = SurveyLoopClosureHighlighter.Detect(p),
+            LrudQcHighlights = LrudRibbonQcScanner.Scan(p, projected, wallPolys, minX, maxX, minY, maxY),
         };
     }
 }

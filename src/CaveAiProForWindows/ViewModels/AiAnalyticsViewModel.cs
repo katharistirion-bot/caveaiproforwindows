@@ -30,6 +30,8 @@ public partial class AiAnalyticsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private bool _autoRunAnalysisOnProjectLoad = true;
 
+    [ObservableProperty] private bool _autoReloadBackupZip = true;
+
     [ObservableProperty] private string _statusMessage =
         "Ready — select an engine and run. Desktop Sync watches caveai_database_v1.json + android_export.json.";
 
@@ -59,6 +61,7 @@ public partial class AiAnalyticsViewModel : ObservableObject, IDisposable
         AutoSyncEnabled = _syncSettings.AutoSyncEnabled;
         AutoRunAnalysisOnSync = _syncSettings.AutoRunAnalysisOnSync;
         AutoRunAnalysisOnProjectLoad = _syncSettings.AutoRunAnalysisOnProjectLoad;
+        AutoReloadBackupZip = _syncSettings.AutoReloadBackupZip;
     }
 
     partial void OnAndroidContextChanged(AndroidSurveyAnalyticsContext? value)
@@ -86,6 +89,12 @@ public partial class AiAnalyticsViewModel : ObservableObject, IDisposable
     partial void OnAutoRunAnalysisOnProjectLoadChanged(bool value)
     {
         _syncSettings.AutoRunAnalysisOnProjectLoad = value;
+        PersistSyncSettings();
+    }
+
+    partial void OnAutoReloadBackupZipChanged(bool value)
+    {
+        _syncSettings.AutoReloadBackupZip = value;
         PersistSyncSettings();
     }
 
@@ -372,6 +381,8 @@ public partial class AiAnalyticsViewModel : ObservableObject, IDisposable
             StatusMessage =
                 $"Auto-sync: {bundle.Context.Observations.Count} observation(s) updated from {bundle.SyncFolder}.";
 
+            AndroidDesktopSyncHub.NotifySyncFilesChanged(bundle.SyncFolder, AndroidSurveySyncService.DatabaseFileName);
+
             if (_syncSettings.AutoRunAnalysisOnSync && _project != null && !IsRunning)
                 _ = RunAnalysisAsync();
         });
@@ -386,8 +397,10 @@ public partial class AiAnalyticsViewModel : ObservableObject, IDisposable
             AutoSyncEnabled = AutoSyncEnabled,
             AutoRunAnalysisOnSync = AutoRunAnalysisOnSync,
             AutoRunAnalysisOnProjectLoad = AutoRunAnalysisOnProjectLoad,
+            AutoReloadBackupZip = AutoReloadBackupZip,
         };
         AppUiSettingsStore.Save(settings);
+        AndroidDesktopSyncHub.NotifySyncSettingsChanged();
     }
 
     private void ClearResults(string statusMessage)

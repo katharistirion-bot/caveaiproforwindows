@@ -18,6 +18,7 @@ echo MSI ready (Windows 10/11 x64; per-machine install under Program Files):
 echo   %~dp0installer\bin\Release\CaveAiProForWindows-Setup.msi
 echo   %~dp0_build_out\CaveAiProForWindows-Setup.msi
 echo.
+echo For end users prefer GitHub Releases Setup.exe (Velopack + auto-updates). MSI is for IT/per-machine.
 echo Install: double-click the MSI, or run Setup.bat to build and launch the wizard.
 echo After install: Start menu + desktop shortcut "CAVE AI PRO".
 echo Uninstall: Settings - Apps - CAVE AI PRO.

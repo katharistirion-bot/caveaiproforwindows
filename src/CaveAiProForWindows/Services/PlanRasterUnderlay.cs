@@ -17,6 +17,9 @@ public sealed class PlanRasterUnderlay
     /// When null, the image is stretched to the same padded fit box as the vector scene (legacy behaviour).
     /// </summary>
     public PlanRasterWorldExtentMetres? WorldExtentMetres { get; init; }
+
+    /// <summary>When set, used instead of the auto multi-layer opacity formula in <see cref="Views.PlanCanvasRenderer"/>.</summary>
+    public double? OpacityOverride { get; init; }
 }
 
 /// <summary>Survey-frame rectangle in metres for placing a raster underlay.</summary>

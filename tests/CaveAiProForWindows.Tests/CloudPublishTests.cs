@@ -24,18 +24,25 @@ public sealed class CloudPublishTests
     {
         var fields = FirestoreFieldBuilder.BuildFields(
         [
-            new KeyValuePair<string, object?>("cartographyImageUrl", "https://example.com/a.png"),
+            new KeyValuePair<string, object?>("cartographyImageUrls", new[] { "https://example.com/a.png" }),
             new KeyValuePair<string, object?>("updatedAtMs", 1700000000L),
         ]);
 
-        Assert.IsTrue(fields.ContainsKey("cartographyImageUrl"));
+        Assert.IsTrue(fields.ContainsKey("cartographyImageUrls"));
         Assert.IsTrue(fields.ContainsKey("updatedAtMs"));
-        var urlField = fields["cartographyImageUrl"] as Dictionary<string, object>;
+        var urlField = fields["cartographyImageUrls"] as Dictionary<string, object>;
         Assert.IsNotNull(urlField);
-        Assert.AreEqual("https://example.com/a.png", urlField!["stringValue"]);
+        Assert.IsTrue(urlField!.ContainsKey("arrayValue"));
         var msField = fields["updatedAtMs"] as Dictionary<string, object>;
         Assert.IsNotNull(msField);
         Assert.AreEqual("1700000000", msField!["integerValue"]);
+    }
+
+    [TestMethod]
+    public void FirestoreFieldBuilder_encodes_string_array()
+    {
+        var encoded = FirestoreFieldBuilder.EncodeStringArray(new[] { "https://a.png", "https://b.png" });
+        Assert.IsTrue(encoded.ContainsKey("arrayValue"));
     }
 
     [TestMethod]

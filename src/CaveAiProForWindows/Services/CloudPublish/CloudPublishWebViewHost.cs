@@ -7,11 +7,20 @@ namespace CaveAiProForWindows.Services.CloudPublish;
 /// </summary>
 public static class CloudPublishWebViewHost
 {
-    private static readonly FirebaseAuthTokenCache SharedTokenCache = new();
+    private static readonly FirebaseAuthTokenCache SharedTokenCache = CreateSharedTokenCache();
     private static readonly object Gate = new();
     private static DesktopAuthWebViewBridge? _bridge;
 
     public static FirebaseAuthTokenCache TokenCache => SharedTokenCache;
+
+    private static FirebaseAuthTokenCache CreateSharedTokenCache()
+    {
+        var cache = new FirebaseAuthTokenCache();
+        var saved = FirebaseAuthTokenStore.TryLoad();
+        if (saved != null)
+            cache.Update(saved);
+        return cache;
+    }
 
     /// <summary>Idempotent: registers postMessage token delivery on allowed origins.</summary>
     public static DesktopAuthWebViewBridge EnsureAuthBridgeAttached(CoreWebView2 core)

@@ -2,7 +2,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using CaveAiProForWindows.Models;
-using CaveAiProForWindows.Services.GenerativeMap;
 
 namespace CaveAiProForWindows.Services.Persistence;
 
@@ -54,7 +53,7 @@ public static class ProjectPersistenceService
     private static void SaveZip(SaveRequest request)
     {
         var zipPath = Path.GetFullPath(request.PrimarySourcePath);
-        var tempPath = zipPath + ".caveai-save.tmp";
+        var tempPath = AiRenderSavePathPolicy.CreateZipSaveStagingPath();
         File.Copy(zipPath, tempPath, overwrite: true);
 
         try
@@ -70,8 +69,7 @@ public static class ProjectPersistenceService
                 foreach (var project in request.Projects)
                 {
                     var staged = ProjectAiAssetPersistence.TakeStagedBytes(project);
-                    var ai = staged.Ai ?? GenerativeMapSessionCache.TryGet(project)?.PngBytes;
-                    var mask = staged.Mask;
+                    var (ai, mask) = ProjectAiAssetPersistence.ResolveAssetsForZipSave(project, zipPath, staged);
 
                     foreach (var (entryPath, bytes) in ProjectAiAssetPersistence.CollectZipAssetEntries(project, ai, mask))
                     {

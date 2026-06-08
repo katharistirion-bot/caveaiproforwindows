@@ -176,16 +176,14 @@ public static class SurveyStationGeometry
         {
             if (el.ValueKind != System.Text.Json.JsonValueKind.Object)
                 continue;
-            if (el.TryGetProperty("viewMode", out var vmEl) && vmEl.ValueKind == JsonValueKind.Number &&
-                vmEl.TryGetInt32(out var vm) && vm != requiredViewMode)
+            if (!PassesViewModeFilter(el, requiredViewMode))
                 continue;
-            var type = el.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String
-                ? t.GetString() ?? "vec"
-                : "vec";
-            if (!TryReadPointsFromObject(el, out var pts) || pts.Count < 2)
+            var type = ResolveVectorLineTypeTag(el);
+            if (!TryReadPolylinePointsFromEntry(el, out var pts) || pts.Count < 2)
                 continue;
             var closed = el.TryGetProperty("closed", out var cl) && cl.ValueKind == JsonValueKind.True;
-            list.Add(new PlanVectorPolyline(type, pts, closed));
+            var preferSharp = ResolvePreferSharpPolyline(el, type);
+            list.Add(new PlanVectorPolyline(type, pts, closed, preferSharp));
         }
 
         return list;
@@ -339,11 +337,18 @@ public static class SurveyStationGeometry
         var list = new List<PlanMapSymbol>();
         if (extensionData == null)
             return list;
-        foreach (var key in new[] { "mapSymbols", "planMapSymbols", "planSymbols", "sketchSymbols", "mapStampSymbols", "symbolsLayer", "sketchObjects", "mapObjects", "MapObjects" })
+        foreach (var key in new[] { "mapSymbols", "planMapSymbols", "planSymbols", "sketchSymbols", "mapStampSymbols", "symbolsLayer", "sketchObjects" })
         {
             if (!extensionData.TryGetValue(key, out var root) || root.ValueKind != JsonValueKind.Array)
                 continue;
             AppendPlanMapSymbolsFromArray(root, list, AndroidViewModePlan);
+        }
+
+        foreach (var key in new[] { "mapObjects", "MapObjects", "mapObjectLayer" })
+        {
+            if (!extensionData.TryGetValue(key, out var root) || root.ValueKind != JsonValueKind.Array)
+                continue;
+            AppendPlanMapSymbolsFromMixedMapObjectsArray(root, list, AndroidViewModePlan);
         }
 
         return list;
@@ -412,7 +417,7 @@ public static class SurveyStationGeometry
     private static float? TryReadOptionalSurveySpanMetres(JsonElement el)
     {
         if (!TryReadOptionalFloat(el, -1f, out var v, "widthSurveyM", "symbolWidthM", "spanSurveyM", "symbolSpanMetres",
-                "sizeSurveyM", "scaleSurveyM", "stampWidthM", "footprintM"))
+                "sizeSurveyM", "scaleSurveyM", "scaleSurveyMetres", "stampWidthM", "footprintM"))
             return null;
         if (v <= 0 || float.IsNaN(v) || float.IsInfinity(v))
             return null;
@@ -465,8 +470,8 @@ public static class SurveyStationGeometry
             return null;
         }
 
-        var label = PickString("symbol", "type", "stamp", "kind", "name", "iconName", "symbolType");
-        var icon = PickString("icon", "iconUri", "asset", "glyph");
+        var label = PickString("symbol", "type", "stamp", "kind", "name", "iconName", "symbolType", "iconKey");
+        var icon = PickString("icon", "iconUri", "iconKey", "asset", "glyph");
         if (icon != null && (icon.Contains('/', StringComparison.Ordinal) || icon.Contains('\\', StringComparison.Ordinal)))
             icon = Path.GetFileNameWithoutExtension(icon.Replace('\\', '/'));
         var symbolId = PickString("symbolId", "symbolID", "SymbolID", "sketchSymbolId", "androidSymbolId", "glyphId");
@@ -581,6 +586,60 @@ public static class SurveyStationGeometry
 
     private static void AppendSketchPolylinesFromJson(JsonElement root, List<PlanVectorPolyline> list) =>
         AppendSketchPolylinesFromJson(root, list, preferSharpPolyline: false, defaultTypeTag: "sketch");
+
+    private static string ResolveVectorLineTypeTag(JsonElement el)
+    {
+        foreach (var name in new[] { "type", "stroke", "strokeType", "kind", "objectType", "category", "mapObjectType" })
+        {
+            if (!el.TryGetProperty(name, out var t) || t.ValueKind != JsonValueKind.String)
+                continue;
+            var s = t.GetString()?.Trim();
+            if (!string.IsNullOrEmpty(s))
+                return s;
+        }
+
+        return "vec";
+    }
+
+    private static bool ResolvePreferSharpPolyline(JsonElement el, string typeTag)
+    {
+        if (el.TryGetProperty("preferSharpPolyline", out var ps) && ps.ValueKind == JsonValueKind.True)
+            return true;
+        if (el.TryGetProperty("sharp", out var sh) && sh.ValueKind == JsonValueKind.True)
+            return true;
+
+        var lower = typeTag.Replace('_', ' ').ToLowerInvariant();
+        return lower.Contains("stroke", StringComparison.Ordinal) ||
+               lower.Contains("pen", StringComparison.Ordinal) ||
+               lower.Contains("walloutline", StringComparison.Ordinal) ||
+               lower.Contains("sketchlayer", StringComparison.Ordinal) ||
+               lower is "wall" or "sectionsketch";
+    }
+
+    /// <summary>Reads vertex chains from a vectorLines / sketch object (unwraps nested <c>geometry</c>).</summary>
+    private static bool TryReadPolylinePointsFromEntry(JsonElement el, out List<(float x, float y)> pts)
+    {
+        pts = new List<(float x, float y)>();
+        if (el.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var p in el.EnumerateArray())
+            {
+                if (TryReadPoint(p, out var x, out var y))
+                    pts.Add((x, y));
+            }
+
+            return pts.Count >= 2;
+        }
+
+        if (el.ValueKind != JsonValueKind.Object)
+            return false;
+
+        JsonElement probe = el;
+        if (el.TryGetProperty("geometry", out var geo) && geo.ValueKind == JsonValueKind.Object)
+            probe = geo;
+
+        return TryReadPointsFromObject(probe, out pts);
+    }
 
     private static bool TryReadPointsFromObject(JsonElement obj, out List<(float x, float y)> pts)
     {

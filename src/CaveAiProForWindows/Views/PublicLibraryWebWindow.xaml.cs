@@ -3,6 +3,7 @@ using System.Windows;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.CloudPublish;
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Win32;
 
 namespace CaveAiProForWindows.Views;
 
@@ -58,7 +59,7 @@ public partial class PublicLibraryWebWindow : Window
             {
                 if (string.IsNullOrWhiteSpace(args.Uri))
                     return;
-                if (!IsAllowedNavigation(args.Uri))
+                if (!PublicLibraryWebWindowNavigationPolicy.IsAllowed(args.Uri))
                 {
                     args.Cancel = true;
                     try
@@ -92,30 +93,6 @@ public partial class PublicLibraryWebWindow : Window
         }
     }
 
-    private static bool IsAllowedNavigation(string uri)
-    {
-        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed))
-            return false;
-        if (parsed.Scheme is not ("http" or "https"))
-            return false;
-
-        var origin = PublicLibraryCatalog.WebOrigin;
-        if (!Uri.TryCreate(origin, UriKind.Absolute, out var allowedOrigin))
-            return true;
-
-        if (string.Equals(parsed.Host, allowedOrigin.Host, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Firebase Auth / Google OAuth during sign-in.
-        if (parsed.Host.EndsWith(".google.com", StringComparison.OrdinalIgnoreCase)
-            || parsed.Host.EndsWith(".googleusercontent.com", StringComparison.OrdinalIgnoreCase)
-            || parsed.Host.EndsWith(".firebaseapp.com", StringComparison.OrdinalIgnoreCase)
-            || parsed.Host.EndsWith(".web.app", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        return false;
-    }
-
     private void Back_Click(object sender, RoutedEventArgs e)
     {
         if (LibraryWebView?.CoreWebView2?.CanGoBack == true)
@@ -146,6 +123,55 @@ public partial class PublicLibraryWebWindow : Window
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Open in browser", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async void DownloadBackup_Click(object sender, RoutedEventArgs e)
+    {
+        var url = LibraryWebView?.Source?.ToString();
+        if (!PublishedCaveUrlParser.TryExtractDocId(url, out var docId) || string.IsNullOrWhiteSpace(docId))
+        {
+            MessageBox.Show(
+                this,
+                "Open a cave on the map first (?cave= document id in the URL).",
+                "Download as backup",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dlg = new SaveFileDialog
+        {
+            Title = "Download Public Library backup",
+            Filter = "CaveAI ZIP|*.zip|JSON|*.json",
+            FileName = docId + ".zip",
+            DefaultExt = ".zip",
+        };
+        if (dlg.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var token = TryGetFirebaseToken();
+            var progress = new Progress<string>(m => Title = "Public Library — " + m);
+            var result = await PublicLibraryBackupDownloader.DownloadAsync(
+                docId,
+                dlg.FileName,
+                token).ConfigureAwait(true);
+            MessageBox.Show(
+                this,
+                $"Saved {(result.CaveName ?? docId)} with {result.AssetCount} cartography asset(s).\n\n{result.OutputPath}",
+                "Download as backup",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Download as backup", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            Title = "Public Cave Library — CaveAI Pro";
         }
     }
 }

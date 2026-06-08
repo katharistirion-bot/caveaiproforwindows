@@ -19,6 +19,8 @@
             <Button Content="Refresh" Click="Refresh_Click" Padding="10,5" Margin="0,0,6,0" />
             <Button Content="Open in browser" Click="External_Click" Padding="10,5" Margin="0,0,6,0"
                     ToolTip="Open the same page in your default browser" />
+            <Button Content="Download as backup…" Click="DownloadBackup_Click" Padding="10,5" Margin="0,0,6,0"
+                    ToolTip="Fetch surveyJsonUrl + cartography assets for the cave open on this page" />
             <Separator />
             <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
                        Text="Sign in with Google to browse published caves · same catalog as Android &amp; web" />

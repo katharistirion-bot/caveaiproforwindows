@@ -2,14 +2,14 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Compare backups"
-        Height="720" Width="900"
+        Height="720" Width="980"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource Cave.Background}"
         Foreground="{DynamicResource Cave.Text}">
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
             <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,8"
-                       Text="Pick two .json or .zip CaveAI files. Comparison by project name: shot counts, rocks, field catalog." />
+                       Text="Pick two .json or .zip CaveAI files. Side-by-side diff: stations, symbols, field catalog, shots." />
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="BtnPickA" Content="File A…" Padding="12,6" Margin="0,0,8,0" Click="BtnPickA_Click" />
                 <TextBlock x:Name="TxtA" VerticalAlignment="Center" Text="(none)" TextTrimming="CharacterEllipsis" MaxWidth="320" />
@@ -26,21 +26,27 @@
                   Foreground="{DynamicResource Cave.Text}" HeadersVisibility="Column"
                   SelectionChanged="DiffGrid_SelectionChanged">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Project" Binding="{Binding ProjectName}" Width="2*" />
-                <DataGridTextColumn Header="Shots A" Binding="{Binding ShotsA}" Width="72" />
-                <DataGridTextColumn Header="Shots B" Binding="{Binding ShotsB}" Width="72" />
-                <DataGridTextColumn Header="Shot diff" Binding="{Binding ShotsDelta}" Width="72" />
-                <DataGridTextColumn Header="Rocks A" Binding="{Binding RocksA}" Width="72" />
-                <DataGridTextColumn Header="Rocks B" Binding="{Binding RocksB}" Width="72" />
-                <DataGridTextColumn Header="Cat A" Binding="{Binding CatalogA}" Width="64" />
-                <DataGridTextColumn Header="Cat B" Binding="{Binding CatalogB}" Width="64" />
+                <DataGridTextColumn Header="Project" Binding="{Binding ProjectName}" Width="1.6*" />
+                <DataGridTextColumn Header="St A" Binding="{Binding StationsA}" Width="48" />
+                <DataGridTextColumn Header="St B" Binding="{Binding StationsB}" Width="48" />
+                <DataGridTextColumn Header="St d" Binding="{Binding StationsDelta}" Width="48" />
+                <DataGridTextColumn Header="Sym A" Binding="{Binding SymbolsA}" Width="52" />
+                <DataGridTextColumn Header="Sym B" Binding="{Binding SymbolsB}" Width="52" />
+                <DataGridTextColumn Header="Sym d" Binding="{Binding SymbolsDelta}" Width="52" />
+                <DataGridTextColumn Header="Sh A" Binding="{Binding ShotsA}" Width="48" />
+                <DataGridTextColumn Header="Sh B" Binding="{Binding ShotsB}" Width="48" />
+                <DataGridTextColumn Header="Sh d" Binding="{Binding ShotsDelta}" Width="48" />
+                <DataGridTextColumn Header="Cat A" Binding="{Binding CatalogA}" Width="52" />
+                <DataGridTextColumn Header="Cat B" Binding="{Binding CatalogB}" Width="52" />
+                <DataGridTextColumn Header="Summary" Binding="{Binding Summary}" Width="1.4*" />
             </DataGrid.Columns>
         </DataGrid>
         <Border DockPanel.Dock="Bottom" Margin="0,10,0,0" Padding="10" CornerRadius="6"
                 BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
                 Background="{DynamicResource Cave.Surface}">
             <StackPanel>
-                <TextBlock x:Name="PreviewTitle" Text="Plan preview (select a row)" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <TextBlock x:Name="PreviewTitle" Text="Plan preview (select a row)" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock x:Name="DiffSummaryText" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,8" />
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

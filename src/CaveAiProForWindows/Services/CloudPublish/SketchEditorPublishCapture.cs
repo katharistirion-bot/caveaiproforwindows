@@ -30,7 +30,8 @@ public static class SketchEditorPublishCapture
             highContrast: false,
             drawOptions,
             underlays,
-            zipPath);
+            zipPath,
+            quality: MapExportQuality.Print);
 
         if (baseBytes == null)
             return null;
@@ -42,7 +43,7 @@ public static class SketchEditorPublishCapture
         if (scene == null)
             return baseBytes;
 
-        var (pxW, pxH) = SketchAssistExportSizing.ComputeExportPixelSize(scene);
+        var (pxW, pxH) = SketchAssistExportSizing.ComputeExportPixelSize(scene, MapExportQuality.Print);
         if (pxW < 1 || pxH < 1)
             return baseBytes;
 

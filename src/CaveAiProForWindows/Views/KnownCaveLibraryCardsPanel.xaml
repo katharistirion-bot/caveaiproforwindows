@@ -7,6 +7,7 @@
         <conv:CaveNameInitialConverter x:Key="CaveInitial" />
         <conv:StringNullOrEmptyToVisibilityConverter x:Key="PlaceholderWhenNoCover" />
         <conv:StringNotNullOrEmptyToVisibilityConverter x:Key="StringToVisWhenNotEmpty" />
+        <conv:SurveySiteTypeDisplayConverter x:Key="SurveySiteTypeDisplay" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
@@ -70,7 +71,7 @@
                                     <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
                                         <TextBlock FontSize="11.5"
                                                    Foreground="{DynamicResource Cave.TextMuted}"
-                                                   Text="{Binding Type}" />
+                                                   Text="{Binding Type, Converter={StaticResource SurveySiteTypeDisplay}}" />
                                         <TextBlock Margin="8,0,0,0"
                                                    FontSize="11.5"
                                                    Foreground="{DynamicResource Cave.TextMuted}"

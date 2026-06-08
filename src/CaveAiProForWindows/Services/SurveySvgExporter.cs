@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Xml;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.Visualization;
 
 namespace CaveAiProForWindows.Services;
 
@@ -54,13 +55,27 @@ public static class SurveySvgExporter
         xw.WriteString($"{project.Name} — {(vectorViewMode == SurveyStationGeometry.AndroidViewModePlan ? "Plan" : "Section vectors")} (m)");
         xw.WriteEndElement();
 
-        var displayName = CaveProjectDisplayNames.GetDisplayName(project);
+        var displayName = opt.ExportMetadata?.ProjectName ?? CaveProjectDisplayNames.GetDisplayName(project);
         if (!string.IsNullOrWhiteSpace(displayName))
         {
-            var viewLabel = vectorViewMode == SurveyStationGeometry.AndroidViewModeSection ? "Section" : "Plan";
-            if (!string.IsNullOrWhiteSpace(project.Date))
-                viewLabel += " · " + project.Date.Trim();
+            var viewLabel = opt.ExportMetadata?.BuildSubtitleLine();
+            if (string.IsNullOrWhiteSpace(viewLabel))
+            {
+                viewLabel = vectorViewMode == SurveyStationGeometry.AndroidViewModeSection ? "Section" : "Plan";
+                if (!string.IsNullOrWhiteSpace(project.Date))
+                    viewLabel += " · " + project.Date.Trim();
+            }
+
             WriteSvgCaveTitle(xw, displayName, viewLabel, F, vbW);
+        }
+
+        static IReadOnlyList<(float x, float y)> SmoothWallPoints(SurveyStationGeometry.PlanVectorPolyline pl)
+        {
+            if (pl.Type is not ("lrudPlanRibbon" or "lrudProfile") || pl.Points.Count < 3)
+                return pl.Points;
+            return pl.Closed
+                ? SurveyCatmullRomSampler.SampleClosedPlanChain(pl.Points)
+                : SurveyCatmullRomSampler.SampleOpenPlanChain(pl.Points);
         }
 
         void Polyline(string stroke, string? fill, double width, IReadOnlyList<(float x, float y)> pts, bool closed)
@@ -81,10 +96,11 @@ public static class SurveySvgExporter
 
         foreach (var pl in scene.WallPolylines)
         {
-            if (pl.Closed && pl.Points.Count >= 3)
-                Polyline("#d97706", "#fed7aa55", 1.8f, pl.Points, true);
-            else if (pl.Points.Count >= 2)
-                Polyline("#d97706", null, 2f, pl.Points, false);
+            var pts = SmoothWallPoints(pl);
+            if (pl.Closed && pts.Count >= 3)
+                Polyline("#5C4033", "#E8DCC866", 1.9f, pts, true);
+            else if (pts.Count >= 2)
+                Polyline("#7C4A2D", null, 2f, pts, false);
         }
 
         foreach (var pl in scene.VectorPolylines)
@@ -102,8 +118,8 @@ public static class SurveySvgExporter
             xw.WriteAttributeString("y1", F(MapY(y1)));
             xw.WriteAttributeString("x2", F(MapX(x2)));
             xw.WriteAttributeString("y2", F(MapY(y2)));
-            xw.WriteAttributeString("stroke", "#16a34a");
-            xw.WriteAttributeString("stroke-width", "2.5");
+            xw.WriteAttributeString("stroke", "#5C4538");
+            xw.WriteAttributeString("stroke-width", "2.2");
             xw.WriteAttributeString("stroke-linecap", "round");
             xw.WriteEndElement();
         }
@@ -115,8 +131,8 @@ public static class SurveySvgExporter
             xw.WriteAttributeString("cx", F(MapX(c.X)));
             xw.WriteAttributeString("cy", F(MapY(c.Y)));
             xw.WriteAttributeString("r", "3.5");
-            xw.WriteAttributeString("fill", "#facc15");
-            xw.WriteAttributeString("stroke", "#166534");
+            xw.WriteAttributeString("fill", "#FFFBF5");
+            xw.WriteAttributeString("stroke", "#6B5344");
             xw.WriteAttributeString("stroke-width", "1");
             xw.WriteEndElement();
         }
@@ -131,6 +147,9 @@ public static class SurveySvgExporter
             opt.ShowLegSurveyDetails,
             opt.ShowStationEnvironment);
         SurveyMapAnnotationRenderer.WriteSvg(xw, annotations, scene, project, opt, MapX, MapY, F, vbW, vbH);
+
+        CaveMappingSvgCartography.WriteSurveyOverlays(xw, scene, opt, vbW, vbH, MapX, MapY, F);
+        CaveMappingSvgCartography.WriteOverlay(xw, scene, opt, vbW, vbH, F);
 
         xw.WriteEndElement();
         xw.WriteEndDocument();

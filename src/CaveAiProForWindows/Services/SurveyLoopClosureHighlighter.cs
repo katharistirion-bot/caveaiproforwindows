@@ -9,6 +9,7 @@ public sealed record LoopClosingLegHighlight(
     float MidX,
     float MidY,
     double MisclosureMeters,
+    LoopClosureSeverity Severity,
     string Label);
 
 /// <summary>Detects traverse legs that close onto an existing station (loop closure).</summary>
@@ -43,15 +44,18 @@ public static class SurveyLoopClosureHighlighter
                 var dy = ey - b.Y;
                 var dzErr = ez - b.Z;
                 var mis = Math.Sqrt(dx * dx + dy * dy + dzErr * dzErr);
+                var severity = LoopClosureSeverityClassifier.Classify(mis);
                 var midX = (a.X + b.X) * 0.5f;
                 var midY = (a.Y + b.Y) * 0.5f;
+                var errLabel = LoopClosureSeverityClassifier.FormatMisclosureLabel(mis);
                 list.Add(new LoopClosingLegHighlight(
                     from,
                     to,
                     midX,
                     midY,
                     mis,
-                    $"loop {mis.ToString("0.##", inv)} m"));
+                    severity,
+                    $"loop {errLabel} ({LoopClosureSeverityClassifier.SeverityCaption(severity)})"));
             }
 
             visited.Add(from);

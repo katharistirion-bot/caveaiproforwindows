@@ -7,8 +7,12 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>CaveAiProForWindows</RootNamespace>
     <AssemblyName>CaveAiProForWindows</AssemblyName>
+    <StartupObject>CaveAiProForWindows.Program</StartupObject>
     <ApplicationTitle>CAVE AI PRO</ApplicationTitle>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+    <Product>CAVE AI PRO for Windows</Product>
+    <Company>Georgios Kourentzis</Company>
+    <Copyright>Copyright © 2026 Georgios Kourentzis. All rights reserved.</Copyright>
     <!-- Required so restore includes win-x64 assets when publishing self-contained / single-file. -->
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
@@ -25,6 +29,11 @@
     Publish command (final portable exe, no separate .NET install):
       dotnet publish src/CaveAiProForWindows/CaveAiProForWindows.csproj -c Release -r win-x64 -p:PublishProfile=ReleaseSingleFile-Win64
   -->
+  <!--
+    Microsoft Store (MSIX): dotnet publish -c Release -p:PublishProfile=MicrosoftStore-Win64
+    defines STORE_DISTRIBUTION (skips Velopack bootstrap + in-app updates; relaxes install guard for WindowsApps).
+    Sideload / GitHub: use package-release.ps1 or ReleaseSingleFile-Win64 without STORE_DISTRIBUTION.
+  -->
   <PropertyGroup Label="Distribution publish defaults (non-RID build safe)">
     <PublishReadyToRun>true</PublishReadyToRun>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -32,8 +41,15 @@
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="CaveAiProForWindows.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3124.44" />
+    <PackageReference Include="MSBuild.Obfuscar" Version="2.2.49">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="PDFtoImage" Version="5.2.1" />
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
     <PackageReference Include="Velopack" Version="0.0.1298" />
@@ -45,6 +61,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <Import Project="build\Obfuscation.targets" />
 
   <Target Name="WritePublishManifest" AfterTargets="Publish">
     <PropertyGroup>

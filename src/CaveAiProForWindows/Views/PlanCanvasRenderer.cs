@@ -11,6 +11,8 @@ using System.Windows.Shapes;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 
+using CaveAiProForWindows.Services.Visualization;
+
 namespace CaveAiProForWindows.Views;
 
 /// <summary>Renders a <see cref="PlanScene"/> onto a WPF <see cref="Canvas"/> (plan or section).</summary>
@@ -62,6 +64,47 @@ public static class PlanCanvasRenderer
         bool AlternateWallStrokes,
         double SplayOpacity,
         bool DashedTraverse);
+
+    private sealed record VectorOverlayDrawStyle(Brush Fill, Brush Stroke, double Thickness);
+
+    /// <summary>Android-aligned stroke colours for <c>vectorLines</c> overlays (plan cyan/teal, section blue, wall brown).</summary>
+    private static VectorOverlayDrawStyle ResolveVectorOverlayStyle(
+        SurveyStationGeometry.PlanVectorPolyline pl,
+        SurveyVectorStyle sty,
+        bool sectionNight,
+        bool highContrast,
+        double baseThickness)
+    {
+        var type = (pl.Type ?? "").Replace('_', ' ').Trim().ToLowerInvariant();
+        Brush fill = sty.VectorFill;
+        Brush stroke;
+        if (type.Contains("section", StringComparison.Ordinal) || type.Contains("profile", StringComparison.Ordinal))
+        {
+            stroke = sectionNight
+                ? new SolidColorBrush(Color.FromRgb(0x7E, 0xFF, 0x2A))
+                : sty.WallStrokeAlt;
+            fill = sectionNight
+                ? new SolidColorBrush(Color.FromArgb(0x44, 0x50, 0x3A, 0x78))
+                : new SolidColorBrush(Color.FromArgb(0x40, 0x37, 0x99, 0xF7));
+        }
+        else if (type.Contains("wall", StringComparison.Ordinal) || type.Contains("outline", StringComparison.Ordinal))
+        {
+            stroke = sty.WallStrokePrimary;
+            fill = sty.SketchFill;
+        }
+        else
+        {
+            stroke = highContrast
+                ? Brushes.White
+                : TryMapBrush("Map.VectorStroke") as SolidColorBrush
+                  ?? new SolidColorBrush(Color.FromRgb(0x14, 0xB8, 0xA6));
+        }
+
+        var thickness = sectionNight
+            ? Math.Max(2.0, baseThickness * 1.15)
+            : baseThickness;
+        return new VectorOverlayDrawStyle(fill, stroke, thickness);
+    }
 
     private static Brush? TryMapBrush(string key)
     {
@@ -184,6 +227,13 @@ public static class PlanCanvasRenderer
     {
         var v = (int)Math.Round(a * mul);
         return (byte)Math.Clamp(v, 0, 255);
+    }
+
+    private static Brush CreatePrintCanvasBackground()
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFE));
+        brush.Freeze();
+        return brush;
     }
 
     private static Brush CreateSketchCanvasBackground(bool dark, CartographicIntensity intensity)
@@ -499,13 +549,14 @@ public static class PlanCanvasRenderer
                 bh = boxH;
             }
 
+            var layerOpacity = layer.OpacityOverride ?? eachOp;
             var img = new Image
             {
                 Source = layer.Bitmap,
                 Stretch = stretchInDestination,
                 Width = bw,
                 Height = bh,
-                Opacity = eachOp,
+                Opacity = layerOpacity,
                 SnapsToDevicePixels = true,
                 ToolTip = $"{layer.Category}\n{layer.ResolvedPath}",
             };
@@ -603,8 +654,12 @@ public static class PlanCanvasRenderer
 
         drawingCanvas.Children.Clear();
         ApplySurveyRenderQuality(drawingCanvas);
-        var darkCanvas = opt.VisualizationMode.UsesDarkSurveyCanvas();
-        drawingCanvas.Background = CreateSketchCanvasBackground(darkCanvas, opt.CartographicIntensity);
+        var isPrintPreset = opt.RenderPreset == CartographicRenderPreset.Print;
+        var darkCanvas = isPrintPreset ? false : opt.VisualizationMode.UsesDarkSurveyCanvas();
+        drawingCanvas.Background = isPrintPreset
+            ? CreatePrintCanvasBackground()
+            : CreateSketchCanvasBackground(darkCanvas, opt.CartographicIntensity);
+        var enableWallHatching = WallHatchingPolicy.ShouldEnable(opt);
         const double pad = 48;
         drawingCanvas.Width = canvasWidth;
         drawingCanvas.Height = canvasHeight;
@@ -632,38 +687,6 @@ public static class PlanCanvasRenderer
         var sectionNight = vMode == SurveyVisualizationMode.SectionNight;
         var splayXRay = vMode.ShowSplayXRayGeometry();
 
-        Brush lrudPlanFill;
-        Brush lrudPlanStroke;
-        if (highContrast)
-        {
-            lrudPlanFill = new SolidColorBrush(Color.FromArgb((byte)(splayXRay ? 0x38 : 0x52), 0xFF, 0xFF, 0xFF));
-            lrudPlanStroke = Brushes.White;
-        }
-        else if (plan2Tone)
-        {
-            // Semi-transparent neutral fill for passage volume (Plan 2-Tone).
-            lrudPlanFill = new SolidColorBrush(Color.FromArgb(0x1A, 0x80, 0x80, 0x80));
-            lrudPlanStroke = new SolidColorBrush(Color.FromArgb(230, 0x42, 0x48, 0x52));
-        }
-        else if (vMode.UsesDarkSurveyCanvas())
-        {
-            lrudPlanFill = new SolidColorBrush(Color.FromArgb((byte)(splayXRay ? 0x40 : 0x58), 0x48, 0x55, 0x66));
-            lrudPlanStroke = new SolidColorBrush(Color.FromArgb(0xCC, 0x9A, 0xA8, 0xB8));
-        }
-        else
-        {
-            var passageFill = TryMapBrush("Map.PassageFill") as SolidColorBrush;
-            var passageStroke = TryMapBrush("Map.PassageStroke") as SolidColorBrush;
-            lrudPlanFill = passageFill ?? new SolidColorBrush(Color.FromArgb((byte)(splayXRay ? 0x48 : 0x72), 0x5E, 0xEA, 0xD4));
-            lrudPlanStroke = passageStroke ?? new SolidColorBrush(Color.FromArgb(0xCC, 0x0F, 0x76, 0x6E));
-        }
-
-        var lrudProfileFill = new SolidColorBrush(
-            Color.FromArgb((byte)(sectionNight ? (splayXRay ? 20 : 28) : (splayXRay ? 48 : 72)), 0x70, 0x90, 0xB0));
-        var lrudProfileStroke = sectionNight
-            ? (highContrast ? Brushes.White : new SolidColorBrush(Color.FromRgb(0xF2, 0xF8, 0xFF)))
-            : lrudPlanStroke;
-
         var lrud3dFaceFill = highContrast
             ? new SolidColorBrush(Color.FromArgb(0x32, 0xFF, 0xFF, 0xFF))
             : new SolidColorBrush(Color.FromArgb(0x40, 0x6B, 0x7A, 0x9E));
@@ -675,6 +698,8 @@ public static class PlanCanvasRenderer
             : new SolidColorBrush(Color.FromArgb(0x52, 0x88, 0x98, 0xB0));
 
         var vectorStrokeThickness = Math.Max(2.0, Math.Min(8.0, pxPerMetre * 0.15));
+        if (isPrintPreset)
+            vectorStrokeThickness = Math.Min(10.0, vectorStrokeThickness * 1.28);
         if (!IsFiniteDouble(vectorStrokeThickness))
             vectorStrokeThickness = 2.0;
         var splayStrokeThickness = Math.Max(1.35, Math.Min(5.0, pxPerMetre * 0.12));
@@ -699,6 +724,19 @@ public static class PlanCanvasRenderer
             $"vectorStrokePx={vectorStrokeThickness:0.##} splayStrokePx={splayStrokeThickness:0.##} splayOpacity={sty.SplayOpacity:0.##}");
 
         Point ToScreen(float x, float y) => planLayout.WorldToCanvas(x, y);
+
+        if (vMode == SurveyVisualizationMode.LongProfile)
+            DrawLongProfileGrid(drawingCanvas, scene, planLayout, darkCanvas);
+        else if (opt.ShowCoordinateGrid)
+        {
+            SurveyCoordinateGridRenderer.Draw(
+                drawingCanvas,
+                scene,
+                planLayout,
+                darkCanvas,
+                AddChildZ,
+                ZIndexRasterUnderlay + 1);
+        }
 
         if (scene.SplaySegments.Count > 0)
         {
@@ -824,7 +862,7 @@ public static class PlanCanvasRenderer
                 StrokeEndLineCap = PenLineCap.Round,
                 SnapsToDevicePixels = false,
             };
-            if (applyShadow && !highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
+            if (applyShadow && !isPrintPreset && !highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
             {
                 var blur = opt.CartographicIntensity == CartographicIntensity.Rich ? 10.5 : 7.5;
                 var op = opt.CartographicIntensity == CartographicIntensity.Rich ? 0.3 : 0.2;
@@ -839,6 +877,75 @@ public static class PlanCanvasRenderer
             }
             ApplySurveyRenderQuality(path);
             addChild(path);
+        }
+
+        void AddClosedSmoothedPassageWall(
+            SurveyStationGeometry.PlanVectorPolyline pl,
+            SurveyPassageWallStyle.PassageBrushes brushes,
+            double outerThickness,
+            Action<UIElement> addChild,
+            bool applyShadow = false)
+        {
+            if (pl.Points.Count < 3)
+                return;
+            var pts = ToScreenPolyline(ToScreen, pl);
+            if (pts.Count < 3)
+                return;
+            var geom = SurveyPathSmoothing.TryBuildClosedCatmullRomPath(pts);
+            if (geom == null)
+                return;
+
+            var body = new Path
+            {
+                Data = geom,
+                Fill = brushes.Fill,
+                Stroke = brushes.OuterStroke,
+                StrokeThickness = outerThickness,
+                StrokeLineJoin = PenLineJoin.Round,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                SnapsToDevicePixels = false,
+            };
+            if (applyShadow && !isPrintPreset)
+            {
+                body.Effect = new DropShadowEffect
+                {
+                    Color = Color.FromArgb(255, 28, 38, 48),
+                    BlurRadius = opt.CartographicIntensity == CartographicIntensity.Rich ? 11.0 : 8.0,
+                    ShadowDepth = 1.8,
+                    Opacity = 0.28,
+                    Direction = 300,
+                };
+            }
+
+            ApplySurveyRenderQuality(body);
+            addChild(body);
+
+            if (enableWallHatching)
+            {
+                var hatch = SurveyPassageWallHatching.TryCreateOverlay(geom, darkCanvas, highContrast);
+                if (hatch != null)
+                {
+                    ApplySurveyRenderQuality(hatch);
+                    addChild(hatch);
+                }
+            }
+
+            if (brushes.InnerRimStroke == null)
+                return;
+
+            var rim = new Path
+            {
+                Data = geom,
+                Fill = Brushes.Transparent,
+                Stroke = brushes.InnerRimStroke,
+                StrokeThickness = Math.Max(0.55, outerThickness * 0.38),
+                StrokeLineJoin = PenLineJoin.Round,
+                SnapsToDevicePixels = false,
+                Opacity = 0.85,
+            };
+            ApplySurveyRenderQuality(rim);
+            addChild(rim);
         }
 
         void AddOpenSmoothedWall(
@@ -955,6 +1062,20 @@ public static class PlanCanvasRenderer
         }
 
         var wallIndex = 0;
+        var planPassageBrushes = SurveyPassageWallStyle.CreatePlanPassageBrushes(
+            darkCanvas,
+            highContrast,
+            plan2Tone,
+            splayXRay,
+            opt.CartographicIntensity == CartographicIntensity.Rich,
+            isPrintPreset);
+        var profilePassageBrushes = SurveyPassageWallStyle.CreateProfilePassageBrushes(
+            sectionNight,
+            highContrast,
+            splayXRay,
+            isPrintPreset);
+        var hasFilledLrudPassage = SurveyPassageWallStyle.SceneHasFilledLrudPassage(scene, splayXRay, plan2Tone);
+
         foreach (var pl in scene.WallPolylines)
         {
             // X-ray: scene has no LRUD hull; skip any legacy passage polys so only radials draw.
@@ -965,36 +1086,21 @@ public static class PlanCanvasRenderer
             {
                 case "lrudPlanRibbon":
                 {
-                    Brush ribbonFill;
-                    Brush ribbonStroke;
                     double ribbonTh;
                     if (plan2Tone)
-                    {
-                        ribbonFill = new SolidColorBrush(Color.FromArgb(0x1A, 0x80, 0x80, 0x80));
-                        ribbonStroke = new SolidColorBrush(Color.FromArgb(210, 0x46, 0x4C, 0x54));
                         ribbonTh = Math.Max(1.0, vectorStrokeThickness * 0.34);
-                    }
                     else if (highContrast)
-                    {
-                        ribbonFill = lrudPlanFill;
-                        ribbonStroke = lrudPlanStroke;
                         ribbonTh = Math.Max(1.5, vectorStrokeThickness * 0.52);
-                    }
                     else
-                    {
-                        ribbonFill = lrudPlanFill;
-                        ribbonStroke = lrudPlanStroke;
-                        ribbonTh = Math.Max(1.0, vectorStrokeThickness * 0.44);
-                    }
+                        ribbonTh = Math.Max(1.15, vectorStrokeThickness * 0.48);
 
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedSmoothedWall(
+                        AddClosedSmoothedPassageWall(
                             pl,
-                            ribbonFill,
-                            ribbonStroke,
+                            planPassageBrushes,
                             ribbonTh,
                             AddWallBehindTraverse,
-                            applyShadow: !vMode.UsesDarkSurveyCanvas() &&
+                            applyShadow: !isPrintPreset && !darkCanvas &&
                                          opt.CartographicIntensity != CartographicIntensity.Subtle);
                     break;
                 }
@@ -1013,22 +1119,21 @@ public static class PlanCanvasRenderer
                     break;
                 case "lrudPlan":
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedSmoothedWall(
+                        AddClosedSmoothedPassageWall(
                             pl,
-                            lrudPlanFill,
-                            lrudPlanStroke,
-                            Math.Max(1.1, vectorStrokeThickness * 0.62),
+                            planPassageBrushes,
+                            Math.Max(1.15, vectorStrokeThickness * 0.58),
                             AddWallBehindTraverse,
-                            applyShadow: !vMode.UsesDarkSurveyCanvas() &&
+                            applyShadow: !isPrintPreset && !darkCanvas &&
                                          opt.CartographicIntensity != CartographicIntensity.Subtle);
                     break;
                 case "lrudProfile":
                 {
                     var profTh = sectionNight
                         ? Math.Max(2.4, vectorStrokeThickness * 1.35)
-                        : Math.Max(1.1, vectorStrokeThickness * 0.62);
+                        : Math.Max(1.15, vectorStrokeThickness * 0.58);
                     if (pl.Closed && pl.Points.Count >= 3)
-                        AddClosedSmoothedWall(pl, lrudProfileFill, lrudProfileStroke, profTh, AddWallBehindTraverse);
+                        AddClosedSmoothedPassageWall(pl, profilePassageBrushes, profTh, AddWallBehindTraverse);
                     break;
                 }
                 default:
@@ -1061,7 +1166,7 @@ public static class PlanCanvasRenderer
                             wallStroke,
                             sketchTh,
                             AddVectorElement,
-                            applyShadow: !vMode.UsesDarkSurveyCanvas() &&
+                            applyShadow: !isPrintPreset && !darkCanvas &&
                                          opt.CartographicIntensity != CartographicIntensity.Subtle);
                     else if (pl.Points.Count >= 2)
                         AddOpenSmoothedWall(pl, wallStroke, sketchTh, AddVectorElement);
@@ -1072,17 +1177,34 @@ public static class PlanCanvasRenderer
 
         foreach (var pl in scene.VectorPolylines)
         {
+            var overlay = ResolveVectorOverlayStyle(pl, sty, sectionNight, highContrast, vectorStrokeThickness);
+            if (pl.PreferSharpPolyline)
+            {
+                if (pl.Closed && pl.Points.Count >= 3)
+                    AddClosedSharpPolyline(pl, overlay.Fill, overlay.Stroke, overlay.Thickness, AddVectorElement);
+                else if (pl.Points.Count >= 2)
+                    AddOpenSharpPolyline(pl, overlay.Stroke, overlay.Thickness, AddVectorElement);
+                continue;
+            }
+
             if (pl.Closed && pl.Points.Count >= 3)
-                AddClosedSmoothedWall(pl, sty.VectorFill, sty.TraverseStroke, vectorStrokeThickness, AddVectorElement);
+                AddClosedSmoothedWall(pl, overlay.Fill, overlay.Stroke, overlay.Thickness, AddVectorElement);
             else if (pl.Points.Count >= 2)
-                AddOpenSmoothedWall(pl, sty.TraverseStroke, vectorStrokeThickness, AddVectorElement);
+                AddOpenSmoothedWall(pl, overlay.Stroke, overlay.Thickness, AddVectorElement);
         }
+
+        var (traverseStroke, traverseThScale, traverseOpacity, traverseDashed) =
+            SurveyPassageWallStyle.ResolveTraverseStyleWhenPassageFilled(
+                hasFilledLrudPassage,
+                sty.TraverseStroke,
+                opt.CartographicIntensity == CartographicIntensity.Rich);
+        var effectiveTraverseTh = vectorStrokeThickness * traverseThScale;
 
         foreach (var (x1, y1, x2, y2) in scene.TraverseSegments)
         {
             var pa = ToScreen(x1, y1);
             var pb = ToScreen(x2, y2);
-            if (!highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
+            if (!isPrintPreset && !hasFilledLrudPassage && !highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
             {
                 var glowBrush = TryMapBrush("Map.TraverseGlow") as SolidColorBrush
                               ?? new SolidColorBrush(Color.FromArgb(0x55, 0x0D, 0x94, 0x88));
@@ -1093,7 +1215,7 @@ public static class PlanCanvasRenderer
                     X2 = pb.X,
                     Y2 = pb.Y,
                     Stroke = glowBrush,
-                    StrokeThickness = vectorStrokeThickness * 2.4,
+                    StrokeThickness = effectiveTraverseTh * 2.4,
                     StrokeStartLineCap = PenLineCap.Round,
                     StrokeEndLineCap = PenLineCap.Round,
                     Opacity = opt.CartographicIntensity == CartographicIntensity.Rich ? 0.85 : 0.65,
@@ -1107,14 +1229,17 @@ public static class PlanCanvasRenderer
                 Y1 = pa.Y,
                 X2 = pb.X,
                 Y2 = pb.Y,
-                Stroke = sty.TraverseStroke,
-                StrokeThickness = vectorStrokeThickness,
+                Stroke = traverseStroke,
+                StrokeThickness = effectiveTraverseTh,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
                 StrokeLineJoin = PenLineJoin.Round,
+                Opacity = traverseOpacity,
             };
-            if (sty.DashedTraverse && opt.CartographicIntensity == CartographicIntensity.Subtle)
-                leg.StrokeDashArray = new DoubleCollection { 4.5, 3.2 };
+            if (traverseDashed || (sty.DashedTraverse && opt.CartographicIntensity == CartographicIntensity.Subtle))
+                leg.StrokeDashArray = hasFilledLrudPassage
+                    ? new DoubleCollection { 3.5, 2.8 }
+                    : new DoubleCollection { 4.5, 3.2 };
             AddVectorElement(leg);
         }
 
@@ -1156,14 +1281,14 @@ public static class PlanCanvasRenderer
         foreach (var c in scene.Stations.Values)
         {
             var pt = ToScreen(c.X, c.Y);
-            if (!highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
+            if (!isPrintPreset && !highContrast && opt.CartographicIntensity != CartographicIntensity.Subtle)
             {
                 var ring = stationDot * (opt.CartographicIntensity == CartographicIntensity.Rich ? 2.05 : 1.75);
                 var halo = new Ellipse
                 {
                     Width = ring,
                     Height = ring,
-                    Fill = new SolidColorBrush(Color.FromArgb(0x38, 0x0D, 0x94, 0x88)),
+                    Fill = new SolidColorBrush(Color.FromArgb(0x38, 0x92, 0x72, 0x56)),
                     Stroke = stationRingBrush,
                     StrokeThickness = Math.Max(1.0, vectorStrokeThickness * 0.35),
                     Opacity = 0.9,
@@ -1181,14 +1306,14 @@ public static class PlanCanvasRenderer
                 Stroke = stationRingBrush,
                 StrokeThickness = Math.Max(1.8, vectorStrokeThickness * 0.68),
             };
-            if (!highContrast && opt.CartographicIntensity == CartographicIntensity.Rich)
+            if (!isPrintPreset && !highContrast && opt.CartographicIntensity == CartographicIntensity.Rich)
             {
                 el.Effect = new DropShadowEffect
                 {
-                    Color = Color.FromArgb(255, 13, 148, 136),
+                    Color = Color.FromArgb(255, 92, 72, 56),
                     BlurRadius = 8,
                     ShadowDepth = 0,
-                    Opacity = 0.45,
+                    Opacity = 0.42,
                 };
             }
 
@@ -1227,16 +1352,14 @@ public static class PlanCanvasRenderer
                     continue;
                 var p1 = ToScreen(a.X, a.Y);
                 var p2 = ToScreen(b.X, b.Y);
-                var warn = highContrast
-                    ? Brushes.OrangeRed
-                    : new SolidColorBrush(Color.FromArgb(220, 234, 88, 12));
+                var loopStroke = ResolveLoopClosureBrush(loop.Severity, highContrast);
                 AddVectorElement(new Line
                 {
                     X1 = p1.X,
                     Y1 = p1.Y,
                     X2 = p2.X,
                     Y2 = p2.Y,
-                    Stroke = warn,
+                    Stroke = loopStroke,
                     StrokeThickness = Math.Max(3.5, vectorStrokeThickness * 1.4),
                     StrokeDashArray = new DoubleCollection { 6, 4 },
                 });
@@ -1246,10 +1369,52 @@ public static class PlanCanvasRenderer
                     $"{loop.FromStation} → {loop.ToStation}",
                     darkCanvas,
                     highContrast,
-                    maxWidth: 160);
+                    maxWidth: 180);
                 Canvas.SetLeft(loopChip, mid.X - 40);
                 Canvas.SetTop(loopChip, mid.Y - 22);
                 AddVectorElement(loopChip);
+            }
+        }
+
+        if (opt.ShowLrudQcHighlights)
+        {
+            foreach (var issue in scene.LrudQcHighlights)
+            {
+                if (!string.IsNullOrEmpty(issue.FromStation) &&
+                    !string.IsNullOrEmpty(issue.ToStation) &&
+                    scene.Stations.TryGetValue(issue.FromStation, out var qa) &&
+                    scene.Stations.TryGetValue(issue.ToStation, out var qb))
+                {
+                    var p1 = ToScreen(qa.X, qa.Y);
+                    var p2 = ToScreen(qb.X, qb.Y);
+                    var qcStroke = highContrast
+                        ? new SolidColorBrush(Color.FromArgb(230, 255, 80, 200))
+                        : new SolidColorBrush(Color.FromArgb(210, 192, 38, 211));
+                    AddVectorElement(new Line
+                    {
+                        X1 = p1.X,
+                        Y1 = p1.Y,
+                        X2 = p2.X,
+                        Y2 = p2.Y,
+                        Stroke = qcStroke,
+                        StrokeThickness = Math.Max(2.5, vectorStrokeThickness * 1.1),
+                        StrokeDashArray = new DoubleCollection { 4, 3 },
+                    });
+                }
+
+                var mid = ToScreen(issue.MidX, issue.MidY);
+                var sub = string.IsNullOrEmpty(issue.FromStation)
+                    ? issue.Kind.ToString()
+                    : $"{issue.FromStation} → {issue.ToStation}";
+                var qcChip = SurveyMapLabelStyle.BuildCaveTitlePlate(
+                    issue.Label,
+                    sub,
+                    darkCanvas,
+                    highContrast,
+                    maxWidth: 200);
+                Canvas.SetLeft(qcChip, mid.X - 44);
+                Canvas.SetTop(qcChip, mid.Y + 6);
+                AddVectorElement(qcChip);
             }
         }
 
@@ -1401,6 +1566,30 @@ public static class PlanCanvasRenderer
                 (float)wSpanY);
         }
 
+        if (opt.ShowSymbolLegend)
+        {
+            CaveMappingExportCartography.AppendSymbolLegend(
+                drawingCanvas,
+                canvasWidth,
+                canvasHeight,
+                highContrast,
+                pxPerMetre,
+                ZIndexCartographyChrome,
+                AddChildZ);
+        }
+
+        if (opt.ExportMetadata != null)
+        {
+            CaveMappingExportCartography.AppendMetadataFooter(
+                drawingCanvas,
+                opt.ExportMetadata,
+                canvasWidth,
+                canvasHeight,
+                sty.Legend,
+                ZIndexSurveyAnnotation,
+                AddChildZ);
+        }
+
         AddCaveTitlePlate(drawingCanvas, stationImageResolveProject, opt, darkCanvas, highContrast, AddChildZ);
     }
 
@@ -1412,13 +1601,24 @@ public static class PlanCanvasRenderer
         bool highContrast,
         Action<Canvas, UIElement, int> addChildZ)
     {
-        var displayName = CaveProjectDisplayNames.GetDisplayName(project);
+        var displayName = opt.ExportMetadata?.ProjectName ?? CaveProjectDisplayNames.GetDisplayName(project);
         if (string.IsNullOrWhiteSpace(displayName))
             return;
 
-        var subtitle = opt.CanvasKind == SurveyCanvasKind.Section ? "Section" : "Plan";
-        if (!string.IsNullOrWhiteSpace(project?.Date))
-            subtitle += "  ·  " + project.Date.Trim();
+        var subtitle = opt.ExportMetadata?.BuildSubtitleLine();
+        if (string.IsNullOrWhiteSpace(subtitle))
+        {
+            subtitle = opt.CanvasKind == SurveyCanvasKind.Section ? "Section" : "Plan";
+            if (!string.IsNullOrWhiteSpace(project?.Date))
+                subtitle += "  ·  " + project.Date.Trim();
+        }
+
+        var siteLabel = opt.ExportMetadata?.SiteTypeMapLabel;
+        if (string.IsNullOrWhiteSpace(siteLabel) && project != null)
+            siteLabel = SurveySiteTypeResolver.GetMapLabel(project);
+
+        if (!string.IsNullOrWhiteSpace(siteLabel))
+            subtitle = string.IsNullOrWhiteSpace(subtitle) ? siteLabel : $"{siteLabel}  ·  {subtitle}";
 
         var plate = SurveyMapLabelStyle.BuildCaveTitlePlate(displayName, subtitle, darkCanvas, highContrast);
         Canvas.SetLeft(plate, 14);
@@ -1686,6 +1886,79 @@ public static class PlanCanvasRenderer
 
         c = new SurveyStationGeometry.StationPlanCoords("?", float.NaN, float.NaN, float.NaN);
         return false;
+    }
+
+    private static void DrawLongProfileGrid(
+        Canvas canvas,
+        PlanScene scene,
+        PlanCanvasSurveyLayout layout,
+        bool darkCanvas)
+    {
+        var majorBrush = new SolidColorBrush(
+            darkCanvas ? Color.FromArgb(48, 130, 150, 175) : Color.FromArgb(52, 120, 108, 92));
+        var minorBrush = new SolidColorBrush(
+            darkCanvas ? Color.FromArgb(24, 130, 140, 160) : Color.FromArgb(28, 160, 148, 132));
+        var stepX = NiceProfileGridStep(scene.MaxX - scene.MinX);
+        var stepY = NiceProfileGridStep(scene.MaxY - scene.MinY);
+
+        for (var x = Math.Ceiling(scene.MinX / stepX) * stepX; x <= scene.MaxX + 1e-3; x += stepX)
+        {
+            var a = layout.WorldToCanvas((float)x, scene.MinY);
+            var b = layout.WorldToCanvas((float)x, scene.MaxY);
+            canvas.Children.Add(new Line
+            {
+                X1 = a.X,
+                Y1 = a.Y,
+                X2 = b.X,
+                Y2 = b.Y,
+                Stroke = majorBrush,
+                StrokeThickness = 1,
+            });
+        }
+
+        for (var y = Math.Ceiling(scene.MinY / stepY) * stepY; y <= scene.MaxY + 1e-3; y += stepY)
+        {
+            var a = layout.WorldToCanvas(scene.MinX, (float)y);
+            var b = layout.WorldToCanvas(scene.MaxX, (float)y);
+            canvas.Children.Add(new Line
+            {
+                X1 = a.X,
+                Y1 = a.Y,
+                X2 = b.X,
+                Y2 = b.Y,
+                Stroke = minorBrush,
+                StrokeThickness = 1,
+            });
+        }
+    }
+
+    private static Brush ResolveLoopClosureBrush(LoopClosureSeverity severity, bool highContrast) => severity switch
+    {
+        LoopClosureSeverity.Good => highContrast
+            ? new SolidColorBrush(Color.FromArgb(235, 74, 222, 128))
+            : new SolidColorBrush(Color.FromArgb(220, 22, 163, 74)),
+        LoopClosureSeverity.Moderate => highContrast
+            ? new SolidColorBrush(Color.FromArgb(235, 250, 204, 21))
+            : new SolidColorBrush(Color.FromArgb(220, 217, 119, 6)),
+        _ => highContrast
+            ? Brushes.OrangeRed
+            : new SolidColorBrush(Color.FromArgb(220, 220, 38, 38)),
+    };
+
+    private static double NiceProfileGridStep(double span)
+    {
+        if (span <= 0)
+            return 1;
+        var raw = span / 8.0;
+        var mag = Math.Pow(10, Math.Floor(Math.Log10(Math.Max(raw, 1e-6))));
+        var n = raw / mag;
+        if (n <= 1)
+            return mag;
+        if (n <= 2)
+            return 2 * mag;
+        if (n <= 5)
+            return 5 * mag;
+        return 10 * mag;
     }
 
     private static void DrawPickHighlight(

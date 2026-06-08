@@ -30,23 +30,25 @@ public static class SurveyBatchExporter
             var ord = i + 1;
             var seg = SafeFileSegment(p.Name);
             var prefix = string.Format(inv, "{0:00}_{1}", ord, seg);
+            var projectDir = Path.Combine(folderPath, prefix);
+            Directory.CreateDirectory(projectDir);
 
             if (includeShotsCsv && p.Shots.Count > 0)
             {
-                var path = Path.Combine(folderPath, prefix + "_shots.csv");
+                var path = Path.Combine(projectDir, prefix + "_shots.csv");
                 TryWrite(() => File.WriteAllBytes(path, ExplorationAnalytics.ExportShotsToCsvUtf8Bom(p)), path, written, errors);
             }
 
             if (!includeSurvexTherionStations || !p.Shots.Any(s => s.IsTraverseLeg))
                 continue;
 
-            var svx = Path.Combine(folderPath, prefix + "_traverse.svx");
+            var svx = Path.Combine(projectDir, prefix + "_traverse.svx");
             TryWrite(() => File.WriteAllBytes(svx, SurvexExporter.BuildSvxUtf8Bom(p)), svx, written, errors);
 
-            var th = Path.Combine(folderPath, prefix + "_traverse.th");
+            var th = Path.Combine(projectDir, prefix + "_traverse.th");
             TryWrite(() => File.WriteAllBytes(th, TherionExporter.BuildCenterlineThUtf8Bom(p)), th, written, errors);
 
-            var st = Path.Combine(folderPath, prefix + "_stations_xyz.csv");
+            var st = Path.Combine(projectDir, prefix + "_stations_xyz.csv");
             TryWrite(() => File.WriteAllBytes(st, StationCoordinatesCsvExporter.BuildUtf8Bom(p)), st, written, errors);
         }
 

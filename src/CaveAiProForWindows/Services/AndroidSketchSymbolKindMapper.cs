@@ -39,6 +39,12 @@ public static class AndroidSketchSymbolKindMapper
             ["ladder"] = SketchEditorSymbolKind.FixedAid,
             ["fixed_aid"] = SketchEditorSymbolKind.FixedAid,
             ["fixedaid"] = SketchEditorSymbolKind.FixedAid,
+            ["helictite"] = SketchEditorSymbolKind.StalactiteSpeleothem,
+            ["rimstone"] = SketchEditorSymbolKind.StalactiteSpeleothem,
+            ["gour"] = SketchEditorSymbolKind.StalactiteSpeleothem,
+            ["soda_straw"] = SketchEditorSymbolKind.StalactiteSpeleothem,
+            ["sodastraw"] = SketchEditorSymbolKind.StalactiteSpeleothem,
+            ["pool_water"] = SketchEditorSymbolKind.WaterPool,
         };
 
     /// <inheritdoc cref="Resolve(string?, string?, string?)"/>
