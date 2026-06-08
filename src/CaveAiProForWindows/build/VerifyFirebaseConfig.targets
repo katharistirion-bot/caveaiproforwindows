@@ -1,0 +1,22 @@
+<Project>
+  <!--
+    Release/publish guard: bundled firebase-config.json must be injected (no REPLACE_AT_BUILD).
+    Debug builds skip verification. Override with -p:VerifyFirebaseConfig=false for local Release experiments.
+  -->
+  <PropertyGroup>
+    <VerifyFirebaseConfig Condition="'$(VerifyFirebaseConfig)' == ''">true</VerifyFirebaseConfig>
+  </PropertyGroup>
+
+  <Target Name="VerifyBundledFirebaseConfigAfterBuild"
+          AfterTargets="Build"
+          Condition="'$(VerifyFirebaseConfig)' == 'true' AND '$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <_FirebaseConfigOutPath>$([MSBuild]::EnsureTrailingSlash($(OutputPath)))Assets\DesktopAuth\firebase-config.json</_FirebaseConfigOutPath>
+      <_VerifyFirebaseScript>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\tools\verify-firebase-config.ps1'))</_VerifyFirebaseScript>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_FirebaseConfigOutPath)')"
+           Text="Release build: missing bundled firebase-config.json at $(_FirebaseConfigOutPath). Ensure Content CopyToOutputDirectory is enabled." />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(_VerifyFirebaseScript)&quot; -ConfigPath &quot;$(_FirebaseConfigOutPath)&quot;"
+          IgnoreExitCode="false" />
+  </Target>
+</Project>

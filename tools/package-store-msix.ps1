@@ -70,9 +70,18 @@ $packageVersion = if ($version -match '^\d+\.\d+\.\d+$') { "$version.0" } else {
 $appProj = Join-Path $RepoRoot 'src/CaveAiProForWindows/CaveAiProForWindows.csproj'
 $injectScript = Join-Path $RepoRoot 'tools/inject-firebase-config.ps1'
 
+$verifyScript = Join-Path $RepoRoot 'tools/verify-firebase-config.ps1'
+
 Write-Host "Version: $version (package $packageVersion)"
-Write-Host 'Step 0/5: inject Firebase client config (build-time API key)'
-& $injectScript -RepoRoot $RepoRoot -AllowPlaceholder
+Write-Host 'Step 0/5: inject Firebase client config (required for Store MSIX)'
+if ([string]::IsNullOrWhiteSpace($env:CAVEAIPRO_FIREBASE_API_KEY)) {
+    throw @'
+Store MSIX packaging requires CAVEAIPRO_FIREBASE_API_KEY (Firebase Web API key).
+Set the environment variable, then re-run package-store-msix.ps1.
+See docs/SECURITY.md.
+'@
+}
+& $injectScript -RepoRoot $RepoRoot
 if ($LASTEXITCODE -ne 0) { throw 'inject-firebase-config.ps1 failed.' }
 
 Write-Host 'Step 1/5: dotnet restore'
@@ -108,6 +117,10 @@ if ($LASTEXITCODE -ne 0) {
 $pubDir = Join-Path $RepoRoot 'src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/microsoft-store/win-x64'
 $exe = Join-Path $pubDir 'CaveAiProForWindows.exe'
 if (-not (Test-Path -LiteralPath $exe)) { throw "Missing published exe: $exe" }
+
+$configDest = Join-Path $pubDir 'Assets/DesktopAuth/firebase-config.json'
+& $verifyScript -ConfigPath $configDest
+if ($LASTEXITCODE -ne 0) { throw 'verify-firebase-config.ps1 failed on Store publish output.' }
 
 Write-Host 'Step 4/5: Stage MSIX layout (trim Velopack — Store handles updates)'
 $staging = Join-Path $RepoRoot 'store/obj/msix-staging'

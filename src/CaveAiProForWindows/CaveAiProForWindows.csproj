@@ -63,6 +63,7 @@
   </ItemGroup>
 
   <Import Project="build\Obfuscation.targets" />
+  <Import Project="build\VerifyFirebaseConfig.targets" />
 
   <Target Name="WritePublishManifest" AfterTargets="Publish">
     <PropertyGroup>

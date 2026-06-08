@@ -10,18 +10,29 @@
 | Code signing PFX | **No** | GitHub Secrets / local only (`CODE-SIGNING.md`) |
 | OpenAI `sk-` keys | **No** | Not used in desktop app |
 
-## Build-time injection
+## Build-time injection (required for release / Store)
 
 ```powershell
 $env:CAVEAIPRO_FIREBASE_API_KEY = '<Firebase Web API key>'
 .\tools\inject-firebase-config.ps1
+.\tools\verify-firebase-config.ps1   # fails if REPLACE_AT_BUILD remains
 ```
 
-CI: `.github/workflows/release.yml` uses secret `CAVEAIPRO_FIREBASE_API_KEY`.
+CI: `.github/workflows/release.yml` **requires** secret `CAVEAIPRO_FIREBASE_API_KEY`.
 
-Store MSIX: `package-store-msix.ps1` calls inject automatically before build/publish.
+**Release guardrails (do not disable without reason):**
 
-Sideload releases: `package-release.ps1` calls inject and syncs `firebase-config.json` into the publish folder before ZIP/MSI/Velopack packaging. Set `CAVEAIPRO_FIREBASE_API_KEY` in CI (`.github/workflows/release.yml`) or locally before packaging.
+| Layer | What it prevents |
+|-------|------------------|
+| `tools/verify-firebase-config.ps1` | Shipping `REPLACE_AT_BUILD` in `firebase-config.json` |
+| `build/VerifyFirebaseConfig.targets` | Release MSBuild output without injected config |
+| `FirebaseAuthInjectionRegressionTests` | WebView injection script setting the one-shot flag on the website before `localhost` |
+| Runtime `FirebaseHostingConfigFetcher` | Dev/sideload sign-in when inject was skipped (fetches public key from Hosting) |
+| `package-release.ps1` / `package-store-msix.ps1` | Packaging without `CAVEAIPRO_FIREBASE_API_KEY` |
+
+Store MSIX: `package-store-msix.ps1` injects and verifies before MSIX pack.
+
+Sideload releases: `package-release.ps1` injects, syncs `firebase-config.json` into publish output, then verifies.
 
 ## Firebase Console (operator checklist)
 

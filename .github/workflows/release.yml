@@ -9,7 +9,7 @@
 # Optional GitHub secrets:
 #   WINDOWS_CERT_BASE64   — Authenticode PFX (base64)
 #   WINDOWS_CERT_PASSWORD — PFX password
-#   CAVEAIPRO_FIREBASE_API_KEY — baked into offline auth fallback at build time (optional)
+#   CAVEAIPRO_FIREBASE_API_KEY — required; baked into bundled desktop auth at build time
 #
 # Manual dry run: Actions → Release → Run workflow
 
@@ -47,24 +47,16 @@ jobs:
           $tag = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { '${{ inputs.dry_run_tag }}' }
           "tag=$tag" >> $env:GITHUB_OUTPUT
 
-      - name: Inject Firebase web config (optional)
+      - name: Inject Firebase web config (required for release)
         shell: pwsh
         env:
           CAVEAIPRO_FIREBASE_API_KEY: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CAVEAIPRO_FIREBASE_API_KEY)) {
-            Write-Host 'No CAVEAIPRO_FIREBASE_API_KEY secret — offline auth fallback will require local env var.'
-            exit 0
+            throw 'Release builds require GitHub secret CAVEAIPRO_FIREBASE_API_KEY (Firebase Web API key).'
           }
-          $cfg = @{
-            apiKey = $env:CAVEAIPRO_FIREBASE_API_KEY
-            authDomain = 'caveaipro-5950e.firebaseapp.com'
-            projectId = 'caveaipro-5950e'
-            storageBucket = 'caveaipro-5950e.appspot.com'
-          } | ConvertTo-Json -Compress
-          $path = 'src/CaveAiProForWindows/Assets/DesktopAuth/firebase-config.json'
-          Set-Content -Path $path -Value $cfg -Encoding utf8
-          Write-Host "Wrote $path for Release build."
+          ./tools/inject-firebase-config.ps1
+          # inject-firebase-config.ps1 runs verify-firebase-config.ps1 after writing
 
       - name: Restore
         run: dotnet restore CaveAiProForWindows.sln

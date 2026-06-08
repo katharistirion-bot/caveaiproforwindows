@@ -41,4 +41,11 @@ if (-not (Test-Path -LiteralPath $dir)) {
 
 Set-Content -LiteralPath $path -Value $json -Encoding UTF8 -NoNewline
 Write-Host "inject-firebase-config: wrote $path (project $ProjectId)"
+
+$verifyScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'tools/verify-firebase-config.ps1'
+if (Test-Path -LiteralPath $verifyScript) {
+    & $verifyScript -ConfigPath $path
+    if ($LASTEXITCODE -ne 0) { throw 'verify-firebase-config.ps1 failed after inject.' }
+}
+
 exit 0

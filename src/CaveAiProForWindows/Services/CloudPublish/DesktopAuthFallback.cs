@@ -1,5 +1,4 @@
 using System.IO;
-using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 
 namespace CaveAiProForWindows.Services.CloudPublish;
@@ -49,8 +48,7 @@ internal static class DesktopAuthFallback
         }
 
         var cfg = FirebaseProjectConfig.LoadFromEnvironment().ToWebClientConfig();
-        var json = JsonSerializer.Serialize(cfg.ToFirebaseInitializeAppObject());
-        var script = BuildDocumentCreatedScript(json, cfg.IsUsable);
+        var script = FirebaseAuthInjectionScript.BuildDocumentCreatedScript(cfg);
 
         await core.AddScriptToExecuteOnDocumentCreatedAsync(script).ConfigureAwait(true);
     }
@@ -78,27 +76,8 @@ internal static class DesktopAuthFallback
     public static string MissingConfigUserMessage =>
         "Firebase is not configured for offline sign-in.\n\n" +
         "Set user or machine environment variable CAVEAIPRO_FIREBASE_API_KEY " +
-        "(or fill Assets/DesktopAuth/firebase-config.json next to the app) then restart.";
-
-    private static string BuildDocumentCreatedScript(string firebaseConfigJson, bool isUsable)
-    {
-        // Runs before HTML parsers execute — sets config for bundled auth.html on localhost virtual host only.
-        return $$"""
-            (function () {
-              var host = (location && location.hostname) || '';
-              if (host !== '{{VirtualHost}}') return;
-              if (window.__CAVEAI_FIREBASE_CONFIG_INJECTED__) return;
-              window.__CAVEAI_FIREBASE_CONFIG_INJECTED__ = true;
-              window.__CAVEAI_FIREBASE_CONFIG__ = {{firebaseConfigJson}};
-              window.__CAVEAI_FIREBASE_CONFIG_READY__ = {{(isUsable ? "true" : "false")}};
-              try {
-                window.dispatchEvent(new CustomEvent('caveai-firebase-config', {
-                  detail: window.__CAVEAI_FIREBASE_CONFIG__
-                }));
-              } catch (e) {}
-            })();
-            """;
-    }
+        "(or fill Assets/DesktopAuth/firebase-config.json next to the app) then restart.\n\n" +
+        "Release builds must run tools/inject-firebase-config.ps1 before packaging (see docs/SECURITY.md).";
 
     /// <summary>Pushes the latest resolved config into the current bundled auth page (after OAuth observed a key).</summary>
     public static async Task PushFirebaseConfigToPageAsync(CoreWebView2 core)
@@ -108,19 +87,7 @@ internal static class DesktopAuthFallback
         if (!cfg.IsUsable)
             return;
 
-        var json = JsonSerializer.Serialize(cfg.ToFirebaseInitializeAppObject());
-        var script = $$"""
-            (function () {
-              window.__CAVEAI_FIREBASE_CONFIG__ = {{json}};
-              window.__CAVEAI_FIREBASE_CONFIG_READY__ = true;
-              try {
-                window.dispatchEvent(new CustomEvent('caveai-firebase-config', {
-                  detail: window.__CAVEAI_FIREBASE_CONFIG__
-                }));
-              } catch (e) {}
-            })();
-            """;
-        await core.ExecuteScriptAsync(script).ConfigureAwait(true);
+        await core.ExecuteScriptAsync(FirebaseAuthInjectionScript.BuildPushConfigScript(cfg)).ConfigureAwait(true);
     }
 
     private static string? ResolveAuthFolder()
