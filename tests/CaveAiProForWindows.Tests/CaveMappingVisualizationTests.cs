@@ -62,6 +62,22 @@ public sealed class CaveMappingVisualizationTests
     }
 
     [TestMethod]
+    public void TopographySurfaceGridBuilder_idw_returns_station_z_at_anchor()
+    {
+        var coords = new Dictionary<string, SurveyStationGeometry.StationPlanCoords>
+        {
+            ["A"] = new("A", 0f, 0f, 100f),
+            ["B"] = new("B", 10f, 0f, 110f),
+            ["C"] = new("C", 5f, 8f, 105f),
+        };
+
+        Assert.AreEqual(100f, TopographySurfaceGridBuilder.SampleIdwElevation(coords, 0, 0), 1e-4);
+        Assert.AreEqual(110f, TopographySurfaceGridBuilder.SampleIdwElevation(coords, 10, 0), 1e-4);
+        var mid = TopographySurfaceGridBuilder.SampleIdwElevation(coords, 5, 0);
+        Assert.IsTrue(mid > 100f && mid < 110f);
+    }
+
+    [TestMethod]
     public void TopographySurfaceGridBuilder_builds_spec_from_coordinates()
     {
         var spec = TopographySurfaceGridBuilder.TryBuildSpec(SampleProject());

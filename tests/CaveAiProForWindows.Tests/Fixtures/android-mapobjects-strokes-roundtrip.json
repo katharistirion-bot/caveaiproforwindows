@@ -1,0 +1,31 @@
+{
+  "vectorLines": [],
+  "mapSymbols": [],
+  "mapObjects": [
+    {
+      "kind": "stroke",
+      "viewMode": 0,
+      "closed": false,
+      "points": [[0, 0], [2, 0], [2, 2]],
+      "strokeColorArgb": 4278190335,
+      "strokeWidthPx": 2.5,
+      "sourceClient": "CaveAiProAndroid"
+    },
+    {
+      "kind": "stroke",
+      "viewMode": 0,
+      "closed": true,
+      "points": [[5, 5], [7, 5], [7, 7], [5, 7]],
+      "strokeColor": "#FF336699",
+      "sourceClient": "CaveAiProAndroid"
+    },
+    {
+      "surveyX": 3,
+      "surveyY": 3,
+      "symbolId": "sand",
+      "viewMode": 0,
+      "scaleSurveyMetres": 1.5
+    }
+  ],
+  "symbolsLayer": []
+}

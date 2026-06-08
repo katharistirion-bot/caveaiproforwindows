@@ -1,0 +1,31 @@
+{
+  "vectorLines": [
+    {
+      "points": [[0, 0], [4, 0], [4, 2]],
+      "type": "planSketch",
+      "strokeColorArgb": 4278190335
+    },
+    {
+      "viewMode": 0,
+      "coordinates": [[6, 6], [8, 7], [10, 6]],
+      "stroke": "wallOutline",
+      "strokeColor": "#FF804020",
+      "closed": true
+    },
+    {
+      "viewMode": 1,
+      "points": [[0, -1], [3, -2], [5, -1.5]],
+      "type": "sectionSketch",
+      "strokeColorArgb": 4283215696
+    },
+    {
+      "viewMode": 3,
+      "path": [[1, 0.5], [3, 1], [5, 0.8]],
+      "type": "longProfileVec",
+      "colorArgb": 4278255360
+    }
+  ],
+  "mapSymbols": [],
+  "mapObjects": [],
+  "symbolsLayer": []
+}

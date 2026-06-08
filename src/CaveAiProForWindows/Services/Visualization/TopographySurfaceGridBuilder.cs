@@ -8,9 +8,8 @@ using CaveAiProForWindows.Services;
 namespace CaveAiProForWindows.Services.Visualization;
 
 /// <summary>
-/// Builds an optional ground surface grid / contour mesh for the 3D topography view.
-/// Original implementation: regular XY grid with Z from bilinear blend of survey bounding-box corners
-/// (placeholder until DEM/LIDAR rasters are draped in-viewport).
+/// Builds an optional ground surface grid for the 3D topography view.
+/// Drapes from GeoTIFF when present; otherwise inverse-distance weighting from station Z.
 /// </summary>
 public static class TopographySurfaceGridBuilder
 {
@@ -47,11 +46,13 @@ public static class TopographySurfaceGridBuilder
     }
 
     /// <summary>
-    /// Adds a semi-transparent ground mesh and contour line visuals under the cave tube in <paramref name="viewport"/>.
+    /// Adds a semi-transparent ground mesh under the cave tube in <paramref name="viewport"/>.
+    /// Skipped when no GeoTIFF and fewer than two survey stations (IDW needs anchors).
     /// </summary>
     public static void TryAttachGroundGrid(
         Viewport3D viewport,
         CaveProjectDocument project,
+        string? zipPath = null,
         int gridCells = 24)
     {
         ArgumentNullException.ThrowIfNull(viewport);
@@ -61,7 +62,16 @@ public static class TopographySurfaceGridBuilder
         if (spec == null)
             return;
 
-        var mesh = BuildGroundMesh(spec);
+        zipPath ??= project.LoadedFromFile?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true
+            ? project.LoadedFromFile
+            : ZipMapSiblingResolver.TryResolve(project.LoadedFromFile, project);
+
+        using var dem = GeoTiffElevationSampler.TryOpenDem(project, zipPath);
+        var coords = SurveyStationGeometry.CalculatePlanCoordinates(project);
+        if (dem == null && coords.Count < 2)
+            return;
+
+        var mesh = BuildGroundMesh(spec, dem, coords);
         var material = new DiffuseMaterial(new SolidColorBrush(Color.FromArgb(48, 0x6B, 0x9E, 0x6B)));
         var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
         var visual = new ModelVisual3D { Content = model };
@@ -78,6 +88,36 @@ public static class TopographySurfaceGridBuilder
         }
     }
 
+    /// <summary>IDW elevation at survey XY — used when no GeoTIFF is bound.</summary>
+    internal static double SampleIdwElevation(
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords,
+        double x,
+        double y)
+    {
+        if (coords.Count == 0)
+            return 0;
+
+        const double power = 2.0;
+        const double minDistM = 0.5;
+        double sumW = 0;
+        double sumZ = 0;
+
+        foreach (var c in coords.Values)
+        {
+            var dx = x - c.X;
+            var dy = y - c.Y;
+            var dist = Math.Sqrt(dx * dx + dy * dy);
+            if (dist < minDistM)
+                return c.Z;
+
+            var w = 1.0 / Math.Pow(dist, power);
+            sumW += w;
+            sumZ += w * c.Z;
+        }
+
+        return sumW > 0 ? sumZ / sumW : coords.Values.First().Z;
+    }
+
     private static readonly DependencyProperty TopographyOverlayTagProperty =
         DependencyProperty.RegisterAttached(
             "TopographyOverlayTag",
@@ -85,7 +125,10 @@ public static class TopographySurfaceGridBuilder
             typeof(TopographySurfaceGridBuilder),
             new PropertyMetadata(false));
 
-    private static MeshGeometry3D BuildGroundMesh(SurfaceGridSpec spec)
+    private static MeshGeometry3D BuildGroundMesh(
+        SurfaceGridSpec spec,
+        GeoTiffElevationSampler.DemSource? dem,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords)
     {
         var positions = new Point3DCollection();
         var indices = new Int32Collection();
@@ -98,7 +141,9 @@ public static class TopographySurfaceGridBuilder
             {
                 var x = spec.MinX + ix * dx;
                 var y = spec.MinY + iy * dy;
-                var z = SampleElevation(spec, x, y);
+                var z = dem != null
+                    ? GeoTiffElevationSampler.SampleElevation(dem, x, y, spec.MinZ) - 0.15
+                    : SampleIdwElevation(coords, x, y);
                 positions.Add(new Point3D(x, y, z));
             }
         }
@@ -122,15 +167,5 @@ public static class TopographySurfaceGridBuilder
         }
 
         return new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
-    }
-
-    /// <summary>Synthetic rolling surface — replace with DEM/LIDAR sample when asset is bound.</summary>
-    private static double SampleElevation(SurfaceGridSpec spec, double x, double y)
-    {
-        var nx = (x - spec.MinX) / Math.Max(spec.MaxX - spec.MinX, 1e-6);
-        var ny = (y - spec.MinY) / Math.Max(spec.MaxY - spec.MinY, 1e-6);
-        var wave = Math.Sin(nx * Math.PI * 2.4) * Math.Cos(ny * Math.PI * 1.8) * (spec.MaxZ - spec.MinZ) * 0.08;
-        var baseZ = spec.MinZ + (spec.MaxZ - spec.MinZ) * (0.35 + 0.3 * ny);
-        return baseZ + wave;
     }
 }

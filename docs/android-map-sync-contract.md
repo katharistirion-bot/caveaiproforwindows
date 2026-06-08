@@ -12,6 +12,8 @@ English summary of how **CaveAI Pro (Android)** map geometry in backup `data.jso
 
 When `viewMode` is **omitted**, Windows treats the entry as **plan-only** (same rule as Android Gson filters).
 
+- **`strokeColorArgb`** / **`strokeColor`** / **`colorArgb`**: optional packed `0xAARRGGBB` integer or `#RRGGBB` / `#AARRGGBB` hex string. Windows parser: `SurveyStationGeometry.ResolveStrokeColorArgb`; plan renderer: `PlanCanvasRenderer` uses exported colour when present, else Android-aligned defaults.
+
 ## `vectorLines[]`
 
 Each element is an object with:
@@ -56,7 +58,8 @@ Symbol stamps are collected from:
 ## Contract tests
 
 - Fixture: `tests/CaveAiProForWindows.Tests/Fixtures/android-vector-map-symbols-sample.json`
-- Tests: `AndroidMapParityTests.cs` (viewMode filtering, point keys, mixed `mapObjects`, long-profile vectors, serializer re-parse)
+- Fixtures (stroke colours / mapObjects round-trip): `android-vector-stroke-colors.json`, `android-mapobjects-strokes-roundtrip.json`
+- Tests: `AndroidMapParityTests.cs` (viewMode filtering, point keys, mixed `mapObjects`, long-profile vectors, `strokeColorArgb` / hex colours, serializer re-parse)
 
 ## Related code
 

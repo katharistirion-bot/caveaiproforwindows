@@ -75,7 +75,7 @@ public static class CaveViewport3DPresenter
         labelCanvas?.Children.Clear();
 
         if (display.ShowTopographyGrid && !display.ShowDemSurface && display.SectionCut is not { Enabled: true })
-            TopographySurfaceGridBuilder.TryAttachGroundGrid(viewport, project);
+            TopographySurfaceGridBuilder.TryAttachGroundGrid(viewport, project, project.LoadedFromFile);
         if (display.ShowDemSurface && display.SectionCut is not { Enabled: true })
             DemSurfaceMeshBuilder.TryAttachDemSurface(viewport, project, project.LoadedFromFile);
 

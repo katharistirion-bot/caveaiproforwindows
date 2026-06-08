@@ -4,6 +4,7 @@ using System.Text.Json;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.Persistence;
+using CaveAiProForWindows.Services.SketchAssist;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CaveAiProForWindows.Tests;
@@ -18,9 +19,16 @@ public sealed class AndroidMapParityTests
         return doc.RootElement.Clone();
     }
 
-    private static CaveProjectDocument ProjectFromFixture()
+    private static JsonElement LoadFixture(string fileName)
     {
-        var root = LoadFixtureRoot();
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName);
+        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        return doc.RootElement.Clone();
+    }
+
+    private static CaveProjectDocument ProjectFromFixture(string fileName = "android-vector-map-symbols-sample.json")
+    {
+        var root = LoadFixture(fileName);
         var project = new CaveProjectDocument
         {
             Name = "ParityFixture",
@@ -29,16 +37,25 @@ public sealed class AndroidMapParityTests
                 new ShotRecord { FromStation = "A", ToStation = "B", Distance = 5, Azimuth = 90, Clino = 0 },
                 new ShotRecord { FromStation = "B", ToStation = "C", Distance = 4, Azimuth = 0, Clino = 0 },
             ],
-            VectorLines = root.GetProperty("vectorLines").Clone(),
-            MapSymbols = root.GetProperty("mapSymbols").Clone(),
-            MapObjects = root.GetProperty("mapObjects").Clone(),
         };
-        project.ExtensionData = new Dictionary<string, JsonElement>
+        if (root.TryGetProperty("vectorLines", out var vl))
+            project.VectorLines = vl.Clone();
+        if (root.TryGetProperty("mapSymbols", out var ms))
+            project.MapSymbols = ms.Clone();
+        if (root.TryGetProperty("mapObjects", out var mo))
+            project.MapObjects = mo.Clone();
+        if (root.TryGetProperty("symbolsLayer", out var sl))
         {
-            ["symbolsLayer"] = root.GetProperty("symbolsLayer").Clone(),
-        };
+            project.ExtensionData = new Dictionary<string, JsonElement>
+            {
+                ["symbolsLayer"] = sl.Clone(),
+            };
+        }
         return project;
     }
+
+    private static CaveProjectDocument ProjectFromFixture()
+        => ProjectFromFixture("android-vector-map-symbols-sample.json");
 
     [TestMethod]
     public void ParseVectorLines_omitted_viewMode_included_for_plan_only()
@@ -165,6 +182,91 @@ public sealed class AndroidMapParityTests
             AndroidSketchSymbolKindMapper.Resolve("helictite", null, null));
         Assert.AreEqual(SketchEditorSymbolKind.WaterPool,
             AndroidSketchSymbolKindMapper.Resolve("pool_water", null, null));
+    }
+
+    [TestMethod]
+    public void ParseVectorLines_stroke_colors_fixture_reads_argb_and_hex()
+    {
+        var project = ProjectFromFixture("android-vector-stroke-colors.json");
+        var plan = SurveyStationGeometry.ParseVectorLinesForViewMode(
+            project.VectorLines, SurveyStationGeometry.AndroidViewModePlan).ToList();
+        var section = SurveyStationGeometry.ParseVectorLinesForViewMode(
+            project.VectorLines, SurveyStationGeometry.AndroidViewModeSection).ToList();
+        var profile = SurveyStationGeometry.ParseVectorLinesForViewMode(
+            project.VectorLines, SurveyStationGeometry.AndroidViewModeLongProfile).ToList();
+
+        Assert.AreEqual(2, plan.Count);
+        Assert.AreEqual(unchecked((int)0xFF0000FF), plan[0].StrokeColorArgb);
+        Assert.AreEqual(unchecked((int)0xFF804020), plan[1].StrokeColorArgb);
+
+        Assert.AreEqual(1, section.Count);
+        Assert.AreEqual(0xFF4CAF50L, (long)(uint)section[0].StrokeColorArgb!.Value);
+
+        Assert.AreEqual(1, profile.Count);
+        Assert.AreEqual(unchecked((int)0xFF00FF00), profile[0].StrokeColorArgb);
+    }
+
+    [TestMethod]
+    public void ParsePlanSketches_mapObjects_fixture_reads_strokeColorArgb()
+    {
+        var project = ProjectFromFixture("android-mapobjects-strokes-roundtrip.json");
+        var sketches = SurveyStationGeometry.ParsePlanSketches(project).ToList();
+        var symbols = SurveyStationGeometry.ParsePlanMapSymbols(project).ToList();
+
+        Assert.AreEqual(2, sketches.Count);
+        Assert.AreEqual(unchecked((int)0xFF0000FF), sketches[0].StrokeColorArgb);
+        Assert.AreEqual(0xFF336699L, (long)(uint)sketches[1].StrokeColorArgb!.Value);
+        Assert.IsTrue(sketches[1].Closed);
+        Assert.AreEqual(1, symbols.Count);
+        Assert.AreEqual("sand", symbols[0].SymbolId);
+    }
+
+    [TestMethod]
+    public void DesignLayerMapObjectsSerializer_reparse_preserves_strokeColorArgb_on_sketches()
+    {
+        SketchAssistTestsRunSta.Run(() =>
+        {
+            var layout = new PlanCanvasSurveyLayout(0, 10, 0, 10, 50, 50, 2);
+            var canvas = new System.Windows.Controls.Canvas { Width = 200, Height = 200 };
+            var meta = new DesignLayerInkMetadata
+            {
+                Source = "designLayer",
+                StrokeWidthPx = 2,
+                StrokeColorArgb = 0xFFAA5500,
+                BrushProfile = SketchStrokeStyleDefaults.DefaultBrushProfile,
+                LayerIndex = SketchStrokeStyleDefaults.UserLayerIndex,
+                LayerZOrder = SketchStrokeStyleDefaults.UserLayerZOrder,
+                LayerName = "User ink",
+            };
+            var poly = DesignLayerProceduralApplicator.CreatePolyline(
+                new SketchStrokeModel
+                {
+                    Points = [(1f, 1f), (4f, 1f), (4f, 3f)],
+                    Source = SketchStrokeStyleDefaults.DesignLayerSource,
+                },
+                layout,
+                meta);
+            canvas.Children.Add(poly);
+
+            var project = new CaveProjectDocument { Name = "StrokeColorRoundTrip" };
+            Assert.IsTrue(DesignLayerMapObjectsSerializer.TryApplyDesignLayerToProject(project, canvas, layout));
+
+            var strokeObj = project.MapObjects.EnumerateArray().First(e =>
+                e.TryGetProperty("kind", out var k) && k.GetString() == "stroke");
+            Assert.AreEqual(0xFFAA5500L, strokeObj.GetProperty("strokeColorArgb").GetInt64());
+            Assert.AreEqual(unchecked((int)0xFFAA5500),
+                SurveyStationGeometry.ResolveStrokeColorArgb(strokeObj));
+
+            var moOnly = new CaveProjectDocument
+            {
+                Name = "StrokeColorRoundTrip",
+                MapObjects = project.MapObjects,
+            };
+            var reparsed = SurveyStationGeometry.ParsePlanSketches(moOnly).ToList();
+            Assert.AreEqual(1, reparsed.Count);
+            Assert.AreEqual(unchecked((int)0xFFAA5500), reparsed[0].StrokeColorArgb);
+            Assert.AreEqual(3, reparsed[0].Points.Count);
+        });
     }
 
     [TestMethod]
