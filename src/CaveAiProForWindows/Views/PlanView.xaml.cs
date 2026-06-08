@@ -806,6 +806,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             if (Viewport3DShowLabelsCheck != null)
                 Viewport3DShowLabelsCheck.IsChecked = s.Viewport3DShowLabels;
             SyncViewport3DLabelSizeCombo(s.Viewport3DLabelSize);
+            SyncViewport3DTubeQualityCombo(s.Viewport3DTubeQuality);
             if (Viewport3DShowSplinesCheck != null)
                 Viewport3DShowSplinesCheck.IsChecked = s.Viewport3DShowSplines;
             if (Viewport3DTopographyCheck != null)
@@ -938,6 +939,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         all.Plan.Viewport3DShowLabels = Viewport3DShowLabelsCheck?.IsChecked != false;
         if (Viewport3DLabelSizeCombo?.SelectedItem is ComboBoxItem { Tag: string labelSize })
             all.Plan.Viewport3DLabelSize = labelSize;
+        if (Viewport3DTubeQualityCombo?.SelectedItem is ComboBoxItem { Tag: string tubeQuality })
+            all.Plan.Viewport3DTubeQuality = tubeQuality;
         all.Plan.Viewport3DShowSplines = Viewport3DShowSplinesCheck?.IsChecked != false;
         all.Plan.Viewport3DShowTopography = Viewport3DTopographyCheck?.IsChecked == true;
         all.Plan.Viewport3DShowDem = Viewport3DDemCheck?.IsChecked == true;
@@ -1053,7 +1056,9 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
             if (VisualizationMode == SurveyVisualizationMode.Pseudo3D)
             {
-                _flyThrough?.Stop();
+                if (_flyThrough?.IsRunning == true || _flyThroughRecorder?.IsRunning == true)
+                    return;
+
                 if (SurveyDetailsPane != null)
                     SurveyDetailsPane.Visibility = Visibility.Visible;
 
@@ -1482,9 +1487,51 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
     private void CartographyOptions_Changed(object sender, RoutedEventArgs e)
     {
+        if (!_applyingSettings && sender is System.Windows.Controls.CheckBox cb)
+            ApplyViewport3DOverlayExclusivity(cb);
+
         UpdateCartographySidebarVisibility();
         Redraw();
         PersistPlanTab();
+    }
+
+    /// <summary>Only one ground/section overlay at a time — stacked planes clutter the 3D view.</summary>
+    private void ApplyViewport3DOverlayExclusivity(System.Windows.Controls.CheckBox changed)
+    {
+        if (changed != Viewport3DTopographyCheck && changed != Viewport3DDemCheck && changed != Viewport3DSectionCutCheck)
+            return;
+        if (changed.IsChecked != true)
+            return;
+
+        _applyingSettings = true;
+        try
+        {
+            if (changed == Viewport3DTopographyCheck)
+            {
+                if (Viewport3DDemCheck != null)
+                    Viewport3DDemCheck.IsChecked = false;
+                if (Viewport3DSectionCutCheck != null)
+                    Viewport3DSectionCutCheck.IsChecked = false;
+            }
+            else if (changed == Viewport3DDemCheck)
+            {
+                if (Viewport3DTopographyCheck != null)
+                    Viewport3DTopographyCheck.IsChecked = false;
+                if (Viewport3DSectionCutCheck != null)
+                    Viewport3DSectionCutCheck.IsChecked = false;
+            }
+            else if (changed == Viewport3DSectionCutCheck)
+            {
+                if (Viewport3DTopographyCheck != null)
+                    Viewport3DTopographyCheck.IsChecked = false;
+                if (Viewport3DDemCheck != null)
+                    Viewport3DDemCheck.IsChecked = false;
+            }
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
     }
 
     private void SyncCartographicIntensityCombo(string? persisted)
@@ -1595,12 +1642,21 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 Enabled: true);
         }
 
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        var tubeQuality = Viewport3DTubeQualityCombo?.SelectedItem is ComboBoxItem { Tag: string tqTag }
+                          && Enum.TryParse<TubeMeshQuality>(tqTag, true, out var tqParsed)
+            ? tqParsed
+            : TubeMeshQualityResolver.Resolve(
+                settings.Plan.Viewport3DTubeQuality,
+                settings.CartographicIntensity);
+
         return new Viewport3DDisplayOptions(
             annotations,
             Viewport3DShowSplinesCheck?.IsChecked != false,
             Viewport3DTopographyCheck?.IsChecked == true,
             Viewport3DDemCheck?.IsChecked == true,
-            cut);
+            cut,
+            tubeQuality);
     }
 
     private Viewport3DAnnotationOptions CurrentViewport3DAnnotationOptions()
@@ -1764,6 +1820,21 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         }
     }
 
+    private void SyncViewport3DTubeQualityCombo(string? persisted)
+    {
+        if (Viewport3DTubeQualityCombo == null)
+            return;
+        var key = string.IsNullOrWhiteSpace(persisted) ? nameof(TubeMeshQuality.Standard) : persisted.Trim();
+        foreach (ComboBoxItem item in Viewport3DTubeQualityCombo.Items)
+        {
+            if (item.Tag is string t && string.Equals(t, key, StringComparison.OrdinalIgnoreCase))
+            {
+                Viewport3DTubeQualityCombo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
     private void OnViewport3DLabelClick(Viewport3DLabelEntry entry)
     {
         switch (entry.Kind)
@@ -1908,6 +1979,66 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         PersistPlanTab();
     }
 
+    private void Viewport3DCompetitivePreset_Click(object sender, RoutedEventArgs e)
+    {
+        _applyingSettings = true;
+        try
+        {
+            var stationCount = Project?.Shots
+                .SelectMany(s => new[] { s.FromStation, s.ToStation })
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() ?? 0;
+
+            SyncViewport3DLabelSizeCombo(Viewport3DLabelSizeScale.Medium);
+            SyncViewport3DTubeQualityCombo(nameof(TubeMeshQuality.High));
+
+            if (Viewport3DShowLabelsCheck != null)
+                Viewport3DShowLabelsCheck.IsChecked = stationCount <= 48;
+            if (StationNamesCheck != null)
+                StationNamesCheck.IsChecked = stationCount <= 48;
+            if (StationZDepthCheck != null)
+                StationZDepthCheck.IsChecked = false;
+            if (LegSurveyDetailsCheck != null)
+                LegSurveyDetailsCheck.IsChecked = false;
+            if (StationEnvironmentCheck != null)
+                StationEnvironmentCheck.IsChecked = false;
+            if (DepthSpanAnnotationsCheck != null)
+                DepthSpanAnnotationsCheck.IsChecked = false;
+            if (BracketMarkersCheck != null)
+                BracketMarkersCheck.IsChecked = false;
+            if (Viewport3DMapSymbolsCheck != null)
+                Viewport3DMapSymbolsCheck.IsChecked = false;
+            if (Viewport3DFieldCatalogCheck != null)
+                Viewport3DFieldCatalogCheck.IsChecked = false;
+            if (Viewport3DStationSnapshotsCheck != null)
+                Viewport3DStationSnapshotsCheck.IsChecked = false;
+            if (Viewport3DAiTagsCheck != null)
+                Viewport3DAiTagsCheck.IsChecked = false;
+            if (Viewport3DShowSplinesCheck != null)
+                Viewport3DShowSplinesCheck.IsChecked = true;
+            if (Viewport3DTopographyCheck != null)
+                Viewport3DTopographyCheck.IsChecked = false;
+            if (Viewport3DDemCheck != null)
+                Viewport3DDemCheck.IsChecked = false;
+            if (Viewport3DSectionCutCheck != null)
+                Viewport3DSectionCutCheck.IsChecked = false;
+
+            var all = AppUiSettingsStore.LoadOrDefault();
+            all.Plan.Viewport3DTubeQuality = nameof(TubeMeshQuality.High);
+            all.Plan.Viewport3DLabelSize = Viewport3DLabelSizeScale.Medium;
+            AppUiSettingsStore.Save(all);
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
+        UpdateCartographySidebarVisibility();
+        Redraw();
+        PersistPlanTab();
+    }
+
     private void Viewport3DFlyThrough_Click(object sender, RoutedEventArgs e)
     {
         if (Project == null || HostViewport3D == null || HostViewportShell == null)
@@ -1916,11 +2047,44 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         if (_flyThrough?.IsRunning == true)
         {
             _flyThrough.Stop();
+            _flyThrough.Dispose();
+            _flyThrough = null;
+            Viewport3DFlyThroughButton!.Content = "Fly-through";
+            return;
+        }
+
+        _flyThroughRecorder?.Stop();
+        _flyThroughRecorder?.Dispose();
+        _flyThroughRecorder = null;
+
+        var path = CaveViewport3DFlyThroughPathBuilder.BuildPath(Project);
+        if (path.Count < 2)
+        {
+            MessageBox.Show(
+                "Fly-through needs at least two centerline samples from traverse legs with station coordinates.\n\n" +
+                "Add connected traverse shots, then reopen the 3D MODEL tab.",
+                "Fly-through",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             return;
         }
 
         _flyThrough?.Dispose();
-        _flyThrough = new CaveViewport3DFlyThrough(HostViewport3D, HostViewportShell, Project);
+        _flyThrough = new CaveViewport3DFlyThrough(
+            HostViewport3D,
+            HostViewportShell,
+            Project,
+            Viewport3DLabelCanvas,
+            SurveyHudPanel);
+        _flyThrough.Completed += () =>
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                if (Viewport3DFlyThroughButton != null)
+                    Viewport3DFlyThroughButton.Content = "Fly-through";
+            });
+        };
+        Viewport3DFlyThroughButton!.Content = "Stop fly-through";
         _flyThrough.Start();
     }
 
@@ -1928,6 +2092,13 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     {
         if (Project == null)
             return;
+
+        if (VisualizationMode != SurveyVisualizationMode.Pseudo3D || HostViewportShell == null)
+        {
+            MessageBox.Show("Switch to the 3D MODEL tab to export the current viewport.", "Export 3D PNG",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
 
         var dlg = new SaveFileDialog
         {
@@ -1938,11 +2109,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         if (dlg.ShowDialog() != true)
             return;
 
-        var png = PlanMapRasterExporter.TryCapture3DPng(
-            Project,
-            1920,
-            1440,
-            CurrentViewport3DDisplayOptions());
+        var png = CaptureViewport3DPngBytes(MapExportQuality.Print);
         if (png == null)
         {
             MessageBox.Show("Could not render 3D PNG.", "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -1950,6 +2117,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         }
 
         File.WriteAllBytes(dlg.FileName, png);
+        PostExportStatus(dlg.FileName, "3D viewport PNG");
     }
 
     private void Export3DObj_Click(object sender, RoutedEventArgs e) =>
@@ -1982,37 +2150,63 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         if (Project == null || HostViewport3D == null || HostViewportShell == null)
             return;
 
-        _flyThrough?.Stop();
-        _flyThroughRecorder?.Dispose();
-        _flyThroughRecorder = new CaveViewport3DFlyThroughRecorder(HostViewport3D, HostViewportShell, Project, 90);
-        _flyThroughRecorder.StartRecording();
-        await Task.Delay(3500).ConfigureAwait(true);
-        await Dispatcher.InvokeAsync(async () =>
+        var path = CaveViewport3DFlyThroughPathBuilder.BuildPath(Project);
+        if (path.Count < 2)
         {
-            var mp4Dlg = new SaveFileDialog
-            {
-                Title = "Save fly-through video (optional)",
-                Filter = "MP4|*.mp4|Skip|*.*",
-                FileName = SanitizeFileName(Project!.Name) + "_flythrough.mp4",
-            };
-            string? mp4Path = mp4Dlg.ShowDialog() == true ? mp4Dlg.FileName : null;
-            var result = await _flyThroughRecorder!.FinishAsync(mp4Path).ConfigureAwait(true);
-            if (result.UsedFfmpeg && !string.IsNullOrEmpty(result.Mp4Path))
-            {
-                MessageBox.Show($"Saved MP4:\n{result.Mp4Path}", "Fly-through", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            else
-            {
-                MessageBox.Show(
-                    $"Saved {result.FrameCount} PNG frame(s) to:\n{result.FrameDirectory}\n\n" +
-                    (result.FrameCount > 0
-                        ? "Install ffmpeg on PATH to encode MP4 automatically next time."
-                        : "No frames captured."),
-                    "Fly-through",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-            }
-        });
+            MessageBox.Show(
+                "Cannot record — no fly-through path. Add connected traverse legs first.",
+                "Record fly-through",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        _flyThrough?.Stop();
+        _flyThrough?.Dispose();
+        _flyThrough = null;
+        if (Viewport3DFlyThroughButton != null)
+            Viewport3DFlyThroughButton.Content = "Fly-through";
+
+        _flyThroughRecorder?.Dispose();
+        _flyThroughRecorder = new CaveViewport3DFlyThroughRecorder(
+            HostViewport3D,
+            HostViewportShell,
+            Project,
+            120,
+            Viewport3DLabelCanvas);
+
+        var finished = new TaskCompletionSource<bool>();
+        _flyThroughRecorder.RecordingCompleted += () => finished.TrySetResult(true);
+        _flyThroughRecorder.StartRecording();
+
+        await finished.Task.ConfigureAwait(true);
+
+        var mp4Dlg = new SaveFileDialog
+        {
+            Title = "Save fly-through video (optional)",
+            Filter = "MP4|*.mp4|Skip|*.*",
+            FileName = SanitizeFileName(Project!.Name) + "_flythrough.mp4",
+        };
+        string? mp4Path = mp4Dlg.ShowDialog() == true ? mp4Dlg.FileName : null;
+        var result = await _flyThroughRecorder.FinishAsync(mp4Path).ConfigureAwait(true);
+        _flyThroughRecorder.Dispose();
+        _flyThroughRecorder = null;
+
+        if (result.UsedFfmpeg && !string.IsNullOrEmpty(result.Mp4Path))
+        {
+            MessageBox.Show($"Saved MP4:\n{result.Mp4Path}", "Fly-through", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        else
+        {
+            MessageBox.Show(
+                $"Saved {result.FrameCount} PNG frame(s) to:\n{result.FrameDirectory}\n\n" +
+                (result.FrameCount > 0
+                    ? "Install ffmpeg on PATH to encode MP4 automatically next time."
+                    : "No frames captured."),
+                "Fly-through",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
     }
 
     private PlanCanvasDrawOptions CurrentDrawOptions()
@@ -2195,58 +2389,35 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     }
 
     /// <summary>PNG export: 3D captures the viewport upscaled to ~300 DPI; 2D modes export full survey bounds at high resolution.</summary>
-    public byte[]? CapturePlanPngBytes()
-    {
-        if (VisualizationMode == SurveyVisualizationMode.Pseudo3D
+    public byte[]? CapturePlanPngBytes() =>
+        VisualizationMode == SurveyVisualizationMode.Pseudo3D
             && HostViewportShell != null
-            && HostViewportShell.Visibility == Visibility.Visible)
-        {
-            var w = Math.Max(320, HostViewportShell.ActualWidth);
-            var h = Math.Max(240, HostViewportShell.ActualHeight);
-            if (w < 8 || h < 8)
-            {
-                var gw = MapHostGrid != null ? MapHostGrid.ActualWidth : 0;
-                var gh = MapHostGrid != null ? MapHostGrid.ActualHeight : 0;
-                w = gw > 8 ? Math.Max(320, gw) : 960;
-                h = gh > 8 ? Math.Max(240, gh) : 640;
-            }
+            && HostViewportShell.Visibility == Visibility.Visible
+            ? CaptureViewport3DPngBytes(MapExportQuality.Standard)
+            : CapturePlan2DPngBytes();
 
+    /// <summary>WYSIWYG 3D viewport PNG (current camera, labels, overlays).</summary>
+    public byte[]? CaptureViewport3DPngBytes(MapExportQuality quality = MapExportQuality.Print)
+    {
+        if (HostViewportShell == null || HostViewportShell.Visibility != Visibility.Visible)
+            return null;
+
+        if (HostViewportShell.ActualWidth < 8 || HostViewportShell.ActualHeight < 8)
+        {
+            var gw = MapHostGrid != null ? MapHostGrid.ActualWidth : 0;
+            var gh = MapHostGrid != null ? MapHostGrid.ActualHeight : 0;
+            var w = gw > 8 ? Math.Max(320, gw) : 960;
+            var h = gh > 8 ? Math.Max(240, gh) : 640;
             HostViewportShell.Measure(new Size(w, h));
             HostViewportShell.Arrange(new Rect(0, 0, w, h));
             HostViewportShell.UpdateLayout();
-
-            var dpi = PlanMapRasterExporter.ExportDpiScale;
-            var pxW = (int)Math.Max(1, Math.Ceiling(w * dpi));
-            var pxH = (int)Math.Max(1, Math.Ceiling(h * dpi));
-            var maxDim = Math.Max(pxW, pxH);
-            if (maxDim > PlanMapRasterExporter.MaxExportEdgePixels)
-            {
-                var f = PlanMapRasterExporter.MaxExportEdgePixels / (double)maxDim;
-                pxW = Math.Max(PlanMapRasterExporter.MinExportEdgePixels, (int)(pxW * f));
-                pxH = Math.Max(PlanMapRasterExporter.MinExportEdgePixels, (int)(pxH * f));
-            }
-
-            var dv = new DrawingVisual();
-            using (var dc = dv.RenderOpen())
-            {
-                var vb = new VisualBrush(HostViewportShell)
-                {
-                    Stretch = Stretch.Fill,
-                    ViewboxUnits = BrushMappingMode.RelativeToBoundingBox,
-                    Viewbox = new Rect(0, 0, 1, 1),
-                };
-                dc.DrawRectangle(vb, null, new Rect(0, 0, pxW, pxH));
-            }
-
-            var rtb = new RenderTargetBitmap(pxW, pxH, 96, 96, PixelFormats.Pbgra32);
-            rtb.Render(dv);
-
-            var enc = new PngBitmapEncoder();
-            enc.Frames.Add(BitmapFrame.Create(rtb));
-            using var ms = new MemoryStream();
-            enc.Save(ms);
-            return ms.ToArray();
         }
+
+        return PlanMapRasterExporter.TryCaptureViewport3DPngWysiwyg(HostViewportShell, quality);
+    }
+
+    private byte[]? CapturePlan2DPngBytes()
+    {
 
         var p = Project;
         if (p == null)

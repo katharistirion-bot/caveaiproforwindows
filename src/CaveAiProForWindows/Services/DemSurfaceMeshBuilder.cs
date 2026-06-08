@@ -15,9 +15,7 @@ namespace CaveAiProForWindows.Services;
 
 
 /// <summary>
-
-/// Builds a ground mesh draped on GeoTIFF elevation when available, else inverse-distance weighting from station Z.
-
+/// Builds a ground mesh draped on GeoTIFF elevation when the project zip contains a DEM raster.
 /// </summary>
 
 public static class DemSurfaceMeshBuilder
@@ -31,18 +29,7 @@ public static class DemSurfaceMeshBuilder
         var spec = TopographySurfaceGridBuilder.TryBuildSpec(project, 32);
 
         if (spec == null)
-
             return;
-
-
-
-        var coords = SurveyStationGeometry.CalculatePlanCoordinates(project);
-
-        if (coords.Count == 0)
-
-            return;
-
-
 
         zipPath ??= project.LoadedFromFile?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true
 
@@ -53,6 +40,8 @@ public static class DemSurfaceMeshBuilder
 
 
         using var dem = GeoTiffElevationSampler.TryOpenDem(project, zipPath);
+        if (dem == null)
+            return;
 
         var mesh = new MeshGeometry3D();
 
@@ -78,11 +67,7 @@ public static class DemSurfaceMeshBuilder
 
                 var y = spec.MinY + iy * dy;
 
-                var z = dem != null
-
-                    ? GeoTiffElevationSampler.SampleElevation(dem, x, y, spec.MinZ)
-
-                    : SampleZFromStations(coords, x, y, spec.MinZ);
+                var z = GeoTiffElevationSampler.SampleElevation(dem, x, y, spec.MinZ);
 
                 mesh.Positions.Add(new Point3D(x, y, z - 0.15));
 
@@ -125,56 +110,11 @@ public static class DemSurfaceMeshBuilder
         var mat = new MaterialGroup();
 
         mat.Children.Add(new DiffuseMaterial(
-
-            new SolidColorBrush(Color.FromArgb(dem != null ? (byte)110 : (byte)90, 0x6B, 0x72, 0x80))));
+            new SolidColorBrush(Color.FromArgb(110, 0x6B, 0x72, 0x80))));
 
         var model = new GeometryModel3D { Geometry = mesh, Material = mat, BackMaterial = mat };
 
         viewport.Children.Add(new ModelVisual3D { Content = model });
-
     }
-
-
-
-    private static double SampleZFromStations(
-
-        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords,
-
-        double x,
-
-        double y,
-
-        double fallback)
-
-    {
-
-        double num = 0;
-
-        double den = 0;
-
-        foreach (var c in coords.Values)
-
-        {
-
-            var d2 = (c.X - x) * (c.X - x) + (c.Y - y) * (c.Y - y);
-
-            if (d2 < 1e-6)
-
-                return c.Z;
-
-            var w = 1.0 / d2;
-
-            num += w * c.Z;
-
-            den += w;
-
-        }
-
-
-
-        return den > 0 ? num / den : fallback;
-
-    }
-
 }
 

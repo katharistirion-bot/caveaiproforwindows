@@ -15,16 +15,53 @@ public static class CaveSurveyTubeMeshBuilder
     private const float Eps = 1e-4f;
     private const float MinHalf = 0.18f;
 
-    /// <summary>Minimum 3; 8–16 recommended for smooth tubes.</summary>
-    public const int DefaultEllipseSegments = 12;
+    /// <summary>Minimum 3; 16–24 recommended for smooth tubes.</summary>
+    public const int DefaultEllipseSegments = TubeMeshQualityResolver.StandardEllipseSegments;
 
     /// <summary>Returns null if there is no traversable geometry.</summary>
     public static MeshGeometry3D? BuildTubeMesh(
         IReadOnlyList<ShotRecord> shots,
         IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
-        int ellipseSegments = DefaultEllipseSegments) =>
-        BuildContinuousLrudTubeMesh(shots, coords3, ellipseSegments)
+        int ellipseSegments = DefaultEllipseSegments,
+        float centerlineSampleM = TubeMeshQualityResolver.StandardCenterlineSampleM) =>
+        BuildContinuousLrudTubeMesh(shots, coords3, ellipseSegments, centerlineSampleM)
         ?? BuildPerLegLrudTubeMesh(shots, coords3, ellipseSegments);
+
+    /// <summary>Returns null if there is no traversable geometry.</summary>
+    public static MeshGeometry3D? BuildTubeMesh(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        TubeMeshQuality quality) =>
+        BuildTubeMesh(
+            shots,
+            coords3,
+            TubeMeshQualityResolver.EllipseSegments(quality),
+            TubeMeshQualityResolver.CenterlineSampleM(quality));
+
+    /// <summary>Ordered centerline samples with tangents for fly-through and tests.</summary>
+    public static IReadOnlyList<(Point3D Position, Vector3D Tangent)> BuildTraverseCenterlinePath(
+        IReadOnlyList<ShotRecord> shots,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        float centerlineSampleM = 0.5f)
+    {
+        var path = new List<(Point3D, Vector3D)>();
+        var walks = SurveyLrudWallGeometry.GetOrderedTraverseWalks(shots);
+        foreach (var walk in walks)
+        {
+            if (!TryBuildWalkCenterlineSamples(walk, coords3, centerlineSampleM, out var samples))
+                continue;
+            foreach (var (center, _, tangent) in samples)
+            {
+                if (tangent.LengthSquared < 1e-12)
+                    continue;
+                var t = tangent;
+                t.Normalize();
+                path.Add((new Point3D(center.X, center.Y, center.Z), t));
+            }
+        }
+
+        return path;
+    }
 
     /// <summary>
     /// Continuous LRUD tube along traverse walks: Catmull-Rom centerline with elliptical cross-sections
@@ -52,14 +89,28 @@ public static class CaveSurveyTubeMeshBuilder
             if (!TryBuildWalkCenterlineSamples(walk, coords3, centerlineSampleM, out var samples))
                 continue;
 
+            Vector3D? prevTangent = null;
+            Vector3D? prevRAxis = null;
             for (var si = 0; si < samples.Count; si++)
             {
                 var (center, lrud, tangent) = samples[si];
                 if (tangent.LengthSquared < 1e-12)
                     continue;
                 tangent.Normalize();
-                if (!TryEllipseBasis(tangent, out var rAxis, out var uAxis))
+                Vector3D rAxis;
+                Vector3D uAxis;
+                if (prevRAxis == null || prevTangent == null)
+                {
+                    if (!TrySeedBasisFromWalk(walk, coords3, tangent, out rAxis, out uAxis))
+                        continue;
+                }
+                else if (!PropagateEllipseBasis(prevTangent.Value, prevRAxis.Value, tangent, out rAxis, out uAxis))
+                {
                     continue;
+                }
+
+                prevRAxis = rAxis;
+                prevTangent = tangent;
 
                 var L = lrud.L > Eps ? lrud.L : MinHalf;
                 var R = lrud.R > Eps ? lrud.R : MinHalf;
@@ -554,6 +605,97 @@ public static class CaveSurveyTubeMeshBuilder
         }
     }
 
+    private static bool TrySeedBasisFromWalk(
+        IReadOnlyList<(string wf, string wt, ShotRecord sh)> walk,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        Vector3D tangent,
+        out Vector3D rAxis,
+        out Vector3D uAxis)
+    {
+        if (walk.Count > 0)
+        {
+            var (wf, wt, _) = walk[0];
+            if (TrySeedBasisFromWalkStep(wf, wt, coords3, tangent, out rAxis, out uAxis))
+                return true;
+        }
+
+        return TryEllipseBasis(tangent, out rAxis, out uAxis);
+    }
+
+    private static bool TrySeedBasisFromWalkStep(
+        string walkFrom,
+        string walkTo,
+        IReadOnlyDictionary<string, SurveyStationGeometry.StationPlanCoords> coords3,
+        Vector3D tangent,
+        out Vector3D rAxis,
+        out Vector3D uAxis)
+    {
+        if (!coords3.TryGetValue(walkFrom, out var ca) || !coords3.TryGetValue(walkTo, out var cb))
+            return TryEllipseBasis(tangent, out rAxis, out uAxis);
+
+        var dx = cb.X - ca.X;
+        var dy = cb.Y - ca.Y;
+        var len = Math.Sqrt(dx * (double)dx + dy * (double)dy);
+        if (len < 1e-4)
+            return TryEllipseBasis(tangent, out rAxis, out uAxis);
+
+        var fx = dx / len;
+        var fy = dy / len;
+        var planLeft = new Vector3D(-fy, fx, 0);
+        var projected = planLeft - tangent * Vector3D.DotProduct(planLeft, tangent);
+        if (projected.LengthSquared < 1e-12)
+            return TryEllipseBasis(tangent, out rAxis, out uAxis);
+
+        rAxis = projected;
+        rAxis.Normalize();
+        uAxis = Vector3D.CrossProduct(rAxis, tangent);
+        uAxis.Normalize();
+        return true;
+    }
+
+    private static bool PropagateEllipseBasis(
+        Vector3D prevTangent,
+        Vector3D prevRAxis,
+        Vector3D newTangent,
+        out Vector3D rAxis,
+        out Vector3D uAxis)
+    {
+        newTangent.Normalize();
+        var dot = Vector3D.DotProduct(prevTangent, newTangent);
+        Vector3D rotated;
+        if (dot > 0.9999)
+            rotated = prevRAxis;
+        else if (dot < -0.9999)
+            rotated = -prevRAxis;
+        else
+        {
+            var rotAxis = Vector3D.CrossProduct(prevTangent, newTangent);
+            rotAxis.Normalize();
+            var angle = Math.Acos(Math.Clamp(dot, -1, 1));
+            rotated = RotateVector(prevRAxis, rotAxis, angle);
+        }
+
+        rotated -= newTangent * Vector3D.DotProduct(rotated, newTangent);
+        if (rotated.LengthSquared < 1e-12)
+            return TryEllipseBasis(newTangent, out rAxis, out uAxis);
+
+        rAxis = rotated;
+        rAxis.Normalize();
+        uAxis = Vector3D.CrossProduct(rAxis, newTangent);
+        uAxis.Normalize();
+        return true;
+    }
+
+    private static Vector3D RotateVector(Vector3D v, Vector3D axis, double angle)
+    {
+        axis.Normalize();
+        var cos = Math.Cos(angle);
+        var sin = Math.Sin(angle);
+        var cross = Vector3D.CrossProduct(axis, v);
+        var dot = Vector3D.DotProduct(axis, v);
+        return v * cos + cross * sin + axis * (dot * (1 - cos));
+    }
+
     private static bool TryEllipseBasis(Vector3D tangent, out Vector3D rAxis, out Vector3D uAxis)
     {
         var refUp = Math.Abs(tangent.Z) < 0.85 ? new Vector3D(0, 0, 1) : new Vector3D(1, 0, 0);
@@ -565,7 +707,11 @@ public static class CaveSurveyTubeMeshBuilder
         }
 
         if (rAxis.LengthSquared < 1e-12)
+        {
+            uAxis = default;
             return false;
+        }
+
         rAxis.Normalize();
         uAxis = Vector3D.CrossProduct(rAxis, tangent);
         uAxis.Normalize();
@@ -611,7 +757,7 @@ public static class CaveSurveyTubeMeshBuilder
         }
     }
 
-    private static Vector3DCollection ComputeVertexNormals(Point3DCollection positions, Int32Collection tri)
+    public static Vector3DCollection ComputeVertexNormals(Point3DCollection positions, Int32Collection tri)
     {
         var nV = positions.Count;
         var acc = new Vector3D[nV];

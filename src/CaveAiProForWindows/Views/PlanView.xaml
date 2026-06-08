@@ -84,12 +84,23 @@
                                           IsChecked="True" Content="Splays &amp; vectors"
                                           Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                           Foreground="{DynamicResource Cave.Text}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8"
+                                            ToolTip="LRUD tube mesh segment density">
+                                    <TextBlock Text="Tube quality" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
+                                               Foreground="{DynamicResource Cave.TextMuted}" />
+                                    <ComboBox x:Name="Viewport3DTubeQualityCombo" Width="110"
+                                              SelectionChanged="CartographyOptions_Changed"
+                                              FontSize="{DynamicResource Cave.ToolSidebarFontSize}">
+                                        <ComboBoxItem Content="Standard" Tag="Standard" IsSelected="True" />
+                                        <ComboBoxItem Content="High" Tag="High" />
+                                    </ComboBox>
+                                </StackPanel>
                                 <CheckBox x:Name="Viewport3DTopographyCheck" Margin="0,0,0,8"
                                           Content="Topography grid"
                                           Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                           Foreground="{DynamicResource Cave.Text}" />
                                 <CheckBox x:Name="Viewport3DDemCheck" Margin="0,0,0,8"
-                                          Content="DEM surface (station Z)"
+                                          Content="DEM surface (GeoTIFF only)"
                                           Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                           Foreground="{DynamicResource Cave.Text}" />
                                 <CheckBox x:Name="Viewport3DSectionCutCheck" Margin="0,0,0,8"
@@ -113,6 +124,9 @@
                                         ToolTip="Station names, map symbols, and field catalog only" />
                                 <Button x:Name="Viewport3DCleanPresetButton" Margin="0,0,0,6" Padding="8,5"
                                         Content="Clean 3D preset" Click="Viewport3DCleanPreset_Click" />
+                                <Button x:Name="Viewport3DCompetitivePresetButton" Margin="0,0,0,6" Padding="8,5"
+                                        Content="Competitive 3D" Click="Viewport3DCompetitivePreset_Click"
+                                        ToolTip="High tube quality, splays on, overlays off, station names only" />
                                 <Button x:Name="Viewport3DFlyThroughButton" Margin="0,0,0,6" Padding="8,5"
                                         Content="Fly-through" Click="Viewport3DFlyThrough_Click" />
                                 <Button x:Name="RecordFlyThroughButton" Margin="0,0,0,6" Padding="8,5"

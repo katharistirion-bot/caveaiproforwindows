@@ -27,7 +27,7 @@ public static class Viewport3DMeshExporter
 
         display ??= Viewport3DDisplayOptions.Default;
         var coords = SurveyStationGeometry.CalculatePlanCoordinates(project);
-        var mesh = CaveSurveyTubeMeshBuilder.BuildTubeMesh(project.Shots, coords);
+        var mesh = CaveSurveyTubeMeshBuilder.BuildTubeMesh(project.Shots, coords, display.TubeQuality);
         if (mesh == null || mesh.Positions.Count == 0)
             return false;
 

@@ -4,12 +4,41 @@ using CaveAiProForWindows.Models;
 
 namespace CaveAiProForWindows.Services;
 
-/// <summary>Semi-transparent cutting plane for pseudo-3D section preview.</summary>
+/// <summary>Section-cut plane resolution and optional subtle cut-plane overlay.</summary>
 public static class Viewport3DSectionCutBuilder
 {
-    public static GeometryModel3D? TryBuildCutPlane(
+    /// <summary>Plane point and outward normal; geometry with non-negative signed distance is kept.</summary>
+    public static (Point3D PlanePoint, Vector3D Normal) ResolveCutPlane(
         Rect3D bounds,
         Viewport3DSectionCutOptions cut)
+    {
+        var t = Math.Clamp(cut.NormalizedPosition, 0.02, 0.98);
+        return cut.Axis switch
+        {
+            Viewport3DSectionCutAxis.VerticalX => (
+                new Point3D(bounds.X + bounds.SizeX * t, 0, 0),
+                new Vector3D(-1, 0, 0)),
+            Viewport3DSectionCutAxis.VerticalY => (
+                new Point3D(0, bounds.Y + bounds.SizeY * t, 0),
+                new Vector3D(0, -1, 0)),
+            _ => (
+                new Point3D(0, 0, bounds.Z + bounds.SizeZ * t),
+                new Vector3D(0, 0, -1)),
+        };
+    }
+
+    public static MeshGeometry3D? ClipMesh(MeshGeometry3D? mesh, Rect3D bounds, Viewport3DSectionCutOptions cut)
+    {
+        if (!cut.Enabled || mesh == null)
+            return mesh;
+        var (planePoint, normal) = ResolveCutPlane(bounds, cut);
+        return MeshPlaneClipper.ClipKeepPositiveHalfSpace(mesh, planePoint, normal);
+    }
+
+    public static GeometryModel3D? TryBuildCutPlane(
+        Rect3D bounds,
+        Viewport3DSectionCutOptions cut,
+        bool subtle = true)
     {
         if (!cut.Enabled)
             return null;
@@ -60,10 +89,15 @@ public static class Viewport3DSectionCutBuilder
         mesh.TriangleIndices.Add(2);
         mesh.TriangleIndices.Add(3);
 
-        var brush = new SolidColorBrush(Color.FromArgb(48, 0x0D, 0x94, 0x88));
+        var alpha = subtle ? (byte)28 : (byte)62;
+        var brush = new SolidColorBrush(Color.FromArgb(alpha, 0x0D, 0x94, 0x88));
         var mat = new MaterialGroup();
         mat.Children.Add(new DiffuseMaterial(brush));
-        mat.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(30, 0x5E, 0xE7, 0xDF))));
+        if (!subtle)
+        {
+            mat.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromArgb(70, 0xCC, 0xFF, 0xF7)), 18));
+            mat.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(42, 0x5E, 0xE7, 0xDF))));
+        }
         return new GeometryModel3D { Geometry = mesh, Material = mat, BackMaterial = mat };
     }
 }

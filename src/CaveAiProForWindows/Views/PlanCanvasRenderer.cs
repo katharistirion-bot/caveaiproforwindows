@@ -78,7 +78,17 @@ public static class PlanCanvasRenderer
         var type = (pl.Type ?? "").Replace('_', ' ').Trim().ToLowerInvariant();
         Brush fill = sty.VectorFill;
         Brush stroke;
-        if (type.Contains("section", StringComparison.Ordinal) || type.Contains("profile", StringComparison.Ordinal))
+        if (pl.StrokeColorArgb is int packed)
+        {
+            var c = Color.FromArgb(
+                (byte)((packed >> 24) & 0xFF),
+                (byte)((packed >> 16) & 0xFF),
+                (byte)((packed >> 8) & 0xFF),
+                (byte)(packed & 0xFF));
+            stroke = new SolidColorBrush(c);
+            fill = new SolidColorBrush(Color.FromArgb(Math.Min(c.A, (byte)96), c.R, c.G, c.B));
+        }
+        else if (type.Contains("section", StringComparison.Ordinal) || type.Contains("profile", StringComparison.Ordinal))
         {
             stroke = sectionNight
                 ? new SolidColorBrush(Color.FromRgb(0x7E, 0xFF, 0x2A))

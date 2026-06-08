@@ -49,6 +49,7 @@ public static class AppStrings
     public static string Viewport3DResetLabels => "Reset 3D labels";
     public static string Viewport3DSurveyLabels => "Survey labels";
     public static string Viewport3DCleanPreset => "Clean 3D preset";
+    public static string Viewport3DCompetitivePreset => "Competitive 3D";
 
     public static string AndroidSyncReloadNow => "Reload now";
     public static string AndroidSyncDismiss => "Dismiss";

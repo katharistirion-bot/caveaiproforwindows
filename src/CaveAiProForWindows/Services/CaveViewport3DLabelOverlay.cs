@@ -57,7 +57,17 @@ public static class CaveViewport3DLabelOverlay
             _ => 1,
         };
 
+        var stationCount = ordered.Count(l => l.Kind == Viewport3DLabelKind.Station);
+        var stationStride = stationCount switch
+        {
+            > 80 => 4,
+            > 50 => 3,
+            > 30 => 2,
+            _ => 1,
+        };
+
         var legIndex = 0;
+        var stationIndex = 0;
         var boxes = new List<Rect>();
 
         foreach (var entry in ordered)
@@ -66,6 +76,13 @@ public static class CaveViewport3DLabelOverlay
             {
                 var idx = legIndex++;
                 if (legStride > 1 && idx % legStride != 0 && idx != 0)
+                    continue;
+            }
+
+            if (entry.Kind == Viewport3DLabelKind.Station)
+            {
+                var idx = stationIndex++;
+                if (stationStride > 1 && idx % stationStride != 0 && idx != 0)
                     continue;
             }
 

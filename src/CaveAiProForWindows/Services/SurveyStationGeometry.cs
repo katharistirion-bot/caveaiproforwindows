@@ -183,7 +183,8 @@ public static class SurveyStationGeometry
                 continue;
             var closed = el.TryGetProperty("closed", out var cl) && cl.ValueKind == JsonValueKind.True;
             var preferSharp = ResolvePreferSharpPolyline(el, type);
-            list.Add(new PlanVectorPolyline(type, pts, closed, preferSharp));
+            var strokeArgb = ResolveStrokeColorArgb(el);
+            list.Add(new PlanVectorPolyline(type, pts, closed, preferSharp, strokeArgb));
         }
 
         return list;
@@ -536,7 +537,8 @@ public static class SurveyStationGeometry
             return;
         var type = ResolveSketchTypeTag(el, defaultTypeTag);
         var closed = el.TryGetProperty("closed", out var cl) && cl.ValueKind == JsonValueKind.True;
-        list.Add(new PlanVectorPolyline(type, pts, closed, preferSharpPolyline));
+        var strokeArgb = ResolveStrokeColorArgb(el);
+        list.Add(new PlanVectorPolyline(type, pts, closed, preferSharpPolyline, strokeArgb));
     }
 
     /// <summary>Placed symbols inside <c>mapObjects</c> — skip so they are not duplicated as wall strokes.</summary>
@@ -586,6 +588,48 @@ public static class SurveyStationGeometry
 
     private static void AppendSketchPolylinesFromJson(JsonElement root, List<PlanVectorPolyline> list) =>
         AppendSketchPolylinesFromJson(root, list, preferSharpPolyline: false, defaultTypeTag: "sketch");
+
+    /// <summary>Reads Android <c>strokeColorArgb</c> / <c>strokeColor</c> when exported on vector strokes.</summary>
+    internal static int? ResolveStrokeColorArgb(JsonElement el)
+    {
+        foreach (var name in new[] { "strokeColorArgb", "colorArgb", "strokeArgb" })
+        {
+            if (!el.TryGetProperty(name, out var n) || n.ValueKind != JsonValueKind.Number)
+                continue;
+            return unchecked((int)n.GetInt64());
+        }
+
+        foreach (var name in new[] { "strokeColor", "color", "strokeColorHex" })
+        {
+            if (!el.TryGetProperty(name, out var s) || s.ValueKind != JsonValueKind.String)
+                continue;
+            return ParseHexColorArgb(s.GetString());
+        }
+
+        return null;
+    }
+
+    internal static int? ParseHexColorArgb(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+            return null;
+        var s = hex.Trim();
+        if (s.StartsWith('#'))
+            s = s[1..];
+        if (s.Length == 6 &&
+            int.TryParse(s, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
+        {
+            return unchecked((int)(0xFF000000 | (uint)rgb));
+        }
+
+        if (s.Length == 8 &&
+            int.TryParse(s, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var argb))
+        {
+            return argb;
+        }
+
+        return null;
+    }
 
     private static string ResolveVectorLineTypeTag(JsonElement el)
     {
@@ -777,7 +821,9 @@ public static class SurveyStationGeometry
         IReadOnlyList<(float x, float y)> Points,
         bool Closed = false,
         /// <summary>Vertex-accurate path (no Catmull–Rom smoothing) — recommended for <c>sketchLayer</c> / <c>mapObjects</c> pen strokes.</summary>
-        bool PreferSharpPolyline = false);
+        bool PreferSharpPolyline = false,
+        /// <summary>Android stroke colour packed as 0xAARRGGBB when present.</summary>
+        int? StrokeColorArgb = null);
 
     /// <summary>
     /// Android plan / section map symbol / stamp (survey metres). <see cref="Scale"/> is a dimensionless multiplier from

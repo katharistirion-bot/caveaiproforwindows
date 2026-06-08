@@ -126,6 +126,9 @@ public sealed class MapTabPersistedState
     /// <summary>3D label chip scale: <see cref="Services.Viewport3DLabelSizeScale"/> Small / Medium / Large.</summary>
     public string Viewport3DLabelSize { get; set; } = Viewport3DLabelSizeScale.Small;
 
+    /// <summary>LRUD tube mesh quality: Standard / High (empty = follow cartographic intensity).</summary>
+    public string Viewport3DTubeQuality { get; set; } = "";
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public double ZoomScale { get; set; } = 1;
 

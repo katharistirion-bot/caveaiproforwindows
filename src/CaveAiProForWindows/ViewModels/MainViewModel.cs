@@ -1933,7 +1933,7 @@ public partial class MainViewModel : ObservableObject
         foreach (var line in r.Mismatches)
             sb.AppendLine("• " + line);
         IntegrityDetailText = sb.ToString().TrimEnd();
-        IntegrityBannerText = $"Integrity issues — see INTEGRITY tab ({r.Mismatches.Count} line(s)).";
+        IntegrityBannerText = $"Integrity issues — click for details ({r.Mismatches.Count} line(s)).";
         IntegrityBannerColorHex = "#FFF85149";
 
         IntegrityIssueRows.Add(new IntegrityIssueRow(

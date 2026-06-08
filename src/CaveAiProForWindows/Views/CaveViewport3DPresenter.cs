@@ -38,6 +38,10 @@ public static class CaveViewport3DPresenter
         public double Elevation = 0.35;
         public bool Dragging;
         public bool OrbitGestureActive;
+        /// <summary>When true, orbit gestures and per-frame label sync are suppressed during fly-through.</summary>
+        public bool FlyThroughActive;
+        public double SavedFieldOfView = 50;
+        public double SavedNearPlane = 0.05;
         public Point Last;
         public Model3DGroup? RootGroup;
         public GeometryModel3D? HighlightModel;
@@ -70,13 +74,13 @@ public static class CaveViewport3DPresenter
         viewport.Camera = null;
         labelCanvas?.Children.Clear();
 
-        if (display.ShowTopographyGrid)
+        if (display.ShowTopographyGrid && !display.ShowDemSurface && display.SectionCut is not { Enabled: true })
             TopographySurfaceGridBuilder.TryAttachGroundGrid(viewport, project);
-        if (display.ShowDemSurface)
+        if (display.ShowDemSurface && display.SectionCut is not { Enabled: true })
             DemSurfaceMeshBuilder.TryAttachDemSurface(viewport, project, project.LoadedFromFile);
 
         var coords = SurveyStationGeometry.CalculatePlanCoordinates(project);
-        var fingerprint = ComputeTubeFingerprint(project);
+        var fingerprint = ComputeTubeFingerprint(project, display.TubeQuality);
         MeshGeometry3D mesh;
         bool hasLrudVolume;
         if (TubeMeshCache.TryGetValue(fingerprint, out var cached))
@@ -86,7 +90,11 @@ public static class CaveViewport3DPresenter
         }
         else
         {
-            var built = CaveSurveyTubeMeshBuilder.BuildTubeMesh(project.Shots, coords);
+            var built = CaveSurveyTubeMeshBuilder.BuildTubeMesh(
+                project.Shots,
+                coords,
+                display.EllipseSegments,
+                display.CenterlineSampleM);
             if (built == null)
                 return false;
             mesh = built;
@@ -131,9 +139,14 @@ public static class CaveViewport3DPresenter
         var jointMesh = hasLrudVolumeLocal
             ? null
             : CaveSurveyTubeMeshBuilder.BuildBallJointSpheresMesh(project.Shots, coords, radii, 10, 14);
-        var markerMesh = CaveSurveyTubeMeshBuilder.BuildStationMarkerSpheresMesh(coords, traverseStations, markerR, 6, 8);
+        var markerMesh = hasLrudVolumeLocal
+            ? null
+            : CaveSurveyTubeMeshBuilder.BuildStationMarkerSpheresMesh(coords, traverseStations, markerR, 6, 8);
         var splayMesh = display.ShowSplines && lines.SplaySegments.Count > 0
             ? CaveSurveyTubeMeshBuilder.BuildLineSegmentsMesh(lines.SplaySegments, splayR, 4)
+            : null;
+        var splayWallMesh = display.ShowSplines && lines.SplaySegments.Count > 0
+            ? SplayWallSurfaceBuilder.BuildStationFanMesh(lines.SplaySegments)
             : null;
         var vectorMesh = display.ShowSplines && lines.VectorSegments.Count > 0
             ? CaveSurveyTubeMeshBuilder.BuildLineSegmentsMesh(lines.VectorSegments, vectorR, 4)
@@ -147,11 +160,24 @@ public static class CaveViewport3DPresenter
         var wallBackBrush = new SolidColorBrush(Color.FromArgb(wallAlpha, 0x78, 0x68, 0x58));
         var wallMat = new MaterialGroup();
         wallMat.Children.Add(new DiffuseMaterial(wallBrush));
-        wallMat.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromArgb(90, 0xFF, 0xFF, 0xFF)), 24));
-        wallMat.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(40, 0xE8, 0xDC, 0xC8))));
+        wallMat.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromArgb(110, 0xFF, 0xFF, 0xFF)), 42));
+        wallMat.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(52, 0xE8, 0xDC, 0xC8))));
         var wallBack = new MaterialGroup();
         wallBack.Children.Add(new DiffuseMaterial(wallBackBrush));
         wallBack.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(40, 0x70, 0x7C, 0x88))));
+
+        var bounds = UnionMeshBounds(mesh, traverseMesh, jointMesh, markerMesh, splayMesh, vectorMesh, depthMesh, splayWallMesh);
+        if (display.SectionCut is { Enabled: true } cutOptions)
+        {
+            mesh = Viewport3DSectionCutBuilder.ClipMesh(mesh, bounds, cutOptions) ?? mesh;
+            traverseMesh = Viewport3DSectionCutBuilder.ClipMesh(traverseMesh, bounds, cutOptions);
+            jointMesh = Viewport3DSectionCutBuilder.ClipMesh(jointMesh, bounds, cutOptions);
+            markerMesh = Viewport3DSectionCutBuilder.ClipMesh(markerMesh, bounds, cutOptions);
+            splayMesh = Viewport3DSectionCutBuilder.ClipMesh(splayMesh, bounds, cutOptions);
+            splayWallMesh = Viewport3DSectionCutBuilder.ClipMesh(splayWallMesh, bounds, cutOptions);
+            vectorMesh = Viewport3DSectionCutBuilder.ClipMesh(vectorMesh, bounds, cutOptions);
+            depthMesh = Viewport3DSectionCutBuilder.ClipMesh(depthMesh, bounds, cutOptions);
+        }
 
         var tube = new GeometryModel3D { Geometry = mesh, Material = wallMat, BackMaterial = wallBack };
 
@@ -182,6 +208,16 @@ public static class CaveViewport3DPresenter
             ? null
             : new GeometryModel3D { Geometry = splayMesh, Material = splayMat, BackMaterial = splayMat };
 
+        var splayWallAlpha = hasLrudVolumeLocal ? (byte)72 : (byte)165;
+        var splayWallBrush = new SolidColorBrush(Color.FromArgb(splayWallAlpha, 0xA8, 0x90, 0x78));
+        var splayWallMat = new MaterialGroup();
+        splayWallMat.Children.Add(new DiffuseMaterial(splayWallBrush));
+        splayWallMat.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromArgb(90, 0xFF, 0xFF, 0xFF)), 36));
+        splayWallMat.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(40, 0xE8, 0xDC, 0xC8))));
+        GeometryModel3D? splayWallModel = splayWallMesh == null
+            ? null
+            : new GeometryModel3D { Geometry = splayWallMesh, Material = splayWallMat, BackMaterial = splayWallMat };
+
         var vectorMat = CreateLineMaterial(Color.FromArgb(180, 0x38, 0xBD, 0xF8));
         GeometryModel3D? vectorModel = vectorMesh == null
             ? null
@@ -193,7 +229,7 @@ public static class CaveViewport3DPresenter
             : new GeometryModel3D { Geometry = depthMesh, Material = depthMat, BackMaterial = depthMat };
 
         var lights = new Model3DGroup();
-        lights.Children.Add(new AmbientLight(Color.FromRgb(0x78, 0x7C, 0x82)));
+        lights.Children.Add(new AmbientLight(Color.FromRgb(0x5E, 0x62, 0x68)));
         lights.Children.Add(new DirectionalLight
         {
             Color = Color.FromRgb(0xFF, 0xFA, 0xF5),
@@ -209,6 +245,8 @@ public static class CaveViewport3DPresenter
         root.Children.Add(lights);
         if (vectorModel != null)
             root.Children.Add(vectorModel);
+        if (splayWallModel != null)
+            root.Children.Add(splayWallModel);
         if (splayModel != null)
             root.Children.Add(splayModel);
         if (depthModel != null)
@@ -221,10 +259,9 @@ public static class CaveViewport3DPresenter
             root.Children.Add(jointsModel);
         root.Children.Add(tube);
 
-        var bounds = UnionMeshBounds(mesh, traverseMesh, jointMesh, markerMesh, splayMesh, vectorMesh, depthMesh);
         if (display.SectionCut is { Enabled: true } cut)
         {
-            var plane = Viewport3DSectionCutBuilder.TryBuildCutPlane(bounds, cut);
+            var plane = Viewport3DSectionCutBuilder.TryBuildCutPlane(bounds, cut, subtle: true);
             if (plane != null)
                 root.Children.Add(plane);
         }
@@ -295,6 +332,51 @@ public static class CaveViewport3DPresenter
     }
 
     internal static void ApplyOrbitCameraPublic(OrbitState st) => ApplyOrbitCamera(st);
+
+    internal static void RefreshLabelsPublic(OrbitState st) => RefreshLabels(st);
+
+    /// <summary>First-person camera looking along a tunnel tangent (fly-through).</summary>
+    internal static void ApplyTunnelCameraPublic(OrbitState st, Point3D eye, Vector3D lookDirection, bool flyThrough = false)
+    {
+        if (lookDirection.LengthSquared < 1e-12)
+            return;
+        lookDirection.Normalize();
+        var up = Math.Abs(Vector3D.DotProduct(lookDirection, new Vector3D(0, 0, 1))) > 0.92
+            ? new Vector3D(0, 1, 0)
+            : new Vector3D(0, 0, 1);
+
+        if (flyThrough)
+        {
+            // Slightly behind the centerline sample — avoids clipping through LRUD walls and reduces z-fighting blur.
+            eye = eye - lookDirection * 0.45;
+            if (!st.FlyThroughActive)
+            {
+                st.SavedFieldOfView = st.Camera.FieldOfView;
+                st.SavedNearPlane = st.Camera.NearPlaneDistance;
+            }
+
+            st.FlyThroughActive = true;
+            st.Camera.FieldOfView = 62;
+            st.Camera.NearPlaneDistance = Math.Max(0.12, st.SavedNearPlane);
+        }
+
+        st.Camera.Position = eye;
+        st.Camera.LookDirection = lookDirection;
+        st.Camera.UpDirection = up;
+        st.Target = eye + lookDirection;
+        if (!flyThrough && st.FlyThroughActive)
+            EndFlyThroughCamera(st);
+        if (!st.FlyThroughActive)
+            RefreshLabels(st);
+    }
+
+    internal static void EndFlyThroughCamera(OrbitState st)
+    {
+        st.FlyThroughActive = false;
+        st.Camera.FieldOfView = st.SavedFieldOfView > 1 ? st.SavedFieldOfView : 50;
+        st.Camera.NearPlaneDistance = st.SavedNearPlane > 1e-6 ? st.SavedNearPlane : 0.05;
+        RefreshLabels(st);
+    }
 
     internal static OrbitState? TryGetState(Viewport3D viewport) =>
         viewport.Tag as OrbitState;
@@ -396,10 +478,10 @@ public static class CaveViewport3DPresenter
             st.OnLabelClick,
             st.LabelHitTargets);
 
-    private static string ComputeTubeFingerprint(CaveProjectDocument project)
+    private static string ComputeTubeFingerprint(CaveProjectDocument project, TubeMeshQuality tubeQuality)
     {
         var sb = new StringBuilder();
-        sb.Append(project.Name).Append('|').Append(project.Shots.Count);
+        sb.Append(project.Name).Append('|').Append(project.Shots.Count).Append('|').Append(tubeQuality);
         foreach (var s in project.Shots)
         {
             sb.Append('|')
@@ -438,7 +520,7 @@ public static class CaveViewport3DPresenter
 
     private static void Shell_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (sender is not Border b || b.Tag is not OrbitState st)
+        if (sender is not Border b || b.Tag is not OrbitState st || st.FlyThroughActive)
             return;
         var f = e.Delta > 0 ? 0.92 : 1.09;
         st.Distance = Math.Clamp(st.Distance * f, 0.5, 1e6);
@@ -461,7 +543,7 @@ public static class CaveViewport3DPresenter
 
     private static void Shell_PreviewMouseMove(object sender, MouseEventArgs e)
     {
-        if (sender is not Border b || b.Tag is not OrbitState st || !st.Dragging)
+        if (sender is not Border b || b.Tag is not OrbitState st || st.FlyThroughActive || !st.Dragging)
             return;
         if (e.LeftButton != MouseButtonState.Pressed)
             return;

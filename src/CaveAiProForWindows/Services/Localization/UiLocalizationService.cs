@@ -61,5 +61,7 @@ public static class UiLocalizationService
             surveyBtn.Content = AppStrings.Viewport3DSurveyLabels;
         if (planView.FindName("Viewport3DCleanPresetButton") is System.Windows.Controls.Button cleanBtn)
             cleanBtn.Content = AppStrings.Viewport3DCleanPreset;
+        if (planView.FindName("Viewport3DCompetitivePresetButton") is System.Windows.Controls.Button competitiveBtn)
+            competitiveBtn.Content = AppStrings.Viewport3DCompetitivePreset;
     }
 }

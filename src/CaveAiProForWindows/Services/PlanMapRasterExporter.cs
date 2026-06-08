@@ -123,7 +123,62 @@ public static class PlanMapRasterExporter
         return (pxW, pxH);
     }
 
-    /// <summary>Off-screen 3D viewport capture (tube + labels).</summary>
+    /// <summary>
+    /// WYSIWYG capture of the on-screen 3D shell (current camera, labels, overlays) at export DPI.
+    /// </summary>
+    public static byte[]? TryCaptureViewport3DPngWysiwyg(
+        Visual hostShell,
+        MapExportQuality quality = MapExportQuality.Print)
+    {
+        if (hostShell is not FrameworkElement fe)
+            return null;
+
+        var w = Math.Max(320, fe.ActualWidth);
+        var h = Math.Max(240, fe.ActualHeight);
+        if (w < 8 || h < 8)
+        {
+            w = fe.DesiredSize.Width > 8 ? Math.Max(320, fe.DesiredSize.Width) : 960;
+            h = fe.DesiredSize.Height > 8 ? Math.Max(240, fe.DesiredSize.Height) : 640;
+        }
+
+        fe.Measure(new Size(w, h));
+        fe.Arrange(new Rect(0, 0, w, h));
+        fe.UpdateLayout();
+
+        var dpi = quality.DpiScale();
+        var pxW = (int)Math.Max(1, Math.Ceiling(w * dpi));
+        var pxH = (int)Math.Max(1, Math.Ceiling(h * dpi));
+        var maxDim = Math.Max(pxW, pxH);
+        if (maxDim > MaxExportEdgePixels)
+        {
+            var f = MaxExportEdgePixels / (double)maxDim;
+            pxW = Math.Max(MinExportEdgePixels, (int)(pxW * f));
+            pxH = Math.Max(MinExportEdgePixels, (int)(pxH * f));
+        }
+
+        var dv = new DrawingVisual();
+        using (var dc = dv.RenderOpen())
+        {
+            var vb = new VisualBrush(hostShell)
+            {
+                Stretch = Stretch.Fill,
+                ViewboxUnits = BrushMappingMode.RelativeToBoundingBox,
+                Viewbox = new Rect(0, 0, 1, 1),
+            };
+            dc.DrawRectangle(vb, null, new Rect(0, 0, pxW, pxH));
+        }
+
+        var rtb = new RenderTargetBitmap(pxW, pxH, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(dv);
+
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(rtb));
+        using var ms = new MemoryStream();
+        enc.Save(ms);
+        return ms.ToArray();
+    }
+
+    /// <summary>Off-screen 3D viewport capture (default camera; batch/report fallback).</summary>
     public static byte[]? TryCapture3DPng(
         CaveProjectDocument project,
         int width = 1600,
