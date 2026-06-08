@@ -2476,7 +2476,12 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             p,
             VisualizationMode,
             PrintHiContrastCheck?.IsChecked == true,
-            PlanCanvasDrawOptionsFactory.ForRasterExport(SurveyCanvasKind.Plan, quality, VisualizationMode, p),
+            PlanCanvasDrawOptionsFactory.ForRasterExport(
+                SurveyCanvasKind.Plan,
+                quality,
+                VisualizationMode,
+                p,
+                showWallHatching: WallHatchingCheck?.IsChecked == true),
             underlays,
             ZipPath,
             quality: quality,

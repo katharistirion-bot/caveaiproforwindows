@@ -976,7 +976,12 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
             p,
             VisualizationMode,
             PrintHiContrastCheck?.IsChecked == true,
-            PlanCanvasDrawOptionsFactory.ForRasterExport(SurveyCanvasKind.Section, quality, VisualizationMode, p),
+            PlanCanvasDrawOptionsFactory.ForRasterExport(
+                SurveyCanvasKind.Section,
+                quality,
+                VisualizationMode,
+                p,
+                showWallHatching: WallHatchingCheck?.IsChecked == true),
             underlays,
             ZipPath,
             vectorViewMode: SurveyStationGeometry.AndroidViewModeSection,

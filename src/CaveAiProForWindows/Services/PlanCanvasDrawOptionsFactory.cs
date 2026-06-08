@@ -67,12 +67,13 @@ public static class PlanCanvasDrawOptionsFactory
     public static PlanCanvasDrawOptions ForExportPrint(
         SurveyCanvasKind kind,
         SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard,
-        CaveProjectDocument? project = null)
+        CaveProjectDocument? project = null,
+        bool showWallHatching = true)
     {
         var opt = ForExport(kind, visualization) with
         {
             RenderPreset = CartographicRenderPreset.Print,
-            ShowWallHatching = true,
+            ShowWallHatching = showWallHatching,
         };
         if (project != null)
         {
@@ -92,8 +93,12 @@ public static class PlanCanvasDrawOptionsFactory
         SurveyCanvasKind kind,
         MapExportQuality quality,
         SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard,
-        CaveProjectDocument? project = null) =>
-        quality == MapExportQuality.Print
-            ? ForExportPrint(kind, visualization, project)
-            : ForExport(kind, visualization);
+        CaveProjectDocument? project = null,
+        bool showWallHatching = false)
+    {
+        if (quality == MapExportQuality.Print)
+            return ForExportPrint(kind, visualization, project, showWallHatching);
+
+        return ForExport(kind, visualization) with { ShowWallHatching = showWallHatching };
+    }
 }

@@ -671,6 +671,8 @@ public static class PlanCanvasRenderer
             : CreateSketchCanvasBackground(darkCanvas, opt.CartographicIntensity);
         var enableWallHatching = WallHatchingPolicy.ShouldEnable(opt);
         const double pad = 48;
+        var hatchSpacingPx = 7.0;
+        Point? hatchPhaseOriginScreen = null;
         drawingCanvas.Width = canvasWidth;
         drawingCanvas.Height = canvasHeight;
 
@@ -734,6 +736,12 @@ public static class PlanCanvasRenderer
             $"vectorStrokePx={vectorStrokeThickness:0.##} splayStrokePx={splayStrokeThickness:0.##} splayOpacity={sty.SplayOpacity:0.##}");
 
         Point ToScreen(float x, float y) => planLayout.WorldToCanvas(x, y);
+
+        if (enableWallHatching)
+        {
+            hatchSpacingPx = SurveyPassageWallHatching.ComputeSpacingPx(pxPerMetre, isPrintPreset);
+            hatchPhaseOriginScreen = ToScreen((float)wMinX, (float)wMinY);
+        }
 
         if (vMode == SurveyVisualizationMode.LongProfile)
             DrawLongProfileGrid(drawingCanvas, scene, planLayout, darkCanvas);
@@ -931,9 +939,15 @@ public static class PlanCanvasRenderer
             ApplySurveyRenderQuality(body);
             addChild(body);
 
-            if (enableWallHatching)
+            if (enableWallHatching && hatchPhaseOriginScreen is { } phaseOrigin)
             {
-                var hatch = SurveyPassageWallHatching.TryCreateOverlay(geom, darkCanvas, highContrast);
+                var hatch = SurveyPassageWallHatching.TryCreateOverlay(
+                    geom,
+                    darkCanvas,
+                    highContrast,
+                    hatchSpacingPx,
+                    phaseOrigin,
+                    isPrintPreset);
                 if (hatch != null)
                 {
                     ApplySurveyRenderQuality(hatch);

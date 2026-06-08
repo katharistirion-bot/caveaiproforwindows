@@ -53,17 +53,15 @@ public sealed class CartographyPhaseCTests
     }
 
     [TestMethod]
-    public void Wall_hatching_policy_enables_for_print_rich_and_explicit_toggle()
+    public void Wall_hatching_policy_follows_explicit_toggle()
     {
         var printRich = new PlanCanvasDrawOptions(
             CartographicIntensity: CartographicIntensity.Rich,
             RenderPreset: CartographicRenderPreset.Print);
-        Assert.IsTrue(WallHatchingPolicy.ShouldEnable(printRich));
+        Assert.IsFalse(WallHatchingPolicy.ShouldEnable(printRich));
 
-        var printSubtle = new PlanCanvasDrawOptions(
-            CartographicIntensity: CartographicIntensity.Subtle,
-            RenderPreset: CartographicRenderPreset.Print);
-        Assert.IsFalse(WallHatchingPolicy.ShouldEnable(printSubtle));
+        var printWithHatch = printRich with { ShowWallHatching = true };
+        Assert.IsTrue(WallHatchingPolicy.ShouldEnable(printWithHatch));
 
         var fieldExplicit = new PlanCanvasDrawOptions(ShowWallHatching: true);
         Assert.IsTrue(WallHatchingPolicy.ShouldEnable(fieldExplicit));
@@ -96,16 +94,26 @@ public sealed class CartographyPhaseCTests
     }
 
     [TestMethod]
-    public void ForRasterExport_print_uses_print_preset()
+    public void ForRasterExport_print_uses_print_preset_and_wall_hatching_toggle()
     {
         var project = new CaveProjectDocument { Name = "RasterCave" };
-        var opt = PlanCanvasDrawOptionsFactory.ForRasterExport(
+        var withHatch = PlanCanvasDrawOptionsFactory.ForRasterExport(
             SurveyCanvasKind.Section,
             MapExportQuality.Print,
-            project: project);
-        Assert.AreEqual(CartographicRenderPreset.Print, opt.RenderPreset);
-        Assert.IsTrue(opt.ShowCartographyOverlay);
-        Assert.IsNotNull(opt.ExportMetadata);
+            project: project,
+            showWallHatching: true);
+        Assert.AreEqual(CartographicRenderPreset.Print, withHatch.RenderPreset);
+        Assert.IsTrue(withHatch.ShowWallHatching);
+        Assert.IsTrue(WallHatchingPolicy.ShouldEnable(withHatch));
+        Assert.IsNotNull(withHatch.ExportMetadata);
+
+        var withoutHatch = PlanCanvasDrawOptionsFactory.ForRasterExport(
+            SurveyCanvasKind.Section,
+            MapExportQuality.Print,
+            project: project,
+            showWallHatching: false);
+        Assert.IsFalse(withoutHatch.ShowWallHatching);
+        Assert.IsFalse(WallHatchingPolicy.ShouldEnable(withoutHatch));
     }
 
     [TestMethod]
