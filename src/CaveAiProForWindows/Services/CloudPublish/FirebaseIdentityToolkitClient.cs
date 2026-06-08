@@ -9,13 +9,11 @@ namespace CaveAiProForWindows.Services.CloudPublish;
 internal sealed class FirebaseIdentityToolkitClient : IDisposable
 {
     private readonly HttpClient _http;
-    private readonly string _apiKey;
+    private readonly FirebaseProjectConfig _config;
 
     public FirebaseIdentityToolkitClient(FirebaseProjectConfig? config = null, HttpMessageHandler? handler = null)
     {
-        var cfg = config ?? FirebaseProjectConfig.LoadFromEnvironment();
-        _apiKey = cfg.WebApiKey
-            ?? throw new InvalidOperationException(DesktopAuthFallback.MissingConfigUserMessage);
+        _config = config ?? FirebaseProjectConfig.LoadFromEnvironment();
         _http = handler == null ? new HttpClient() : new HttpClient(handler);
         _http.Timeout = TimeSpan.FromSeconds(30);
     }
@@ -34,8 +32,14 @@ internal sealed class FirebaseIdentityToolkitClient : IDisposable
         if (string.IsNullOrWhiteSpace(requestUri))
             throw new ArgumentException("requestUri is required.", nameof(requestUri));
 
+        var apiKey = FirebaseProjectConfig.ResolveWebApiKey(
+                          Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_API_KEY"),
+                          _config.WebApiKey,
+                          FirebaseProjectConfig.ObservedWebApiKey)
+                      ?? throw new InvalidOperationException(DesktopAuthFallback.MissingConfigUserMessage);
+
         var url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key="
-                  + Uri.EscapeDataString(_apiKey);
+                  + Uri.EscapeDataString(apiKey);
         var payload = JsonSerializer.Serialize(new
         {
             postBody,

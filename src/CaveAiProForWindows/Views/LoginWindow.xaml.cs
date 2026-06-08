@@ -122,6 +122,7 @@ public partial class LoginWindow : Window
 
                 Debug.WriteLine("[LoginWindow] NavigationStarting: " + args.Uri);
                 App.WriteStartupLog("LoginWindow nav: " + args.Uri);
+                FirebaseProjectConfig.TryObserveWebApiKeyFromUri(args.Uri);
 
                 if (!IsAllowedNavigation(args.Uri))
                 {

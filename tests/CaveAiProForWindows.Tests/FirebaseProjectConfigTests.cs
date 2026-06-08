@@ -31,4 +31,23 @@ public sealed class FirebaseProjectConfigTests
         Assert.AreEqual("caveaipro-5950e.firebaseapp.com", cfg.AuthDomain);
         Assert.AreEqual("caveaipro-5950e.firebasestorage.app", cfg.StorageBucket);
     }
+
+    [TestMethod]
+    public void ResolveWebApiKey_skips_REPLACE_placeholder_and_uses_observed_key()
+    {
+        var key = FirebaseProjectConfig.ResolveWebApiKey(
+            null,
+            "REPLACE_AT_BUILD",
+            "AIzaSyExampleKey1234567890");
+        Assert.AreEqual("AIzaSyExampleKey1234567890", key);
+        Assert.IsFalse(FirebaseProjectConfig.IsUsableApiKey("REPLACE_AT_BUILD"));
+    }
+
+    [TestMethod]
+    public void TryObserveWebApiKeyFromUri_reads_handler_query()
+    {
+        FirebaseProjectConfig.TryObserveWebApiKeyFromUri(
+            "https://caveaipro-5950e.firebaseapp.com/__/auth/handler?apiKey=AIzaSyObservedFromWeb&providerId=google.com");
+        Assert.AreEqual("AIzaSyObservedFromWeb", FirebaseProjectConfig.ObservedWebApiKey);
+    }
 }

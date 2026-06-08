@@ -67,9 +67,10 @@ public sealed class FirebaseProjectConfig
             Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_STORAGE_BUCKET"),
             embedded?.StorageBucket,
             $"{projectId}.appspot.com")!;
-        var apiKey = FirstNonEmpty(
+        var apiKey = ResolveWebApiKey(
             Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_API_KEY"),
-            embedded?.ApiKey);
+            embedded?.ApiKey,
+            ObservedWebApiKey);
         var authDomain = FirstNonEmpty(
             Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_AUTH_DOMAIN"),
             embedded?.AuthDomain,
@@ -108,6 +109,45 @@ public sealed class FirebaseProjectConfig
         }
     }
 
+    /// <summary>
+    /// Last Firebase Web API key seen on an OAuth handler URL in WebView2 (same public key as the website SDK).
+    /// </summary>
+    internal static string? ObservedWebApiKey { get; private set; }
+
+    /// <summary>Records <c>apiKey=</c> from Firebase auth handler navigations when config is not injected yet.</summary>
+    internal static void TryObserveWebApiKeyFromUri(string? uriString)
+    {
+        if (string.IsNullOrWhiteSpace(uriString))
+            return;
+        if (!Uri.TryCreate(uriString, UriKind.Absolute, out var uri))
+            return;
+
+        if (!TryReadQueryParam(uri.Query, "apiKey", out var key)
+            && !TryReadFragmentParam(uri.Fragment, "apiKey", out key))
+            return;
+
+        if (!IsUsableApiKey(key))
+            return;
+
+        ObservedWebApiKey = key!.Trim();
+    }
+
+    /// <summary>Env → embedded config → WebView-observed key (skips REPLACE_AT_BUILD placeholders).</summary>
+    internal static string? ResolveWebApiKey(params string?[] candidates)
+    {
+        foreach (var v in candidates)
+        {
+            if (IsUsableApiKey(v))
+                return v!.Trim();
+        }
+
+        return null;
+    }
+
+    internal static bool IsUsableApiKey(string? key) =>
+        !string.IsNullOrWhiteSpace(key)
+        && !key.Contains("REPLACE", StringComparison.OrdinalIgnoreCase);
+
     private static string? FirstNonEmpty(params string?[] values)
     {
         foreach (var v in values)
@@ -117,5 +157,47 @@ public sealed class FirebaseProjectConfig
         }
 
         return null;
+    }
+
+    private static bool TryReadQueryParam(string query, string name, out string? value)
+    {
+        value = null;
+        if (string.IsNullOrEmpty(query))
+            return false;
+
+        var trimmed = query.StartsWith('?') ? query[1..] : query;
+        foreach (var part in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = part.IndexOf('=');
+            if (eq <= 0)
+                continue;
+            if (!string.Equals(part[..eq], name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            value = Uri.UnescapeDataString(part[(eq + 1)..]);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryReadFragmentParam(string fragment, string name, out string? value)
+    {
+        value = null;
+        if (fragment.Length <= 1)
+            return false;
+
+        var trimmed = fragment.StartsWith('#') ? fragment[1..] : fragment;
+        foreach (var part in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = part.IndexOf('=');
+            if (eq <= 0)
+                continue;
+            if (!string.Equals(part[..eq], name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            value = Uri.UnescapeDataString(part[(eq + 1)..]);
+            return true;
+        }
+
+        return false;
     }
 }

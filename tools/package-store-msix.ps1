@@ -72,7 +72,7 @@ $injectScript = Join-Path $RepoRoot 'tools/inject-firebase-config.ps1'
 
 Write-Host "Version: $version (package $packageVersion)"
 Write-Host 'Step 0/5: inject Firebase client config (build-time API key)'
-& $injectScript -RepoRoot $RepoRoot
+& $injectScript -RepoRoot $RepoRoot -AllowPlaceholder
 if ($LASTEXITCODE -ne 0) { throw 'inject-firebase-config.ps1 failed.' }
 
 Write-Host 'Step 1/5: dotnet restore'

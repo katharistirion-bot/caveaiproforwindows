@@ -14,7 +14,7 @@ $path = Join-Path $RepoRoot 'src\CaveAiProForWindows\Assets\DesktopAuth\firebase
 if ([string]::IsNullOrWhiteSpace($ApiKey)) {
     if ($AllowPlaceholder) {
         Write-Host 'inject-firebase-config: no API key — leaving REPLACE_AT_BUILD placeholder.'
-        return
+        exit 0
     }
     throw @'
 CAVEAIPRO_FIREBASE_API_KEY is not set.
@@ -41,3 +41,4 @@ if (-not (Test-Path -LiteralPath $dir)) {
 
 Set-Content -LiteralPath $path -Value $json -Encoding UTF8 -NoNewline
 Write-Host "inject-firebase-config: wrote $path (project $ProjectId)"
+exit 0

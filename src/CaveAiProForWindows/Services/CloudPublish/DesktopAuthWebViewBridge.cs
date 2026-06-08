@@ -109,6 +109,8 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
         if (string.IsNullOrWhiteSpace(e.Uri))
             return;
 
+        FirebaseProjectConfig.TryObserveWebApiKeyFromUri(e.Uri);
+
         if (!DesktopAuthHandlerCallback.TryParse(e.Uri, out var callback) || callback == null)
             return;
 
@@ -228,6 +230,13 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
     private void NavigateToFallbackAfterExchange()
     {
         if (_core == null || DesktopAuthFallback.IsFallbackUri(_core.Source))
+            return;
+
+        if (_cache.TryGetUsableToken() != null)
+            return;
+
+        // Keep the live website auth page when bundled firebase-config.json is still a build placeholder.
+        if (!DesktopAuthFallback.HasUsableFirebaseConfig())
             return;
 
         _core.Navigate(DesktopAuthFlowInvariants.PostExchangeNavigationUri);
