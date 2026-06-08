@@ -1,0 +1,82 @@
+<Window x:Class="CaveAiProForWindows.Views.PublicationSheetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Publication sheet — CAVE AI PRO"
+        Height="820"
+        Width="1180"
+        MinHeight="560"
+        MinWidth="880"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Cave.Background}"
+        Foreground="{DynamicResource Cave.Text}"
+        Icon="pack://application:,,,/Assets/logo.ico">
+    <DockPanel Margin="0">
+        <Border DockPanel.Dock="Top"
+                Padding="12,10"
+                Background="{DynamicResource Cave.Surface}"
+                BorderBrush="{DynamicResource Cave.Border}"
+                BorderThickness="0,0,0,1">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Export PNG…" Padding="14,7" Margin="0,0,8,0"
+                            Style="{StaticResource Cave.AccentButton}"
+                            Click="ExportPng_Click"
+                            ToolTip="Save the composite publication sheet as PNG" />
+                    <Button Content="Export PDF…" Padding="14,7" Margin="0,0,8,0"
+                            Click="ExportPdf_Click"
+                            ToolTip="Save the composite publication sheet as a single-page PDF" />
+                    <Button Content="Close" Padding="14,7" IsCancel="True"
+                            Click="Close_Click" />
+                </StackPanel>
+                <WrapPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,18,0">
+                        <TextBlock Text="Elevation panel" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ComboBox x:Name="ElevationSourceCombo"
+                                  MinWidth="160"
+                                  VerticalAlignment="Center"
+                                  SelectionChanged="LayoutOption_Changed">
+                            <ComboBoxItem Content="Extended elevation (long profile)" Tag="LongProfile" IsSelected="True" />
+                            <ComboBoxItem Content="Section elevation" Tag="Section" />
+                        </ComboBox>
+                    </StackPanel>
+                    <CheckBox x:Name="Include3DCheck"
+                              Content="Include 3D overview"
+                              IsChecked="True"
+                              VerticalAlignment="Center"
+                              Margin="0,0,18,0"
+                              Checked="LayoutOption_Changed"
+                              Unchecked="LayoutOption_Changed" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,18,0">
+                        <TextBlock Text="Quality" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ComboBox x:Name="QualityCombo"
+                                  MinWidth="120"
+                                  VerticalAlignment="Center"
+                                  SelectionChanged="LayoutOption_Changed">
+                            <ComboBoxItem Content="Standard" Tag="Standard" IsSelected="True" />
+                            <ComboBoxItem Content="Print" Tag="Print" />
+                        </ComboBox>
+                    </StackPanel>
+                    <Button Content="Refresh preview" Padding="12,6" Margin="0,0,12,0"
+                            Click="RefreshPreview_Click"
+                            ToolTip="Rebuild the composite layout from the current project" />
+                    <TextBlock x:Name="StatusText"
+                               FontSize="11"
+                               Foreground="{DynamicResource Cave.TextMuted}"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"
+                               MaxWidth="320"
+                               Text="Separate publication layout — existing map tabs and exports are unchanged." />
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+        <Border Background="#FFF5F5F5" Margin="8">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <Border Background="White" HorizontalAlignment="Center" VerticalAlignment="Top" Padding="12">
+                    <Image x:Name="PreviewImage"
+                           Stretch="None"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                </Border>
+            </ScrollViewer>
+        </Border>
+    </DockPanel>
+</Window>

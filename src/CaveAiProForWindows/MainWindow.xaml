@@ -88,6 +88,9 @@
                 <MenuItem Header="Survey _diff (legs/stations)…" Command="{Binding CompareSurveysCommand}" />
                 <MenuItem Header="_Loop closure assistant…" Command="{Binding ShowLoopClosureAssistantCommand}" />
                 <Separator />
+                <MenuItem Header="Publication _sheet…" Command="{Binding OpenPublicationSheetCommand}"
+                          ToolTip="Composite survey presentation (elevation + plan + optional 3D) in a separate window — does not change existing map tabs." />
+                <Separator />
                 <MenuItem Header="_Share for collaboration…" Command="{Binding ShareCollaborationCommand}"
                           ToolTip="Create shared Firestore project — team comments + mobile push" />
                 <Separator />

@@ -1693,7 +1693,7 @@ public static class PlanCanvasRenderer
 
         const double targetPx = 130;
         var barM = NiceScaleBarMetres(targetPx / pxPerMetre);
-        var barPx = barM * pxPerMetre;
+        var barPx = Math.Min(barM * pxPerMetre, 4000);
         var scalePanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var bar = new Border
         {

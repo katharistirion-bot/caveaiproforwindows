@@ -22,6 +22,9 @@ public static class PlanMapRasterExporter
     /// <summary>Base long edge in pixels before DPI scaling (keeps output sharp but bounded).</summary>
     public const int BaseLongEdgePixels = 3200;
 
+    /// <summary>Smaller raster base for composite publication-sheet panels (keeps cartography within WPF limits).</summary>
+    public const int PublicationSheetPanelBaseLongEdge = 960;
+
     /// <summary>PNG bytes of the full plan scene at export resolution, or null if nothing drawable.</summary>
     public static byte[]? TryCapturePlanPngHighRes(
         CaveProjectDocument project,
@@ -32,7 +35,8 @@ public static class PlanMapRasterExporter
         string? zipPath,
         int vectorViewMode = SurveyStationGeometry.AndroidViewModePlan,
         MapExportQuality quality = MapExportQuality.Standard,
-        PlanDesignLayerExportContext? designOverlay = null)
+        PlanDesignLayerExportContext? designOverlay = null,
+        int baseLongEdgePixels = BaseLongEdgePixels)
     {
         if (visualizationMode == SurveyVisualizationMode.Pseudo3D)
             return null;
@@ -41,7 +45,7 @@ public static class PlanMapRasterExporter
         if (scene == null && underlays.Count == 0)
             return null;
 
-        var (pxW, pxH) = ComputeExportPixelSize(scene, quality);
+        var (pxW, pxH) = ComputeExportPixelSize(scene, quality, baseLongEdgePixels);
 
         var canvas = new Canvas();
         TextOptions.SetTextFormattingMode(canvas, TextFormattingMode.Ideal);
@@ -158,16 +162,18 @@ public static class PlanMapRasterExporter
         return img;
     }
 
-    public static (int pxW, int pxH) ComputeExportPixelSize(PlanScene? scene, MapExportQuality quality = MapExportQuality.Standard) =>
+    public static (int pxW, int pxH) ComputeExportPixelSize(PlanScene? scene, MapExportQuality quality = MapExportQuality.Standard, int baseLongEdgePixels = BaseLongEdgePixels) =>
         ComputeExportPixelSize(
             scene != null ? scene.SpanX : 1,
             scene != null ? scene.SpanY : 1,
-            quality);
+            quality,
+            baseLongEdgePixels);
 
     public static (int pxW, int pxH) ComputeExportPixelSize(
         float spanX,
         float spanY,
-        MapExportQuality quality = MapExportQuality.Standard)
+        MapExportQuality quality = MapExportQuality.Standard,
+        int baseLongEdgePixels = BaseLongEdgePixels)
     {
         var dpiScale = quality.DpiScale();
         var aspect = spanX / Math.Max(spanY, 1e-6f);
@@ -175,13 +181,13 @@ public static class PlanMapRasterExporter
         double bh;
         if (aspect >= 1)
         {
-            bw = BaseLongEdgePixels;
-            bh = BaseLongEdgePixels / aspect;
+            bw = baseLongEdgePixels;
+            bh = baseLongEdgePixels / aspect;
         }
         else
         {
-            bh = BaseLongEdgePixels;
-            bw = BaseLongEdgePixels * aspect;
+            bh = baseLongEdgePixels;
+            bw = baseLongEdgePixels * aspect;
         }
 
         var pxW = (int)Math.Round(bw * dpiScale);

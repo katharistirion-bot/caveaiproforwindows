@@ -31,7 +31,7 @@ public static class AndroidMapSymbolVisualFactory
             var tb = new TextBlock
             {
                 Text = resolved.Emoji,
-                FontSize = Math.Clamp(basePx * 0.78, 10, 420),
+                FontSize = Math.Clamp(basePx * 0.78, 10, 96),
                 TextAlignment = TextAlignment.Center,
                 IsHitTestVisible = false,
                 ToolTip = BuildTooltip(sym, resolved.DisplayLabel),

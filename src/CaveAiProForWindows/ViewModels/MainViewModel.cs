@@ -1672,6 +1672,17 @@ public partial class MainViewModel : ObservableObject
 
     private bool CanShowLoopClosureAssistant() => LegalTermsGateOpen() && SelectedProject != null;
 
+    [RelayCommand(CanExecute = nameof(CanOpenPublicationSheet))]
+    private void OpenPublicationSheet()
+    {
+        if (SelectedProject == null)
+            return;
+        var owner = Wpf.Application.Current.MainWindow;
+        new PublicationSheetWindow(SelectedProject) { Owner = owner }.Show();
+    }
+
+    private bool CanOpenPublicationSheet() => LegalTermsGateOpen() && SelectedProject != null;
+
     [RelayCommand(CanExecute = nameof(CanRepublishToCloud))]
     private async Task RepublishToCloudAsync() =>
         await RunCloudPublishForProjectsAsync(new[] { SelectedProject! }, requireLinkedId: true).ConfigureAwait(true);

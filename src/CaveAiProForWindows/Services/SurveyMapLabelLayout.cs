@@ -162,7 +162,7 @@ public static class SurveyMapLabelLayout
         if (legs.Count <= 1)
             return legs;
 
-        var minGap = Math.Clamp(MinLegGapPx, pxPerMetre * 3.2, 120);
+        var minGap = Math.Clamp(pxPerMetre * 3.2, MinLegGapPx, 120);
         var kept = new List<SurveyLegMapLabel>();
         Point? lastAnchor = null;
 
@@ -223,7 +223,7 @@ public static class SurveyMapLabelLayout
 
     private static double StationMinGap(double pxPerMetre, int stationCount)
     {
-        var baseGap = Math.Clamp(MinStationGapPx, pxPerMetre * 3.0, 96);
+        var baseGap = Math.Clamp(pxPerMetre * 3.0, MinStationGapPx, 96);
         if (stationCount > 60)
             return Math.Max(baseGap, 52);
         if (stationCount > 30)
