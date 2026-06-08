@@ -126,6 +126,11 @@ public sealed class FirebaseProjectConfig
             && !TryReadFragmentParam(uri.Fragment, "apiKey", out key))
             return;
 
+        SetObservedWebApiKey(key);
+    }
+
+    internal static void SetObservedWebApiKey(string? key)
+    {
         if (!IsUsableApiKey(key))
             return;
 

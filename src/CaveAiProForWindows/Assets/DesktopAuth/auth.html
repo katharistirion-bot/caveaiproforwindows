@@ -15,7 +15,9 @@
 
       function readConfig() {
         var cfg = window.__CAVEAI_FIREBASE_CONFIG__;
-        return (cfg && cfg.apiKey) ? cfg : null;
+        if (!cfg || !cfg.apiKey) return null;
+        if (String(cfg.apiKey).indexOf('REPLACE') >= 0) return null;
+        return cfg;
       }
 
       window.caveAiWaitForFirebaseConfig = function (timeoutMs) {

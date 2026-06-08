@@ -82,13 +82,13 @@ internal static class DesktopAuthFallback
 
     private static string BuildDocumentCreatedScript(string firebaseConfigJson, bool isUsable)
     {
-        // Runs before HTML parsers execute — sets config for auth.html and no-ops on other origins.
+        // Runs before HTML parsers execute — sets config for bundled auth.html on localhost virtual host only.
         return $$"""
             (function () {
-              if (window.__CAVEAI_FIREBASE_CONFIG_INJECTED__) return;
-              window.__CAVEAI_FIREBASE_CONFIG_INJECTED__ = true;
               var host = (location && location.hostname) || '';
               if (host !== '{{VirtualHost}}') return;
+              if (window.__CAVEAI_FIREBASE_CONFIG_INJECTED__) return;
+              window.__CAVEAI_FIREBASE_CONFIG_INJECTED__ = true;
               window.__CAVEAI_FIREBASE_CONFIG__ = {{firebaseConfigJson}};
               window.__CAVEAI_FIREBASE_CONFIG_READY__ = {{(isUsable ? "true" : "false")}};
               try {
@@ -98,6 +98,29 @@ internal static class DesktopAuthFallback
               } catch (e) {}
             })();
             """;
+    }
+
+    /// <summary>Pushes the latest resolved config into the current bundled auth page (after OAuth observed a key).</summary>
+    public static async Task PushFirebaseConfigToPageAsync(CoreWebView2 core)
+    {
+        ArgumentNullException.ThrowIfNull(core);
+        var cfg = FirebaseProjectConfig.LoadFromEnvironment().ToWebClientConfig();
+        if (!cfg.IsUsable)
+            return;
+
+        var json = JsonSerializer.Serialize(cfg.ToFirebaseInitializeAppObject());
+        var script = $$"""
+            (function () {
+              window.__CAVEAI_FIREBASE_CONFIG__ = {{json}};
+              window.__CAVEAI_FIREBASE_CONFIG_READY__ = true;
+              try {
+                window.dispatchEvent(new CustomEvent('caveai-firebase-config', {
+                  detail: window.__CAVEAI_FIREBASE_CONFIG__
+                }));
+              } catch (e) {}
+            })();
+            """;
+        await core.ExecuteScriptAsync(script).ConfigureAwait(true);
     }
 
     private static string? ResolveAuthFolder()

@@ -50,4 +50,13 @@ public sealed class FirebaseProjectConfigTests
             "https://caveaipro-5950e.firebaseapp.com/__/auth/handler?apiKey=AIzaSyObservedFromWeb&providerId=google.com");
         Assert.AreEqual("AIzaSyObservedFromWeb", FirebaseProjectConfig.ObservedWebApiKey);
     }
+
+    [TestMethod]
+    public void SetObservedWebApiKey_ignores_placeholder_keys()
+    {
+        FirebaseProjectConfig.SetObservedWebApiKey("AIzaSyValidExampleKey");
+        Assert.AreEqual("AIzaSyValidExampleKey", FirebaseProjectConfig.ObservedWebApiKey);
+        FirebaseProjectConfig.SetObservedWebApiKey("REPLACE_AT_BUILD");
+        Assert.AreEqual("AIzaSyValidExampleKey", FirebaseProjectConfig.ObservedWebApiKey);
+    }
 }

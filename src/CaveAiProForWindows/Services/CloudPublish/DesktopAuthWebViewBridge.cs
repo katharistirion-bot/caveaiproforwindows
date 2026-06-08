@@ -239,7 +239,24 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
         if (!DesktopAuthFallback.HasUsableFirebaseConfig())
             return;
 
-        _core.Navigate(DesktopAuthFlowInvariants.PostExchangeNavigationUri);
+        _ = NavigateBundledAuthAfterExchangeAsync();
+    }
+
+    private async Task NavigateBundledAuthAfterExchangeAsync()
+    {
+        if (_core == null)
+            return;
+
+        try
+        {
+            await DesktopAuthFallback.PrepareFallbackNavigationAsync(_core).ConfigureAwait(true);
+            _core.Navigate(DesktopAuthFlowInvariants.PostExchangeNavigationUri);
+            await DesktopAuthFallback.PushFirebaseConfigToPageAsync(_core).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("[DesktopAuthBridge] Bundled auth navigation failed: " + ex.Message);
+        }
     }
 
     private async void OnWebResourceResponseReceived(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)

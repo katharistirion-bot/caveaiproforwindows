@@ -111,7 +111,17 @@ public partial class DesktopAuthWindow : Window
             _cache.TokenUpdated += OnCacheTokenUpdated;
             Closed += (_, _) => _cache.TokenUpdated -= OnCacheTokenUpdated;
 
+            core.NavigationCompleted += async (_, _) =>
+            {
+                if (!DesktopAuthFallback.IsFallbackUri(core.Source))
+                    return;
+                await DesktopAuthFallback.PushFirebaseConfigToPageAsync(core).ConfigureAwait(true);
+            };
+
             StatusText.Text = "Sign in with Google on the page below…";
+            if (!DesktopAuthFallback.HasUsableFirebaseConfig())
+                await FirebaseHostingConfigFetcher.TryFetchWebApiKeyAsync().ConfigureAwait(true);
+
             if (DesktopAuthFallback.HasUsableFirebaseConfig())
             {
                 await DesktopAuthFallback.PrepareFallbackNavigationAsync(core).ConfigureAwait(true);

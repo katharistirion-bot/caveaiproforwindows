@@ -141,6 +141,13 @@ public partial class LoginWindow : Window
             _cache.TokenUpdated += OnCacheTokenUpdated;
             Closed += (_, _) => _cache.TokenUpdated -= OnCacheTokenUpdated;
 
+            core.NavigationCompleted += async (_, _) =>
+            {
+                if (!DesktopAuthFallback.IsFallbackUri(core.Source))
+                    return;
+                await DesktopAuthFallback.PushFirebaseConfigToPageAsync(core).ConfigureAwait(true);
+            };
+
             HideAccessDenied();
             await NavigateAuthEntryAsync(core).ConfigureAwait(true);
         }
@@ -393,6 +400,9 @@ public partial class LoginWindow : Window
 
     private async Task NavigateAuthEntryAsync(CoreWebView2 core)
     {
+        if (!DesktopAuthFallback.HasUsableFirebaseConfig())
+            await FirebaseHostingConfigFetcher.TryFetchWebApiKeyAsync().ConfigureAwait(true);
+
         if (DesktopAuthFallback.HasUsableFirebaseConfig())
         {
             await DesktopAuthFallback.PrepareFallbackNavigationAsync(core).ConfigureAwait(true);
@@ -427,6 +437,9 @@ public partial class LoginWindow : Window
     private async Task NavigateFallbackAsync(CoreWebView2 core)
     {
         if (!DesktopAuthFallback.HasUsableFirebaseConfig())
+            await FirebaseHostingConfigFetcher.TryFetchWebApiKeyAsync().ConfigureAwait(true);
+
+        if (!DesktopAuthFallback.HasUsableFirebaseConfig())
         {
             MessageBox.Show(
                 this,
@@ -439,6 +452,7 @@ public partial class LoginWindow : Window
 
         await DesktopAuthFallback.PrepareFallbackNavigationAsync(core).ConfigureAwait(true);
         core.Navigate(DesktopAuthFallback.FallbackUri);
+        await DesktopAuthFallback.PushFirebaseConfigToPageAsync(core).ConfigureAwait(true);
     }
 
     private static bool IsAllowedNavigation(string uri)
