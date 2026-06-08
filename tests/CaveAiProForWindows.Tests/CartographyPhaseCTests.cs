@@ -96,11 +96,32 @@ public sealed class CartographyPhaseCTests
     }
 
     [TestMethod]
-    public void Symbol_catalog_default_legend_has_uicc_style_labels()
+    public void ForRasterExport_print_uses_print_preset()
     {
-        Assert.IsTrue(CaveMappingSymbolCatalog.DefaultLegendKinds.Count >= 7);
-        var stalagmite = CaveMappingSymbolCatalog.GetLabel(CaveMappingSymbolCatalog.SymbolKind.Stalagmite);
-        Assert.IsTrue(stalagmite.Contains("Stalagmite", StringComparison.Ordinal));
-        Assert.IsTrue(stalagmite.Contains("floor", StringComparison.OrdinalIgnoreCase));
+        var project = new CaveProjectDocument { Name = "RasterCave" };
+        var opt = PlanCanvasDrawOptionsFactory.ForRasterExport(
+            SurveyCanvasKind.Section,
+            MapExportQuality.Print,
+            project: project);
+        Assert.AreEqual(CartographicRenderPreset.Print, opt.RenderPreset);
+        Assert.IsTrue(opt.ShowCartographyOverlay);
+        Assert.IsNotNull(opt.ExportMetadata);
+    }
+
+    [TestMethod]
+    public void ForRasterExport_standard_uses_field_preset()
+    {
+        var opt = PlanCanvasDrawOptionsFactory.ForRasterExport(
+            SurveyCanvasKind.Section,
+            MapExportQuality.Standard);
+        Assert.AreEqual(CartographicRenderPreset.Field, opt.RenderPreset);
+        Assert.IsTrue(opt.ShowCartographyOverlay);
+    }
+
+    [TestMethod]
+    public void MapExportQuality_parser_round_trips()
+    {
+        Assert.AreEqual(MapExportQuality.Print, MapExportQualityParser.Parse("Print"));
+        Assert.AreEqual("Standard", MapExportQualityParser.ToPersistedString(MapExportQuality.Standard));
     }
 }

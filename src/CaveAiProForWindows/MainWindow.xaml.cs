@@ -51,6 +51,17 @@ public partial class MainWindow : Window
                 if (ReferenceEquals(vm.SelectedProject, project))
                     SketchEditorControl.TryPersistSessionToProject(project);
             };
+            PlanViewControl.BeforePlanExport = project =>
+            {
+                if (ReferenceEquals(vm.SelectedProject, project))
+                    SketchEditorControl.TryPersistSessionToProject(project);
+            };
+            PlanViewControl.ResolveDesignLayerForExport = () =>
+            {
+                if (vm.SelectedProject == null)
+                    return null;
+                return SketchEditorControl.TryGetDesignLayerExportContext();
+            };
             WelcomeOnboardingWindow.ShowIfFirstRun(this);
             StartAndroidBackupSyncWatcher(vm);
             StartCollaborationNotifications(vm);
@@ -361,6 +372,7 @@ public partial class MainWindow : Window
 
         try
         {
+            SketchEditorControl.TryPersistSessionToProject(project);
             var png = PlanViewControl.CapturePlanPngBytes() ?? Array.Empty<byte>();
             SurveyPortableZipExporter.WriteZip(project, png, dlg.FileName);
             vm.StatusMessage = $"Exported ZIP: {dlg.FileName}";

@@ -31,7 +31,8 @@ public static class PlanMapRasterExporter
         IReadOnlyList<PlanRasterUnderlay> underlays,
         string? zipPath,
         int vectorViewMode = SurveyStationGeometry.AndroidViewModePlan,
-        MapExportQuality quality = MapExportQuality.Standard)
+        MapExportQuality quality = MapExportQuality.Standard,
+        PlanDesignLayerExportContext? designOverlay = null)
     {
         if (visualizationMode == SurveyVisualizationMode.Pseudo3D)
             return null;
@@ -56,6 +57,19 @@ public static class PlanMapRasterExporter
         }
         else
         {
+            var exportOpt = drawOptions;
+            if (exportOpt.ExportMetadata != null)
+            {
+                var pxPerMetre = pxW / Math.Max(scene.SpanX, 1e-6f);
+                exportOpt = exportOpt with
+                {
+                    ExportMetadata = exportOpt.ExportMetadata with
+                    {
+                        ScaleLabel = CartographicScaleCalculator.FormatScaleLabel(pxPerMetre),
+                    },
+                };
+            }
+
             PlanCanvasRenderer.Draw(
                 scene,
                 canvas,
@@ -65,7 +79,7 @@ public static class PlanMapRasterExporter
                 underlays,
                 project,
                 zipPath,
-                drawOptions);
+                exportOpt);
         }
 
         canvas.Measure(new Size(pxW, pxH));
@@ -79,7 +93,69 @@ public static class PlanMapRasterExporter
         enc.Frames.Add(BitmapFrame.Create(rtb));
         using var ms = new MemoryStream();
         enc.Save(ms);
+        var baseBytes = ms.ToArray();
+
+        if (designOverlay == null || designOverlay.Layer.Children.Count == 0 ||
+            designOverlay.CanvasWidth < 1 || designOverlay.CanvasHeight < 1)
+            return baseBytes;
+
+        return TryMergeDesignLayerOverlay(baseBytes, pxW, pxH, designOverlay) ?? baseBytes;
+    }
+
+    /// <summary>Composites a screen-space design layer over exported PNG bytes (sketch editor / plan ink).</summary>
+    public static byte[]? TryMergeDesignLayerOverlay(
+        byte[] basePng,
+        int pxW,
+        int pxH,
+        PlanDesignLayerExportContext designOverlay)
+    {
+        if (basePng.Length == 0 || pxW < 1 || pxH < 1)
+            return null;
+
+        var layer = designOverlay.Layer;
+        var editorW = designOverlay.CanvasWidth;
+        var editorH = designOverlay.CanvasHeight;
+        if (layer.Children.Count == 0 || editorW < 1 || editorH < 1)
+            return basePng;
+
+        layer.Measure(new Size(editorW, editorH));
+        layer.Arrange(new Rect(0, 0, editorW, editorH));
+        layer.UpdateLayout();
+
+        var baseImage = LoadPngBytes(basePng);
+        var dv = new DrawingVisual();
+        using (var dc = dv.RenderOpen())
+        {
+            dc.DrawImage(baseImage, new Rect(0, 0, pxW, pxH));
+            var overlay = new VisualBrush(layer)
+            {
+                Stretch = Stretch.Fill,
+                ViewboxUnits = BrushMappingMode.Absolute,
+                Viewbox = new Rect(0, 0, editorW, editorH),
+            };
+            dc.DrawRectangle(overlay, null, new Rect(0, 0, pxW, pxH));
+        }
+
+        var rtb = new RenderTargetBitmap(pxW, pxH, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(dv);
+
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(rtb));
+        using var ms = new MemoryStream();
+        enc.Save(ms);
         return ms.ToArray();
+    }
+
+    private static BitmapSource LoadPngBytes(byte[] png)
+    {
+        using var ms = new MemoryStream(png);
+        var img = new BitmapImage();
+        img.BeginInit();
+        img.CacheOption = BitmapCacheOption.OnLoad;
+        img.StreamSource = ms;
+        img.EndInit();
+        img.Freeze();
+        return img;
     }
 
     public static (int pxW, int pxH) ComputeExportPixelSize(PlanScene? scene, MapExportQuality quality = MapExportQuality.Standard) =>

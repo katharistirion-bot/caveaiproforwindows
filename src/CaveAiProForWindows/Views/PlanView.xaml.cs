@@ -162,6 +162,12 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         set => SetValue(VisualizationModeProperty, value);
     }
 
+    /// <summary>Flushes sketch-editor session and merges design-layer ink before raster export.</summary>
+    public Action<CaveProjectDocument>? BeforePlanExport { get; set; }
+
+    /// <summary>Sketch editor (or other) design layer to composite onto plan PNG exports.</summary>
+    public Func<PlanDesignLayerExportContext?>? ResolveDesignLayerForExport { get; set; }
+
     private MapCanvasEditorController? _mapEditor;
     private MapCanvasEditorTool _currentTool = MapCanvasEditorTool.PanZoom;
     private SketchEditorSymbolKind _stampKind = SketchEditorSymbolKind.RockBlock;
@@ -821,6 +827,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
             SyncCartographicIntensityCombo(AppUiSettingsStore.LoadOrDefault().CartographicIntensity);
             SyncSurveyDetailDensityCombo(AppUiSettingsStore.LoadOrDefault().SurveyDetailDensity);
+            SyncMapExportQualityCombo(AppUiSettingsStore.LoadOrDefault().MapExportQuality);
 
             if (EditorToolPan != null && EditorToolSelect != null && EditorToolDraw != null &&
                 EditorToolSymbol != null)
@@ -1557,6 +1564,37 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         all.CartographicIntensity = tag;
         AppUiSettingsStore.Save(all);
         Redraw();
+    }
+
+    private void SyncMapExportQualityCombo(string? persisted)
+    {
+        if (MapExportQualityCombo == null)
+            return;
+        var tag = MapExportQualityParser.ToPersistedString(MapExportQualityParser.Parse(persisted));
+        foreach (ComboBoxItem item in MapExportQualityCombo.Items)
+        {
+            if (item.Tag is string t && string.Equals(t, tag, StringComparison.OrdinalIgnoreCase))
+            {
+                MapExportQualityCombo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private MapExportQuality SelectedMapExportQuality()
+    {
+        if (MapExportQualityCombo?.SelectedItem is ComboBoxItem { Tag: string tag })
+            return MapExportQualityParser.Parse(tag);
+        return MapExportQualityParser.Parse(AppUiSettingsStore.LoadOrDefault().MapExportQuality);
+    }
+
+    private void MapExportQualityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingSettings || MapExportQualityCombo?.SelectedItem is not ComboBoxItem { Tag: string tag })
+            return;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.MapExportQuality = tag;
+        AppUiSettingsStore.Save(all);
     }
 
     private void SyncSurveyDetailDensityCombo(string? persisted)
@@ -2304,7 +2342,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         {
             Filter = "PNG image (*.png)|*.png",
             DefaultExt = ".png",
-            FileName = SanitizeFileName(Project?.Name) + "-plan.png",
+            FileName = SanitizeFileName(Project?.Name) +
+                       (VisualizationMode == SurveyVisualizationMode.LongProfile ? "-long-profile.png" : "-plan.png"),
         };
         if (dlg.ShowDialog() != true)
             return;
@@ -2418,22 +2457,30 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
     private byte[]? CapturePlan2DPngBytes()
     {
-
         var p = Project;
         if (p == null)
             return null;
 
+        BeforePlanExport?.Invoke(p);
+
+        var quality = SelectedMapExportQuality();
         var underlays = LoadPlanUnderlays(p);
+        var designOverlay = ResolveDesignLayerForExport?.Invoke();
+        if (designOverlay == null && DesignLayer is { Children.Count: > 0 } localLayer &&
+            SurveyCanvas is { Width: > 0, Height: > 0 })
+        {
+            designOverlay = new PlanDesignLayerExportContext(localLayer, SurveyCanvas.Width, SurveyCanvas.Height);
+        }
+
         return PlanMapRasterExporter.TryCapturePlanPngHighRes(
             p,
             VisualizationMode,
             PrintHiContrastCheck?.IsChecked == true,
-            PlanCanvasDrawOptionsFactory.ForExport(
-                SurveyCanvasKind.Plan,
-                VisualizationMode),
+            PlanCanvasDrawOptionsFactory.ForRasterExport(SurveyCanvasKind.Plan, quality, VisualizationMode, p),
             underlays,
             ZipPath,
-            quality: MapExportQuality.Standard);
+            quality: quality,
+            designOverlay: designOverlay);
     }
 
     /// <inheritdoc />

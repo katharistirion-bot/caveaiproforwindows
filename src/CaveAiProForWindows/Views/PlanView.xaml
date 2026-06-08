@@ -21,8 +21,15 @@
                         ToolTip="Open print preview (ISO A4/A3/A2, landscape or portrait)" />
                 <CheckBox x:Name="PrintHiContrastCheck" VerticalAlignment="Center" Margin="12,0,8,0"
                           Content="High-contrast print" ToolTip="Black/white for printer" />
+                <ComboBox x:Name="MapExportQualityCombo" Width="118" VerticalAlignment="Center" Margin="0,0,8,0"
+                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                          SelectionChanged="MapExportQualityCombo_SelectionChanged"
+                          ToolTip="PNG export resolution — Standard (~300 DPI) or Print (~600 DPI)">
+                    <ComboBoxItem Content="Standard" Tag="Standard" IsSelected="True" />
+                    <ComboBoxItem Content="Print" Tag="Print" />
+                </ComboBox>
                 <Button Content="Export _PNG…" Padding="10,6" Margin="8,0,0,0"
-                        ToolTip="Save full survey bounds as a high-resolution PNG (~300 DPI, CAD-friendly)"
+                        ToolTip="Save full survey bounds as high-resolution PNG (Standard ~300 DPI or Print ~600 DPI)"
                         Click="ExportPlanPng_Click" />
                 <Button Content="Export _SVG (vector)…" Padding="10,6" Margin="8,0,0,0"
                         ToolTip="Export traverse, walls, vectors, and stations as scalable SVG for CAD"

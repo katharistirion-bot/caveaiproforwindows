@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Specialized;
-using System.Linq;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -10,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.ViewModels;
@@ -258,6 +260,9 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
                 CoordinateGridCheck.IsChecked = s.ShowCoordinateGrid;
             if (CartographyOverlayCheck != null)
                 CartographyOverlayCheck.IsChecked = s.Overlay;
+            SyncCartographicIntensityCombo(AppUiSettingsStore.LoadOrDefault().CartographicIntensity);
+            SyncSurveyDetailDensityCombo(AppUiSettingsStore.LoadOrDefault().SurveyDetailDensity);
+            SyncMapExportQualityCombo(AppUiSettingsStore.LoadOrDefault().MapExportQuality);
             if (EditorToolPan != null && EditorToolSelect != null && EditorToolDraw != null &&
                 EditorToolSymbol != null)
             {
@@ -813,5 +818,176 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
             CanvasKind = SurveyCanvasKind.Section,
             ShowCartographyOverlay = true,
         };
+    }
+
+    private void SyncCartographicIntensityCombo(string? persisted)
+    {
+        if (CartographicIntensityCombo == null)
+            return;
+        var key = CartographicIntensityParser.Parse(persisted).ToString();
+        foreach (ComboBoxItem item in CartographicIntensityCombo.Items)
+        {
+            if (item.Tag is string t && string.Equals(t, key, StringComparison.OrdinalIgnoreCase))
+            {
+                CartographicIntensityCombo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private void CartographicIntensityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingSettings || CartographicIntensityCombo?.SelectedItem is not ComboBoxItem { Tag: string tag })
+            return;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.CartographicIntensity = tag;
+        AppUiSettingsStore.Save(all);
+        Redraw();
+    }
+
+    private void SyncSurveyDetailDensityCombo(string? persisted)
+    {
+        if (SurveyDetailDensityCombo == null)
+            return;
+        var tag = SurveyDetailDensityParser.ToPersistedString(SurveyDetailDensityParser.Parse(persisted));
+        foreach (ComboBoxItem item in SurveyDetailDensityCombo.Items)
+        {
+            if (item.Tag is string t && string.Equals(t, tag, StringComparison.OrdinalIgnoreCase))
+            {
+                SurveyDetailDensityCombo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private void SurveyDetailDensityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingSettings || SurveyDetailDensityCombo?.SelectedItem is not ComboBoxItem { Tag: string tag })
+            return;
+
+        var density = SurveyDetailDensityParser.Parse(tag);
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.SurveyDetailDensity = SurveyDetailDensityParser.ToPersistedString(density);
+        SurveyDetailDensityMapper.ApplyToMapTab(all.Plan, density);
+        SurveyDetailDensityMapper.ApplyToMapTab(all.Section, density);
+        SurveyDetailDensityMapper.ApplyToMapTab(all.Sketch, density);
+        AppUiSettingsStore.Save(all);
+
+        _applyingSettings = true;
+        try
+        {
+            var s = all.Section;
+            if (StationNamesCheck != null)
+                StationNamesCheck.IsChecked = s.StationNames;
+            if (LegSurveyDetailsCheck != null)
+                LegSurveyDetailsCheck.IsChecked = s.LegSurveyDetails;
+            if (StationEnvironmentCheck != null)
+                StationEnvironmentCheck.IsChecked = s.StationEnvironment;
+            if (DepthSpanAnnotationsCheck != null)
+                DepthSpanAnnotationsCheck.IsChecked = s.DepthSpanAnnotations;
+            if (BracketMarkersCheck != null)
+                BracketMarkersCheck.IsChecked = s.BracketMarkers;
+            if (LoopClosureHighlightsCheck != null)
+                LoopClosureHighlightsCheck.IsChecked = s.LoopClosureHighlights;
+            if (LrudRibbonQcCheck != null)
+                LrudRibbonQcCheck.IsChecked = s.LrudRibbonQcHighlights;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
+        Redraw();
+    }
+
+    private void SyncMapExportQualityCombo(string? persisted)
+    {
+        if (MapExportQualityCombo == null)
+            return;
+        var tag = MapExportQualityParser.ToPersistedString(MapExportQualityParser.Parse(persisted));
+        foreach (ComboBoxItem item in MapExportQualityCombo.Items)
+        {
+            if (item.Tag is string t && string.Equals(t, tag, StringComparison.OrdinalIgnoreCase))
+            {
+                MapExportQualityCombo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private MapExportQuality SelectedMapExportQuality()
+    {
+        if (MapExportQualityCombo?.SelectedItem is ComboBoxItem { Tag: string tag })
+            return MapExportQualityParser.Parse(tag);
+        return MapExportQualityParser.Parse(AppUiSettingsStore.LoadOrDefault().MapExportQuality);
+    }
+
+    private void MapExportQualityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingSettings || MapExportQualityCombo?.SelectedItem is not ComboBoxItem { Tag: string tag })
+            return;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.MapExportQuality = tag;
+        AppUiSettingsStore.Save(all);
+    }
+
+    private void ExportSectionPng_Click(object sender, RoutedEventArgs e)
+    {
+        var bytes = CaptureSectionPngBytes();
+        if (bytes == null || bytes.Length == 0)
+        {
+            MessageBox.Show(
+                "Nothing to export — open a project with section vectors or traverse data.",
+                "Export PNG",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dlg = new SaveFileDialog
+        {
+            Filter = "PNG image (*.png)|*.png",
+            DefaultExt = ".png",
+            FileName = SanitizeFileName(Project?.Name) + "-section.png",
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+        try
+        {
+            File.WriteAllBytes(dlg.FileName, bytes);
+            if (DataContext is MainViewModel vm)
+                vm.StatusMessage = $"High-res section PNG saved: {Path.GetFileName(dlg.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Export PNG", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    public byte[]? CaptureSectionPngBytes()
+    {
+        var p = Project;
+        if (p == null)
+            return null;
+
+        var quality = SelectedMapExportQuality();
+        var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+        return PlanMapRasterExporter.TryCapturePlanPngHighRes(
+            p,
+            VisualizationMode,
+            PrintHiContrastCheck?.IsChecked == true,
+            PlanCanvasDrawOptionsFactory.ForRasterExport(SurveyCanvasKind.Section, quality, VisualizationMode, p),
+            underlays,
+            ZipPath,
+            vectorViewMode: SurveyStationGeometry.AndroidViewModeSection,
+            quality: quality);
+    }
+
+    private static string SanitizeFileName(string? name)
+    {
+        var n = string.IsNullOrWhiteSpace(name) ? "section" : name.Trim();
+        foreach (var c in Path.GetInvalidFileNameChars())
+            n = n.Replace(c, '_');
+        return n.Length > 80 ? n[..80] : n;
     }
 }

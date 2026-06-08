@@ -86,4 +86,14 @@ public static class PlanCanvasDrawOptionsFactory
 
         return opt;
     }
+
+    /// <summary>Raster export preset keyed to <see cref="MapExportQuality"/> (print adds scale bar metadata and wall hatching).</summary>
+    public static PlanCanvasDrawOptions ForRasterExport(
+        SurveyCanvasKind kind,
+        MapExportQuality quality,
+        SurveyVisualizationMode visualization = SurveyVisualizationMode.Standard,
+        CaveProjectDocument? project = null) =>
+        quality == MapExportQuality.Print
+            ? ForExportPrint(kind, visualization, project)
+            : ForExport(kind, visualization);
 }

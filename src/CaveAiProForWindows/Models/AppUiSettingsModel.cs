@@ -17,6 +17,9 @@ public sealed class AppUiSettingsModel
     /// <summary><see cref="Services.SurveyDetailDensity"/> — Minimal / Standard / Full label preset.</summary>
     public string SurveyDetailDensity { get; set; } = "Full";
 
+    /// <summary><see cref="Services.MapExportQuality"/> — Standard (~300 DPI) or Print (~600 DPI) raster exports.</summary>
+    public string MapExportQuality { get; set; } = "Standard";
+
     /// <summary>Non-secret generative map preferences (API token lives in Windows Credential Manager).</summary>
     public GenerativeMapSettings GenerativeMap { get; set; } = new();
 

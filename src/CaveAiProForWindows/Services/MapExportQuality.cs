@@ -14,3 +14,11 @@ public static class MapExportQualityExtensions
 {
     public static double DpiScale(this MapExportQuality quality) => (int)quality / 96.0;
 }
+
+public static class MapExportQualityParser
+{
+    public static MapExportQuality Parse(string? s) =>
+        Enum.TryParse<MapExportQuality>(s?.Trim(), true, out var v) ? v : MapExportQuality.Standard;
+
+    public static string ToPersistedString(MapExportQuality v) => v.ToString();
+}

@@ -1145,6 +1145,15 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     public bool TryPersistSessionToProject(CaveProjectDocument project) =>
         _sketchPersistence?.TryPersistSessionToProject(project) ?? false;
 
+    /// <summary>Design layer for compositing onto plan PNG exports from the Plan tab.</summary>
+    public PlanDesignLayerExportContext? TryGetDesignLayerExportContext()
+    {
+        if (DesignLayer == null || SurveyCanvas == null ||
+            SurveyCanvas.Width < 1 || SurveyCanvas.Height < 1)
+            return null;
+        return new PlanDesignLayerExportContext(DesignLayer, SurveyCanvas.Width, SurveyCanvas.Height);
+    }
+
     /// <summary>Updates in-memory <c>mapObjects</c> / <c>sketches</c> after each edit (no disk write).</summary>
     private void SyncDesignLayerToInMemoryProject()
     {

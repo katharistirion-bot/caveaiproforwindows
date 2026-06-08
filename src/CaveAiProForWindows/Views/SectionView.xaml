@@ -20,6 +20,16 @@
                         ToolTip="Open print preview (ISO A4/A3/A2, landscape or portrait)" />
                 <CheckBox x:Name="PrintHiContrastCheck" VerticalAlignment="Center" Margin="12,0,8,0"
                           Content="High-contrast print" ToolTip="Black/white for printer" />
+                <ComboBox x:Name="MapExportQualityCombo" Width="118" VerticalAlignment="Center" Margin="0,0,8,0"
+                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                          SelectionChanged="MapExportQualityCombo_SelectionChanged"
+                          ToolTip="PNG export resolution — Standard (~300 DPI) or Print (~600 DPI)">
+                    <ComboBoxItem Content="Standard" Tag="Standard" IsSelected="True" />
+                    <ComboBoxItem Content="Print" Tag="Print" />
+                </ComboBox>
+                <Button Content="Export _PNG…" Padding="10,6" Margin="8,0,0,0"
+                        ToolTip="Save full section bounds as high-resolution PNG (Standard ~300 DPI or Print ~600 DPI)"
+                        Click="ExportSectionPng_Click" />
                 <Button Content="Zoom _out" Padding="10,6" Margin="12,0,0,0"
                         ToolTip="Zoom out (Ctrl+mouse wheel down)"
                         Click="ZoomOut_Click" />
@@ -108,6 +118,32 @@
                                        Text="Wheel zoom (cursor) · left/middle-drag pan · toolbar Zoom · Symbol: stamp + click · Draw: drag · double-click map (Pan): reset view." />
 
                             <Separator Margin="0,0,0,10" />
+
+                            <TextBlock Text="Map cartography style" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                       Foreground="{DynamicResource Cave.Text}"
+                                       Margin="0,0,0,8" />
+                            <ComboBox x:Name="CartographicIntensityCombo" Margin="0,0,0,10"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      SelectionChanged="CartographicIntensityCombo_SelectionChanged"
+                                      ToolTip="Subtle: lighter grid &amp; shadow · Balanced · Rich: stronger sketch depth (saved for all map tabs)">
+                                <ComboBoxItem Content="Subtle" Tag="Subtle" />
+                                <ComboBoxItem Content="Balanced" Tag="Balanced" />
+                                <ComboBoxItem Content="Rich" Tag="Rich" />
+                            </ComboBox>
+
+                            <TextBlock Text="Survey detail preset" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                       Foreground="{DynamicResource Cave.Text}"
+                                       Margin="0,0,0,8" />
+                            <ComboBox x:Name="SurveyDetailDensityCombo" Margin="0,0,0,10"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      SelectionChanged="SurveyDetailDensityCombo_SelectionChanged"
+                                      ToolTip="Minimal / Standard / Full — applies to Plan, Section, Sketch and exports">
+                                <ComboBoxItem Content="Minimal" Tag="Minimal" />
+                                <ComboBoxItem Content="Standard" Tag="Standard" />
+                                <ComboBoxItem Content="Full" Tag="Full" />
+                            </ComboBox>
 
                             <TextBlock Text="Section display" FontWeight="SemiBold"
                                        FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
