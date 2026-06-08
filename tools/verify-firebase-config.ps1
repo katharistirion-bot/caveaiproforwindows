@@ -34,7 +34,7 @@ Run: `$env:CAVEAIPRO_FIREBASE_API_KEY = '<Firebase Web API key>'; .\tools\inject
 try {
     $obj = $json | ConvertFrom-Json
 } catch {
-    throw "verify-firebase-config: invalid JSON at $ConfigPath — $($_.Exception.Message)"
+    throw "verify-firebase-config: invalid JSON at $ConfigPath - $($_.Exception.Message)"
 }
 
 if ([string]::IsNullOrWhiteSpace($obj.apiKey)) {
