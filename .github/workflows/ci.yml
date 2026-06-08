@@ -35,6 +35,16 @@ jobs:
       - name: Restore
         run: dotnet restore CaveAiProForWindows.sln
 
+      - name: Inject Firebase web config (required for Release verify)
+        shell: pwsh
+        env:
+          CAVEAIPRO_FIREBASE_API_KEY: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CAVEAIPRO_FIREBASE_API_KEY)) {
+            throw 'CI Release build requires GitHub secret CAVEAIPRO_FIREBASE_API_KEY (Firebase Web API key).'
+          }
+          ./tools/inject-firebase-config.ps1
+
       - name: Build (Release, obfuscated)
         run: dotnet build src/CaveAiProForWindows/CaveAiProForWindows.csproj -c Release --no-restore
 
