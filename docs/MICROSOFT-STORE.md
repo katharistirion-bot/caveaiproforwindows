@@ -44,10 +44,13 @@ One command — build, obfuscate, publish Store profile, pack MSIX **without sig
 
 ### What the script does
 
-1. `dotnet restore` solution
-2. `dotnet build -c Release` — Obfuscar on `CaveAiProForWindows.dll`
-3. `dotnet publish -p:PublishProfile=MicrosoftStore-Win64` — self-contained folder layout, `STORE_DISTRIBUTION`, no Velopack
-4. `makeappx pack` — unsigned MSIX from `store/Package.appxmanifest` + publish output
+1. Inject Firebase client config (`CAVEAIPRO_FIREBASE_API_KEY` required)
+2. `dotnet restore` solution
+3. **Full** `dotnet publish -p:PublishProfile=MicrosoftStore-Win64` — Obfuscar, **self-contained** folder layout (`includedFrameworks` in `runtimeconfig.json`), `STORE_DISTRIBUTION`, no Velopack
+4. `verify-store-publish.ps1` — fails the build if publish output is framework-dependent (would show the Windows “.NET install” dialog on clean machines)
+5. `makeappx pack` — unsigned MSIX from `store/Package.appxmanifest` + publish output
+
+**Important:** Do **not** use `dotnet publish --no-build` for Store MSIX. A prior framework-dependent build plus `--no-build` leaves `runtimeconfig.json` with `"frameworks"` instead of `"includedFrameworks"`, which fails Store certification (10.1.2.10).
 
 ### Output
 
@@ -59,9 +62,9 @@ Example: `_store_out\CaveAiProForWindows-1.3.0-Store-unsigned.msix`
 
 ```powershell
 dotnet restore CaveAiProForWindows.sln
-dotnet build src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release
 dotnet publish src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release -p:PublishProfile=MicrosoftStore-Win64
-.\tools\package-store-msix.ps1   # skips rebuild if already published; or run full script
+.\tools\verify-store-publish.ps1 -PublishDir src\CaveAiProForWindows\bin\Release\net8.0-windows\publish\microsoft-store\win-x64
+# Then run package-store-msix.ps1 for inject + pack, or use the full script end-to-end.
 ```
 
 Publish output (unpacked): `src\CaveAiProForWindows\bin\Release\net8.0-windows\publish\microsoft-store\win-x64\`
@@ -113,9 +116,19 @@ Optional script overrides (use the same values as Product identity):
 - [ ] Age rating (IARC)
 - [ ] Capabilities — `internetClient`, `runFullTrust` (full-trust desktop)
 - [ ] **runFullTrust approval** — declare the restricted capability in Partner Center before submission: **Product management → your app → App capabilities** (or **App setup → Capabilities**), add **Run full trust**, and submit for Microsoft review if prompted. The manifest includes `<rescap:Capability Name="runFullTrust" />`; Partner Center shows a **WARNING** until this is declared and approved.
-- [ ] WebView2 — note runtime dependency in certification notes
+- [ ] WebView2 — note runtime dependency in certification notes (Evergreen WebView2; not a separate user install for most Windows 11 PCs)
+- [ ] **.NET runtime** — Store MSIX must be **self-contained** (bundled runtime). Verify with `verify-store-publish.ps1` before upload. No separate .NET Desktop Runtime install is required when `includedFrameworks` is present in publish output.
 - [ ] Firebase / OAuth — Store redirect URIs if required for desktop auth
 - [ ] Certification — requires Google account + active CaveAI Pro (Play) subscription
+
+### Certification resubmit (Product ID `9PPF3HPZRL21`)
+
+After rebuilding with a fixed self-contained MSIX:
+
+1. Run `.\tools\package-store-msix.ps1` (with `CAVEAIPRO_FIREBASE_API_KEY` set).
+2. Confirm `verify-store-publish.ps1` passes and MSIX size is ~200+ MB (bundled runtime).
+3. Upload the new unsigned `.msix` from `_store_out\` to Partner Center → **Packages**.
+4. In **Notes for certification**, state: self-contained .NET 8 desktop app; no separate .NET install; WebView2 Evergreen; Google sign-in + active subscription required for full features.
 
 ## Install guard
 

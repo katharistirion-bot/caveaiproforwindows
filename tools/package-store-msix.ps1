@@ -1,5 +1,5 @@
 # Builds an unsigned MSIX for Microsoft Store submission.
-# Pipeline: Release build (Obfuscar) -> MicrosoftStore-Win64 publish -> makeappx pack (no signing).
+# Pipeline: MicrosoftStore-Win64 publish (Obfuscar + self-contained) -> verify -> makeappx pack (no signing).
 param(
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$IdentityName = 'GeorgiosKourentzis.CaveAIPro',
@@ -71,6 +71,7 @@ $appProj = Join-Path $RepoRoot 'src/CaveAiProForWindows/CaveAiProForWindows.cspr
 $injectScript = Join-Path $RepoRoot 'tools/inject-firebase-config.ps1'
 
 $verifyScript = Join-Path $RepoRoot 'tools/verify-firebase-config.ps1'
+$verifyStoreScript = Join-Path $RepoRoot 'tools/verify-store-publish.ps1'
 
 Write-Host "Version: $version (package $packageVersion)"
 Write-Host 'Step 0/5: inject Firebase client config (required for Store MSIX)'
@@ -88,9 +89,20 @@ Write-Host 'Step 1/5: dotnet restore'
 dotnet restore (Join-Path $RepoRoot 'CaveAiProForWindows.sln') --verbosity minimal
 if ($LASTEXITCODE -ne 0) { throw 'dotnet restore failed.' }
 
-Write-Host 'Step 2/5: Release build with Obfuscar (win-x64, before publish)'
-dotnet build $appProj -c Release -r win-x64 --no-restore --verbosity minimal
-if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
+Write-Host 'Step 2/5: Publish Microsoft Store profile (self-contained, Obfuscar, STORE_DISTRIBUTION)'
+# Full publish only — never use --no-build here. A prior framework-dependent build plus
+# "dotnet publish --no-build" leaves runtimeconfig.json with "frameworks" instead of
+# "includedFrameworks", which triggers the Windows ".NET install" dialog on machines
+# without the Desktop Runtime (Store certification 10.1.2.10).
+dotnet publish $appProj -c Release -p:PublishProfile=MicrosoftStore-Win64 --no-restore --verbosity minimal
+if ($LASTEXITCODE -ne 0) { throw 'Store publish failed.' }
+
+$pubDir = Join-Path $RepoRoot 'src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/microsoft-store/win-x64'
+$exe = Join-Path $pubDir 'CaveAiProForWindows.exe'
+if (-not (Test-Path -LiteralPath $exe)) { throw "Missing published exe: $exe" }
+
+& $verifyStoreScript -PublishDir $pubDir
+if ($LASTEXITCODE -ne 0) { throw 'verify-store-publish.ps1 failed — MSIX must be self-contained.' }
 
 $obfLog = Join-Path $RepoRoot 'src/CaveAiProForWindows/bin/Release/net8.0-windows/win-x64/obfuscated/obfuscar.log'
 if (-not (Test-Path -LiteralPath $obfLog)) {
@@ -105,18 +117,6 @@ if (Test-Path -LiteralPath $obfLog) {
 } else {
     Write-Warning 'Obfuscar log not found — verify MSBuild.Obfuscar ran (Release configuration).'
 }
-
-Write-Host 'Step 3/5: Publish Microsoft Store profile (STORE_DISTRIBUTION, folder layout)'
-dotnet publish $appProj -c Release -p:PublishProfile=MicrosoftStore-Win64 --no-build --verbosity minimal
-if ($LASTEXITCODE -ne 0) {
-    Write-Host 'Publish with --no-build failed; retrying full publish…'
-    dotnet publish $appProj -c Release -p:PublishProfile=MicrosoftStore-Win64 --verbosity minimal
-    if ($LASTEXITCODE -ne 0) { throw 'Store publish failed.' }
-}
-
-$pubDir = Join-Path $RepoRoot 'src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/microsoft-store/win-x64'
-$exe = Join-Path $pubDir 'CaveAiProForWindows.exe'
-if (-not (Test-Path -LiteralPath $exe)) { throw "Missing published exe: $exe" }
 
 $configDest = Join-Path $pubDir 'Assets/DesktopAuth/firebase-config.json'
 & $verifyScript -ConfigPath $configDest
