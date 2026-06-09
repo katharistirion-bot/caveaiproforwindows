@@ -62,6 +62,7 @@ public partial class MainWindow : Window
                     return null;
                 return SketchEditorControl.TryGetDesignLayerExportContext();
             };
+            IntroVideoWindow.ShowIfFirstRun(this);
             WelcomeOnboardingWindow.ShowIfFirstRun(this);
             StartAndroidBackupSyncWatcher(vm);
             StartCollaborationNotifications(vm);
@@ -220,6 +221,9 @@ public partial class MainWindow : Window
             MessageBox.Show(this, ex.Message, "Public Cave Library", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
+
+    private void ReplayIntroVideo_Click(object sender, RoutedEventArgs e) =>
+        IntroVideoWindow.ShowReplay(this);
 
     private void OpenPublicLibraryExternal_Click(object sender, RoutedEventArgs e)
     {

@@ -120,6 +120,8 @@
                           ToolTip="Developer only — local Replicate API token (CAVEAIPRO_REPLICATE_BYOK=1)"
                           Visibility="Collapsed" />
                 <Separator x:Name="ApiSettingsMenuSeparator" Visibility="Collapsed" />
+                <MenuItem x:Name="MenuIntroVideo" Header="_Intro video…" Click="ReplayIntroVideo_Click"
+                          ToolTip="Replay the CAVE AI PRO intro (Skip anytime with Esc)" />
                 <MenuItem x:Name="MenuAbout" Header="_About" Command="{Binding AboutCommand}" InputGestureText="F1" />
                 <MenuItem x:Name="MenuKeyboardShortcuts" Header="_Keyboard shortcuts…" Command="{Binding ShowKeyboardShortcutsCommand}" />
             </MenuItem>

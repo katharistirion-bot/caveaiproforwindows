@@ -29,6 +29,9 @@ public sealed class AppUiSettingsModel
     /// <summary>First-run onboarding completed (<see cref="Views.WelcomeOnboardingWindow"/>).</summary>
     public bool HasCompletedOnboarding { get; set; }
 
+    /// <summary>Cinematic intro video shown once after login (<see cref="Views.IntroVideoWindow"/>).</summary>
+    public bool HasSeenIntroVideo { get; set; }
+
     /// <summary>UI language code: <c>en</c> or <c>el</c>.</summary>
     public string UiLanguage { get; set; } = "en";
 

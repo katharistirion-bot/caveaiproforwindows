@@ -1,0 +1,133 @@
+<Window x:Class="CaveAiProForWindows.Views.IntroVideoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CAVE AI PRO"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        Background="#FF050608"
+        Width="960"
+        Height="540"
+        FontFamily="Segoe UI"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        KeyDown="Window_KeyDown">
+    <Window.Resources>
+        <Storyboard x:Key="FallbackPulse" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="CaveGlow"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0.18" To="0.42" Duration="0:0:2.4"
+                             AutoReverse="True" />
+            <DoubleAnimation Storyboard.TargetName="CaveVeil"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0.55" To="0.85" Duration="0:0:3.6"
+                             AutoReverse="True" />
+        </Storyboard>
+        <Storyboard x:Key="LogoFadeIn">
+            <DoubleAnimation Storyboard.TargetName="LogoEndFrame"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0" To="1" Duration="0:0:0.85">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </Window.Resources>
+
+    <Grid x:Name="RootGrid">
+        <MediaElement x:Name="VideoPlayer"
+                      LoadedBehavior="Manual"
+                      UnloadedBehavior="Stop"
+                      Stretch="UniformToFill"
+                      ScrubbingEnabled="False"
+                      Visibility="Collapsed"
+                      MediaOpened="VideoPlayer_MediaOpened"
+                      MediaEnded="VideoPlayer_MediaEnded"
+                      MediaFailed="VideoPlayer_MediaFailed" />
+
+        <Grid x:Name="FallbackPanel" Visibility="Collapsed">
+            <Grid.Background>
+                <RadialGradientBrush GradientOrigin="0.5,0.35" Center="0.5,0.35" RadiusX="0.9" RadiusY="0.9">
+                    <GradientStop Color="#FF141820" Offset="0" />
+                    <GradientStop Color="#FF050608" Offset="1" />
+                </RadialGradientBrush>
+            </Grid.Background>
+            <Ellipse x:Name="CaveGlow" Width="620" Height="420" Opacity="0.28"
+                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Ellipse.Fill>
+                    <RadialGradientBrush>
+                        <GradientStop Color="#FF1A2535" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+            <Rectangle x:Name="CaveVeil" Opacity="0.7">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#00000000" Offset="0" />
+                        <GradientStop Color="#CC000000" Offset="1" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="CAVE AI PRO"
+                           FontSize="28"
+                           FontWeight="Bold"
+                           Foreground="#FFEFF2F8"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Survey workstation"
+                           FontSize="13"
+                           Foreground="#FF8A93A6"
+                           HorizontalAlignment="Center"
+                           Margin="0,6,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <Grid x:Name="LogoEndFrame" Visibility="Collapsed" Opacity="0"
+              Background="#FF050608">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Image Width="160" Height="160" Stretch="Uniform"
+                       Source="pack://application:,,,/Assets/logo.png"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       Margin="0,0,0,18" />
+                <TextBlock Text="CAVE AI PRO"
+                           FontSize="30"
+                           FontWeight="Bold"
+                           Foreground="#FFEFF2F8"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
+        <Grid VerticalAlignment="Top" Margin="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="SkipButton"
+                    Grid.Column="1"
+                    Content="Skip video"
+                    Padding="16,8"
+                    Margin="0,0,8,0"
+                    Click="Skip_Click"
+                    ToolTip="Skip intro (Esc)"
+                    Background="#CC1B1F2A"
+                    Foreground="#FFEFF2F8"
+                    BorderBrush="#FF3A4254"
+                    BorderThickness="1"
+                    Cursor="Hand" />
+            <Button x:Name="MuteButton"
+                    Grid.Column="2"
+                    Content="Mute"
+                    Padding="16,8"
+                    Click="Mute_Click"
+                    ToolTip="Toggle intro audio"
+                    Background="#CC1B1F2A"
+                    Foreground="#FFEFF2F8"
+                    BorderBrush="#FF3A4254"
+                    BorderThickness="1"
+                    Cursor="Hand" />
+        </Grid>
+    </Grid>
+</Window>

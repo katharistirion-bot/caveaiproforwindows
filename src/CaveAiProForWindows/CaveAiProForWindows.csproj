@@ -60,6 +60,12 @@
     <Content Include="Assets\DesktopAuth\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Assets\Intro\README.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Intro\intro.mp4" Condition="Exists('Assets\Intro\intro.mp4')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Import Project="build\Obfuscation.targets" />
