@@ -101,7 +101,7 @@ Set `CAVEAIPRO_FIREBASE_API_KEY` (or run `tools/inject-firebase-config.ps1`), th
 
 ```powershell
 dotnet publish src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release -r win-x64 -p:PublishProfile=ReleaseSingleFile-Win64
-.\tools\package-release.ps1 -Tag v1.3.0
+.\tools\package-release.ps1 -Tag v1.4.0
 ```
 
 See `docs/SECURITY.md` for Firebase config injection and `docs/INSTALL.md` for distribution channels.

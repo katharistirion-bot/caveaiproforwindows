@@ -9,7 +9,7 @@ Normative summary for data exchanged between **CaveAI Pro (Android)** and **CAVE
 | `surveyArchiveSchemaVersion` | `2` | Enriched `data.json` (v2 survey archive) |
 | Site type field | `surveySiteType` | `CAVE` \| `MINE` \| `POTHOLE` \| `SPRING` (schema v3+) |
 
-**Windows min:** 1.3.0 · **Android:** keep in sync when changing JSON or ZIP layout.
+**Windows min:** 1.4.0 · **Android:** keep in sync when changing JSON or ZIP layout.
 
 ## Primary payloads
 

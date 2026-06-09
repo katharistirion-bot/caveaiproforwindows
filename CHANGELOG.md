@@ -14,6 +14,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.4.0] - 2026-06-07
+
+
+
+### Added
+
+- First-run cinematic intro video after sign-in (skip, mute, replay from Help)
+
+- Publication sheet window — composite plan, elevation, optional 3D overview, legend, and metadata export
+
+
+
+### Fixed
+
+- Microsoft Store MSIX now publishes self-contained .NET 8 runtime (`includedFrameworks`) so clean Windows PCs do not prompt for a separate .NET install
+
+
+
 ## [1.3.0] - 2026-06-07
 
 
@@ -84,7 +102,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
-[Unreleased]: https://github.com/katharistirion-bot/caveaiproforwindows/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/katharistirion-bot/caveaiproforwindows/compare/v1.4.0...HEAD
+
+[1.4.0]: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.4.0
 
 [1.3.0]: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.3.0
 

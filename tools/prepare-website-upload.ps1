@@ -1,6 +1,6 @@
 # Prepare website upload bundle for caveaipro.com
 param(
-    [string]$Tag = 'v1.3.0',
+    [string]$Tag = 'v1.4.0',
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot)
 )
 
@@ -68,7 +68,7 @@ $readmePath = Join-Path $uploadDir 'UPLOAD-README.txt'
     '  CaveAiProForWindows-portable.zip'
     ''
     'AUTO-UPDATE: app checks GitHub Releases by default.'
-    'Also push git tag v1.3.0 for the update feed, or mirror updates/ on your CDN.'
+    'Also push git tag v1.4.0 for the update feed, or mirror updates/ on your CDN.'
     ''
     'REQUIREMENTS: Windows 10/11 x64, CaveAI Pro Google account + subscription.'
     ''

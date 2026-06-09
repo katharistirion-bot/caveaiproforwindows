@@ -31,6 +31,6 @@ After installation (any channel), start **CAVE AI PRO** from the Start menu. Sig
 - **Try Release build locally:** `TryApp.bat` (registers a dev install path) or install the Velopack Setup.exe.
 - **Build MSI (WiX):** `BuildInstaller.bat` — for enterprise packaging, not the primary user channel.
 - **Build Store payload:** `dotnet publish src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release -p:PublishProfile=MicrosoftStore-Win64`
-- **Build sideload release assets:** publish (above profile or `ReleaseSingleFile-Win64`), then `.\tools\package-release.ps1 -Tag v1.3.0` — injects Firebase config from `CAVEAIPRO_FIREBASE_API_KEY` when set (see [SECURITY.md](SECURITY.md)).
+- **Build sideload release assets:** publish (above profile or `ReleaseSingleFile-Win64`), then `.\tools\package-release.ps1 -Tag v1.4.0` — injects Firebase config from `CAVEAIPRO_FIREBASE_API_KEY` when set (see [SECURITY.md](SECURITY.md)).
 
 See also: [CODE-SIGNING.md](CODE-SIGNING.md), [TROUBLESHOOTING.md](TROUBLESHOOTING.md), [MICROSOFT-STORE.md](MICROSOFT-STORE.md).
