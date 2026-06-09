@@ -65,8 +65,7 @@
                     Padding="14,6"
                     Margin="0,0,8,0"
                     ToolTip="Clear this session and sign in again" />
-            <Button Content="Offline sign-in" Click="FallbackAuth_Click" Padding="14,6" Margin="0,0,8,0"
-                    ToolTip="Use bundled Firebase sign-in when the web auth page is unavailable (requires CAVEAIPRO_FIREBASE_API_KEY)" />
+            <Button x:Name="FallbackAuthButton" Content="Bundled sign-in" Click="FallbackAuth_Click" Padding="14,6" Margin="0,0,8,0" />
             <Button Content="Exit" Click="Exit_Click" Padding="14,6" Margin="0,0,8,0" />
         </StackPanel>
 

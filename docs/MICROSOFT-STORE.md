@@ -121,6 +121,15 @@ Optional script overrides (use the same values as Product identity):
 - [ ] Firebase / OAuth — Store redirect URIs if required for desktop auth
 - [ ] Certification — requires Google account + active CaveAI Pro (Play) subscription
 
+### Certification test account
+
+Microsoft testers must pass the Google sign-in gate and subscription check. In Partner Center → **Notes for certification**, provide:
+
+- A **Google account** email with an **active CaveAI Pro subscription** (Google Play) or trial entitlement
+- Brief steps: launch app → sign in with that account → confirm main window opens
+
+Without valid credentials, certification fails at login even when the MSIX is otherwise correct.
+
 ### Certification resubmit (Product ID `9PPF3HPZRL21`)
 
 After rebuilding with a fixed self-contained MSIX:

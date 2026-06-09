@@ -28,6 +28,13 @@ public partial class LoginWindow : Window
     public LoginWindow()
     {
         InitializeComponent();
+#if DEBUG
+        FallbackAuthButton.ToolTip =
+            "Use bundled Firebase sign-in when the web auth page is unavailable (requires CAVEAIPRO_FIREBASE_API_KEY)";
+#else
+        FallbackAuthButton.ToolTip =
+            "Use the bundled sign-in page when the live auth page is unavailable.";
+#endif
         Loaded += OnLoadedAsync;
         Closed += (_, _) => _startupTimeoutRegistration.Dispose();
     }

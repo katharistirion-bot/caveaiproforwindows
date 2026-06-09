@@ -18,14 +18,25 @@ public partial class AboutWindow : Window
             ? $"{info}  (assembly {ver})"
             : $"Build {ver}" + (string.IsNullOrWhiteSpace(file) ? "" : $"  · file {file}");
 
+        InstallBlock.Text = DistributionChannel.UpdatesHandledByStore
+            ? "Installed from the Microsoft Store — updates are delivered automatically through the Store."
+            : "Install from GitHub Releases using CaveAiProForWindows-*-Setup.exe for automatic updates. MSI and portable ZIP are also available.";
+
         var envOrigin = Environment.GetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN");
-        WebPortalBlock.Text =
-            "Releases & updates: " + AppUpdateService.GitHubRepoUrl + "/releases\n" +
-            "Web portal origin: " + PublicLibraryCatalog.WebOrigin + "\n" +
-            (string.IsNullOrWhiteSpace(envOrigin)
-                ? "Set CAVEAIPRO_WEB_ORIGIN if the custom domain differs from the default."
-                : "CAVEAIPRO_WEB_ORIGIN is set for this user/machine.") +
-            "\nFirebase fallback (website default): " + PublicLibraryCatalog.FirebaseHostingOrigin;
+        var envOriginLine = string.IsNullOrWhiteSpace(envOrigin)
+            ? "Set CAVEAIPRO_WEB_ORIGIN if the custom domain differs from the default."
+            : "CAVEAIPRO_WEB_ORIGIN is set for this user/machine.";
+
+        WebPortalBlock.Text = DistributionChannel.UpdatesHandledByStore
+            ? "Updates: delivered automatically through the Microsoft Store.\n"
+              + "Open the Microsoft Store app and check Library → Get updates.\n"
+              + "Web portal origin: " + PublicLibraryCatalog.WebOrigin + "\n"
+              + envOriginLine + "\n"
+              + "Firebase fallback (website default): " + PublicLibraryCatalog.FirebaseHostingOrigin
+            : "Releases & updates: " + AppUpdateService.GitHubRepoUrl + "/releases\n"
+              + "Web portal origin: " + PublicLibraryCatalog.WebOrigin + "\n"
+              + envOriginLine + "\n"
+              + "Firebase fallback (website default): " + PublicLibraryCatalog.FirebaseHostingOrigin;
 
         // ProcessPath works for single-file publish; Assembly.Location is empty there (IL3000).
         var exePath = Environment.ProcessPath;

@@ -1,3 +1,5 @@
+using CaveAiProForWindows.Services;
+
 namespace CaveAiProForWindows.Services.Legal;
 
 /// <summary>
@@ -81,7 +83,11 @@ public static class LegalTexts
         By checking “I accept” and using CAVE AI PRO for Windows, you confirm that you have read this EULA, that you accept it, and that Georgios Kourentzis remains the exclusive owner of the Software and associated intellectual property except as expressly licensed here.
         """;
 
-    public const string PrivacySummary = """
+    /// <summary>Privacy summary shown in LEGAL &amp; SETTINGS; wording differs by distribution channel.</summary>
+    public static string PrivacySummary =>
+        DistributionChannel.UpdatesHandledByStore ? PrivacySummaryStore : PrivacySummarySideload;
+
+    public const string PrivacySummarySideload = """
         Privacy summary (Windows desktop)
         Data controller: Georgios Kourentzis · caveaipro@gmail.com
 
@@ -90,6 +96,20 @@ public static class LegalTexts
         • Push to Cloud / Public Library: uses your Google/Firebase session in WebView2; you control what is uploaded.
         • Diagnostics: startup.log and last-error.txt may be written locally under %LOCALAPPDATA%\CaveAiProForWindows\.
         • Updates: optional check against GitHub Releases (Velopack); no personal survey content is sent.
+        • GDPR rights: contact caveaipro@gmail.com · Hellenic DPA: www.dpa.gr
+
+        Full privacy policy: www.caveaipro.com/privacy
+        """;
+
+    public const string PrivacySummaryStore = """
+        Privacy summary (Windows desktop)
+        Data controller: Georgios Kourentzis · caveaipro@gmail.com
+
+        • Local-first: survey JSON/ZIP files you open stay on your PC unless you export or use Push to Cloud.
+        • Cloud generative AI: requires Google sign-in and an active CaveAI Pro subscription or trial; structure masks and prompts are sent to CaveAI cloud services for rendering only when you run AI Render.
+        • Push to Cloud / Public Library: uses your Google/Firebase session in WebView2; you control what is uploaded.
+        • Diagnostics: startup.log and last-error.txt may be written locally under %LOCALAPPDATA%\CaveAiProForWindows\.
+        • Updates: delivered automatically through the Microsoft Store; no personal survey content is sent.
         • GDPR rights: contact caveaipro@gmail.com · Hellenic DPA: www.dpa.gr
 
         Full privacy policy: www.caveaipro.com/privacy
