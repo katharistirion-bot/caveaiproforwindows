@@ -12,6 +12,18 @@
 
 ## Build-time injection (required for release / Store)
 
+Copy Android `google-services.json` to `tools/local/google-services.json`, then:
+
+```powershell
+.\tools\sync-firebase-web-config.ps1 -InjectWindows
+.\tools\verify-firebase-key-alignment.ps1
+.\tools\package-store-msix.ps1
+```
+
+Browser key file: `tools/local/firebase-web-config.json` (see `firebase-web-config.json.example`).
+
+Or set the key explicitly:
+
 ```powershell
 $env:CAVEAIPRO_FIREBASE_API_KEY = '<Firebase Web API key>'
 .\tools\inject-firebase-config.ps1
@@ -33,6 +45,33 @@ CI: `.github/workflows/release.yml` **requires** secret `CAVEAIPRO_FIREBASE_API_
 Store MSIX: `package-store-msix.ps1` injects and verifies before MSIX pack.
 
 Sideload releases: `package-release.ps1` injects, syncs `firebase-config.json` into publish output, then verifies.
+
+## Firebase API key rotation (Android + Web + Windows)
+
+Firebase uses **two different API keys** in the same project:
+
+| Key | Used by | Source file |
+|-----|---------|-------------|
+| **Android** | Google Play app | `google-services.json` |
+| **Browser** | caveaipro.com + Windows WebView sign-in | `firebase-web-config.json` / Web app SDK config |
+
+After deleting the old **Browser** key:
+
+1. **Google Cloud Console** → APIs & Services → Credentials → **Create API key** (Browser).
+2. Restrict **HTTP referrers**: `https://www.caveaipro.com/*`, `https://caveaipro-5950e.web.app/*`, `https://caveaipro-5950e.firebaseapp.com/*`, `http://localhost/*`.
+3. Restrict **APIs**: Identity Toolkit, Token Service, Firebase Installations, and other Firebase APIs you use.
+4. **Firebase Console** → Project settings → **Web app** → confirm SDK config shows the new Browser `apiKey`.
+5. Save to `tools/local/firebase-web-config.json` (copy from `.example`).
+6. Replace Android file: `D:\caveaipro\app\google-services.json` (if rotated separately).
+7. Sync Browser stack:
+   ```powershell
+   .\tools\sync-firebase-web-config.ps1 -InjectWindows -BuildWebsite -DeployWebsite -BuildStoreMsix
+   ```
+8. Update GitHub secret `CAVEAIPRO_FIREBASE_API_KEY` with the **Browser** key.
+9. New **Android AAB** to Play Store if `google-services.json` changed.
+10. `.\tools\verify-firebase-key-alignment.ps1` — Browser rows must match; Android may differ.
+
+**Do not** copy `google-services.json` `current_key` into website or Windows — it is Android-restricted.
 
 ## Firebase Console (operator checklist)
 

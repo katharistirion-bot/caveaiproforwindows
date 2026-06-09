@@ -75,13 +75,6 @@ $verifyStoreScript = Join-Path $RepoRoot 'tools/verify-store-publish.ps1'
 
 Write-Host "Version: $version (package $packageVersion)"
 Write-Host 'Step 0/5: inject Firebase client config (required for Store MSIX)'
-if ([string]::IsNullOrWhiteSpace($env:CAVEAIPRO_FIREBASE_API_KEY)) {
-    throw @'
-Store MSIX packaging requires CAVEAIPRO_FIREBASE_API_KEY (Firebase Web API key).
-Set the environment variable, then re-run package-store-msix.ps1.
-See docs/SECURITY.md.
-'@
-}
 & $injectScript -RepoRoot $RepoRoot
 if ($LASTEXITCODE -ne 0) { throw 'inject-firebase-config.ps1 failed.' }
 

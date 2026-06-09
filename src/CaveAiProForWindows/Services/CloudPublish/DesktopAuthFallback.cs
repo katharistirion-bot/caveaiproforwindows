@@ -74,10 +74,10 @@ internal static class DesktopAuthFallback
         FirebaseProjectConfig.LoadFromEnvironment().ToWebClientConfig().IsUsable;
 
     public static string MissingConfigUserMessage =>
-        "Firebase is not configured for offline sign-in.\n\n" +
-        "Set user or machine environment variable CAVEAIPRO_FIREBASE_API_KEY " +
-        "(or fill Assets/DesktopAuth/firebase-config.json next to the app) then restart.\n\n" +
-        "Release builds must run tools/inject-firebase-config.ps1 before packaging (see docs/SECURITY.md).";
+        "Firebase Browser API key is not configured for sign-in.\n\n" +
+        "For release/Store builds: run tools/inject-firebase-config.ps1 with tools/local/firebase-web-config.json " +
+        "(Browser key from Firebase Console Web app — not Android google-services.json).\n\n" +
+        "See tools/local/README.md and docs/SECURITY.md.";
 
     /// <summary>Pushes the latest resolved config into the current bundled auth page (after OAuth observed a key).</summary>
     public static async Task PushFirebaseConfigToPageAsync(CoreWebView2 core)

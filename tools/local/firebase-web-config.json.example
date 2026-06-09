@@ -1,0 +1,8 @@
+{
+  "apiKey": "PASTE_BROWSER_API_KEY_FROM_FIREBASE_CONSOLE",
+  "authDomain": "caveaipro-5950e.firebaseapp.com",
+  "projectId": "caveaipro-5950e",
+  "storageBucket": "caveaipro-5950e.firebasestorage.app",
+  "messagingSenderId": "1081614112309",
+  "appId": "1:1081614112309:web:27abdee9aa25b80bbec37c"
+}

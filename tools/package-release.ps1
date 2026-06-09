@@ -11,13 +11,6 @@ Set-Location $RepoRoot
 $injectScript = Join-Path $RepoRoot 'tools/inject-firebase-config.ps1'
 $verifyScript = Join-Path $RepoRoot 'tools/verify-firebase-config.ps1'
 Write-Host 'Injecting Firebase client config (build-time API key)…'
-if ([string]::IsNullOrWhiteSpace($env:CAVEAIPRO_FIREBASE_API_KEY)) {
-    throw @'
-package-release.ps1 requires CAVEAIPRO_FIREBASE_API_KEY (Firebase Web API key).
-Set the environment variable, then re-run packaging.
-See docs/SECURITY.md.
-'@
-}
 & $injectScript -RepoRoot $RepoRoot
 if ($LASTEXITCODE -ne 0) { throw 'inject-firebase-config.ps1 failed.' }
 

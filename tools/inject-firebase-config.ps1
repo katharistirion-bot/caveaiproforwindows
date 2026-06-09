@@ -1,7 +1,9 @@
-# Writes Assets/DesktopAuth/firebase-config.json from CAVEAIPRO_FIREBASE_API_KEY (or parameter).
+# Writes Assets/DesktopAuth/firebase-config.json for Windows WebView auth.
+# Uses the Firebase **Browser/Web** API key — NOT the Android google-services key.
 param(
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$ApiKey = $env:CAVEAIPRO_FIREBASE_API_KEY,
+    [string]$WebConfigPath = '',
     [string]$ProjectId = 'caveaipro-5950e',
     [string]$AuthDomain = 'caveaipro-5950e.firebaseapp.com',
     [string]$StorageBucket = 'caveaipro-5950e.firebasestorage.app',
@@ -11,19 +13,54 @@ param(
 $ErrorActionPreference = 'Stop'
 $path = Join-Path $RepoRoot 'src\CaveAiProForWindows\Assets\DesktopAuth\firebase-config.json'
 
+function Read-WebConfigJson {
+    param([string]$JsonPath)
+    if (-not (Test-Path -LiteralPath $JsonPath)) {
+        throw "firebase-web-config.json not found: $JsonPath"
+    }
+    $obj = Get-Content -LiteralPath $JsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $key = $obj.apiKey
+    if ([string]::IsNullOrWhiteSpace($key) -or $key -match 'PASTE_|REPLACE') {
+        throw "firebase-web-config.json has no usable apiKey at $JsonPath"
+    }
+    return @{
+        ApiKey        = $key.Trim()
+        ProjectId     = if ($obj.projectId) { $obj.projectId.Trim() } else { $ProjectId }
+        StorageBucket = if ($obj.storageBucket) { $obj.storageBucket.Trim() } else { $StorageBucket }
+        AuthDomain    = if ($obj.authDomain) { $obj.authDomain.Trim() } else { $AuthDomain }
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+    if ([string]::IsNullOrWhiteSpace($WebConfigPath)) {
+        $WebConfigPath = Join-Path $RepoRoot 'tools\local\firebase-web-config.json'
+    }
+    if (Test-Path -LiteralPath $WebConfigPath) {
+        $fromWeb = Read-WebConfigJson -JsonPath $WebConfigPath
+        $ApiKey = $fromWeb.ApiKey
+        $ProjectId = $fromWeb.ProjectId
+        $StorageBucket = $fromWeb.StorageBucket
+        $AuthDomain = $fromWeb.AuthDomain
+        Write-Host "inject-firebase-config: read Browser API key from $WebConfigPath"
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($ApiKey)) {
     if ($AllowPlaceholder) {
         Write-Host 'inject-firebase-config: no API key — leaving REPLACE_AT_BUILD placeholder.'
         exit 0
     }
     throw @'
-CAVEAIPRO_FIREBASE_API_KEY is not set.
-Set the Firebase Web API key (user or machine env) or pass -ApiKey.
-For CI: GitHub secret CAVEAIPRO_FIREBASE_API_KEY (see .github/workflows/release.yml).
+No Firebase Browser API key found for Windows/WebView auth.
+  • Create a Browser API key in Google Cloud (HTTP referrers for caveaipro.com + localhost).
+  • Firebase Console → Project settings → Web app → copy apiKey into:
+      tools/local/firebase-web-config.json
+  • Or set CAVEAIPRO_FIREBASE_API_KEY / pass -ApiKey
+Do NOT use Android google-services.json current_key for Windows or website — it is Android-restricted.
 '@
 }
 
-if ($ApiKey -match 'REPLACE') {
+if ($ApiKey -match 'REPLACE|PASTE_') {
     throw 'Refusing to inject a placeholder API key.'
 }
 
@@ -42,7 +79,7 @@ if (-not (Test-Path -LiteralPath $dir)) {
 Set-Content -LiteralPath $path -Value $json -Encoding UTF8 -NoNewline
 Write-Host "inject-firebase-config: wrote $path (project $ProjectId)"
 
-$verifyScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'tools/verify-firebase-config.ps1'
+$verifyScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'tools\verify-firebase-config.ps1'
 if (Test-Path -LiteralPath $verifyScript) {
     & $verifyScript -ConfigPath $path
     if ($LASTEXITCODE -ne 0) { throw 'verify-firebase-config.ps1 failed after inject.' }

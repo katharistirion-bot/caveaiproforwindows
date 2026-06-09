@@ -20,6 +20,12 @@ dist/
 _release_out/
 _store_out/
 _build_out/
+_build_test/
+obf.binlog
+tools/local/*
+!tools/local/README.md
+!tools/local/.gitkeep
+!tools/local/firebase-web-config.json.example
 _website_upload/
 firebase/functions/node_modules/
 firebase-debug.log

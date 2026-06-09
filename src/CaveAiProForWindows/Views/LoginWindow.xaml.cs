@@ -407,9 +407,6 @@ public partial class LoginWindow : Window
 
     private async Task NavigateAuthEntryAsync(CoreWebView2 core)
     {
-        if (!DesktopAuthFallback.HasUsableFirebaseConfig())
-            await FirebaseHostingConfigFetcher.TryFetchWebApiKeyAsync().ConfigureAwait(true);
-
         if (DesktopAuthFallback.HasUsableFirebaseConfig())
         {
             await DesktopAuthFallback.PrepareFallbackNavigationAsync(core).ConfigureAwait(true);
@@ -420,7 +417,7 @@ public partial class LoginWindow : Window
         }
 
         SetIdleStatus("Sign in with Google on the Cave Library auth page…");
-        Debug.WriteLine("[LoginWindow] Firebase config missing — using live desktop auth URL.");
+        Debug.WriteLine("[LoginWindow] Bundled Firebase config missing — using live desktop auth URL.");
         core.Navigate(PublicLibraryCatalog.DesktopAuthUrl);
     }
 
@@ -443,9 +440,6 @@ public partial class LoginWindow : Window
 
     private async Task NavigateFallbackAsync(CoreWebView2 core)
     {
-        if (!DesktopAuthFallback.HasUsableFirebaseConfig())
-            await FirebaseHostingConfigFetcher.TryFetchWebApiKeyAsync().ConfigureAwait(true);
-
         if (!DesktopAuthFallback.HasUsableFirebaseConfig())
         {
             MessageBox.Show(
