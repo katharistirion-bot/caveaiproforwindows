@@ -4,6 +4,7 @@
         xmlns:views="clr-namespace:CaveAiProForWindows.Views"
         xmlns:services="clr-namespace:CaveAiProForWindows.Services"
         xmlns:legal="clr-namespace:CaveAiProForWindows.Services.Legal"
+        xmlns:loc="clr-namespace:CaveAiProForWindows.Services.Localization"
         xmlns:conv="clr-namespace:CaveAiProForWindows.Converters"
         x:Name="Shell"
         Title="{Binding WindowTitle}"
@@ -126,6 +127,9 @@
                           ToolTip="Replay the CAVE AI PRO intro (Skip anytime with Esc)" />
                 <MenuItem x:Name="MenuAbout" Header="_About" Command="{Binding AboutCommand}" InputGestureText="F1" />
                 <MenuItem x:Name="MenuKeyboardShortcuts" Header="_Keyboard shortcuts…" Command="{Binding ShowKeyboardShortcutsCommand}" />
+                <Separator />
+                <MenuItem x:Name="MenuSwitchAccount" Header="{x:Static loc:AppStrings.MenuSwitchAccount}" Click="SwitchGoogleAccount_Click"
+                          ToolTip="Sign out and sign in with a different Google account (subscription required)." />
             </MenuItem>
         </Menu>
 
@@ -209,6 +213,22 @@
                            Foreground="{DynamicResource Cave.TextSubdued}" />
             </StatusBarItem>
         </StatusBar>
+
+        <Border DockPanel.Dock="Top" Padding="10,8" Margin="0"
+                Background="#FF1A2332" BorderBrush="#FF2563EB" BorderThickness="0,0,0,1"
+                Visibility="{Binding AccountBannerVisible, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="{x:Static loc:AppStrings.AccountBannerManagePlay}" Padding="12,5" Margin="0,0,8,0"
+                            Command="{Binding OpenPlayStoreFromBannerCommand}"
+                            Style="{StaticResource Cave.AccentButton}" />
+                    <Button Content="{x:Static loc:AppStrings.AccountBannerDismiss}" Padding="12,5"
+                            Command="{Binding DismissAccountBannerCommand}" />
+                </StackPanel>
+                <TextBlock Text="{Binding AccountBannerMessage}" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="#FFE2E8F0" Margin="0,0,12,0" />
+            </DockPanel>
+        </Border>
 
         <Border DockPanel.Dock="Top" Padding="10,8" Margin="0"
                 Background="#FF1E293B" BorderBrush="#FF0D9488" BorderThickness="0,0,0,1"

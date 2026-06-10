@@ -14,6 +14,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.CloudPublish;
 using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.Legal;
@@ -95,6 +96,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _androidSyncBannerVisible;
 
     [ObservableProperty] private string _androidSyncBannerMessage = "";
+
+    [ObservableProperty] private bool _accountBannerVisible;
+
+    [ObservableProperty] private string _accountBannerMessage = "";
 
     [ObservableProperty] private int _collaborationUnreadCount;
 
@@ -2135,6 +2140,37 @@ public partial class MainViewModel : ObservableObject
     {
         AndroidSyncBannerVisible = false;
         _pendingAndroidBackupPath = null;
+    }
+
+    public void RefreshAccountBannerFromSession()
+    {
+        if (AccountSessionState.ShouldShowWelcomeBanner &&
+            !string.IsNullOrWhiteSpace(AccountSessionState.WelcomeBannerMessage))
+        {
+            AccountBannerMessage = AccountSessionState.WelcomeBannerMessage;
+            AccountBannerVisible = true;
+            return;
+        }
+
+        var summary = AccountSessionState.AccountAccessSummary;
+        if (!string.IsNullOrWhiteSpace(summary))
+        {
+            AccountBannerMessage = summary;
+            AccountBannerVisible = true;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissAccountBanner()
+    {
+        AccountBannerVisible = false;
+        AccountSessionState.DismissWelcomeBanner();
+    }
+
+    [RelayCommand]
+    private void OpenPlayStoreFromBanner()
+    {
+        Process.Start(new ProcessStartInfo(AccountLinks.PlayStoreAppUrl) { UseShellExecute = true });
     }
 
     /// <summary>Called when a new CaveAI_Backup_*.zip appears in the Android sync folder.</summary>

@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.Services.Localization;
@@ -64,6 +65,8 @@ public partial class MainWindow : Window
             };
             IntroVideoWindow.ShowIfFirstRun(this);
             WelcomeOnboardingWindow.ShowIfFirstRun(this);
+            if (DataContext is MainViewModel vmBanner)
+                vmBanner.RefreshAccountBannerFromSession();
             StartAndroidBackupSyncWatcher(vm);
             StartCollaborationNotifications(vm);
             ApplyPlanViewLocalization();
@@ -200,6 +203,30 @@ public partial class MainWindow : Window
     {
         if (IntegrityTabItem != null)
             IntegrityTabItem.IsSelected = true;
+    }
+
+    private async void SwitchGoogleAccount_Click(object sender, RoutedEventArgs e)
+    {
+        var confirm = MessageBox.Show(
+            this,
+            "Sign out of the current Google account and open the sign-in screen again?\n\n" +
+            "An active CaveAI Pro subscription or trial is still required.",
+            "Switch Google account",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        await FirebaseAuthSession.SignOutAsync().ConfigureAwait(true);
+        var ok = AppLockBootstrapper.TryEnsureUnlocked();
+        if (!ok)
+        {
+            Application.Current.Shutdown();
+            return;
+        }
+
+        if (DataContext is MainViewModel vm)
+            vm.RefreshAccountBannerFromSession();
     }
 
     private void OpenPublicLibraryToolbar_Click(object sender, RoutedEventArgs e)

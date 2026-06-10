@@ -25,6 +25,10 @@ public static class AppStrings
         "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports, and batch workflows.";
 
     public static string OnboardingTitle => "Welcome to CAVE AI PRO";
+    public static string OnboardingStep0Title => "Android + Desktop";
+    public static string OnboardingStep0Body =>
+        "Start your 30-day trial in CaveAI Pro on Android (Google Play), then sign in here with the same Google account. " +
+        "Your subscription or trial unlocks both the phone app and this Desktop Companion.";
     public static string OnboardingStep1Title => "Open a backup";
     public static string OnboardingStep1Body =>
         "Use File → Open or drag-and-drop a CaveAI Pro .json or .zip backup from Android.";
@@ -65,4 +69,18 @@ public static class AppStrings
 
     public static string AndroidSyncReloaded(string fileName) =>
         $"Reloaded Android backup: {fileName}";
+
+    public static string AccountBannerDismiss => "Dismiss";
+
+    public static string AccountBannerManagePlay =>
+        "Subscribe on Google Play (Android app required for billing)";
+
+    public static string LoginAccessDeniedPlayStore => "Get CaveAI Pro on Google Play";
+
+    public static string LoginAccessDeniedPublicLibrary => "Browse Public Library (free)";
+
+    public static string LoginAccessDeniedPlayHint =>
+        "CaveAI Pro subscriptions are purchased through Google Play on Android. After subscribing, sign in here with the same Google account.";
+
+    public static string MenuSwitchAccount => "Switch _Google account…";
 }

@@ -226,6 +226,7 @@ public partial class LoginWindow : Window
             App.WriteStartupLog(
                 "LoginWindow: entitlement verified (" + result.AccessKind + ") for " +
                 (token.Email ?? token.Subject ?? "?"));
+            AccountSessionState.Apply(result);
             CompleteSuccess();
             return true;
         }
@@ -462,5 +463,15 @@ public partial class LoginWindow : Window
             return true;
 
         return PublicLibraryWebWindowNavigationPolicy.IsAllowed(uri);
+    }
+
+    private void PlayStore_Click(object sender, RoutedEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo(AccountLinks.PlayStoreAppUrl) { UseShellExecute = true });
+    }
+
+    private void PublicLibrary_Click(object sender, RoutedEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo(PublicLibraryCatalog.WebMapUrl) { UseShellExecute = true });
     }
 }

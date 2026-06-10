@@ -16,7 +16,7 @@ public partial class WelcomeOnboardingWindow : Window
 
     private int _step;
 
-    private const int LastStep = 3;
+    private const int LastStep = 4;
 
 
 
@@ -73,41 +73,27 @@ public partial class WelcomeOnboardingWindow : Window
 
 
         switch (_step)
-
         {
-
             case 0:
-
-                StepTitleBlock.Text = AppStrings.OnboardingStep1Title;
-
-                StepBodyBlock.Text = AppStrings.OnboardingStep1Body;
-
+                StepTitleBlock.Text = AppStrings.OnboardingStep0Title;
+                StepBodyBlock.Text = AppStrings.OnboardingStep0Body;
                 break;
-
             case 1:
-
-                StepTitleBlock.Text = AppStrings.OnboardingStep2Title;
-
-                StepBodyBlock.Text = AppStrings.OnboardingStep2Body;
-
+                StepTitleBlock.Text = AppStrings.OnboardingStep1Title;
+                StepBodyBlock.Text = AppStrings.OnboardingStep1Body;
                 break;
-
             case 2:
-
+                StepTitleBlock.Text = AppStrings.OnboardingStep2Title;
+                StepBodyBlock.Text = AppStrings.OnboardingStep2Body;
+                break;
+            case 3:
                 StepTitleBlock.Text = AppStrings.OnboardingStep3Title;
-
                 StepBodyBlock.Text = AppStrings.OnboardingStep3Body;
-
                 break;
-
             default:
-
                 StepTitleBlock.Text = AppStrings.OnboardingStep4Title;
-
                 StepBodyBlock.Text = AppStrings.OnboardingStep4Body;
-
                 break;
-
         }
 
     }
