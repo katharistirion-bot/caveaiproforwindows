@@ -46,11 +46,24 @@ firebase deploy --only functions:shareProjectCollaboration,functions:postProject
 
 Firestore collections: `shared_projects/{id}`, `shared_projects/{id}/comments/{id}`, `user_devices/{uid}/tokens/{id}`.
 
-**Security:** `listProjectComments` and `postProjectComment` require project membership; all collaboration callables re-check `user_entitlements`. Deploy **`firestore.rules`** (deny direct client access; callables use Admin SDK):
+**Security:** Collaboration uses Firebase Callable functions (Admin SDK). The `firestore.rules` file in **this repo is Windows-only** (deny-all for client reads). It does **not** include Public Library, `published_caves`, or full `app_install_grace` rules.
 
-```bash
-firebase deploy --only firestore:rules
-```
+> **⛔ NEVER deploy Firestore rules from this repo**
+>
+> ```bash
+> # DO NOT RUN — would break website, Android Public Library, and install grace:
+> firebase deploy --only firestore:rules
+> ```
+>
+> Canonical rules live in **`D:\CaveAIpro website\firebase\`** (or `D:\caveaipro\firebase\` — byte-identical). Deploy from there:
+>
+> ```bash
+> cd "D:\CaveAIpro website"
+> npm run deploy:rules
+> # or: firebase deploy --only firestore:rules,storage
+> ```
+
+If you need to document Windows-only deny rules for collaboration, treat this file as **reference for callables only**, not for production deploy.
 
 Requires Firebase CLI logged in (`firebase login`) and Blaze plan (Callable + Secret Manager).
 
@@ -102,7 +115,7 @@ firebase emulators:start --only functions
 ## Windows app authentication
 
 1. **Startup:** `LoginWindow` signs in with Google via WebView2 (`Assets/DesktopAuth/auth.html`).
-2. **Token:** Firebase ID token (JWT) is captured and stored in `%LocalAppData%\CaveAiProForWindows\auth-token.json` via `FirebaseAuthTokenStore`.
+2. **Token:** Firebase ID token (JWT) is captured and stored in `%LocalAppData%\CaveAiProForWindows\auth-token.dat` (DPAPI) via `FirebaseAuthTokenStore`.
 3. **Entitlement gate:** Same token is used at startup to read `user_entitlements/{uid}` (`SubscriptionEntitlementService`).
 4. **AI Render:** `ReplicateCallableProxyClient` POSTs to `https://us-central1-{projectId}.cloudfunctions.net/replicateGenerativeMap` with `Authorization: Bearer {idToken}` and body `{ "data": { "modelVersion", "input" } }`.
 

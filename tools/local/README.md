@@ -24,11 +24,27 @@ The Android `google-services.json` key is package-restricted and must **not** be
 ## Sync after rotation
 
 ```powershell
-# 1) After filling firebase-web-config.json with the new Browser key:
+# Full stack: website + inject + Store MSIX (source auto-restores to REPLACE_AT_BUILD)
 .\tools\sync-firebase-web-config.ps1 -InjectWindows -BuildWebsite -DeployWebsite -BuildStoreMsix
 
-# 2) Verify (Android suffix may differ from Browser suffix — that is normal):
+# MSIX only (same auto-restore)
+.\tools\package-store-msix.ps1
+
+# Verify (Android suffix may differ from Browser suffix — that is normal):
 .\tools\verify-firebase-key-alignment.ps1
+```
+
+## Source vs shipped config
+
+| Location | apiKey |
+|----------|--------|
+| `src/.../firebase-config.json` (git) | Always `REPLACE_AT_BUILD` |
+| MSIX / publish output | Real Browser key (injected at build) |
+
+Pack scripts (`package-store-msix.ps1`, `package-release.ps1`) inject before build and call `restore-firebase-config-placeholder.ps1` in `finally`. If you run `inject-firebase-config.ps1` manually, restore before committing:
+
+```powershell
+.\tools\restore-firebase-config-placeholder.ps1
 ```
 
 ## GitHub CI

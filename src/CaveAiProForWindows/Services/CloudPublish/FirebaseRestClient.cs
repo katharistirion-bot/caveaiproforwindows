@@ -152,7 +152,7 @@ public sealed class FirebaseRestClient : IDisposable
         await PatchDocumentAsync(token, docPath, fields, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Reads <c>published_caves/{docId}</c> for Public Library download (token optional when rules allow public read).</summary>
+    /// <summary>Reads <c>published_caves/{docId}</c> for Public Library download (Firebase ID token required — rules allow signed-in read only).</summary>
     public async Task<PublishedCaveDocument> GetPublishedCaveDocumentAsync(
         string publishedDocId,
         FirebaseIdToken? token = null,

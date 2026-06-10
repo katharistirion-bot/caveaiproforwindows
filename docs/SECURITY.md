@@ -12,22 +12,38 @@
 
 ## Build-time injection (required for release / Store)
 
-Copy Android `google-services.json` to `tools/local/google-services.json`, then:
+**Git source** (`src/.../firebase-config.json`) always stays `REPLACE_AT_BUILD`. Pack scripts inject the real Browser key, build, then **automatically restore** the placeholder in a `finally` block — you never need to hand-edit the source back.
+
+Copy `tools/local/firebase-web-config.json.example` → `tools/local/firebase-web-config.json` and paste the **Web app** `apiKey` from Firebase Console.
 
 ```powershell
-.\tools\sync-firebase-web-config.ps1 -InjectWindows
-.\tools\verify-firebase-key-alignment.ps1
+# Store MSIX (inject → publish → pack → restore source automatically)
 .\tools\package-store-msix.ps1
+
+# Or full Browser stack sync + MSIX
+.\tools\sync-firebase-web-config.ps1 -InjectWindows -BuildStoreMsix
 ```
 
-Browser key file: `tools/local/firebase-web-config.json` (see `firebase-web-config.json.example`).
+Sideload release packaging restores the same way:
+
+```powershell
+.\tools\package-release.ps1 -Tag v1.4.0
+```
+
+Manual inject (testing only — restore before commit):
+
+```powershell
+.\tools\inject-firebase-config.ps1
+# ... build ...
+.\tools\restore-firebase-config-placeholder.ps1
+```
 
 Or set the key explicitly:
 
 ```powershell
 $env:CAVEAIPRO_FIREBASE_API_KEY = '<Firebase Web API key>'
 .\tools\inject-firebase-config.ps1
-.\tools\verify-firebase-config.ps1   # fails if REPLACE_AT_BUILD remains
+.\tools\verify-firebase-config.ps1   # fails if REPLACE_AT_BUILD remains (publish output)
 ```
 
 CI: `.github/workflows/release.yml` **requires** secret `CAVEAIPRO_FIREBASE_API_KEY`.
@@ -36,15 +52,16 @@ CI: `.github/workflows/release.yml` **requires** secret `CAVEAIPRO_FIREBASE_API_
 
 | Layer | What it prevents |
 |-------|------------------|
-| `tools/verify-firebase-config.ps1` | Shipping `REPLACE_AT_BUILD` in `firebase-config.json` |
+| `tools/restore-firebase-config-placeholder.ps1` | Real Browser key left in git-tracked source after pack |
+| `tools/verify-firebase-config.ps1` | Shipping `REPLACE_AT_BUILD` in publish/MSIX output |
 | `build/VerifyFirebaseConfig.targets` | Release MSBuild output without injected config |
 | `FirebaseAuthInjectionRegressionTests` | WebView injection script setting the one-shot flag on the website before `localhost` |
 | Runtime `FirebaseHostingConfigFetcher` | Dev/sideload sign-in when inject was skipped (fetches public key from Hosting) |
-| `package-release.ps1` / `package-store-msix.ps1` | Packaging without `CAVEAIPRO_FIREBASE_API_KEY` |
+| `package-release.ps1` / `package-store-msix.ps1` | Packaging without real key; both restore source in `finally` |
 
-Store MSIX: `package-store-msix.ps1` injects and verifies before MSIX pack.
+Store MSIX: `package-store-msix.ps1` injects, verifies publish output, packs MSIX, then restores placeholder.
 
-Sideload releases: `package-release.ps1` injects, syncs `firebase-config.json` into publish output, then verifies.
+Sideload releases: `package-release.ps1` injects, syncs `firebase-config.json` into publish output, verifies, then restores placeholder.
 
 ## Firebase API key rotation (Android + Web + Windows)
 

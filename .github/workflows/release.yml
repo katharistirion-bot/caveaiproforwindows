@@ -139,3 +139,8 @@ jobs:
           name: release-package-${{ steps.tag.outputs.tag }}
           path: _release_out/**/*
           if-no-files-found: error
+
+      - name: Restore firebase-config placeholder in source
+        if: always()
+        shell: pwsh
+        run: ./tools/restore-firebase-config-placeholder.ps1

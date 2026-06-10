@@ -3,7 +3,7 @@
 param(
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$WebConfigPath = '',
-    [string]$WebsiteFirebaseJs = 'D:\CaveAIpro website\src\firebase.js',
+    [string]$WebsiteFirebaseJs = '',
     [switch]$InjectWindows,
     [switch]$BuildWebsite,
     [switch]$DeployWebsite,
@@ -11,6 +11,14 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($WebsiteFirebaseJs)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:CAVEAIPRO_WEBSITE_ROOT)) {
+        $WebsiteFirebaseJs = Join-Path $env:CAVEAIPRO_WEBSITE_ROOT 'src\firebase.js'
+    } else {
+        $WebsiteFirebaseJs = Join-Path (Split-Path -Parent $RepoRoot) 'CaveAIpro website\src\firebase.js'
+    }
+}
 
 if ([string]::IsNullOrWhiteSpace($WebConfigPath)) {
     $WebConfigPath = Join-Path $RepoRoot 'tools\local\firebase-web-config.json'
@@ -53,6 +61,11 @@ if ($InjectWindows) {
     $inject = Join-Path $RepoRoot 'tools\inject-firebase-config.ps1'
     & $inject -RepoRoot $RepoRoot -WebConfigPath $WebConfigPath
     if ($LASTEXITCODE -ne 0) { throw 'inject-firebase-config.ps1 failed.' }
+    if (-not $BuildStoreMsix) {
+        $restore = Join-Path $RepoRoot 'tools\restore-firebase-config-placeholder.ps1'
+        & $restore -RepoRoot $RepoRoot
+        if ($LASTEXITCODE -ne 0) { throw 'restore-firebase-config-placeholder.ps1 failed.' }
+    }
 }
 
 if ($BuildWebsite) {

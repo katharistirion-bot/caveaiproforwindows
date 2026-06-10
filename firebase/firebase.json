@@ -15,7 +15,5 @@
       ]
     }
   ],
-  "firestore": {
-    "rules": "firestore.rules"
-  }
+  "_comment_firestore": "Do NOT add firestore rules here — deploy from CaveAIpro website repo only. See README.md."
 }

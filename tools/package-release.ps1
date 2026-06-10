@@ -8,8 +8,18 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location $RepoRoot
 
+$restoreScript = Join-Path $RepoRoot 'tools/restore-firebase-config-placeholder.ps1'
+
+function Restore-SourceFirebasePlaceholder {
+    if (Test-Path -LiteralPath $restoreScript) {
+        & $restoreScript -RepoRoot $RepoRoot
+    }
+}
+
 $injectScript = Join-Path $RepoRoot 'tools/inject-firebase-config.ps1'
 $verifyScript = Join-Path $RepoRoot 'tools/verify-firebase-config.ps1'
+
+try {
 Write-Host 'Injecting Firebase client config (build-time API key)…'
 & $injectScript -RepoRoot $RepoRoot
 if ($LASTEXITCODE -ne 0) { throw 'inject-firebase-config.ps1 failed.' }
@@ -117,3 +127,6 @@ if ($env:GITHUB_OUTPUT) {
 }
 
 Write-Host 'Release packaging completed.'
+} finally {
+    Restore-SourceFirebasePlaceholder
+}
