@@ -69,18 +69,18 @@ public static class SurveyCompareService
             var hasB = coordsB.TryGetValue(st, out var cb);
             if (!hasA)
             {
-                stationRows.Add(new StationDiffRow("Added", st, "—", FormatCoord(cb)));
+                stationRows.Add(new StationDiffRow("Added", st, "—", FormatCoord(cb!)));
                 continue;
             }
 
             if (!hasB)
             {
-                stationRows.Add(new StationDiffRow("Removed", st, FormatCoord(ca), "—"));
+                stationRows.Add(new StationDiffRow("Removed", st, FormatCoord(ca!), "—"));
                 continue;
             }
 
-            if (!CoordsNear(ca, cb))
-                stationRows.Add(new StationDiffRow("Moved", st, FormatCoord(ca), FormatCoord(cb)));
+            if (!CoordsNear(ca!, cb!))
+                stationRows.Add(new StationDiffRow("Moved", st, FormatCoord(ca!), FormatCoord(cb!)));
         }
 
         return new CompareResult(

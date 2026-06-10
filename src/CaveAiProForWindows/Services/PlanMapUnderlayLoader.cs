@@ -475,20 +475,23 @@ public static class PlanMapUnderlayLoader
             if (!string.IsNullOrWhiteSpace(aiPath))
             {
                 var src = project.LoadedFromFile ?? zipPath;
-                var bytes = ProjectAiAssetPersistence.TryLoadAssetBytes(src, aiPath);
-                if (bytes is { Length: > 0 })
+                if (!string.IsNullOrWhiteSpace(src))
                 {
-                    try
+                    var bytes = ProjectAiAssetPersistence.TryLoadAssetBytes(src, aiPath);
+                    if (bytes is { Length: > 0 })
                     {
-                        using var ms = new MemoryStream(bytes);
-                        var decoder = BitmapDecoder.Create(ms, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-                        if (decoder.Frames.Count > 0)
-                            bitmap = decoder.Frames[0];
-                        resolvedPath = aiPath;
-                    }
-                    catch
-                    {
-                        // ignore decode failure
+                        try
+                        {
+                            using var ms = new MemoryStream(bytes);
+                            var decoder = BitmapDecoder.Create(ms, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                            if (decoder.Frames.Count > 0)
+                                bitmap = decoder.Frames[0];
+                            resolvedPath = aiPath;
+                        }
+                        catch
+                        {
+                            // ignore decode failure
+                        }
                     }
                 }
             }

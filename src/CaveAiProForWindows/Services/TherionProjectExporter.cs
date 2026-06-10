@@ -166,7 +166,8 @@ public static class TherionProjectExporter
             foreach (var auto in CaveMappingSymbolPlacer.BuildAutoPlanSymbols(project, coords, project.Shots))
             {
                 sb.AppendLine($"    point {Fmt(auto.X)} {Fmt(auto.Y)} 0");
-                sb.AppendLine($"      label \"{EscapeLabel(auto.Label)}\"");
+                if (!string.IsNullOrWhiteSpace(auto.Label))
+                    sb.AppendLine($"      label \"{EscapeLabel(auto.Label)}\"");
                 sb.AppendLine($"      {TherionSymbolMapper.ToTherionPointType(auto.IconKey, auto.SymbolId, auto.Label)}");
                 sb.AppendLine("    endpoint");
             }
