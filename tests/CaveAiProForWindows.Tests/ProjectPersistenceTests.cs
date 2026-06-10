@@ -67,6 +67,29 @@ public sealed class ProjectPersistenceTests
     }
 
     [TestMethod]
+    public void SyncWindowsInkToVectorLines_merges_without_dropping_android_lines()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Vectors",
+            VectorLines = JsonDocument.Parse(
+                """
+                [{"type":"WATER","viewMode":0,"points":[[0,0],[1,0]]}]
+                """).RootElement.Clone(),
+            MapObjects = JsonDocument.Parse(
+                """
+                [{"kind":"stroke","viewMode":0,"closed":false,"points":[[2,2],[3,3]],"sourceClient":"CaveAiProForWindows"}]
+                """).RootElement.Clone(),
+        };
+
+        DesignLayerVectorLinesSerializer.SyncWindowsInkToVectorLines(project);
+        Assert.AreEqual(JsonValueKind.Array, project.VectorLines!.Value.ValueKind);
+        Assert.AreEqual(2, project.VectorLines.Value.GetArrayLength());
+        Assert.AreEqual("WATER", project.VectorLines.Value[0].GetProperty("type").GetString());
+        Assert.AreEqual("WINDOWS_SKETCH", project.VectorLines.Value[1].GetProperty("type").GetString());
+    }
+
+    [TestMethod]
     public void MergeWindowsSketches_preserves_android_strokes()
     {
         var existing = JsonDocument.Parse(

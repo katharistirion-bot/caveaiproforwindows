@@ -45,7 +45,7 @@ public sealed class SurvexExporterTests
         StringAssert.Contains(text, "*begin demo_cave");
         Assert.IsTrue(text.Contains("*fix ", StringComparison.OrdinalIgnoreCase));
         StringAssert.Contains(text, "A1");
-        StringAssert.Contains(text, "0 0 0");
+        StringAssert.Contains(text, "0 0 100.5");
         StringAssert.Contains(text, "A2\t");
         StringAssert.Contains(text, "5.25\t90\t-5");
         Assert.IsFalse(text.Contains("A2\t-\t", StringComparison.Ordinal));
@@ -105,5 +105,68 @@ public sealed class SurvexExporterTests
         {
             System.Threading.Thread.CurrentThread.CurrentCulture = prev;
         }
+    }
+
+    [TestMethod]
+    public void BuildSvxUtf8Bom_includes_splays_and_declination_when_requested()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Full Export",
+            Alt = 420,
+            SurveyCalibrationProfile = new SurveyCalibrationProfileSnapshot
+            {
+                MagneticDeclinationAppliedDeg = 4.5f,
+            },
+            Shots =
+            [
+                new ShotRecord { FromStation = "A", ToStation = "B", Distance = 10f, Azimuth = 45f, Clino = 0f, L = 1, R = 1, U = 0.5f, D = 0.5f },
+                new ShotRecord { FromStation = "B", ToStation = "-", Distance = 3f, Azimuth = 90f, Clino = -10f },
+            ],
+        };
+
+        var options = new SurvexExportOptions
+        {
+            FixStation = "A",
+            FixEasting = 100,
+            FixNorthing = 200,
+            FixElevation = 420,
+            DeclinationDeg = 4.5,
+            IncludeSplays = true,
+            ProvisionalFix = false,
+        };
+
+        var bytes = SurvexExporter.BuildSvxUtf8Bom(project, options);
+        var text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetString(bytes.AsSpan(3..));
+
+        StringAssert.Contains(text, "*declination 4.5");
+        StringAssert.Contains(text, "*fix A 100 200 420");
+        StringAssert.Contains(text, "B\t-\t3\t90\t-10");
+        StringAssert.Contains(text, "*data passage station left right up down");
+        StringAssert.Contains(text, "A\t1\t1\t0.5\t0.5");
+    }
+
+    [TestMethod]
+    public void BuildSvxUtf8Bom_emits_entrance_gps_cs_when_lat_lon_present()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "GPS Cave",
+            Lat = 38.123456,
+            Lon = 23.654321,
+            Alt = 120,
+            Shots =
+            [
+                new ShotRecord { FromStation = "A", ToStation = "B", Distance = 10f, Azimuth = 0f, Clino = 0f },
+            ],
+        };
+
+        var bytes = SurvexExporter.BuildSvxUtf8Bom(project);
+        var text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetString(bytes.AsSpan(3..));
+
+        StringAssert.Contains(text, "*cs long-lat");
+        StringAssert.Contains(text, "*fix\tentrance-gps");
+        StringAssert.Contains(text, "23.654321");
+        StringAssert.Contains(text, "38.123456");
     }
 }

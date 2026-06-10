@@ -47,6 +47,13 @@ public static class BackupManifestReader
             Line("app_version");
             Line("bundles_local_media");
             Line("includes_map_inventory");
+            if (root.TryGetProperty("edit_provenance", out var prov) && prov.ValueKind == JsonValueKind.Object)
+            {
+                if (prov.TryGetProperty("editor", out var ed) && ed.ValueKind == JsonValueKind.String)
+                    sb.AppendLine($"edit_provenance.editor: {ed.GetString()}");
+                if (prov.TryGetProperty("editor_version", out var ev) && ev.ValueKind == JsonValueKind.String)
+                    sb.AppendLine($"edit_provenance.editor_version: {ev.GetString()}");
+            }
             return sb.ToString().TrimEnd();
         }
         catch (Exception ex)

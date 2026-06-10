@@ -1,0 +1,62 @@
+<Window x:Class="CaveAiProForWindows.Views.SurvexExportOptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Survex export options"
+        Height="520" Width="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource Cave.Background}"
+        Foreground="{DynamicResource Cave.Text}">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Cancel" Padding="14,6" Margin="0,0,8,0" Click="Cancel_Click" />
+            <Button Content="Export…" Padding="14,6" IsDefault="True" Click="Export_Click" />
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,12"
+                   Text="Set the Survex anchor (*fix), optional *declination, and whether to include splay legs. Replace provisional values before merging with surface surveys." />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,8" Text="Fix station" />
+            <TextBox x:Name="FixStationBox" Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,8" Text="Easting (m)" />
+            <TextBox x:Name="FixEastingBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" />
+
+            <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,8" Text="Northing (m)" />
+            <TextBox x:Name="FixNorthingBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" />
+
+            <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,8" Text="Elevation (m)" />
+            <TextBox x:Name="FixElevationBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,8" Text="Declination (°)" />
+            <TextBox x:Name="DeclinationBox" Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" />
+
+            <CheckBox x:Name="IncludeSplaysCheck" Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,4,0,4"
+                      Content="Include splay legs (second *data block)" />
+            <CheckBox x:Name="ProvisionalFixCheck" Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                      Content="Mark fix as provisional (comment header)" />
+            <CheckBox x:Name="IncludeLrudPassageCheck" Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                      Content="Include LRUD passage walls (*data passage)" />
+            <CheckBox x:Name="IncludeEntranceGpsCsCheck" Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,8"
+                      Content="Include entrance GPS *cs long-lat block (when lat/lon present)" />
+            <TextBlock x:Name="SplayHintText" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
+                       Foreground="{DynamicResource Cave.TextMuted}" TextWrapping="Wrap" FontSize="12" />
+        </Grid>
+    </DockPanel>
+</Window>
