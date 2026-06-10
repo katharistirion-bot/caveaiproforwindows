@@ -123,21 +123,23 @@ Optional script overrides (use the same values as Product identity):
 
 ### Certification test account
 
-Microsoft testers must pass the Google sign-in gate and subscription check. In Partner Center → **Notes for certification**, provide:
+Microsoft testers must pass the Google sign-in gate and subscription check. **Copy-paste ready notes**, Firestore provisioning steps, and troubleshooting: **[MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md)**.
 
-- A **Google account** email with an **active CaveAI Pro subscription** (Google Play) or trial entitlement
-- Brief steps: launch app → sign in with that account → confirm main window opens
+Summary:
+
+- Create a **dedicated Google test account** and pre-provision `user_entitlements/{uid}` in Firestore (`PLAY_SUBSCRIPTION`, `status=ACTIVE`, future `premiumCloudUntil`), **or** sign in on Android as a Play license tester first.
+- In Partner Center → **Notes for certification**, paste the full block from that doc (email, password, test steps).
+- "Subscription required" after sign-in means **auth succeeded** but the account has no entitlement — not a broken sign-in.
 
 Without valid credentials, certification fails at login even when the MSIX is otherwise correct.
 
 ### Certification resubmit (Product ID `9PPF3HPZRL21`)
 
-After rebuilding with a fixed self-contained MSIX:
-
-1. Run `.\tools\package-store-msix.ps1` (with `CAVEAIPRO_FIREBASE_API_KEY` set).
-2. Confirm `verify-store-publish.ps1` passes and MSIX size is ~200+ MB (bundled runtime).
-3. Upload the new unsigned `.msix` from `_store_out\` to Partner Center → **Packages**.
-4. In **Notes for certification**, state: self-contained .NET 8 desktop app; no separate .NET install; WebView2 Evergreen; Google sign-in + active subscription required for full features.
+1. Complete the **developer checklist** in [MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md) (test account + Firestore entitlement + verify on Windows).
+2. Run `.\tools\package-store-msix.ps1` (with `CAVEAIPRO_FIREBASE_API_KEY` set).
+3. Confirm `verify-store-publish.ps1` passes and MSIX size is ~200+ MB (bundled runtime).
+4. Upload the new unsigned `.msix` from `_store_out\` to Partner Center → **Packages**.
+5. Paste **Notes for certification** from [MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md) (replace `[FILL IN]` placeholders).
 
 ## Install guard
 

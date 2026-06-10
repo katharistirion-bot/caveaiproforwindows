@@ -34,7 +34,7 @@ public sealed record SubscriptionEntitlementResult(
 
     /// <summary>Shown when Firebase auth succeeded but entitlement validation failed.</summary>
     public const string AccessDeniedNoSubscriptionMessage =
-        "No active CaveAI Pro subscription or trial was found for this Google account. " +
+        "Google sign-in succeeded, but no active CaveAI Pro subscription or trial was found for this account. " +
         "Sign in with the same Google account you use in CaveAI Pro on Android (Google Play). " +
         "If you are in your 30-day trial, open the Android app once to sync your account, " +
         "or subscribe to CaveAI Pro on Google Play, then sign in here again.";

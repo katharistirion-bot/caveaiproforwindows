@@ -82,5 +82,9 @@ public static class AppStrings
     public static string LoginAccessDeniedPlayHint =>
         "CaveAI Pro subscriptions are purchased through Google Play on Android. After subscribing, sign in here with the same Google account.";
 
+    /// <summary>Shown on Microsoft Store builds to guide certification testers.</summary>
+    public static string LoginCertificationTesterHint =>
+        "Microsoft Store certification testers: use the Google account and password provided in Partner Center submission notes (not a personal account).";
+
     public static string MenuSwitchAccount => "Switch _Google account…";
 }

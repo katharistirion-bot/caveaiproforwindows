@@ -28,6 +28,9 @@ public partial class LoginWindow : Window
     public LoginWindow()
     {
         InitializeComponent();
+#if STORE_DISTRIBUTION
+        CertificationHintText.Visibility = Visibility.Visible;
+#endif
 #if DEBUG
         FallbackAuthButton.ToolTip =
             "Use bundled Firebase sign-in when the web auth page is unavailable (requires CAVEAIPRO_FIREBASE_API_KEY)";

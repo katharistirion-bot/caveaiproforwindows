@@ -21,6 +21,16 @@
                        Text="Sign in with Google to unlock the Desktop Companion" />
             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}"
                        Text="An active CaveAI Pro monthly subscription (Google Play) is required. Your Firebase session is established securely in WebView2 — credentials are never stored in plain text on disk." />
+            <TextBlock x:Name="CertificationHintText"
+                       Visibility="Collapsed"
+                       Margin="0,8,0,0"
+                       Padding="10,8"
+                       TextWrapping="Wrap"
+                       FontSize="12"
+                       LineHeight="18"
+                       Foreground="{DynamicResource Cave.Text}"
+                       Background="{DynamicResource Cave.BannerTint}"
+                       Text="{x:Static loc:AppStrings.LoginCertificationTesterHint}" />
             <TextBlock x:Name="StatusText" Margin="0,10,0,0" Foreground="{DynamicResource Cave.TextSubdued}"
                        Text="Loading secure sign-in…" />
 
@@ -30,23 +40,23 @@
                     Padding="14,12"
                     CornerRadius="8"
                     BorderThickness="1"
-                    BorderBrush="#66FF5252"
-                    Background="#1AFF5252">
+                    BorderBrush="#FFC62828"
+                    Background="{DynamicResource Cave.AnalyticsCriticalRow}">
                 <StackPanel>
-                    <TextBlock Text="Access Denied"
+                    <TextBlock Text="Subscription required"
                                FontWeight="SemiBold"
                                FontSize="14"
-                               Foreground="#FFFF8A80" />
+                               Foreground="#FFB71C1C" />
                     <TextBlock x:Name="AccessDeniedBody"
                                Margin="0,8,0,0"
                                TextWrapping="Wrap"
                                LineHeight="20"
-                               Foreground="#FFE8EAED"
+                               Foreground="{DynamicResource Cave.Text}"
                                Text="{x:Null}" />
                     <TextBlock Margin="0,10,0,0"
                                TextWrapping="Wrap"
                                FontSize="12"
-                               Foreground="{DynamicResource Cave.TextMuted}"
+                               Foreground="{DynamicResource Cave.TextSubdued}"
                                Text="{x:Static loc:AppStrings.LoginAccessDeniedPlayHint}" />
                     <StackPanel Margin="0,14,0,0" Orientation="Horizontal">
                         <Button x:Name="PlayStoreButton"
