@@ -13,6 +13,9 @@ public sealed class DesktopAuthFlowRegressionTests
     private static string BundledAuthHtmlPath =>
         Path.Combine(RepoRoot, "src", "CaveAiProForWindows", "Assets", "DesktopAuth", "auth.html");
 
+    private static string SourcePath(params string[] parts) =>
+        Path.Combine(new[] { RepoRoot, "src", "CaveAiProForWindows" }.Concat(parts).ToArray());
+
     [TestMethod]
     public void Bundled_auth_html_follows_host_redirect_v2_invariants()
     {
@@ -48,6 +51,33 @@ public sealed class DesktopAuthFlowRegressionTests
         var errors = DesktopAuthFlowInvariants.ValidateBundledAuthHtml(html);
         Assert.IsTrue(errors.Count > 0);
         Assert.IsTrue(errors.Any(e => e.Contains("signInWithRedirect", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void OAuth_popups_are_bridged_for_token_capture()
+    {
+        var source = File.ReadAllText(SourcePath("Views", "WebView2AuthPopupHost.cs"));
+        StringAssert.Contains(source, "CloudPublishWebViewHost.EnsureAuthBridgeAttached(popupCore)");
+    }
+
+    [TestMethod]
+    public void Auth_webviews_keep_default_user_agent()
+    {
+        var desktopAuth = File.ReadAllText(SourcePath("Views", "DesktopAuthWindow.xaml.cs"));
+        var publicLibrary = File.ReadAllText(SourcePath("Views", "PublicLibraryWebWindow.xaml.cs"));
+
+        Assert.IsFalse(desktopAuth.Contains("Settings.UserAgent", StringComparison.Ordinal));
+        Assert.IsFalse(publicLibrary.Contains("Settings.UserAgent", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Public_library_windows_host_oauth_popups()
+    {
+        var publicLibrary = File.ReadAllText(SourcePath("Views", "PublicLibraryWebWindow.xaml.cs"));
+        var picker = File.ReadAllText(SourcePath("Views", "LibraryCavePickerWindow.xaml.cs"));
+
+        StringAssert.Contains(publicLibrary, "WebView2AuthPopupHost.WirePopupHandling");
+        StringAssert.Contains(picker, "WebView2AuthPopupHost.WirePopupHandling");
     }
 }
 

@@ -9,7 +9,8 @@ public static class CloudPublishWebViewHost
 {
     private static readonly FirebaseAuthTokenCache SharedTokenCache = CreateSharedTokenCache();
     private static readonly object Gate = new();
-    private static DesktopAuthWebViewBridge? _bridge;
+    private static readonly Dictionary<CoreWebView2, DesktopAuthWebViewBridge> Bridges =
+        new(ReferenceEqualityComparer.Instance);
 
     public static FirebaseAuthTokenCache TokenCache => SharedTokenCache;
 
@@ -25,11 +26,18 @@ public static class CloudPublishWebViewHost
     /// <summary>Idempotent: registers postMessage token delivery on allowed origins.</summary>
     public static DesktopAuthWebViewBridge EnsureAuthBridgeAttached(CoreWebView2 core)
     {
+        ArgumentNullException.ThrowIfNull(core);
+
         lock (Gate)
         {
-            _bridge ??= new DesktopAuthWebViewBridge(SharedTokenCache);
-            _bridge.Attach(core);
-            return _bridge;
+            if (!Bridges.TryGetValue(core, out var bridge))
+            {
+                bridge = new DesktopAuthWebViewBridge(SharedTokenCache);
+                Bridges.Add(core, bridge);
+            }
+
+            bridge.Attach(core);
+            return bridge;
         }
     }
 
@@ -37,7 +45,9 @@ public static class CloudPublishWebViewHost
     {
         lock (Gate)
         {
-            _bridge?.Detach();
+            foreach (var bridge in Bridges.Values)
+                bridge.Detach();
+            Bridges.Clear();
         }
     }
 }

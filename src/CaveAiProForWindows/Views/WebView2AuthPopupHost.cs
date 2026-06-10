@@ -85,6 +85,7 @@ internal static class WebView2AuthPopupHost
             popupCore.Settings.AreDefaultContextMenusEnabled = true;
             popupCore.Settings.IsStatusBarEnabled = false;
 
+            CloudPublishWebViewHost.EnsureAuthBridgeAttached(popupCore);
             WirePopupHandling(popupCore, popupWindow, isNavigationAllowed);
 
             popupCore.NavigationStarting += (_, navArgs) =>

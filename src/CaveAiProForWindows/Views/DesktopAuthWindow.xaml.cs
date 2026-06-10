@@ -79,7 +79,7 @@ public partial class DesktopAuthWindow : Window
             core.Settings.AreDefaultContextMenusEnabled = true;
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
-            core.Settings.UserAgent = core.Settings.UserAgent + " CaveAiProForWindows/1.0";
+            // Keep the default Edge WebView2 user agent; Google OAuth can reject modified agents.
 
             CloudPublishWebViewHost.EnsureAuthBridgeAttached(core);
             DesktopAuthFallback.TryRegisterVirtualHost(core);

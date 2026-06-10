@@ -42,18 +42,12 @@ public partial class PublicLibraryWebWindow : Window
             core.Settings.AreDefaultContextMenusEnabled = true;
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
-            core.Settings.UserAgent = core.Settings.UserAgent + " CaveAiProForWindows/1.0";
+            // Keep the default Edge WebView2 user agent; Google OAuth can reject modified agents.
 
             // postMessage bridge for Push to Cloud.
             CloudPublishWebViewHost.EnsureAuthBridgeAttached(core);
 
-            core.NewWindowRequested += (_, args) =>
-            {
-                // Google OAuth / Firebase auth popups — navigate in the same view instead of blocking.
-                args.Handled = true;
-                if (!string.IsNullOrWhiteSpace(args.Uri))
-                    core.Navigate(args.Uri);
-            };
+            WebView2AuthPopupHost.WirePopupHandling(core, this, PublicLibraryWebWindowNavigationPolicy.IsAllowed);
 
             core.NavigationStarting += (_, args) =>
             {

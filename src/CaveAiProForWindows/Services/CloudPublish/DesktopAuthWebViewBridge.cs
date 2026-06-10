@@ -68,6 +68,8 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
         _core.NavigationCompleted -= OnNavigationCompleted;
         _core.WebResourceResponseReceived -= OnWebResourceResponseReceived;
         _core = null;
+        _identityToolkitFilterRegistered = false;
+        _documentCreatedScriptRegistered = false;
     }
 
     /// <summary>Ask the page (or injected bridge) to deliver the current Firebase ID token.</summary>

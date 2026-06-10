@@ -50,12 +50,7 @@ public partial class LibraryCavePickerWindow : Window
             core.Settings.AreDevToolsEnabled = false;
             CloudPublishWebViewHost.EnsureAuthBridgeAttached(core);
 
-            core.NewWindowRequested += (_, args) =>
-            {
-                args.Handled = true;
-                if (!string.IsNullOrWhiteSpace(args.Uri))
-                    core.Navigate(args.Uri);
-            };
+            WebView2AuthPopupHost.WirePopupHandling(core, this, IsAllowedNavigation);
 
             core.NavigationStarting += (_, args) =>
             {
