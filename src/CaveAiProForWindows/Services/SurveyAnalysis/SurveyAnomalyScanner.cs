@@ -10,11 +10,11 @@ namespace CaveAiProForWindows.Services.SurveyAnalysis;
 public static class SurveyAnomalyScanner
 {
     /// <summary>MAD multiplier — values beyond median ± k·MAD are flagged.</summary>
-    public const double DefaultMadMultiplier = 3.5;
+    public const double DefaultMadMultiplier = SurveyAnomalyThresholds.MadMultiplier;
 
     public static IReadOnlyList<SurveyAnomalyFinding> Scan(
         CaveProjectDocument project,
-        double madMultiplier = DefaultMadMultiplier)
+        double madMultiplier = SurveyAnomalyThresholds.MadMultiplier)
     {
         ArgumentNullException.ThrowIfNull(project);
         var trav = project.Shots.Where(s => s.IsTraverseLeg).ToList();
@@ -40,7 +40,7 @@ public static class SurveyAnomalyScanner
 
         foreach (var loop in SurveyLoopClosureAdjuster.DetectLoops(project))
         {
-            if (loop.MisclosureMeters <= 0.05)
+            if (loop.MisclosureMeters <= SurveyAnomalyThresholds.LoopMisclosureSkipMetres)
                 continue;
             var z = loop.MisclosureMeters / Math.Max(0.15, loop.MeanLegLength * 0.02);
             findings.Add(new SurveyAnomalyFinding(
@@ -52,9 +52,11 @@ public static class SurveyAnomalyScanner
                 z,
                 $"Loop misclosure {loop.MisclosureMeters.ToString("0.###", CultureInfo.InvariantCulture)} m " +
                 $"({loop.StationCount} stations, {loop.TotalLegLength.ToString("0.##", CultureInfo.InvariantCulture)} m perimeter)",
-                loop.MisclosureMeters > 1.0 ? SurveyAnomalySeverity.Critical
-                    : loop.MisclosureMeters > 0.35 ? SurveyAnomalySeverity.Warning
-                    : SurveyAnomalySeverity.Info));
+                loop.MisclosureMeters >= SurveyAnomalyThresholds.LoopMisclosureCriticalMetres
+                    ? SurveyAnomalySeverity.Critical
+                    : loop.MisclosureMeters >= SurveyAnomalyThresholds.LoopMisclosureWarningMetres
+                        ? SurveyAnomalySeverity.Warning
+                        : SurveyAnomalySeverity.Info));
         }
 
         return findings
@@ -73,7 +75,7 @@ public static class SurveyAnomalyScanner
         Func<ShotRecord, string> legLabel)
     {
         var values = legs.Select(selector).Where(v => !double.IsNaN(v) && !double.IsInfinity(v)).ToList();
-        if (values.Count < 4)
+        if (values.Count < SurveyAnomalyThresholds.MinSeriesSampleCount)
             return;
 
         var (median, mad) = RobustMedianAndMad(values);
@@ -122,7 +124,9 @@ public static class SurveyAnomalyScanner
                 z,
                 $"{kind} {v.ToString("0.##", CultureInfo.InvariantCulture)}{unit} " +
                 $"(median {median.ToString("0.##", CultureInfo.InvariantCulture)}{unit}, robust sd≈{(1.4826 * mad).ToString("0.##", CultureInfo.InvariantCulture)})",
-                z > madMultiplier * 1.4 ? SurveyAnomalySeverity.Critical : SurveyAnomalySeverity.Warning));
+                z > madMultiplier * SurveyAnomalyThresholds.MadCriticalRelativeFactor
+                    ? SurveyAnomalySeverity.Critical
+                    : SurveyAnomalySeverity.Warning));
         }
     }
 
@@ -149,7 +153,7 @@ public static class SurveyAnomalyScanner
             .Where(v => v > 0)
             .ToList();
 
-        if (series.Count < 4)
+        if (series.Count < SurveyAnomalyThresholds.MinSeriesSampleCount)
             return;
 
         var (median, mad) = RobustMedianAndMad(series);

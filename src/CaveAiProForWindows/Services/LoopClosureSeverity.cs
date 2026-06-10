@@ -16,8 +16,8 @@ public enum LoopClosureSeverity
 /// </summary>
 public static class LoopClosureSeverityClassifier
 {
-    public const double GoodThresholdMetres = 0.05;
-    public const double LargeThresholdMetres = 1.0;
+    public const double GoodThresholdMetres = SurveyAnalysis.SurveyAnomalyThresholds.LoopMisclosureSkipMetres;
+    public const double LargeThresholdMetres = SurveyAnalysis.SurveyAnomalyThresholds.LoopMisclosureCriticalMetres;
 
     public static LoopClosureSeverity Classify(double misclosureMeters)
     {

@@ -18,6 +18,7 @@ Normative summary for data exchanged between **CaveAI Pro (Android)** and **CAVE
 | Project list / single project | `data.json` in ZIP or standalone JSON | [DataJsonSurveySchemaV2.md](../android-reference/DataJsonSurveySchemaV2.md) |
 | Site type labels | `surveySiteType` on project | [SurveySiteTypeContract.md](../android-reference/SurveySiteTypeContract.md) |
 | Backup ZIP maps | `export_assets/maps/…`, `map_inventory.json` | [MapsWindowsSync.md](../android-reference/MapsWindowsSync.md) |
+| Anomaly / QC thresholds | `SurveyAnomalyThresholds` (both apps) | [SurveyAnomalyThresholdsContract.md](../android-reference/SurveyAnomalyThresholdsContract.md) |
 | Desktop folder sync | Android backup folder ↔ PC | [AndroidDesktopAutoSync.md](../android-reference/AndroidDesktopAutoSync.md) |
 
 ## ZIP layout (backup)

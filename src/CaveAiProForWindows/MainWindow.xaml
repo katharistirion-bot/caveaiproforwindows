@@ -57,6 +57,8 @@
                           ToolTip="All map asset rows (JSON/ZIP paths + standalone map files), UTF-8 BOM" />
                 <MenuItem Header="_Survey &amp; QC report (TXT)…" Command="{Binding ExportSurveyQcReportCommand}"
                           ToolTip="Project summary + traverse statistics and QC hints (UTF-8 BOM) for the selected cave." />
+                <MenuItem Header="Unified _QC report packet…" Command="{Binding ExportUnifiedQcReportCommand}"
+                          ToolTip="Summary TXT + anomalies CSV + loops CSV + integrity/manifest (when ZIP loaded) in one folder." />
                 <MenuItem Header="Export _all projects to folder…" Command="{Binding ExportAllProjectsToFolderCommand}"
                           ToolTip="For every loaded project: shots CSV; if traverse exists also Survex .svx, Therion .th, stations x,y,z CSV." />
                 <Separator />

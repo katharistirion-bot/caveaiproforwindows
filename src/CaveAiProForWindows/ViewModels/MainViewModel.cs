@@ -207,6 +207,7 @@ public partial class MainViewModel : ObservableObject
         ExportStationsCsvCommand.NotifyCanExecuteChanged();
         ExportAllProjectsToFolderCommand.NotifyCanExecuteChanged();
         ExportSurveyQcReportCommand.NotifyCanExecuteChanged();
+        ExportUnifiedQcReportCommand.NotifyCanExecuteChanged();
         ExportPlanSvgCommand.NotifyCanExecuteChanged();
         ExportPlanDxfCommand.NotifyCanExecuteChanged();
         ExportSectionSvgCommand.NotifyCanExecuteChanged();
@@ -243,6 +244,7 @@ public partial class MainViewModel : ObservableObject
         ExportSectionSvgCommand.NotifyCanExecuteChanged();
         ExportSectionDxfCommand.NotifyCanExecuteChanged();
         ExportSurveyQcReportCommand.NotifyCanExecuteChanged();
+        ExportUnifiedQcReportCommand.NotifyCanExecuteChanged();
         SaveProjectCommand.NotifyCanExecuteChanged();
         PrintPreviewCommand.NotifyCanExecuteChanged();
         PublishToCloudCommand.NotifyCanExecuteChanged();
@@ -894,6 +896,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             SelectedProject = first;
+            _loadedSurveyFingerprint = SurveyContentFingerprint.Compute(first);
             AppUiSettingsStore.ApplyFullOverlaysAfterImport();
             SourcePathDisplay = orderedPaths.Count <= 1
                 ? (orderedPaths.Count == 1 ? orderedPaths[0] : "")
@@ -2005,6 +2008,11 @@ public partial class MainViewModel : ObservableObject
     private void ExportSurvex()
     {
         if (SelectedProject == null) return;
+        var owner = Wpf.Application.Current.MainWindow;
+        var optionsWindow = new Views.SurvexExportOptionsWindow(SelectedProject, owner);
+        if (optionsWindow.ShowDialog() != true || optionsWindow.Result == null)
+            return;
+
         var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
@@ -2014,16 +2022,16 @@ public partial class MainViewModel : ObservableObject
             FileName = $"{safe}.svx",
             AddExtension = true,
         };
-        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true) return;
+        if (dlg.ShowDialog(owner) != true) return;
         try
         {
-            File.WriteAllBytes(dlg.FileName, SurvexExporter.BuildSvxUtf8Bom(SelectedProject));
+            File.WriteAllBytes(dlg.FileName, SurvexExporter.BuildSvxUtf8Bom(SelectedProject, optionsWindow.Result));
             StatusMessage = "Survex saved: " + dlg.FileName;
             SnackbarService.ShowFileSaved(dlg.FileName, "Survex (.svx) saved —");
         }
         catch (Exception ex)
         {
-            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+            Wpf.MessageBox.Show(owner, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
         }
     }
 
@@ -2091,6 +2099,8 @@ public partial class MainViewModel : ObservableObject
 
     private DateTime? _lastLoadedBackupWriteUtc;
 
+    private string? _loadedSurveyFingerprint;
+
     private string? _pendingAndroidBackupPath;
 
     public void NotifyAndroidBackupDetected(string zipPath)
@@ -2149,6 +2159,23 @@ public partial class MainViewModel : ObservableObject
                 return;
             if (settings.AutoReloadBackupZip)
             {
+                if (ShouldPromptAndroidSyncConflict(zipPath))
+                {
+                    var choice = AndroidSyncConflictPrompt.Show(Wpf.Application.Current.MainWindow, name);
+                    if (choice == AndroidSyncConflictChoice.KeepPcSurvey)
+                    {
+                        NotifyAndroidBackupDetected(zipPath);
+                        return;
+                    }
+
+                    if (choice == AndroidSyncConflictChoice.SavePcCopyFirst)
+                    {
+                        ExportAndroidBackupZip();
+                        NotifyAndroidBackupDetected(zipPath);
+                        return;
+                    }
+                }
+
                 LoadFromPath(zipPath);
                 _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(zipPath);
                 StatusMessage = AppStrings.AndroidSyncReloaded(name);
@@ -2158,6 +2185,16 @@ public partial class MainViewModel : ObservableObject
         }
 
         NotifyAndroidBackupDetected(zipPath);
+    }
+
+    private bool ShouldPromptAndroidSyncConflict(string zipPath)
+    {
+        if (string.IsNullOrWhiteSpace(_loadedSurveyFingerprint) || SelectedProject == null)
+            return false;
+
+        var incoming = SurveyContentFingerprint.TryComputeFromBackupZip(zipPath, SelectedProject.Name);
+        return !string.IsNullOrWhiteSpace(incoming) &&
+               !string.Equals(incoming, _loadedSurveyFingerprint, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>When JSON sync files change, attempt to load the newest backup ZIP in the same folder.</summary>
@@ -2374,6 +2411,42 @@ public partial class MainViewModel : ObservableObject
             CaveSurveyBookletExportService.ExportBooklet(SelectedProject, dlg.FileName);
             StatusMessage = "Survey booklet PDF saved.";
             Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, "Booklet PDF saved.", "Export", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void ExportUnifiedQcReport()
+    {
+        if (SelectedProject == null)
+            return;
+        var dlg = new OpenFolderDialog
+        {
+            Title = "Folder for unified QC report packet (TXT + CSV + integrity)",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            string? manifestSummary = null;
+            if (!string.IsNullOrEmpty(_zipPath))
+                manifestSummary = BackupManifestReader.TryReadSummary(_zipPath);
+
+            var n = UnifiedQcReportExporter.ExportToFolder(
+                SelectedProject,
+                dlg.FolderName,
+                _integrityReport,
+                manifestSummary);
+            StatusMessage = $"Unified QC report: {n} file(s) saved.";
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                $"Saved {n} file(s) to:\n{dlg.FolderName}\n\nIncludes summary TXT, anomalies CSV, loops CSV, and integrity/manifest when a ZIP is loaded.",
+                "Export",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
         }
         catch (Exception ex)
         {

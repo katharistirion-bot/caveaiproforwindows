@@ -12,6 +12,22 @@ public static class SurveyOfficeReportExporter
         sb.AppendLine("CAVE AI PRO — survey & QC report");
         sb.AppendLine($"Generated (local): {DateTimeOffset.Now:O}");
         sb.AppendLine();
+        sb.AppendLine(BuildSummaryTextOnly(project).TrimEnd());
+        sb.AppendLine();
+        sb.AppendLine("=== End of report ===");
+
+        var preamble = Encoding.UTF8.GetPreamble();
+        var body = Encoding.UTF8.GetBytes(sb.ToString());
+        var outBytes = new byte[preamble.Length + body.Length];
+        Buffer.BlockCopy(preamble, 0, outBytes, 0, preamble.Length);
+        Buffer.BlockCopy(body, 0, outBytes, preamble.Length, body.Length);
+        return outBytes;
+    }
+
+    /// <summary>Core sections shared with <see cref="UnifiedQcReportExporter"/>.</summary>
+    public static string BuildSummaryTextOnly(CaveProjectDocument project)
+    {
+        var sb = new StringBuilder();
         sb.AppendLine("=== Project summary ===");
         sb.AppendLine(ExplorationAnalytics.BuildSummaryText(project).TrimEnd());
         sb.AppendLine();
@@ -26,14 +42,6 @@ public static class SurveyOfficeReportExporter
         sb.AppendLine();
         sb.AppendLine("=== Map survey overlays ===");
         sb.AppendLine(SurveyAnnotationReportFormatter.BuildOverlaySummary(project).TrimEnd());
-        sb.AppendLine();
-        sb.AppendLine("=== End of report ===");
-
-        var preamble = Encoding.UTF8.GetPreamble();
-        var body = Encoding.UTF8.GetBytes(sb.ToString());
-        var outBytes = new byte[preamble.Length + body.Length];
-        Buffer.BlockCopy(preamble, 0, outBytes, 0, preamble.Length);
-        Buffer.BlockCopy(body, 0, outBytes, preamble.Length, body.Length);
-        return outBytes;
+        return sb.ToString();
     }
 }
