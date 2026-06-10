@@ -63,4 +63,18 @@
           Condition="'$(Configuration)' == 'Release' and '$(ObfuscatorEnabled)' != 'true'">
     <Delete Files="$(MSBuildProjectDirectory)\Obfuscar.xml" Condition="Exists('$(MSBuildProjectDirectory)\Obfuscar.xml')" />
   </Target>
+  <!-- Override MSBuild.Obfuscar: generate Obfuscar.xml from template every Release build (never use a committed copy). -->
+  <Target Name="Obfuscator"
+          AfterTargets="AfterBuild"
+          DependsOnTargets="CheckPrerequisites;_GenerateObfuscarConfiguration"
+          Condition="'$(Configuration)' == 'Release' and '$(ObfuscatorEnabled)' == 'true'">
+    <MakeDir Directories="$(TargetDir)obfuscated" />
+    <Exec WorkingDirectory="$(ProjectDir)" Command="$(ObfuscateCommand)" />
+    <ItemGroup>
+      <FilesToMove Include="$(TargetDir)obfuscated\*.*" />
+    </ItemGroup>
+    <Move SourceFiles="@(FilesToMove)" DestinationFolder="$(TargetDir)" OverwriteReadOnlyFiles="true" Condition=" '$(OS)' == 'Windows_NT'" />
+    <RemoveDir Directories="$(TargetDir)obfuscated" Condition=" '$(OS)' == 'Windows_NT'" />
+  </Target>
+
 </Project>

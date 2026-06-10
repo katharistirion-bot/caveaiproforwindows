@@ -318,6 +318,39 @@ public static class SurveyLoopClosureAdjuster
             leg.Distance * Math.Sin(cl));
     }
 
+    /// <summary>
+    /// Writes adjusted coordinates into <see cref="CaveProjectDocument.PlanStationPositionOverrides"/>
+    /// without modifying raw shot measurements (non-destructive office preview / apply-to-copy).
+    /// </summary>
+    public static void ApplyToPlanOverrides(
+        CaveProjectDocument project,
+        SurveyLoopAdjustmentResult result)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(result);
+
+        var baseCoords = SurveyStationGeometry.CalculatePlanCoordinates(project);
+        foreach (var (station, adjusted) in result.AdjustedCoordinates)
+        {
+            if (!baseCoords.TryGetValue(station, out var raw))
+                continue;
+
+            var dx = adjusted.X - raw.X;
+            var dy = adjusted.Y - raw.Y;
+            var dz = adjusted.Z - raw.Z;
+            if (Math.Abs(dx) < 1e-6 && Math.Abs(dy) < 1e-6 && Math.Abs(dz) < 1e-6)
+            {
+                project.PlanStationPositionOverrides.Remove(station);
+                continue;
+            }
+
+            project.PlanStationPositionOverrides[station] = new PlanStationPositionOverride(
+                adjusted.X,
+                adjusted.Y,
+                adjusted.Z);
+        }
+    }
+
     private static IReadOnlyDictionary<string, (float X, float Y, float Z)> ToTupleDict(
         Dictionary<string, SurveyStationGeometry.StationPlanCoords> coords) =>
         coords.ToDictionary(
