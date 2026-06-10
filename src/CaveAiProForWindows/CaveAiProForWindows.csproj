@@ -32,6 +32,7 @@
   <!--
     Microsoft Store (MSIX): dotnet publish -c Release -p:PublishProfile=MicrosoftStore-Win64
     defines STORE_DISTRIBUTION (skips Velopack bootstrap + in-app updates; relaxes install guard for WindowsApps).
+    Store certification review only: MicrosoftStore-Review-Win64 adds STORE_REVIEW_UNLOCKED (see package-store-msix-review.ps1).
     Sideload / GitHub: use package-release.ps1 or ReleaseSingleFile-Win64 without STORE_DISTRIBUTION.
   -->
   <PropertyGroup Label="Distribution publish defaults (non-RID build safe)">

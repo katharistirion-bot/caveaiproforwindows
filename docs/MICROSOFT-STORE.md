@@ -36,11 +36,23 @@ Disable for local debugging: `-p:ObfuscatorEnabled=false`.
 
 ## Store MSIX pipeline (unsigned)
 
+### Production Store MSIX
+
 One command — build, obfuscate, publish Store profile, pack MSIX **without signing**:
 
 ```powershell
 .\tools\package-store-msix.ps1
 ```
+
+### Store certification review MSIX (subscription bypass)
+
+For Microsoft certification only — skips Google sign-in and subscription gate (`STORE_REVIEW_UNLOCKED`):
+
+```powershell
+.\tools\package-store-msix-review.ps1
+```
+
+Output: `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned.msix`. After certification passes, submit the normal MSIX from `package-store-msix.ps1`. See [MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md).
 
 ### What the script does
 
@@ -57,6 +69,8 @@ One command — build, obfuscate, publish Store profile, pack MSIX **without sig
 Default folder: `_store_out\`
 
 Example: `_store_out\CaveAiProForWindows-1.4.0-Store-unsigned.msix`
+
+Review certification example: `_store_out\CaveAiProForWindows-1.4.0-Store-Review-unsigned.msix`
 
 ### Manual steps (equivalent)
 
@@ -119,13 +133,13 @@ Optional script overrides (use the same values as Product identity):
 - [ ] WebView2 — note runtime dependency in certification notes (Evergreen WebView2; not a separate user install for most Windows 11 PCs)
 - [ ] **.NET runtime** — Store MSIX must be **self-contained** (bundled runtime). Verify with `verify-store-publish.ps1` before upload. No separate .NET Desktop Runtime install is required when `includedFrameworks` is present in publish output.
 - [ ] Firebase / OAuth — Store redirect URIs if required for desktop auth
-- [ ] Certification — requires Google account + active CaveAI Pro (Play) subscription
+- [ ] **Certification** — prefer `package-store-msix-review.ps1` (review MSIX, no test account); or provision Google test account + Firestore for normal MSIX
 
 ### Certification test account
 
-Microsoft testers must pass the Google sign-in gate and subscription check. **Copy-paste ready notes**, Firestore provisioning steps, and troubleshooting: **[MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md)**.
+For the **normal** Store MSIX only. The **review MSIX** (`package-store-msix-review.ps1`) bypasses sign-in and subscription — see **[MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md)** (review build section at top).
 
-Summary:
+Microsoft testers must pass the Google sign-in gate and subscription check when using the production MSIX. **Copy-paste ready notes**, Firestore provisioning steps, and troubleshooting:
 
 - Create a **dedicated Google test account** and pre-provision `user_entitlements/{uid}` in Firestore (`PLAY_SUBSCRIPTION`, `status=ACTIVE`, future `premiumCloudUntil`), **or** sign in on Android as a Play license tester first.
 - In Partner Center → **Notes for certification**, paste the full block from that doc (email, password, test steps).
@@ -135,11 +149,15 @@ Without valid credentials, certification fails at login even when the MSIX is ot
 
 ### Certification resubmit (Product ID `9PPF3HPZRL21`)
 
-1. Complete the **developer checklist** in [MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md) (test account + Firestore entitlement + verify on Windows).
-2. Run `.\tools\package-store-msix.ps1` (with `CAVEAIPRO_FIREBASE_API_KEY` set).
-3. Confirm `verify-store-publish.ps1` passes and MSIX size is ~200+ MB (bundled runtime).
-4. Upload the new unsigned `.msix` from `_store_out\` to Partner Center → **Packages**.
-5. Paste **Notes for certification** from [MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md) (replace `[FILL IN]` placeholders).
+**Recommended:** review MSIX for certification, then production MSIX after pass.
+
+1. Run `.\tools\package-store-msix-review.ps1` (with `CAVEAIPRO_FIREBASE_API_KEY` set).
+2. Confirm `verify-store-publish.ps1` passes and MSIX size is ~200+ MB (bundled runtime).
+3. Upload `_store_out\*-Store-Review-unsigned.msix` to Partner Center → **Packages** (same identity; bump `<Version>` in `Directory.Build.props` if resubmitting).
+4. Paste **Notes for certification** (review MSIX block) from [MICROSOFT-STORE-CERTIFICATION-NOTES.md](MICROSOFT-STORE-CERTIFICATION-NOTES.md).
+5. After certification **passes**, build with `.\tools\package-store-msix.ps1` and submit as the next update (subscription gate restored).
+
+Alternative (normal MSIX + test account): complete the developer checklist in that doc, run `package-store-msix.ps1`, paste the test-account certification notes.
 
 ## Install guard
 

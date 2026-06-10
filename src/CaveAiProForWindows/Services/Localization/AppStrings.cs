@@ -86,5 +86,9 @@ public static class AppStrings
     public static string LoginCertificationTesterHint =>
         "Microsoft Store certification testers: use the Google account and password provided in Partner Center submission notes (not a personal account).";
 
+    /// <summary>Shown on Store review MSIX builds (<c>STORE_REVIEW_UNLOCKED</c>).</summary>
+    public static string StoreReviewBuildBanner =>
+        "Store review build — subscription checks disabled";
+
     public static string MenuSwitchAccount => "Switch _Google account…";
 }

@@ -12,10 +12,16 @@ public static class AppLockBootstrapper
     /// <summary>
     /// Debug builds only: set <c>CAVEAIPRO_SKIP_APP_LOCK=1</c> to bypass the subscription gate locally.
     /// </summary>
+    /// <summary>
+    /// Debug: <c>CAVEAIPRO_SKIP_APP_LOCK=1</c>. Release Store review MSIX: <see cref="StoreReviewBuild.IsActive"/>.
+    /// </summary>
     public static bool IsBypassEnabled
     {
         get
         {
+            if (StoreReviewBuild.IsActive)
+                return true;
+
 #if DEBUG
             var v = Environment.GetEnvironmentVariable("CAVEAIPRO_SKIP_APP_LOCK");
             return string.Equals(v, "1", StringComparison.Ordinal) ||
@@ -50,7 +56,16 @@ public static class AppLockBootstrapper
     private static bool TryEnsureUnlockedInternal(SplashScreen? splash, CancellationToken cancellationToken)
     {
         if (IsBypassEnabled)
+        {
+            if (StoreReviewBuild.IsActive)
+            {
+                StoreReviewBuild.ActivateSession();
+                Debug.WriteLine("[AppLock] STORE_REVIEW_UNLOCKED — subscription gate bypassed for Store certification.");
+                App.WriteStartupLog("AppLock: STORE_REVIEW_UNLOCKED bypass");
+            }
+
             return true;
+        }
 
         cancellationToken.ThrowIfCancellationRequested();
 

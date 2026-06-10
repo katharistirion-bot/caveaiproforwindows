@@ -3,6 +3,79 @@
 Product ID: **9PPF3HPZRL21**  
 Package: **Cave AI Pro** (Windows Desktop Companion)
 
+---
+
+## Store review MSIX (subscription bypass — certification only)
+
+Use this **temporary** build so Microsoft reviewers can test all features **without** a Google test account or Firestore entitlement. After certification **passes**, upload the **normal** MSIX from `package-store-msix.ps1` (subscription gate restored).
+
+### Build review MSIX
+
+```powershell
+$env:CAVEAIPRO_FIREBASE_API_KEY = '<your-api-key>'
+.\tools\package-store-msix-review.ps1
+```
+
+Output: `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned.msix`
+
+Compile flag: **`STORE_REVIEW_UNLOCKED`** (via publish profile `MicrosoftStore-Review-Win64` only). The app shows a banner: *Store review build — subscription checks disabled* and skips the Google sign-in / subscription gate on launch.
+
+### After certification passes
+
+1. Run `.\tools\package-store-msix.ps1` (normal profile — **no** `STORE_REVIEW_UNLOCKED`).
+2. Upload that MSIX as the next Store update (same package identity, version bump).
+3. **Do not** leave the review build in production — it disables subscription enforcement.
+
+### Normal production Store build
+
+```powershell
+$env:CAVEAIPRO_FIREBASE_API_KEY = '<your-api-key>'
+.\tools\package-store-msix.ps1
+```
+
+Output: `_store_out\CaveAiProForWindows-<version>-Store-unsigned.msix`
+
+---
+
+## Copy-paste: Notes for Certification (review MSIX)
+
+Paste into Partner Center when submitting the **review** MSIX:
+
+```
+--- BEGIN NOTES FOR CERTIFICATION ---
+
+Product ID: 9PPF3HPZRL21
+App: Cave AI Pro — Windows Desktop Companion (full-trust desktop, WPF + WebView2).
+
+THIS SUBMISSION IS A STORE REVIEW BUILD
+- Subscription and Google sign-in gates are disabled for Microsoft certification testing only.
+- Launch the app — the main window opens directly (banner: "Store review build — subscription checks disabled").
+- No test Google account or password is required for this submission.
+- The production Store update after certification will restore Google sign-in and subscription verification.
+
+TECHNICAL NOTES
+- Self-contained .NET 8 desktop app (runtime bundled in MSIX; no separate .NET install).
+- Uses Microsoft Edge WebView2 (Evergreen) where web content is shown.
+- Capabilities: internetClient, runFullTrust (full-trust desktop survey tool).
+
+TEST STEPS
+1. Install and launch Cave AI Pro.
+2. Confirm the review banner appears and the main application window opens without sign-in.
+3. Optional: File → Open to load a sample survey backup, or explore export menus.
+
+CONTACT
+Developer: Georgios Kourentzis
+Support: https://www.caveaipro.com/
+
+--- END NOTES FOR CERTIFICATION ---
+```
+
+---
+
+## Legacy: test account path (normal Store build)
+
+If you submit the **normal** MSIX (`package-store-msix.ps1`) instead of the review build, use the section below (Google test account + Firestore entitlement).
+
 Use this document when resubmitting in Partner Center → **Submission options** → **Notes for certification**. Paste the block below and replace the placeholders marked `[FILL IN]`.
 
 ---
@@ -49,6 +122,15 @@ Complete these steps **before** uploading the MSIX and submitting for certificat
    - If you see "Subscription required", entitlement is missing or expired — fix Firestore before resubmitting
 
 4. **Rebuild Store MSIX** after any code changes:
+
+   **Certification (review build — no test account):**
+
+   ```powershell
+   $env:CAVEAIPRO_FIREBASE_API_KEY = '<your-api-key>'
+   .\tools\package-store-msix-review.ps1
+   ```
+
+   **Production Store build (after cert passes):**
 
    ```powershell
    $env:CAVEAIPRO_FIREBASE_API_KEY = '<your-api-key>'

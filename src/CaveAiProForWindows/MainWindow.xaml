@@ -214,6 +214,14 @@
             </StatusBarItem>
         </StatusBar>
 
+        <Border DockPanel.Dock="Top" Padding="8,6" Margin="0"
+                Background="{DynamicResource Cave.BannerTint}" BorderBrush="#FF64748B" BorderThickness="0,0,0,1"
+                Visibility="{Binding StoreReviewBannerVisible, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{x:Static loc:AppStrings.StoreReviewBuildBanner}" TextWrapping="Wrap"
+                       VerticalAlignment="Center" FontSize="12"
+                       Foreground="{DynamicResource Cave.TextSubdued}" />
+        </Border>
+
         <Border DockPanel.Dock="Top" Padding="10,8" Margin="0"
                 Background="#FF1A2332" BorderBrush="#FF2563EB" BorderThickness="0,0,0,1"
                 Visibility="{Binding AccountBannerVisible, Converter={StaticResource BoolToVisibility}}">

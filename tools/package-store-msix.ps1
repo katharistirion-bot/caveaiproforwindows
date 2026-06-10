@@ -10,7 +10,13 @@ param(
 
     [string]$Publisher = 'CN=54966508-95FA-45A0-B2A2-D1AF31D44DC4',
 
-    [string]$OutDir = ''
+    [string]$OutDir = '',
+
+    [string]$PublishProfile = 'MicrosoftStore-Win64',
+
+    [string]$MsixNameSuffix = 'Store-unsigned',
+
+    [string]$PublishRelativeDir = ''
 
 )
 
@@ -184,7 +190,7 @@ try {
 
 
 
-    Write-Host 'Step 2/5: Publish Microsoft Store profile (self-contained, Obfuscar, STORE_DISTRIBUTION)'
+    Write-Host "Step 2/5: Publish Microsoft Store profile ($PublishProfile — self-contained, Obfuscar, STORE_DISTRIBUTION)"
 
     # Full publish only — never use --no-build here. A prior framework-dependent build plus
 
@@ -194,13 +200,29 @@ try {
 
     # without the Desktop Runtime (Store certification 10.1.2.10).
 
-    dotnet publish $appProj -c Release -p:PublishProfile=MicrosoftStore-Win64 --no-restore --verbosity minimal
+    dotnet publish $appProj -c Release -p:PublishProfile=$PublishProfile --no-restore --verbosity minimal
 
     if ($LASTEXITCODE -ne 0) { throw 'Store publish failed.' }
 
 
 
-    $pubDir = Join-Path $RepoRoot 'src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/microsoft-store/win-x64'
+    if ([string]::IsNullOrWhiteSpace($PublishRelativeDir)) {
+
+        $PublishRelativeDir = if ($PublishProfile -match 'Review') {
+
+            'microsoft-store-review/win-x64'
+
+        } else {
+
+            'microsoft-store/win-x64'
+
+        }
+
+    }
+
+
+
+    $pubDir = Join-Path $RepoRoot "src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/$PublishRelativeDir"
 
     $exe = Join-Path $pubDir 'CaveAiProForWindows.exe'
 
@@ -302,7 +324,7 @@ try {
 
 
 
-    $msixName = "CaveAiProForWindows-$version-Store-unsigned.msix"
+    $msixName = "CaveAiProForWindows-$version-$MsixNameSuffix.msix"
 
     $msixPath = Join-Path $OutDir $msixName
 

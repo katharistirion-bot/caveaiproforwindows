@@ -101,6 +101,8 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _accountBannerMessage = "";
 
+    [ObservableProperty] private bool _storeReviewBannerVisible = StoreReviewBuild.IsActive;
+
     [ObservableProperty] private int _collaborationUnreadCount;
 
     /// <summary>Full JSON scan of <c>data.json</c> (per project: shots/photos/audio, rocks, catalog, vectorLines, keys).</summary>
@@ -2144,6 +2146,13 @@ public partial class MainViewModel : ObservableObject
 
     public void RefreshAccountBannerFromSession()
     {
+        StoreReviewBannerVisible = StoreReviewBuild.IsActive;
+        if (StoreReviewBuild.IsActive)
+        {
+            AccountBannerVisible = false;
+            return;
+        }
+
         if (AccountSessionState.ShouldShowWelcomeBanner &&
             !string.IsNullOrWhiteSpace(AccountSessionState.WelcomeBannerMessage))
         {
