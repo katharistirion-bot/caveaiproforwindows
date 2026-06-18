@@ -59,7 +59,7 @@ if ([string]::IsNullOrWhiteSpace($WebConfigPath)) {
     $WebConfigPath = Join-Path $RepoRoot 'tools\local\firebase-web-config.json'
 }
 if ([string]::IsNullOrWhiteSpace($StoreMsix)) {
-    $ver = '1.4.0'
+    $ver = '1.4.2'
     $props = Join-Path $RepoRoot 'Directory.Build.props'
     if (Test-Path $props) {
         [xml]$xml = Get-Content $props

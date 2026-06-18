@@ -2,7 +2,9 @@
 param(
     [string]$WindowsRules = (Join-Path (Split-Path -Parent $PSScriptRoot) 'firebase\firestore.rules'),
     [string]$WebsiteRules = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'CaveAIpro website\firebase\firestore.rules'),
-    [string]$AndroidRules = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'caveaipro\firebase\firestore.rules')
+    [string]$AndroidRules = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'CaveAIPro\firebase\firestore.rules'),
+    [string]$WebsiteStorage = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'CaveAIpro website\firebase\storage.rules'),
+    [string]$AndroidStorage = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'CaveAIPro\firebase\storage.rules')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,6 +35,22 @@ if ($webLines -gt 0 -and $andLines -gt 0) {
         Write-Host 'OK: Website and Android firestore.rules are identical (normalized).'
     } else {
         Write-Warning 'Website and Android firestore.rules differ — sync before deploy.'
+        exit 1
+    }
+}
+
+$webStorageLines = Get-LineCount $WebsiteStorage
+$andStorageLines = Get-LineCount $AndroidStorage
+Write-Host "Website storage: $webStorageLines lines  ($WebsiteStorage)"
+Write-Host "Android storage: $andStorageLines lines  ($AndroidStorage)"
+
+if ($webStorageLines -gt 0 -and $andStorageLines -gt 0) {
+    $webStorageText = (Get-Content -LiteralPath $WebsiteStorage -Raw).Replace("`r`n", "`n")
+    $andStorageText = (Get-Content -LiteralPath $AndroidStorage -Raw).Replace("`r`n", "`n")
+    if ($webStorageText -eq $andStorageText) {
+        Write-Host 'OK: Website and Android storage.rules are identical (normalized).'
+    } else {
+        Write-Warning 'Website and Android storage.rules differ — sync before deploy.'
         exit 1
     }
 }

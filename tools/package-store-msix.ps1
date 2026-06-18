@@ -190,9 +190,9 @@ try {
 
 
 
-    Write-Host "Step 2/5: Publish Microsoft Store profile ($PublishProfile — self-contained, Obfuscar, STORE_DISTRIBUTION)"
+    Write-Host "Step 2/5: Publish Microsoft Store profile ($PublishProfile - self-contained, Obfuscar, STORE_DISTRIBUTION)"
 
-    # Full publish only — never use --no-build here. A prior framework-dependent build plus
+    # Full publish only - never use --no-build here. A prior framework-dependent build plus
 
     # "dotnet publish --no-build" leaves runtimeconfig.json with "frameworks" instead of
 
@@ -232,7 +232,7 @@ try {
 
     & $verifyStoreScript -PublishDir $pubDir
 
-    if ($LASTEXITCODE -ne 0) { throw 'verify-store-publish.ps1 failed — MSIX must be self-contained.' }
+    if ($LASTEXITCODE -ne 0) { throw 'verify-store-publish.ps1 failed - MSIX must be self-contained.' }
 
 
 
@@ -258,7 +258,7 @@ try {
 
     } else {
 
-        Write-Warning 'Obfuscar log not found — verify MSBuild.Obfuscar ran (Release configuration).'
+        Write-Warning 'Obfuscar log not found - verify MSBuild.Obfuscar ran (Release configuration).'
 
     }
 
@@ -272,7 +272,7 @@ try {
 
 
 
-    Write-Host 'Step 4/5: Stage MSIX layout (trim Velopack — Store handles updates)'
+    Write-Host 'Step 4/5: Stage MSIX layout (trim Velopack - Store handles updates)'
 
     $staging = Join-Path $RepoRoot 'store/obj/msix-staging'
 
