@@ -28,7 +28,39 @@ public static class AccountStatusFormatter
     public static string FormatWelcomeBanner(SubscriptionEntitlementResult result)
     {
         var summary = FormatAccessSummary(result);
-        return $"Signed in successfully — {summary}.";
+        return $"Signed in — {summary}";
+    }
+
+    public static string FormatAccountBanner(SubscriptionEntitlementResult result)
+    {
+        var summary = FormatAccessSummary(result);
+        if (result.AccessKind == SubscriptionAccessKind.InstallGraceTrial &&
+            result.Document?.PremiumCloudUntil is { } until)
+        {
+            var days = DaysRemaining(until);
+            return $"{summary} · {days} day(s) left on trial · Manage subscription on Google Play (Android).";
+        }
+
+        if (result.AccessKind == SubscriptionAccessKind.PaidPlaySubscription)
+            return $"{summary} · Manage subscription on Google Play.";
+
+        return $"{summary} · Manage subscription on Google Play (Android app).";
+    }
+
+    public static string FormatAboutSubscription(SubscriptionEntitlementResult? result)
+    {
+        if (result == null || !result.IsEntitled)
+            return "Subscription status: sign in to view entitlement and trial days remaining.";
+
+        var summary = FormatAccessSummary(result);
+        if (result.AccessKind == SubscriptionAccessKind.InstallGraceTrial &&
+            result.Document?.PremiumCloudUntil is { } until)
+        {
+            var days = DaysRemaining(until);
+            return $"{summary}\n\nTrial: {days} day(s) remaining. Subscribe on Google Play (Android) with the same Google account.";
+        }
+
+        return $"{summary}\n\nManage subscription on Google Play (Android app required for billing).";
     }
 
     private static int DaysRemaining(DateTimeOffset untilUtc)

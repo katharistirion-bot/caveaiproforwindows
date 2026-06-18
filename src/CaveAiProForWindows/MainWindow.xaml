@@ -89,6 +89,8 @@
                           ToolTip="Summary, raw JSON scan, QC, shots table, catalog, ZIP archive, integrity — same panels as before, in a separate window." />
                 <MenuItem Header="_Compare two backups…" Command="{Binding CompareBackupsCommand}" />
                 <MenuItem Header="Survey _diff (legs/stations)…" Command="{Binding CompareSurveysCommand}" />
+                <MenuItem Header="Cave AI offline _Q&amp;A…" Command="{Binding ShowOfflineCaveAiQaCommand}"
+                          ToolTip="Rule-based answers from the selected project (depth, traverse, site type) — no Gemini." />
                 <MenuItem Header="_Loop closure assistant…" Command="{Binding ShowLoopClosureAssistantCommand}" />
                 <Separator />
                 <MenuItem Header="Publication _sheet…" Command="{Binding OpenPublicationSheetCommand}"
@@ -101,9 +103,19 @@
                           ToolTip="Update cartographyImageUrls on the linked published_caves document when AI render exists." />
                 <MenuItem Header="Re-publish _all with AI…" Command="{Binding RepublishAllWithAiCommand}" />
                 <MenuItem Header="Batch _AI render…" Command="{Binding BatchAiRenderCommand}" />
+                <Separator />
+                <MenuItem Header="Reference vs _community compare…" Command="{Binding CompareReferenceCommunityCommand}" />
+                <MenuItem Header="Survey vs _reference link…" Command="{Binding CompareSurveyToReferenceLinkCommand}"
+                          ToolTip="Compare the selected project's entrance and traverse stats with its linked referenceCatalogLink." />
+                <Separator />
+                <MenuItem Header="{x:Static loc:AppStrings.MenuFieldTripPlanner}" Command="{Binding OpenFieldTripPlannerCommand}" />
+                <MenuItem Header="Open shared field trip link…" Click="OpenSharedFieldTripLink_Click" />
+                <MenuItem Header="{x:Static loc:AppStrings.MenuBatchSurveyQc}" Command="{Binding BatchSurveyQcCommand}" />
             </MenuItem>
             <MenuItem x:Name="MenuHelp" Header="_Help">
-                <MenuItem Header="Public Cave _Library…" Command="{Binding OpenPublicLibraryCatalogCommand}"
+                <MenuItem Header="{x:Static loc:AppStrings.MenuReferenceCatalog}" Command="{Binding OpenPublicLibraryCatalogCommand}"
+                          ToolTip="Native reference catalog (60k+ caves) — cached from caveaipro.com." />
+                <MenuItem Header="Public Library _WebView…" Click="OpenPublicLibraryWebView_Click"
                           ToolTip="Browse community-published caves in-app (WebView2 · Google sign-in)." />
                 <MenuItem Header="_Download from Public Library…" Command="{Binding DownloadPublicLibraryBackupCommand}"
                           ToolTip="Fetch surveyJsonUrl + cartography assets into a local .zip or .json backup." />
@@ -118,6 +130,8 @@
                           ToolTip="Check GitHub Releases (Velopack Setup.exe install gets in-app updates; MSI opens release page)" />
                 <MenuItem Header="Open _diagnostic folder…" Command="{Binding OpenDiagnosticFolderCommand}"
                           ToolTip="Opens %LOCALAPPDATA%\CaveAiProForWindows (startup.log, last-error.txt)" />
+                <MenuItem Header="{x:Static loc:AppStrings.MenuExportDiagnosticBundle}" Command="{Binding ExportDiagnosticBundleCommand}"
+                          ToolTip="Zip logs and redacted ui-settings for support." />
                 <MenuItem x:Name="ApiSettingsMenuItem" Header="_Developer API Settings (Replicate)…"
                           Click="OpenApiSettings_Click"
                           ToolTip="Developer only — local Replicate API token (CAVEAIPRO_REPLICATE_BYOK=1)"
@@ -186,7 +200,8 @@
 
         <StatusBar DockPanel.Dock="Bottom" Background="{DynamicResource Cave.Surface}" Padding="4,2">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusMessage}" TextTrimming="CharacterEllipsis" MaxWidth="680"
+                <TextBlock Text="{Binding StatusMessage}" ToolTip="{Binding SiteIdentityTooltip}"
+                           TextTrimming="CharacterEllipsis" MaxWidth="680"
                            Foreground="{DynamicResource Cave.TextSubdued}" />
             </StatusBarItem>
             <Separator />
@@ -368,6 +383,17 @@
                                      Background="{DynamicResource Cave.Surface}" Foreground="{DynamicResource Cave.Text}"
                                      BorderBrush="{DynamicResource Cave.Border}" />
                         </DockPanel>
+                        <DockPanel DockPanel.Dock="Top" LastChildFill="True" Margin="0,0,0,8"
+                                   IsEnabled="{Binding HasSelectedProjectForSiteType}">
+                            <TextBlock DockPanel.Dock="Left" Text="Site type" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       Foreground="{DynamicResource Cave.TextMuted}" FontSize="12"
+                                       ToolTip="Cave / Mine / Pothole / Spring — saved to surveySiteType in data.json on Save (Ctrl+S)" />
+                            <ComboBox ItemsSource="{x:Static services:SurveySiteType.PickerTokens}"
+                                      SelectedItem="{Binding SelectedProjectSiteTypeToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEnabled="{Binding HasSelectedProjectForSiteType}"
+                                      Padding="6,4"
+                                      ToolTip="Mirrors Android dossier tokens (CAVE, MINE, POTHOLE, SPRING)" />
+                        </DockPanel>
                         <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" FontSize="11"
                                    Foreground="{DynamicResource Cave.TextMuted}"
                                    Text="After opening a backup, click a cave — PLAN / SECTION / 3D MODEL / … stay empty until a project is selected. INTEGRITY: ZIP SHA-256. SURVEY QC: traverse topology checks. SKETCH EDITOR: plan base map + overlay sketches. Tools → Data inspector for JSON scan, shots grid, catalog, ZIP." />
@@ -401,15 +427,8 @@
                                     VerticalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch"
                                     VerticalContentAlignment="Stretch">
-                        <TabItem Header="PLAN" ToolTip="Plan view (Android) — standard colours">
-                            <views:PlanView x:Name="PlanViewControl"
-                                            VerticalAlignment="Stretch"
-                                            HorizontalAlignment="Stretch"
-                                            VisualizationMode="{x:Static services:SurveyVisualizationMode.Standard}"
-                                            Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
-                                            ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
-                                            MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
-                                            MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
+                        <TabItem Header="PLAN" x:Name="PlanTab" ToolTip="Plan view (Android) — standard colours">
+                            <ContentControl x:Name="PlanTabHost" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
                         </TabItem>
                         <TabItem Header="SECTION" ToolTip="Section view (viewMode 1) — standard">
                             <views:SectionView VerticalAlignment="Stretch"
@@ -420,14 +439,8 @@
                                                  MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
                                                  MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
-                        <TabItem Header="3D MODEL" ToolTip="Pseudo-3D projection (plan walls + vectors)">
-                            <views:PlanView VerticalAlignment="Stretch"
-                                            HorizontalAlignment="Stretch"
-                                            VisualizationMode="{x:Static services:SurveyVisualizationMode.Pseudo3D}"
-                                            Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
-                                            ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
-                                            MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
-                                            MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
+                        <TabItem Header="3D MODEL" x:Name="Model3DTab" ToolTip="Pseudo-3D projection (plan walls + vectors)">
+                            <ContentControl x:Name="Model3DTabHost" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
                         </TabItem>
                         <TabItem Header="LONG PROFILE" ToolTip="Developed distance vs depth (Z)">
                             <views:PlanView VerticalAlignment="Stretch"
@@ -450,12 +463,8 @@
                                                       Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                                       ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}" />
                         </TabItem>
-                        <TabItem Header="X-RAY" ToolTip="Geo-calibrated satellite map: bounding-box alignment, zoom/pan, station pick syncs Plan/Section, AI render overlay">
-                            <views:OfflineXRayView x:Name="OfflineXRayViewControl" VerticalAlignment="Stretch"
-                                                   HorizontalAlignment="Stretch"
-                                                   Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
-                                                   ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}"
-                                                   MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
+                        <TabItem Header="X-RAY" x:Name="XRayTab" ToolTip="Geo-calibrated satellite map: bounding-box alignment, zoom/pan, station pick syncs Plan/Section, AI render overlay">
+                            <ContentControl x:Name="XRayTabHost" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
                         </TabItem>
                         <TabItem Header="PLAN 2-TONE" ToolTip="Two-tone walls, dark canvas">
                             <views:PlanView VerticalAlignment="Stretch"
@@ -636,6 +645,9 @@
                                         <TextBlock TextWrapping="Wrap" MaxWidth="860"
                                                    Text="I have read and accept the End User License Agreement (EULA). I acknowledge that Georgios Kourentzis owns all intellectual property in CAVE AI PRO and that my use is licensed, not a sale of ownership." />
                                     </CheckBox>
+                                    <TextBlock Text="{Binding DataContext.ReferenceLinkSummary, ElementName=Shell}"
+                                               TextWrapping="Wrap" Margin="0,0,0,12" FontSize="12"
+                                               Foreground="{DynamicResource Cave.Accent}" />
                                     <TextBlock Text="Privacy summary" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8"
                                                Foreground="{DynamicResource Cave.Text}" />
                                     <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="18" Margin="0,0,0,16"
@@ -646,6 +658,18 @@
                                     <TextBlock TextWrapping="Wrap" FontSize="12.5" Margin="0,0,0,12"
                                                Foreground="{DynamicResource Cave.TextMuted}"
                                                Text="CAVE AI PRO for Windows is an offline-first survey workstation. Core analytics and exports require no cloud APIs. Optional generative map rendering (Sketch Editor → AI Render) uses CaveAI Cloud AI when you are signed in with your CaveAI Pro Google account." />
+                                    <CheckBox x:Name="ShowReferencePinsSetting"
+                                              Margin="0,0,0,8"
+                                              FontSize="13"
+                                              Foreground="{DynamicResource Cave.Text}"
+                                              Content="Show nearby reference catalog pins on X-RAY map (cached index, max 50)"
+                                              Click="ShowReferencePinsSetting_Changed" />
+                                    <CheckBox x:Name="ShowReferencePinsOnPlanSetting"
+                                              Margin="0,0,0,12"
+                                              FontSize="13"
+                                              Foreground="{DynamicResource Cave.Text}"
+                                              Content="Show reference catalog pins on PLAN tab (linked entrance + nearby cached index)"
+                                              Click="ShowReferencePinsOnPlanSetting_Changed" />
                                     <Separator Margin="0,8,0,16" />
                                     <TextBlock Text="Generative AI (Cloud)" FontWeight="SemiBold" FontSize="14"
                                                Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
@@ -691,6 +715,18 @@
         </Grid>
         </Border>
     </DockPanel>
+    <Border Background="#AA000000" Visibility="{Binding ShowLoadProgress, Converter={StaticResource BoolToVis}}"
+            Panel.ZIndex="20">
+        <Border Background="{DynamicResource Cave.Surface}" Padding="24" CornerRadius="8"
+                HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="320">
+            <StackPanel>
+                <TextBlock Text="{Binding LoadProgressMessage}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                <ProgressBar IsIndeterminate="True" Height="6" Margin="0,0,0,12" />
+                <Button Content="Cancel" HorizontalAlignment="Right" Padding="14,6"
+                        Command="{Binding CancelLoadCommand}" />
+            </StackPanel>
+        </Border>
+    </Border>
     <views:SnackbarHost x:Name="MainSnackbar" />
     </Grid>
 </Window>

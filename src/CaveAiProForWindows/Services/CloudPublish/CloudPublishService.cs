@@ -1,5 +1,7 @@
 using System.Windows;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.Services.SketchAssist;
 using CaveAiProForWindows.Views;
@@ -44,6 +46,9 @@ public sealed class CloudPublishService
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
+        if (MicrosoftTestMode.IsActive)
+            throw MicrosoftTestMode.CreateNetworkBlockedException("Firebase sign-in");
+
         var existing = _tokenCache.TryGetUsableToken();
         if (existing != null)
             return existing;
@@ -62,6 +67,9 @@ public sealed class CloudPublishService
     /// </summary>
     public async Task<FirebaseIdToken> WaitForTokenAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     {
+        if (MicrosoftTestMode.IsActive)
+            throw MicrosoftTestMode.CreateNetworkBlockedException("Firebase sign-in");
+
         var existing = _tokenCache.TryGetUsableToken();
         if (existing != null)
             return existing;
@@ -148,6 +156,7 @@ public sealed class CloudPublishService
         }
 
         progress?.Report("Updating Firestore published cave…");
+        ReferenceSurveyLinkService.TryGetLink(bundle.Project, out var refLink);
         var metadata = new CloudPublishMetadata
         {
             PublishedCaveDocId = bundle.PublishedCaveDocId.Trim(),
@@ -157,6 +166,8 @@ public sealed class CloudPublishService
             SurveyJsonMediaUrl = surveyUrl,
             SurveyOverlaySummary = SurveyAnnotationReportFormatter.BuildOverlaySummary(bundle.Project),
             SurveyArchiveSchemaVersion = bundle.Project.SurveyArchiveSchemaVersion,
+            ReferenceCatalogId = refLink?.Id,
+            ReferenceCatalogCountry = refLink?.Country,
             UpdatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         };
 

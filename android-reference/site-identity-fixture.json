@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "Cross-platform SiteIdentity contract — Android Kotlin, web JS, Windows C# must produce matching summary fragments.",
+  "cases": [
+    {
+      "surveySiteType": "CAVE",
+      "name": "Demo Cave",
+      "expectedSummaryContains": "active CaveAI Pro field survey (Cave)."
+    },
+    {
+      "surveySiteType": "MINE",
+      "name": "Old Quarry",
+      "expectedSummaryContains": "active CaveAI Pro field survey (Mine)."
+    },
+    {
+      "surveySiteType": "POTHOLE",
+      "name": "Sink Pit",
+      "expectedSummaryContains": "active CaveAI Pro field survey (Pothole)."
+    },
+    {
+      "surveySiteType": "SPRING",
+      "name": "Karst Spring",
+      "expectedSummaryContains": "active CaveAI Pro field survey (Spring)."
+    }
+  ]
+}

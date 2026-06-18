@@ -4,6 +4,8 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
+using CaveAiProForWindows.Services.Auth;
+
 namespace CaveAiProForWindows.Services.CloudPublish;
 
 /// <summary>
@@ -28,6 +30,9 @@ public sealed class FirebaseRestClient : IDisposable
         _http.Timeout = TimeSpan.FromMinutes(10);
     }
 
+    private static void EnsureNetworkAllowed() =>
+        MicrosoftTestMode.ThrowIfNetworkBlocked("Firebase REST");
+
     /// <summary>
     /// Simple media upload to Firebase Storage.
     /// POST https://firebasestorage.googleapis.com/v0/b/{bucket}/o?uploadType=media&amp;name={path}
@@ -39,6 +44,7 @@ public sealed class FirebaseRestClient : IDisposable
         string contentType,
         CancellationToken cancellationToken = default)
     {
+        EnsureNetworkAllowed();
         ArgumentNullException.ThrowIfNull(token);
         ArgumentNullException.ThrowIfNull(content);
         if (string.IsNullOrWhiteSpace(storageObjectPath))
@@ -91,6 +97,7 @@ public sealed class FirebaseRestClient : IDisposable
         IReadOnlyDictionary<string, object> fields,
         CancellationToken cancellationToken = default)
     {
+        EnsureNetworkAllowed();
         ArgumentNullException.ThrowIfNull(token);
         if (string.IsNullOrWhiteSpace(documentPath))
             throw new ArgumentException("Document path is required.", nameof(documentPath));
@@ -146,6 +153,10 @@ public sealed class FirebaseRestClient : IDisposable
             pairs.Add(new("surveyArchiveSchemaVersion", metadata.SurveyArchiveSchemaVersion));
         if (!string.IsNullOrWhiteSpace(metadata.SurveyOverlaySummary))
             pairs.Add(new("surveyOverlaySummary", metadata.SurveyOverlaySummary));
+        if (!string.IsNullOrWhiteSpace(metadata.ReferenceCatalogId))
+            pairs.Add(new("referenceCatalogId", metadata.ReferenceCatalogId.Trim()));
+        if (!string.IsNullOrWhiteSpace(metadata.ReferenceCatalogCountry))
+            pairs.Add(new("referenceCatalogCountry", metadata.ReferenceCatalogCountry.Trim()));
 
         var fields = FirestoreFieldBuilder.BuildFields(pairs);
         var docPath = $"published_caves/{metadata.PublishedCaveDocId.Trim()}";
@@ -158,6 +169,7 @@ public sealed class FirebaseRestClient : IDisposable
         FirebaseIdToken? token = null,
         CancellationToken cancellationToken = default)
     {
+        EnsureNetworkAllowed();
         if (string.IsNullOrWhiteSpace(publishedDocId))
             throw new ArgumentException("Published cave document id is required.", nameof(publishedDocId));
 

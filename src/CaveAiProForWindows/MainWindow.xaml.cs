@@ -20,10 +20,21 @@ namespace CaveAiProForWindows;
 public partial class MainWindow : Window
 {
     private AndroidBackupZipWatcher? _androidBackupZipWatcher;
+    private ProjectAutosaveService? _autosave;
+    private PlanView? _planView;
+    private PlanView? _model3DView;
+    private OfflineXRayView? _xRayView;
+    private bool _planTabInitialized;
+    private bool _model3DTabInitialized;
+    private bool _xRayTabInitialized;
+
+    private PlanView? PlanViewControl => _planView;
+    private OfflineXRayView? OfflineXRayViewControl => _xRayView;
 
     public MainWindow()
     {
         InitializeComponent();
+        MainSurveyTabControl.SelectionChanged += OnSurveyTabSelectionChanged;
         var vm = new MainViewModel();
         DataContext = vm;
         InputBindings.Add(new KeyBinding(vm.OpenFileCommand, Key.O, ModifierKeys.Control));
@@ -52,24 +63,21 @@ public partial class MainWindow : Window
                 if (ReferenceEquals(vm.SelectedProject, project))
                     SketchEditorControl.TryPersistSessionToProject(project);
             };
-            PlanViewControl.BeforePlanExport = project =>
-            {
-                if (ReferenceEquals(vm.SelectedProject, project))
-                    SketchEditorControl.TryPersistSessionToProject(project);
-            };
-            PlanViewControl.ResolveDesignLayerForExport = () =>
-            {
-                if (vm.SelectedProject == null)
-                    return null;
-                return SketchEditorControl.TryGetDesignLayerExportContext();
-            };
+            WirePlanViewExportCallbacks(vm);
             IntroVideoWindow.ShowIfFirstRun(this);
             WelcomeOnboardingWindow.ShowIfFirstRun(this);
+            PostSignInWizardWindow.ShowIfNeeded(this);
             if (DataContext is MainViewModel vmBanner)
                 vmBanner.RefreshAccountBannerFromSession();
+            _autosave = new ProjectAutosaveService();
+            _autosave.Configure(
+                () => vm.SelectedProject,
+                () => vm.PrimarySourceFilePath,
+                p => vm.PersistProjectBeforeSave?.Invoke(p));
             StartAndroidBackupSyncWatcher(vm);
             StartCollaborationNotifications(vm);
             ApplyPlanViewLocalization();
+            ApplyReferencePinsSettingUi();
             AndroidDesktopSyncHub.SyncSettingsChanged += OnAndroidSyncSettingsChanged;
             AndroidDesktopSyncHub.CollaborationProjectChanged += OnCollaborationProjectChanged;
             AndroidDesktopSyncHub.SyncFilesChanged += OnAndroidSyncFilesChanged;
@@ -81,12 +89,130 @@ public partial class MainWindow : Window
             AndroidDesktopSyncHub.CollaborationProjectChanged -= OnCollaborationProjectChanged;
             _androidBackupZipWatcher?.Dispose();
             _androidBackupZipWatcher = null;
+            _autosave?.Dispose();
+            _autosave = null;
             _collaborationNotifications?.Dispose();
             _collaborationNotifications = null;
             WindowPlacementStore.SaveFrom(this);
         };
         PreviewKeyDown += OnMainWindowPreviewKeyDown;
         App.WriteStartupLog("MainWindow constructed and Loaded wiring attached");
+    }
+
+    private void OnSurveyTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (MainSurveyTabControl?.SelectedItem is not TabItem tab)
+            return;
+
+        if (ReferenceEquals(tab, PlanTab))
+            EnsurePlanTab();
+        else if (ReferenceEquals(tab, Model3DTab))
+            EnsureModel3DTab();
+        else if (ReferenceEquals(tab, XRayTab))
+            EnsureXRayTab();
+    }
+
+    private void EnsurePlanTab()
+    {
+        if (_planTabInitialized)
+            return;
+
+        _planView = CreateBoundPlanView(SurveyVisualizationMode.Standard);
+        PlanTabHost.Content = _planView;
+        _planTabInitialized = true;
+        if (DataContext is MainViewModel vm)
+            WirePlanViewExportCallbacks(vm);
+        UiLocalizationService.ApplyToPlanView3DTools(_planView);
+    }
+
+    private void EnsureModel3DTab()
+    {
+        if (_model3DTabInitialized)
+            return;
+
+        _model3DView = CreateBoundPlanView(SurveyVisualizationMode.Pseudo3D);
+        Model3DTabHost.Content = _model3DView;
+        _model3DTabInitialized = true;
+        UiLocalizationService.ApplyToPlanView3DTools(_model3DView);
+    }
+
+    private void EnsureXRayTab()
+    {
+        if (_xRayTabInitialized)
+            return;
+
+        _xRayView = new OfflineXRayView
+        {
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        _xRayView.SetBinding(OfflineXRayView.ProjectProperty,
+            new System.Windows.Data.Binding("DataContext.SelectedProject") { ElementName = "Shell" });
+        _xRayView.SetBinding(OfflineXRayView.ZipPathProperty,
+            new System.Windows.Data.Binding("DataContext.ActiveZipPathForMaps") { ElementName = "Shell" });
+        _xRayView.SetBinding(OfflineXRayView.MapInventoryProperty,
+            new System.Windows.Data.Binding("DataContext.MapInventoryRows") { ElementName = "Shell" });
+        XRayTabHost.Content = _xRayView;
+        _xRayTabInitialized = true;
+    }
+
+    private PlanView CreateBoundPlanView(SurveyVisualizationMode mode)
+    {
+        var view = new PlanView
+        {
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VisualizationMode = mode,
+        };
+        view.SetBinding(PlanView.ProjectProperty,
+            new System.Windows.Data.Binding("DataContext.SelectedProject") { ElementName = "Shell" });
+        view.SetBinding(PlanView.ZipPathProperty,
+            new System.Windows.Data.Binding("DataContext.ActiveZipPathForMaps") { ElementName = "Shell" });
+        view.SetBinding(PlanView.MapRowsProperty,
+            new System.Windows.Data.Binding("DataContext.MapAssetRows") { ElementName = "Shell" });
+        view.SetBinding(PlanView.MapInventoryProperty,
+            new System.Windows.Data.Binding("DataContext.MapInventoryRows") { ElementName = "Shell" });
+        return view;
+    }
+
+    private void WirePlanViewExportCallbacks(MainViewModel vm)
+    {
+        if (_planView == null)
+            return;
+        _planView.BeforePlanExport = project =>
+        {
+            if (ReferenceEquals(vm.SelectedProject, project))
+                SketchEditorControl.TryPersistSessionToProject(project);
+        };
+        _planView.ResolveDesignLayerForExport = () =>
+        {
+            if (vm.SelectedProject == null)
+                return null;
+            return SketchEditorControl.TryGetDesignLayerExportContext();
+        };
+    }
+
+    private void ApplyReferencePinsSettingUi()
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        if (ShowReferencePinsSetting != null)
+            ShowReferencePinsSetting.IsChecked = settings.ShowReferencePinsOnXRay;
+        if (ShowReferencePinsOnPlanSetting != null)
+            ShowReferencePinsOnPlanSetting.IsChecked = settings.ShowReferencePinsOnPlan;
+    }
+
+    private void ShowReferencePinsSetting_Changed(object sender, RoutedEventArgs e)
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        settings.ShowReferencePinsOnXRay = ShowReferencePinsSetting?.IsChecked == true;
+        AppUiSettingsStore.Save(settings);
+    }
+
+    private void ShowReferencePinsOnPlanSetting_Changed(object sender, RoutedEventArgs e)
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        settings.ShowReferencePinsOnPlan = ShowReferencePinsOnPlanSetting?.IsChecked == true;
+        AppUiSettingsStore.Save(settings);
     }
 
     private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)
@@ -207,6 +333,17 @@ public partial class MainWindow : Window
 
     private async void SwitchGoogleAccount_Click(object sender, RoutedEventArgs e)
     {
+        if (MicrosoftTestMode.IsActive)
+        {
+            MessageBox.Show(
+                this,
+                MicrosoftTestMode.CloudFeatureBlockedMessage,
+                "Switch Google account",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         var confirm = MessageBox.Show(
             this,
             "Sign out of the current Google account and open the sign-in screen again?\n\n" +
@@ -252,6 +389,18 @@ public partial class MainWindow : Window
     private void ReplayIntroVideo_Click(object sender, RoutedEventArgs e) =>
         IntroVideoWindow.ShowReplay(this);
 
+    private void OpenPublicLibraryWebView_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            PublicLibraryCatalog.ShowMapInAppWindow(this);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Public Cave Library", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void OpenPublicLibraryExternal_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -263,6 +412,30 @@ public partial class MainWindow : Window
             System.Windows.MessageBox.Show(this, ex.Message, "Public Cave Library", MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
+    }
+
+    private void OpenSharedFieldTripLink_Click(object sender, RoutedEventArgs e)
+    {
+        var pasted = ShareUrlPrompt.Show(this, "Field trip share link", "Paste a caveaipro.com field trip URL:");
+        if (string.IsNullOrWhiteSpace(pasted))
+            return;
+
+        var payload = Services.FieldTrip.FieldTripShareCodec.TryParseFromUrl(pasted);
+        if (payload == null)
+        {
+            System.Windows.MessageBox.Show(this, "Could not parse field trip link.", "Field trip",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var store = Services.FieldTrip.FieldTripStore.Load();
+        var trip = store.Trips.FirstOrDefault() ?? new Models.FieldTripDocument { Name = "Imported trip" };
+        if (!store.Trips.Contains(trip))
+            store.Trips.Add(trip);
+        trip.Stops.Clear();
+        trip.Stops.AddRange(Services.FieldTrip.FieldTripShareCodec.ToFieldTripStops(payload));
+        Services.FieldTrip.FieldTripStore.Upsert(trip);
+        FieldTripPlannerWindow.Show(this);
     }
 
     private void OpenWebCaveAiExternal_Click(object sender, RoutedEventArgs e)
@@ -404,7 +577,8 @@ public partial class MainWindow : Window
         try
         {
             SketchEditorControl.TryPersistSessionToProject(project);
-            var png = PlanViewControl.CapturePlanPngBytes() ?? Array.Empty<byte>();
+            EnsurePlanTab();
+            var png = PlanViewControl?.CapturePlanPngBytes() ?? Array.Empty<byte>();
             SurveyPortableZipExporter.WriteZip(project, png, dlg.FileName);
             vm.StatusMessage = $"Exported ZIP: {dlg.FileName}";
             MessageBox.Show(
@@ -458,7 +632,10 @@ public partial class MainWindow : Window
             return;
 
         if (MainSurveyTabControl != null)
+        {
             MainSurveyTabControl.SelectedIndex = 0;
+            EnsurePlanTab();
+        }
 
         PlanViewControl?.ApplyExternalStationSelection(stationName);
         PlanViewControl?.ZoomToStation(stationName);
@@ -538,7 +715,10 @@ public partial class MainWindow : Window
         _collaborationNotifications?.Dispose();
         _collaborationNotifications = new CollaborationNotificationService();
         _collaborationNotifications.UnreadCountChanged += (_, count) =>
+        {
             vm.CollaborationUnreadCount = count;
+            DesktopTrayBadgeService.SetBadge(this, count);
+        };
         var settings = AppUiSettingsStore.LoadOrDefault();
         _collaborationNotifications.TrackProject(settings.CollaborationSharedProjectId);
     }

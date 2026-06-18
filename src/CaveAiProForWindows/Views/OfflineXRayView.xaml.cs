@@ -11,6 +11,7 @@ using System.Windows.Shapes;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.GenerativeMap;
+using CaveAiProForWindows.Services.ReferenceCatalog;
 using Microsoft.Win32;
 
 namespace CaveAiProForWindows.Views;
@@ -41,8 +42,10 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
     private double _panStartX;
     private double _panStartY;
     private bool _showAiOverlay = true;
+    private bool _showReferencePins = true;
     private double _aiOverlayOpacity = 0.52;
     private bool _applyingSettings;
+    private bool _referencePinsHandlersWired;
 
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
         nameof(Project),
@@ -93,11 +96,20 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
     {
         var settings = AppUiSettingsStore.LoadOrDefault();
         _showAiOverlay = settings.GenerativeMap.ShowAiRenderOnCanvas;
+        _showReferencePins = settings.ShowReferencePinsOnXRay;
         _aiOverlayOpacity = Math.Clamp(settings.GenerativeMap.XRayAiOverlayOpacity, 0.15, 0.95);
 
         _applyingSettings = true;
         try
         {
+            if (ReferencePinsCheck != null && !_referencePinsHandlersWired)
+            {
+                ReferencePinsCheck.IsChecked = _showReferencePins;
+                ReferencePinsCheck.Checked += ReferencePinsCheck_Changed;
+                ReferencePinsCheck.Unchecked += ReferencePinsCheck_Changed;
+                _referencePinsHandlersWired = true;
+            }
+
             if (AiOverlayCheck != null && !_aiOverlayHandlersWired)
             {
                 AiOverlayCheck.IsChecked = _showAiOverlay;
@@ -122,6 +134,13 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        if (ReferencePinsCheck != null && _referencePinsHandlersWired)
+        {
+            ReferencePinsCheck.Checked -= ReferencePinsCheck_Changed;
+            ReferencePinsCheck.Unchecked -= ReferencePinsCheck_Changed;
+            _referencePinsHandlersWired = false;
+        }
+
         if (AiOverlayCheck != null && _aiOverlayHandlersWired)
         {
             AiOverlayCheck.Checked -= AiOverlayCheck_Changed;
@@ -203,6 +222,7 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
     {
         BackgroundRaster.Source = null;
         TraverseLayer.Children.Clear();
+        ReferencePinsLayer.Children.Clear();
         AiOverlayCanvas.Children.Clear();
         _stationDots.Clear();
         PlaceholderBorder.Visibility = Visibility.Collapsed;
@@ -247,6 +267,7 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
             RedrawTraverseOverlay();
 
         UpdateAlignmentFooter();
+        ApplyReferencePinsOverlay();
         ApplyAiOverlay();
         FitMapToViewport();
         Dispatcher.BeginInvoke(() => ApplyDeferredXRayViewFromSettings());
@@ -265,6 +286,8 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         MapZoomRoot.Height = h;
         AiOverlayCanvas.Width = w;
         AiOverlayCanvas.Height = h;
+        ReferencePinsLayer.Width = w;
+        ReferencePinsLayer.Height = h;
         TraverseLayer.Width = w;
         TraverseLayer.Height = h;
 
@@ -506,6 +529,58 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
             dot.StrokeThickness = selected ? 2.5 : 1.2;
             Panel.SetZIndex(dot, selected ? 30 : 20);
         }
+    }
+
+    private void ApplyReferencePinsOverlay()
+    {
+        ReferencePinsLayer.Children.Clear();
+        if (!_showReferencePins || Project == null || _geoLayout is not { } geoLayout)
+            return;
+
+        var bounds = ReferenceCatalogNearbyPins.TryComputeSurveyBounds(Project);
+        if (bounds == null)
+            return;
+
+        var index = ReferenceCatalogFetchService.TryLoadCachedIndexEntries();
+        if (index.Count == 0)
+            return;
+
+        var (minLat, maxLat, minLon, maxLon) = bounds.Value;
+        var pins = ReferenceCatalogNearbyPins.FindInBounds(index, minLat, maxLat, minLon, maxLon);
+        if (pins.Count == 0)
+            return;
+
+        ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.XRayReferencePinsShown);
+
+        foreach (var pin in pins)
+        {
+            var pt = geoLayout.GeoToCanvas(pin.Lat, pin.Lon);
+            var dot = new Ellipse
+            {
+                Width = 8,
+                Height = 8,
+                Fill = pin.Rich ? Brushes.LimeGreen : Brushes.Gold,
+                Stroke = Brushes.White,
+                StrokeThickness = 0.75,
+                Opacity = 0.85,
+                ToolTip = pin.Name + (pin.Rich ? " (Surveyed)" : " (Sparse)"),
+            };
+            Canvas.SetLeft(dot, pt.X - 4);
+            Canvas.SetTop(dot, pt.Y - 4);
+            ReferencePinsLayer.Children.Add(dot);
+        }
+    }
+
+    private void ReferencePinsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_applyingSettings)
+            return;
+
+        _showReferencePins = ReferencePinsCheck?.IsChecked == true;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.ShowReferencePinsOnXRay = _showReferencePins;
+        AppUiSettingsStore.Save(all);
+        ApplyReferencePinsOverlay();
     }
 
     private void ApplyAiOverlay()

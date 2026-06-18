@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Auth;
 
 namespace CaveAiProForWindows.Views;
 
@@ -64,7 +66,16 @@ public partial class AboutWindow : Window
         }
         else
             RuntimeBlock.Text = $"Runtime path not found on disk: {exePath}";
+
+        var entitlement = AccountSessionState.LastEntitlement;
+        SubscriptionBlock.Text = AccountStatusFormatter.FormatAboutSubscription(entitlement);
+        ManageSubscriptionButton.Visibility = entitlement?.IsEntitled == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
+
+    private void ManageSubscription_Click(object sender, RoutedEventArgs e) =>
+        Process.Start(new ProcessStartInfo(AccountLinks.PlayStoreAppUrl) { UseShellExecute = true });
 
     private void Ok_Click(object sender, RoutedEventArgs e) => Close();
 }

@@ -1,6 +1,8 @@
 using CaveAiProForWindows.Services.CloudPublish;
 using CaveAiProForWindows.Services.Collaboration;
 
+using CaveAiProForWindows.Services.Auth;
+
 namespace CaveAiProForWindows.Services;
 
 /// <summary>Polls shared-project comments and tracks unread count for status-bar badge.</summary>
@@ -42,6 +44,9 @@ public sealed class CollaborationNotificationService : IDisposable
 
     private async Task PollAsync()
     {
+        if (MicrosoftTestMode.IsActive)
+            return;
+
         if (string.IsNullOrWhiteSpace(TrackedProjectId))
             return;
 

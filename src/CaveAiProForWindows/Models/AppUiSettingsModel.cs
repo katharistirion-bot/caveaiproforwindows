@@ -29,6 +29,15 @@ public sealed class AppUiSettingsModel
     /// <summary>First-run onboarding completed (<see cref="Views.WelcomeOnboardingWindow"/>).</summary>
     public bool HasCompletedOnboarding { get; set; }
 
+    /// <summary>Post-sign-in wizard (sync folder, sample, tour) completed.</summary>
+    public bool HasCompletedPostSignInWizard { get; set; }
+
+    /// <summary>Overlay nearby reference catalog pins on X-Ray map when cached index is available.</summary>
+    public bool ShowReferencePinsOnXRay { get; set; } = true;
+
+    /// <summary>Overlay linked reference entrance and nearby catalog pins on the PLAN tab.</summary>
+    public bool ShowReferencePinsOnPlan { get; set; } = true;
+
     /// <summary>Cinematic intro video shown once after login (<see cref="Views.IntroVideoWindow"/>).</summary>
     public bool HasSeenIntroVideo { get; set; }
 
@@ -44,7 +53,7 @@ public sealed class AppUiSettingsModel
 
 public static class AppUiSettingsSchema
 {
-    public const int Current = 5;
+    public const int Current = 6;
 }
 
 public sealed class GenerativeMapSettings

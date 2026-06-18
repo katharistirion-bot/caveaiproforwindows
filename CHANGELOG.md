@@ -10,7 +10,97 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.5.1] - 2026-06-15
+
+### Added
+
+- Reference catalog v2: Near me radius slider (5–200 km), multi-token search, Surveyed/Sparse badges, force refresh, copy share link
+- Reference vs community compare window (Tools menu + catalog detail)
+- Publish / re-publish reference catalog match suggestions before Cloud Publish
+- Offline reference catalog shard cache (last 3 country shards) with offline banner
+- X-RAY reference pin overlay from cached index (toolbar + LEGAL & SETTINGS)
+- Lazy tab init for PLAN, 3D MODEL, and X-RAY tabs
+- Field trip PDF itinerary export
+- Android sync v3: "Open backup?" prompt on new ZIP; same-project-name conflict dialog
+- Batch QC HTML summary export
+- Light analytics counters (catalog, field trip, X-RAY pins) in diagnostic bundle
+- About dialog: trial days remaining + Manage subscription (Google Play)
+
+### Changed
+
+- Premium first-run experience: cinematic splash, intro video window, onboarding wizard
+- Onboarding copy refined for a more professional desktop-companion tone
+- Post sign-in setup wizard matches new onboarding visual language
+- Account banner shows trial days remaining prominently
+
 ## [Unreleased]
+
+### Added
+
+- PLAN tab reference pin overlay: linked `referenceCatalogLink` entrance and nearby cached index pins (toggle in Plan display + LEGAL & SETTINGS)
+- Tools → **Survey vs reference link…** — compare selected project entrance/traverse stats vs linked reference catalog metadata
+- Field Trip Planner: add community/published cave stops by pasting Firestore doc id or share URL (`k:p` field trip codec)
+- Unit tests for plan geo mapping, survey vs reference compare, and field trip stop import parsing
+
+## [1.5.2] - 2026-06-15
+
+### Added
+
+- Reference survey handoff: catalog **Map with Cave AI Pro** opens browser survey URL; Windows can link/resume projects via `referenceCatalogLink` metadata
+- Cross-platform contract doc (`docs/cross-platform-contract.md`) for catalog URLs, share links, and publish fields
+- Cloud Publish passes `referenceCatalogId` / `referenceCatalogCountry` when project is linked to a reference pin
+
+### Changed
+
+- Reference catalog detail: copy share link and survey-start URL aligned with web/Android `?action=survey` contract
+
+## [1.5.0] - 2026-06-15
+
+### Added
+
+- Native **Reference Cave Catalog** panel (cached index from caveaipro.com, country filter, search, map clusters, featured caves, country-shard detail load)
+- **Field Trip Planner** (stops from catalog, reorder, GPX/KML/text export, Google Maps directions, LocalAppData persistence)
+- **Reference ↔ survey linking** on project load (name + distance match; metadata on project)
+- Post-sign-in wizard (Android sync folder, sample survey, tour)
+- Account banner with entitlement summary and Google Play manage link
+- About dialog subscription status + Android app link
+- Android auto-sync v2 tray badge on new `CaveAI_Backup_*.zip`
+- **Batch survey QC** folder scan with unified CSV/TXT report
+- Load progress overlay with cancel for large ZIP open
+- Autosave drafts to LocalAppData on timer
+- Help → Export diagnostic bundle (logs + redacted ui-settings)
+- Cloud publish checklist dialog (QC, legal terms, photo count)
+- Collaboration unread taskbar badge refresh
+- Long profile → SVG export
+
+### Changed
+
+- Help → Public Cave Library opens native reference catalog; WebView moved to separate menu item
+- Clearer subscription-required messaging with Play Store link on login denial
+- Production Store MSIX version 1.5.0 (`MicrosoftStore-Win64`)
+
+## [1.4.3] - 2026-06-07
+
+### Changed
+
+- Production Store build after Microsoft certification: Google sign-in and subscription gate restored (`MicrosoftStore-Win64`; review profile unchanged for future resubmissions)
+- `appsettings.json` test mode disabled; dev settings no longer copied into Release / Store MSIX
+
+
+
+## [1.4.2] - 2026-06-13
+
+### Changed
+
+- Version bump for Microsoft Store Partner Center submission (1.4.2)
+
+
+
+## [1.4.1] - 2026-06-13
+
+### Changed
+
+- Version bump for Microsoft Store Partner Center submission (1.4.1)
 
 
 
@@ -102,7 +192,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
-[Unreleased]: https://github.com/katharistirion-bot/caveaiproforwindows/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/katharistirion-bot/caveaiproforwindows/compare/v1.5.0...HEAD
+
+[1.5.0]: https://github.com/katharistirion-bot/caveaiproforwindows/compare/v1.4.3...v1.5.0
+
+[1.4.3]: https://github.com/katharistirion-bot/caveaiproforwindows/compare/v1.4.2...v1.4.3
+
+[1.4.2]: https://github.com/katharistirion-bot/caveaiproforwindows/compare/v1.4.1...v1.4.2
+
+[1.4.1]: https://github.com/katharistirion-bot/caveaiproforwindows/compare/v1.4.0...v1.4.1
 
 [1.4.0]: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.4.0
 

@@ -53,6 +53,8 @@ public partial class IntroVideoWindow : Window
         {
             _usingVideo = true;
             VideoPlayer.Visibility = Visibility.Visible;
+            LetterboxTop.Visibility = Visibility.Visible;
+            LetterboxBottom.Visibility = Visibility.Visible;
             VideoPlayer.Source = new Uri(videoPath, UriKind.Absolute);
             VideoPlayer.Play();
             return;
@@ -67,6 +69,7 @@ public partial class IntroVideoWindow : Window
         MuteButton.Visibility = Visibility.Collapsed;
         FallbackPanel.Visibility = Visibility.Visible;
         ((Storyboard)Resources["FallbackPulse"]).Begin(this, true);
+        ((Storyboard)Resources["FallbackTitleEnter"]).Begin(this, true);
 
         _fallbackTimer = new DispatcherTimer { Interval = FallbackAutoAdvance };
         _fallbackTimer.Tick += (_, _) =>

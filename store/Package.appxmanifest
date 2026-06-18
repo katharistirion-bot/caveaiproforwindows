@@ -13,7 +13,7 @@
   <Identity
     Name="GeorgiosKourentzis.CaveAIPro"
     Publisher="CN=54966508-95FA-45A0-B2A2-D1AF31D44DC4"
-    Version="1.4.0.0" />
+    Version="1.5.1.0" />
 
   <Properties>
     <DisplayName>CAVE AI PRO</DisplayName>
@@ -43,8 +43,9 @@
     </Application>
   </Applications>
 
-  <Capabilities>
+    <Capabilities>
     <Capability Name="internetClient" />
+    <uap:Capability Name="location" />
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>
 </Package>

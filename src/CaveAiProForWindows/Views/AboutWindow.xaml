@@ -30,6 +30,14 @@
             <TextBlock Margin="0,14,0,0" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource Cave.Accent}"
                        LineHeight="20" FontWeight="SemiBold"
                        Text="Ecosystem: (1) Cave Library on Android/Windows — (2) Publish from Android — (3) Public Cave Library on web and Android. Use Help → Public Cave Library for the in-app map, or Open in browser for your default browser." />
+            <TextBlock x:Name="SubscriptionBlock" Margin="0,10,0,0" TextWrapping="Wrap" TextAlignment="Center"
+                       Foreground="{DynamicResource Cave.Accent}" LineHeight="20" FontSize="12" />
+            <Button x:Name="ManageSubscriptionButton" Content="Manage subscription (Google Play)" Margin="0,10,0,0"
+                    Padding="14,8" HorizontalAlignment="Center" Click="ManageSubscription_Click"
+                    Style="{StaticResource Cave.AccentButton}" />
+            <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
+                       LineHeight="18" FontSize="11.5"
+                       Text="Android app (Google Play): scan or open play.google.com/store/apps/details?id=com.caveaipro.app" />
             <TextBlock x:Name="WebPortalBlock" Margin="0,10,0,0" TextWrapping="Wrap" TextAlignment="Center"
                        Foreground="{DynamicResource Cave.TextSubdued}" FontSize="11" LineHeight="16" />
             <TextBlock x:Name="RuntimeBlock" Margin="0,14,0,0" FontSize="11" FontFamily="Consolas"

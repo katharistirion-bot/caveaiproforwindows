@@ -20,6 +20,7 @@ using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.Services.Localization;
 using CaveAiProForWindows.Services.Persistence;
+using CaveAiProForWindows.Services.ReferenceCatalog;
 using CaveAiProForWindows.Views;
 using Wpf = System.Windows;
 
@@ -101,9 +102,15 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _accountBannerMessage = "";
 
-    [ObservableProperty] private bool _storeReviewBannerVisible = StoreReviewBuild.IsActive;
+    [ObservableProperty] private bool _storeReviewBannerVisible = MicrosoftTestMode.IsActive;
 
     [ObservableProperty] private int _collaborationUnreadCount;
+
+    [ObservableProperty] private bool _showLoadProgress;
+
+    [ObservableProperty] private string _loadProgressMessage = "";
+
+    [ObservableProperty] private string _referenceLinkSummary = "";
 
     /// <summary>Full JSON scan of <c>data.json</c> (per project: shots/photos/audio, rocks, catalog, vectorLines, keys).</summary>
     [ObservableProperty] private string _backupDataAnalyticsText = "";
@@ -173,6 +180,46 @@ public partial class MainViewModel : ObservableObject
             : ExplorationAnalytics.BuildSummaryText(SelectedProject);
 
     public string StatisticsText => TraverseQcStats.BuildSummaryText(SelectedProject);
+
+    /// <summary>English site-identity line for status bar tooltip (mirrors Android <c>SiteIdentity.kt</c>).</summary>
+    public string SiteIdentityTooltip =>
+        SiteIdentity.SummarizeActiveProject(SelectedProject, _knownCaveMaster);
+
+    /// <summary>Human-readable site type for the active project (e.g. Mine, Cave).</summary>
+    public string SelectedProjectSiteTypeLabel =>
+        SelectedProject == null ? "" : SurveySiteTypeResolver.GetMapLabel(SelectedProject);
+
+    /// <summary>Editable site-type token for the selected project (persisted on Save).</summary>
+    public string SelectedProjectSiteTypeToken
+    {
+        get
+        {
+            if (SelectedProject == null)
+                return "";
+            var raw = SelectedProject.SurveySiteType;
+            if (!string.IsNullOrWhiteSpace(raw))
+                return SurveySiteType.NormalizeToken(raw);
+            return SurveySiteType.CanonicalToken(SurveySiteTypeResolver.Resolve(SelectedProject, _knownCaveMaster));
+        }
+        set
+        {
+            if (SelectedProject == null || string.IsNullOrWhiteSpace(value))
+                return;
+            var token = SurveySiteType.NormalizeToken(value);
+            if (string.IsNullOrEmpty(token))
+                return;
+            if (string.Equals(SelectedProject.SurveySiteType, token, StringComparison.Ordinal))
+                return;
+            SelectedProject.SurveySiteType = token;
+            OnPropertyChanged(nameof(SelectedProjectSiteTypeLabel));
+            OnPropertyChanged(nameof(SiteIdentityTooltip));
+            OnPropertyChanged(nameof(SelectedProjectSiteTypeToken));
+            StatusMessage = FormatSelectedProjectStatus(SelectedProject);
+            SaveProjectCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    public bool HasSelectedProjectForSiteType => SelectedProject != null;
 
     /// <summary>Filtered project list for the sidebar (uses <see cref="ProjectListFilter"/>).</summary>
     public ICollectionView ProjectsForList => CollectionViewSource.GetDefaultView(Projects);
@@ -255,9 +302,54 @@ public partial class MainViewModel : ObservableObject
         SaveProjectCommand.NotifyCanExecuteChanged();
         PrintPreviewCommand.NotifyCanExecuteChanged();
         PublishToCloudCommand.NotifyCanExecuteChanged();
+        RefreshReferenceLinkSummary();
+        OnPropertyChanged(nameof(SiteIdentityTooltip));
+        OnPropertyChanged(nameof(SelectedProjectSiteTypeLabel));
+        OnPropertyChanged(nameof(SelectedProjectSiteTypeToken));
+        OnPropertyChanged(nameof(HasSelectedProjectForSiteType));
         StatusMessage = value == null
             ? "No project selected."
-            : $"{value.Name} — {value.Shots.Count} shot(s)";
+            : FormatSelectedProjectStatus(value);
+    }
+
+    private static string FormatSelectedProjectStatus(CaveProjectDocument project)
+    {
+        var site = SurveySiteTypeResolver.GetMapLabel(project);
+        var sitePart = string.IsNullOrWhiteSpace(site) ? "" : $" · {site}";
+        return $"{project.Name}{sitePart} — {project.Shots.Count} shot(s)";
+    }
+
+    private void RefreshReferenceLinkSummary()
+    {
+        if (SelectedProject != null &&
+            ReferenceSurveyLinkService.TryGetLink(SelectedProject, out var link) &&
+            link != null)
+        {
+            ReferenceLinkSummary = AppStrings.ReferenceLinkedSummary(
+                ReferenceSurveyLinkService.FormatSummary(link));
+        }
+        else
+        {
+            ReferenceLinkSummary = "";
+        }
+    }
+
+    private async Task PromptReferenceLinkIfNeededAsync(CaveProjectDocument project)
+    {
+        try
+        {
+            var fetch = new ReferenceCatalogFetchService();
+            var state = await fetch.LoadBrowseIndexAsync().ConfigureAwait(true);
+            ReferenceSurveyLinkPrompt.TryPromptForProjects(
+                Wpf.Application.Current.MainWindow,
+                new[] { project },
+                state.IndexEntries);
+            RefreshReferenceLinkSummary();
+        }
+        catch
+        {
+            /* optional */
+        }
     }
 
     partial void OnRegistryCaveFilterChanged(string value) => ApplyRegistryFilters();
@@ -493,6 +585,61 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ExportDiagnosticBundle()
+    {
+        try
+        {
+            var path = DiagnosticBundleExporter.ExportToZip();
+            StatusMessage = $"Diagnostic bundle saved — {path}";
+            SnackbarService.Show(Wpf.Application.Current.MainWindow, StatusMessage);
+        }
+        catch (Exception ex)
+        {
+            UserErrorReporter.ShowWarning(Wpf.Application.Current.MainWindow, ex.Message, "Diagnostic bundle");
+        }
+    }
+
+    [RelayCommand]
+    private void CompareReferenceCommunity() =>
+        ReferenceCommunityCompareWindow.ShowDialog(Wpf.Application.Current.MainWindow);
+
+    [RelayCommand]
+    private void CompareSurveyToReferenceLink()
+    {
+        var project = SelectedProject;
+        if (project == null)
+        {
+            UserErrorReporter.ShowInformation(Wpf.Application.Current.MainWindow, "Select a cave project in the list first.", "Survey vs reference");
+            return;
+        }
+
+        if (!ReferenceSurveyLinkService.TryGetLink(project, out _))
+        {
+            UserErrorReporter.ShowInformation(
+                Wpf.Application.Current.MainWindow,
+                "This project has no referenceCatalogLink. Link it from the Reference catalog window or open a backup that already includes the link.",
+                "Survey vs reference");
+            return;
+        }
+
+        ReferenceCommunityCompareWindow.ShowSurveyLinkCompare(Wpf.Application.Current.MainWindow, project);
+    }
+
+    [RelayCommand]
+    private void OpenFieldTripPlanner() => FieldTripPlannerWindow.ShowDialog(Wpf.Application.Current.MainWindow);
+
+    [RelayCommand]
+    private void BatchSurveyQc() => BatchSurveyQcWindow.ShowDialog(Wpf.Application.Current.MainWindow);
+
+    [RelayCommand]
+    private void CancelLoad()
+    {
+        _loadCts?.Cancel();
+        ShowLoadProgress = false;
+        StatusMessage = "Load cancelled.";
+    }
+
+    [RelayCommand]
     private void OpenDiagnosticFolder()
     {
         if (DiagnosticLogPaths.TryOpenFolder())
@@ -506,13 +653,30 @@ public partial class MainViewModel : ObservableObject
             Wpf.MessageBoxImage.Warning);
     }
 
+    private static bool TryNotifyCloudBlockedInTestMode(string featureTitle)
+    {
+        if (!MicrosoftTestMode.IsActive)
+            return false;
+
+        Wpf.MessageBox.Show(
+            Wpf.Application.Current.MainWindow,
+            MicrosoftTestMode.CloudFeatureBlockedMessage,
+            featureTitle,
+            Wpf.MessageBoxButton.OK,
+            Wpf.MessageBoxImage.Information);
+        return true;
+    }
+
     [RelayCommand]
     private void OpenPublicLibraryCatalog()
     {
+        if (TryNotifyCloudBlockedInTestMode("Public Cave Library"))
+            return;
+
         try
         {
-            PublicLibraryCatalog.ShowMapInAppWindow(Wpf.Application.Current.MainWindow);
-            StatusMessage = $"Public Cave Library · {PublicLibraryCatalog.WebOrigin}";
+            PublicLibraryCatalog.ShowNativeReferenceCatalog(Wpf.Application.Current.MainWindow);
+            StatusMessage = $"Reference catalog · {PublicLibraryCatalog.WebOrigin}";
         }
         catch (Exception ex)
         {
@@ -528,6 +692,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenWebCaveAi()
     {
+        if (TryNotifyCloudBlockedInTestMode("Cave AI"))
+            return;
+
         try
         {
             PublicLibraryCatalog.ShowCaveAiInAppWindow(Wpf.Application.Current.MainWindow);
@@ -811,8 +978,24 @@ public partial class MainViewModel : ObservableObject
             _auxiliaryZipForMaps = null;
 
             StatusMessage = "Loading backup…";
+            ShowLoadProgress = paths.Any(p =>
+            {
+                try
+                {
+                    return File.Exists(p) && new FileInfo(p).Length > 8 * 1024 * 1024;
+                }
+                catch
+                {
+                    return false;
+                }
+            });
+            LoadProgressMessage = StatusMessage;
 
-            var progress = new Progress<string>(s => StatusMessage = s);
+            var progress = new Progress<string>(s =>
+            {
+                StatusMessage = s;
+                LoadProgressMessage = s;
+            });
             LoadFromPathsWorkResult work;
             try
             {
@@ -821,6 +1004,7 @@ public partial class MainViewModel : ObservableObject
             }
             catch (OperationCanceledException)
             {
+                ShowLoadProgress = false;
                 StatusMessage =
                     "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
                 CloseWorkspaceCommand.NotifyCanExecuteChanged();
@@ -884,6 +1068,7 @@ public partial class MainViewModel : ObservableObject
             foreach (var k in libraryAccumulator)
                 _knownCaveMaster.Add(k);
             ApplyKnownCaveCatalogFilters();
+            OnPropertyChanged(nameof(SiteIdentityTooltip));
 
             MapInventoryRows.Clear();
             foreach (var row in work.MapInventoryRows)
@@ -904,6 +1089,9 @@ public partial class MainViewModel : ObservableObject
 
             SelectedProject = first;
             _loadedSurveyFingerprint = SurveyContentFingerprint.Compute(first);
+            RefreshReferenceLinkSummary();
+            if (first != null)
+                _ = PromptReferenceLinkIfNeededAsync(first);
             AppUiSettingsStore.ApplyFullOverlaysAfterImport();
             SourcePathDisplay = orderedPaths.Count <= 1
                 ? (orderedPaths.Count == 1 ? orderedPaths[0] : "")
@@ -948,9 +1136,12 @@ public partial class MainViewModel : ObservableObject
             RefreshArchivePanel();
             NotifyZipEntryCommands();
             CloseWorkspaceCommand.NotifyCanExecuteChanged();
+            ShowLoadProgress = false;
+            _ = TryPromptReferenceLinksAsync(merged);
         }
         catch (Exception ex)
         {
+            ShowLoadProgress = false;
             UserErrorReporter.ShowWarning(Wpf.Application.Current.MainWindow, ex.Message, "Open failed");
             StatusMessage =
                 "Ready — open a backup from CaveAI Pro on Android (Google Play): .json or .zip (Ctrl+O or drag-and-drop). Desktop app for PC (x64) only.";
@@ -1680,6 +1871,15 @@ public partial class MainViewModel : ObservableObject
         new LoopClosureAssistantWindow(SelectedProject) { Owner = owner }.ShowDialog();
     }
 
+    [RelayCommand(CanExecute = nameof(CanShowLoopClosureAssistant))]
+    private void ShowOfflineCaveAiQa()
+    {
+        if (SelectedProject == null)
+            return;
+        var owner = Wpf.Application.Current.MainWindow;
+        new CaveAiOfflineQaWindow(SelectedProject, _knownCaveMaster) { Owner = owner }.ShowDialog();
+    }
+
     private bool CanShowLoopClosureAssistant() => LegalTermsGateOpen() && SelectedProject != null;
 
     [RelayCommand(CanExecute = nameof(CanOpenPublicationSheet))]
@@ -1725,6 +1925,9 @@ public partial class MainViewModel : ObservableObject
     private async Task BatchAiRenderAsync()
     {
         if (_batchAiCts != null)
+            return;
+
+        if (TryNotifyCloudBlockedInTestMode("Batch AI render"))
             return;
 
         if (!GenerativeAiAccessGate.EnsureConfigured(Wpf.Application.Current.MainWindow, out var gateErr))
@@ -1807,6 +2010,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(LegalTermsGateOpen))]
     private async Task DownloadPublicLibraryBackupAsync()
     {
+        if (TryNotifyCloudBlockedInTestMode("Public Library download"))
+            return;
+
         var owner = Wpf.Application.Current.MainWindow;
         if (!LibraryCavePickerWindow.TryPick(owner, out var docId) || string.IsNullOrWhiteSpace(docId))
             return;
@@ -1859,6 +2065,9 @@ public partial class MainViewModel : ObservableObject
         if (_cloudPublishCts != null || targets.Count == 0)
             return;
 
+        if (TryNotifyCloudBlockedInTestMode("Publish to Cloud"))
+            return;
+
         _cloudPublishCts = new CancellationTokenSource();
         var ct = _cloudPublishCts.Token;
         try
@@ -1871,6 +2080,9 @@ public partial class MainViewModel : ObservableObject
             foreach (var project in targets)
             {
                 if (requireLinkedId && string.IsNullOrWhiteSpace(LinkedLibraryCaveIdResolver.TryGet(project)))
+                    continue;
+
+                if (!await TryConfirmPublishReferenceMatchesAsync(project).ConfigureAwait(true))
                     continue;
 
                 var previous = SelectedProject;
@@ -2099,6 +2311,8 @@ public partial class MainViewModel : ObservableObject
     private async Task ShareCollaborationAsync()
     {
         if (SelectedProject == null) return;
+        if (TryNotifyCloudBlockedInTestMode("Project collaboration"))
+            return;
         await ProjectCollaborationWindow.ShareAndOpenAsync(SelectedProject, GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow);
     }
 
@@ -2146,8 +2360,8 @@ public partial class MainViewModel : ObservableObject
 
     public void RefreshAccountBannerFromSession()
     {
-        StoreReviewBannerVisible = StoreReviewBuild.IsActive;
-        if (StoreReviewBuild.IsActive)
+        StoreReviewBannerVisible = MicrosoftTestMode.IsActive;
+        if (MicrosoftTestMode.IsActive)
         {
             AccountBannerVisible = false;
             return;
@@ -2162,9 +2376,9 @@ public partial class MainViewModel : ObservableObject
         }
 
         var summary = AccountSessionState.AccountAccessSummary;
-        if (!string.IsNullOrWhiteSpace(summary))
+        if (!string.IsNullOrWhiteSpace(summary) && AccountSessionState.LastEntitlement != null)
         {
-            AccountBannerMessage = summary;
+            AccountBannerMessage = AccountStatusFormatter.FormatAccountBanner(AccountSessionState.LastEntitlement);
             AccountBannerVisible = true;
         }
     }
@@ -2190,9 +2404,30 @@ public partial class MainViewModel : ObservableObject
 
         var settings = AppUiSettingsStore.LoadOrDefault().AndroidSync;
         var name = Path.GetFileName(zipPath);
-        if (!settings.AutoReloadBackupZip)
+        var owner = Wpf.Application.Current.MainWindow;
+
+        if (!AndroidBackupOpenPrompt.AskOpenBackup(owner, name))
         {
             NotifyAndroidBackupDetected(zipPath);
+            DesktopTrayBadgeService.SetBadge(owner, 1);
+            return;
+        }
+
+        if (TryPromptSameProjectNameConflict(zipPath, name, out var reloadFromConflict))
+        {
+            if (!reloadFromConflict)
+            {
+                NotifyAndroidBackupDetected(zipPath);
+                return;
+            }
+        }
+
+        if (!settings.AutoReloadBackupZip)
+        {
+            LoadFromPath(zipPath);
+            _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(zipPath);
+            StatusMessage = AppStrings.AndroidSyncReloaded(name);
+            SnackbarService.Show(owner, AppStrings.AndroidSyncReloaded(name));
             return;
         }
 
@@ -2202,34 +2437,67 @@ public partial class MainViewModel : ObservableObject
             var diskWrite = File.GetLastWriteTimeUtc(zipPath);
             if (lastLoaded.HasValue && diskWrite <= lastLoaded.Value.AddSeconds(1))
                 return;
-            if (settings.AutoReloadBackupZip)
+            if (ShouldPromptAndroidSyncConflict(zipPath))
             {
-                if (ShouldPromptAndroidSyncConflict(zipPath))
+                var choice = AndroidSyncConflictPrompt.Show(owner, name);
+                if (choice == AndroidSyncConflictChoice.KeepPcSurvey)
                 {
-                    var choice = AndroidSyncConflictPrompt.Show(Wpf.Application.Current.MainWindow, name);
-                    if (choice == AndroidSyncConflictChoice.KeepPcSurvey)
-                    {
-                        NotifyAndroidBackupDetected(zipPath);
-                        return;
-                    }
-
-                    if (choice == AndroidSyncConflictChoice.SavePcCopyFirst)
-                    {
-                        ExportAndroidBackupZip();
-                        NotifyAndroidBackupDetected(zipPath);
-                        return;
-                    }
+                    NotifyAndroidBackupDetected(zipPath);
+                    return;
                 }
 
-                LoadFromPath(zipPath);
-                _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(zipPath);
-                StatusMessage = AppStrings.AndroidSyncReloaded(name);
-                SnackbarService.Show(Wpf.Application.Current.MainWindow, AppStrings.AndroidSyncReloaded(name));
-                return;
+                if (choice == AndroidSyncConflictChoice.SavePcCopyFirst)
+                {
+                    ExportAndroidBackupZip();
+                    NotifyAndroidBackupDetected(zipPath);
+                    return;
+                }
             }
+
+            LoadFromPath(zipPath);
+            _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(zipPath);
+            StatusMessage = AppStrings.AndroidSyncReloaded(name);
+            SnackbarService.Show(owner, AppStrings.AndroidSyncReloaded(name));
+            return;
         }
 
-        NotifyAndroidBackupDetected(zipPath);
+        LoadFromPath(zipPath);
+        _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(zipPath);
+        StatusMessage = AppStrings.AndroidSyncReloaded(name);
+        SnackbarService.Show(owner, AppStrings.AndroidSyncReloaded(name));
+    }
+
+    private bool TryPromptSameProjectNameConflict(string zipPath, string zipFileName, out bool shouldReload)
+    {
+        shouldReload = true;
+        if (Projects.Count == 0)
+            return false;
+
+        var zipWrite = File.GetLastWriteTimeUtc(zipPath);
+        if (_lastLoadedBackupWriteUtc.HasValue && zipWrite <= _lastLoadedBackupWriteUtc.Value)
+            return false;
+
+        try
+        {
+            var incoming = ExplorationDataLoader.LoadFromCaveAiBackupZip(zipPath);
+            foreach (var project in incoming)
+            {
+                if (!Projects.Any(p => string.Equals(p.Name, project.Name, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                shouldReload = AndroidBackupOpenPrompt.AskProjectNameConflict(
+                    Wpf.Application.Current.MainWindow,
+                    project.Name,
+                    zipFileName);
+                return true;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
     }
 
     private bool ShouldPromptAndroidSyncConflict(string zipPath)
@@ -2695,6 +2963,17 @@ public partial class MainViewModel : ObservableObject
         if (_cloudPublishCts != null)
             return;
 
+        if (TryNotifyCloudBlockedInTestMode("Publish to Cloud"))
+            return;
+
+        if (SelectedProject != null &&
+            !CloudPublishChecklistDialog.Confirm(GetOwnerWindow?.Invoke(), SelectedProject, LegalTermsAccepted))
+            return;
+
+        if (SelectedProject != null &&
+            !await TryConfirmPublishReferenceMatchesAsync(SelectedProject).ConfigureAwait(true))
+            return;
+
         _cloudPublishCts = new CancellationTokenSource();
         var ct = _cloudPublishCts.Token;
         string? lastError = null;
@@ -2754,6 +3033,46 @@ public partial class MainViewModel : ObservableObject
             CloudPublishIndeterminate = false;
             ShowCloudPublishProgress = false;
             PublishToCloudCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private async Task<bool> TryConfirmPublishReferenceMatchesAsync(CaveProjectDocument project)
+    {
+        try
+        {
+            var fetch = new ReferenceCatalogFetchService();
+            var state = await fetch.LoadBrowseIndexAsync().ConfigureAwait(true);
+            return ReferencePublishMatchDialog.ConfirmProceed(
+                GetOwnerWindow?.Invoke(),
+                project,
+                state.IndexEntries);
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private async Task TryPromptReferenceLinksAsync(IReadOnlyList<CaveProjectDocument> projects)
+    {
+        if (projects.Count == 0)
+            return;
+
+        try
+        {
+            var fetch = new ReferenceCatalogFetchService();
+            var state = await fetch.LoadBrowseIndexAsync().ConfigureAwait(true);
+            if (state.IndexEntries.Count == 0)
+                return;
+
+            ReferenceSurveyLinkPrompt.TryPromptForProjects(
+                Wpf.Application.Current.MainWindow,
+                projects,
+                state.IndexEntries);
+        }
+        catch
+        {
+            /* best-effort — offline or cache miss */
         }
     }
 }

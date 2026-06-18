@@ -1,0 +1,184 @@
+<Window x:Class="CaveAiProForWindows.Views.ReferenceCatalogWindow"
+
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+
+        Title="Reference Cave Catalog"
+
+        Height="760" Width="1040"
+
+        MinHeight="520" MinWidth="800"
+
+        WindowStartupLocation="CenterOwner"
+
+        Background="{DynamicResource Cave.Background}"
+
+        Foreground="{DynamicResource Cave.Text}">
+
+    <DockPanel Margin="12">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+
+            <TextBlock x:Name="HeaderText" Text="Reference catalog — loading…" FontWeight="SemiBold" FontSize="15" />
+
+            <TextBlock x:Name="StatusText" Margin="0,4,0,8" Foreground="{DynamicResource Cave.TextMuted}" TextWrapping="Wrap" />
+
+            <Border x:Name="OfflineBanner" Background="#33F59E0B" Padding="8,6" Margin="0,0,0,8" CornerRadius="4" Visibility="Collapsed">
+
+                <TextBlock Text="Offline — showing cached index and shard detail. Connect to refresh." TextWrapping="Wrap" FontSize="12" />
+
+            </Border>
+
+            <Grid Margin="0,0,0,8">
+
+                <Grid.ColumnDefinitions>
+
+                    <ColumnDefinition Width="*" />
+
+                    <ColumnDefinition Width="160" />
+
+                    <ColumnDefinition Width="Auto" />
+
+                    <ColumnDefinition Width="Auto" />
+
+                    <ColumnDefinition Width="Auto" />
+
+                </Grid.ColumnDefinitions>
+
+                <Grid.RowDefinitions>
+
+                    <RowDefinition Height="Auto" />
+
+                    <RowDefinition Height="Auto" />
+
+                </Grid.RowDefinitions>
+
+                <TextBox x:Name="SearchBox" Grid.Row="0" Grid.Column="0" Padding="8,6" Margin="0,0,8,0"
+
+                         ToolTip="Multi-token search (2+ chars) — all tokens must match" />
+
+                <ComboBox x:Name="CountryCombo" Grid.Row="0" Grid.Column="1" Margin="0,0,8,0" Padding="6,4" />
+
+                <CheckBox x:Name="NearMeCheck" Grid.Row="0" Grid.Column="2" Content="Near me" VerticalAlignment="Center" Margin="0,0,12,0" />
+
+                <Button Grid.Row="0" Grid.Column="3" Content="Force refresh" Padding="12,6" Margin="0,0,8,0" Click="Refresh_Click"
+
+                        ToolTip="Bypass cache — re-fetch meta + index from caveaipro.com" />
+
+                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal" Margin="0,8,0,0"
+
+                            Visibility="{Binding ElementName=NearMeCheck, Path=IsChecked}">
+
+                    <TextBlock Text="Radius" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource Cave.TextMuted}" />
+
+                    <Slider x:Name="RadiusSlider" Width="180" Minimum="5" Maximum="200" Value="50" TickFrequency="25"
+
+                            IsSnapToTickEnabled="True" VerticalAlignment="Center" ValueChanged="RadiusSlider_ValueChanged" />
+
+                    <TextBlock x:Name="RadiusLabel" Text="50 km" VerticalAlignment="Center" Margin="8,0,0,0"
+
+                               Foreground="{DynamicResource Cave.TextMuted}" MinWidth="48" />
+
+                </StackPanel>
+
+            </Grid>
+
+        </StackPanel>
+
+        <TabControl x:Name="MainTabs">
+
+            <TabItem Header="Browse">
+
+                <Grid>
+
+                    <Grid.ColumnDefinitions>
+
+                        <ColumnDefinition Width="2*" />
+
+                        <ColumnDefinition Width="6" />
+
+                        <ColumnDefinition Width="*" />
+
+                    </Grid.ColumnDefinitions>
+
+                    <DataGrid x:Name="ResultsGrid" Grid.Column="0" AutoGenerateColumns="False" IsReadOnly="True"
+
+                              SelectionMode="Single" SelectionChanged="ResultsGrid_SelectionChanged">
+
+                        <DataGrid.Columns>
+
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" />
+
+                            <DataGridTextColumn Header="Country" Binding="{Binding Country}" Width="*" />
+
+                            <DataGridTextColumn Header="Depth" Binding="{Binding DepthDisplay}" Width="70" />
+
+                            <DataGridTextColumn Header="Badge" Binding="{Binding Badge}" Width="80" />
+
+                            <DataGridTextColumn x:Name="DistanceColumn" Header="Dist (km)" Binding="{Binding DistanceDisplay}" Width="70" Visibility="Collapsed" />
+
+                        </DataGrid.Columns>
+
+                    </DataGrid>
+
+                    <GridSplitter Grid.Column="1" Style="{StaticResource Cave.GridSplitterVertical}" />
+
+                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+
+                        <StackPanel x:Name="DetailPanel" Margin="8,0,0,0">
+
+                            <TextBlock Text="Select a cave" FontWeight="SemiBold" />
+
+                        </StackPanel>
+
+                    </ScrollViewer>
+
+                </Grid>
+
+            </TabItem>
+
+            <TabItem Header="Map" x:Name="MapTab">
+
+                <Border BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" Background="#FF0F172A">
+
+                    <Canvas x:Name="MapCanvas" Background="#FF0F172A" MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp" />
+
+                </Border>
+
+            </TabItem>
+
+            <TabItem Header="Featured">
+
+                <ListBox x:Name="FeaturedList" DisplayMemberPath="Name" SelectionChanged="FeaturedList_SelectionChanged" />
+
+            </TabItem>
+
+        </TabControl>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+
+            <Button Content="Link to current project" Padding="12,6" Margin="0,0,8,0" Click="LinkToCurrentProject_Click"
+                    ToolTip="Sets referenceCatalogLink on the active survey project (same metadata Android writes when starting from this pin)." />
+
+            <Button Content="Map on phone (Cave AI Pro)" Padding="12,6" Margin="0,0,8,0" Click="StartSurveyOnPhone_Click"
+                    ToolTip="Opens a link to start field survey on Cave AI Pro for Android (same referenceCatalogLink in backup JSON for Windows QC)." />
+
+            <Button Content="Compare ref / community" Padding="12,6" Margin="0,0,8,0" Click="Compare_Click" />
+
+            <Button Content="Copy share link" Padding="12,6" Margin="0,0,8,0" Click="CopyShareLink_Click" />
+
+            <Button Content="Open on web" Padding="12,6" Margin="0,0,8,0" Click="OpenOnWeb_Click" ToolTip="Open reference detail on caveaipro.com" />
+
+            <Button Content="Paste share URL…" Padding="12,6" Margin="0,0,8,0" Click="PasteShareUrl_Click" />
+
+            <Button Content="Add to field trip" Padding="12,6" Margin="0,0,8,0" Click="AddToFieldTrip_Click" />
+
+            <Button Content="Close" Padding="12,6" IsCancel="True" Click="Close_Click" />
+
+        </StackPanel>
+
+    </DockPanel>
+
+</Window>
+

@@ -7,6 +7,8 @@
 | Firebase Web API key | **Placeholder only** (`REPLACE_AT_BUILD` in `firebase-config.json`) | Inject at build via `tools/inject-firebase-config.ps1` or `CAVEAIPRO_FIREBASE_API_KEY` |
 | Replicate BYOK token | **No** | Windows Credential Manager (`ReplicateApiTokenStore`) |
 | Firebase ID token | **No** | DPAPI file `%LOCALAPPDATA%\CaveAiProForWindows\auth-token.dat` |
+
+**Token storage (DPAPI):** `FirebaseAuthTokenStore` encrypts the JWT with `ProtectedData` (`CurrentUser` scope) and app-specific entropy (`UserScopedDpapiProtector`). Legacy plain `auth-token.json` is migrated on first read and deleted. Limits: same Windows user profile only; not synced across machines; does not replace server-side token expiry/revocation. See **`docs/SECURITY-HARDENING.md`** for ecosystem checklist.
 | Code signing PFX | **No** | GitHub Secrets / local only (`CODE-SIGNING.md`) |
 | OpenAI `sk-` keys | **No** | Not used in desktop app |
 
@@ -101,7 +103,9 @@ After deleting the old **Browser** key:
 
 - **Obfuscar** on Release builds (`build/Obfuscation.targets`) — `Services.Auth`, subscription checks, cloud publish.
 - **No dev bypasses in Release** — `CAVEAIPRO_SKIP_APP_LOCK` is Debug-only; `InstallationGuard` has no env bypass in Release.
-- **startup.log** — WebView console output is **not** written in Release (may contain auth data). Email/subject metadata only.
+- **startup.log** — WebView console output is **not** written in Release (may contain auth data). Release lines are redacted for email/JWT/API keys before write. Diagnostic export applies the same redaction.
+
+Cross-platform hardening: **`docs/SECURITY-HARDENING.md`**
 
 ## Distribution
 

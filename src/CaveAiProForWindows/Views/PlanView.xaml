@@ -13,6 +13,36 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="12,8,12,6" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                <TextBlock Text="{Binding DataContext.SelectedProject.Name, RelativeSource={RelativeSource AncestorType=Window}}"
+                           FontWeight="SemiBold"
+                           FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                           Foreground="{DynamicResource Cave.Text}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="280" />
+                <Border Margin="8,0,0,0" Padding="8,2" CornerRadius="4"
+                        Background="{DynamicResource Cave.BannerTint}"
+                        BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                        VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DataContext.SelectedProjectSiteTypeLabel, RelativeSource={RelativeSource AncestorType=Window}}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DataContext.SelectedProject, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding DataContext.SelectedProjectSiteTypeLabel, RelativeSource={RelativeSource AncestorType=Window}}"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Cave.AccentBrush}" />
+                </Border>
+            </StackPanel>
             <StackPanel x:Name="PlanMapToolbarPanel" DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
                         VerticalAlignment="Center">
                 <Button Content="_Print plan…" Padding="14,6" Margin="0,0,0,0"
@@ -336,6 +366,12 @@
                                       ToolTip="Scale bar and compass rose (bottom-right of map)"
                                       Checked="CartographyOptions_Changed" Unchecked="CartographyOptions_Changed"
                                       Foreground="{DynamicResource Cave.Text}" />
+                            <CheckBox x:Name="ReferencePinsCheck" Margin="0,0,0,8"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      IsChecked="True" Content="Reference catalog pins"
+                                      ToolTip="Linked reference entrance and nearby cached index pins (max 50)"
+                                      Checked="ReferencePinsCheck_Changed" Unchecked="ReferencePinsCheck_Changed"
+                                      Foreground="{DynamicResource Cave.Text}" />
 
                             </StackPanel>
 
@@ -445,6 +481,9 @@
                                     </TransformGroup>
                                 </Grid.RenderTransform>
                                 <Canvas x:Name="SurveyCanvas" Width="960" Height="640" ClipToBounds="True"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                        IsHitTestVisible="False" />
+                                <Canvas x:Name="ReferencePinsLayer" Width="960" Height="640" ClipToBounds="True"
                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                         IsHitTestVisible="False" />
                                 <Canvas x:Name="DesignLayer" Width="960" Height="640" ClipToBounds="True"

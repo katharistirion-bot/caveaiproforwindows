@@ -6,128 +6,206 @@
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
-        Background="#FF050608"
-        Width="960"
-        Height="540"
+        Background="Transparent"
+        AllowsTransparency="True"
+        Width="1024"
+        Height="576"
         FontFamily="Segoe UI"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         KeyDown="Window_KeyDown">
     <Window.Resources>
-        <Storyboard x:Key="FallbackPulse" RepeatBehavior="Forever">
-            <DoubleAnimation Storyboard.TargetName="CaveGlow"
-                             Storyboard.TargetProperty="Opacity"
-                             From="0.18" To="0.42" Duration="0:0:2.4"
-                             AutoReverse="True" />
-            <DoubleAnimation Storyboard.TargetName="CaveVeil"
-                             Storyboard.TargetProperty="Opacity"
-                             From="0.55" To="0.85" Duration="0:0:3.6"
-                             AutoReverse="True" />
-        </Storyboard>
-        <Storyboard x:Key="LogoFadeIn">
-            <DoubleAnimation Storyboard.TargetName="LogoEndFrame"
-                             Storyboard.TargetProperty="Opacity"
-                             From="0" To="1" Duration="0:0:0.85">
-                <DoubleAnimation.EasingFunction>
-                    <QuadraticEase EasingMode="EaseOut" />
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../IntroExperienceTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <Storyboard x:Key="FallbackPulse" RepeatBehavior="Forever">
+                <DoubleAnimation Storyboard.TargetName="CaveGlow"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0.22" To="0.48" Duration="0:0:2.8"
+                                 AutoReverse="True" />
+                <DoubleAnimation Storyboard.TargetName="ParticleLayer"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0.35" To="0.75" Duration="0:0:4.2"
+                                 AutoReverse="True" />
+            </Storyboard>
+
+            <Storyboard x:Key="LogoFadeIn">
+                <DoubleAnimation Storyboard.TargetName="LogoEndFrame"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:1.0">
+                    <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="LogoEndScale"
+                                 Storyboard.TargetProperty="ScaleX"
+                                 From="0.92" To="1" Duration="0:0:1.0">
+                    <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="LogoEndScale"
+                                 Storyboard.TargetProperty="ScaleY"
+                                 From="0.92" To="1" Duration="0:0:1.0">
+                    <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+
+            <Storyboard x:Key="FallbackTitleEnter" RepeatBehavior="Forever">
+                <DoubleAnimation Storyboard.TargetName="FallbackSubtitle"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0.45" To="0.95" Duration="0:0:2.2"
+                                 AutoReverse="True" />
+            </Storyboard>
+        </ResourceDictionary>
     </Window.Resources>
 
-    <Grid x:Name="RootGrid">
-        <MediaElement x:Name="VideoPlayer"
-                      LoadedBehavior="Manual"
-                      UnloadedBehavior="Stop"
-                      Stretch="UniformToFill"
-                      ScrubbingEnabled="False"
-                      Visibility="Collapsed"
-                      MediaOpened="VideoPlayer_MediaOpened"
-                      MediaEnded="VideoPlayer_MediaEnded"
-                      MediaFailed="VideoPlayer_MediaFailed" />
+    <Border CornerRadius="16" ClipToBounds="True" BorderBrush="#FF252D3D" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="40" ShadowDepth="8" Opacity="0.7" Color="Black" />
+        </Border.Effect>
+        <Grid x:Name="RootGrid" Background="#FF06080D">
+            <MediaElement x:Name="VideoPlayer"
+                          LoadedBehavior="Manual"
+                          UnloadedBehavior="Stop"
+                          Stretch="Uniform"
+                          ScrubbingEnabled="False"
+                          Visibility="Collapsed"
+                          MediaOpened="VideoPlayer_MediaOpened"
+                          MediaEnded="VideoPlayer_MediaEnded"
+                          MediaFailed="VideoPlayer_MediaFailed" />
 
-        <Grid x:Name="FallbackPanel" Visibility="Collapsed">
-            <Grid.Background>
-                <RadialGradientBrush GradientOrigin="0.5,0.35" Center="0.5,0.35" RadiusX="0.9" RadiusY="0.9">
-                    <GradientStop Color="#FF141820" Offset="0" />
-                    <GradientStop Color="#FF050608" Offset="1" />
-                </RadialGradientBrush>
-            </Grid.Background>
-            <Ellipse x:Name="CaveGlow" Width="620" Height="420" Opacity="0.28"
-                     HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Ellipse.Fill>
-                    <RadialGradientBrush>
-                        <GradientStop Color="#FF1A2535" Offset="0" />
-                        <GradientStop Color="#00000000" Offset="1" />
-                    </RadialGradientBrush>
-                </Ellipse.Fill>
-            </Ellipse>
-            <Rectangle x:Name="CaveVeil" Opacity="0.7">
+            <!-- Letterbox bars when video plays -->
+            <Rectangle x:Name="LetterboxTop" VerticalAlignment="Top" Height="48"
+                       Fill="#FF000000" Visibility="Collapsed" IsHitTestVisible="False" />
+            <Rectangle x:Name="LetterboxBottom" VerticalAlignment="Bottom" Height="48"
+                       Fill="#FF000000" Visibility="Collapsed" IsHitTestVisible="False" />
+
+            <Grid x:Name="FallbackPanel" Visibility="Collapsed">
+                <Grid.Background>
+                    <StaticResource ResourceKey="Intro.BackgroundGradient" />
+                </Grid.Background>
+
+                <Rectangle Fill="{StaticResource Intro.AccentGlowBrush}" IsHitTestVisible="False" />
+
+                <Canvas x:Name="ParticleLayer" Opacity="0.5" IsHitTestVisible="False">
+                    <Ellipse Canvas.Left="120" Canvas.Top="80" Width="3" Height="3" Fill="#885B9DFF" />
+                    <Ellipse Canvas.Left="340" Canvas.Top="140" Width="2" Height="2" Fill="#665B9DFF" />
+                    <Ellipse Canvas.Left="780" Canvas.Top="90" Width="4" Height="4" Fill="#995B9DFF" />
+                    <Ellipse Canvas.Left="640" Canvas.Top="220" Width="2" Height="2" Fill="#555B9DFF" />
+                    <Ellipse Canvas.Left="200" Canvas.Top="380" Width="3" Height="3" Fill="#775B9DFF" />
+                    <Ellipse Canvas.Left="880" Canvas.Top="400" Width="2" Height="2" Fill="#665B9DFF" />
+                </Canvas>
+
+                <Canvas IsHitTestVisible="False" Opacity="0.2">
+                    <Path Stroke="#FF5B9DFF" StrokeThickness="1.5"
+                          Data="M 80,420 C 200,360 320,440 480,390 S 720,340 940,400" />
+                    <Path Stroke="#FF8BB4FF" StrokeThickness="1"
+                          Data="M 100,460 C 240,400 380,470 520,430 S 760,380 920,450" />
+                </Canvas>
+
+                <Ellipse x:Name="CaveGlow" Width="720" Height="480" Opacity="0.3"
+                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Color="#FF1A3050" Offset="0" />
+                            <GradientStop Color="#00000000" Offset="1" />
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Image Width="96" Height="96" Stretch="Uniform"
+                           Source="pack://application:,,,/Assets/logo.png"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Margin="0,0,0,20" Opacity="0.95">
+                        <Image.Effect>
+                            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.5" Color="#FF5B9DFF" />
+                        </Image.Effect>
+                    </Image>
+                    <TextBlock Text="CAVE AI PRO"
+                               FontSize="36"
+                               FontWeight="Bold"
+                               Foreground="#FFF4F6FA"
+                               HorizontalAlignment="Center" />
+                    <TextBlock x:Name="FallbackSubtitle"
+                               Text="Plan · Section · QC · Cloud sync"
+                               FontSize="14"
+                               Foreground="#FF8B95A8"
+                               HorizontalAlignment="Center"
+                               Margin="0,10,0,0" />
+                </StackPanel>
+            </Grid>
+
+            <Grid x:Name="LogoEndFrame" Visibility="Collapsed" Opacity="0">
+                <Grid.Background>
+                    <StaticResource ResourceKey="Intro.BackgroundGradient" />
+                </Grid.Background>
+                <Rectangle Fill="{StaticResource Intro.AccentGlowBrush}" IsHitTestVisible="False" />
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                            RenderTransformOrigin="0.5,0.5">
+                    <StackPanel.RenderTransform>
+                        <ScaleTransform x:Name="LogoEndScale" ScaleX="0.92" ScaleY="0.92" />
+                    </StackPanel.RenderTransform>
+                    <Image Width="168" Height="168" Stretch="Uniform"
+                           Source="pack://application:,,,/Assets/logo.png"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Margin="0,0,0,22">
+                        <Image.Effect>
+                            <DropShadowEffect BlurRadius="32" ShadowDepth="0" Opacity="0.55" Color="#FF5B9DFF" />
+                        </Image.Effect>
+                    </Image>
+                    <TextBlock Text="CAVE AI PRO"
+                               FontSize="34"
+                               FontWeight="Bold"
+                               Foreground="#FFF4F6FA"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="Ready to explore"
+                               FontSize="13"
+                               Foreground="#FF8B95A8"
+                               HorizontalAlignment="Center"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Bottom gradient vignette -->
+            <Rectangle VerticalAlignment="Bottom" Height="120" IsHitTestVisible="False">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                         <GradientStop Color="#00000000" Offset="0" />
-                        <GradientStop Color="#CC000000" Offset="1" />
+                        <GradientStop Color="#AA000000" Offset="1" />
                     </LinearGradientBrush>
                 </Rectangle.Fill>
             </Rectangle>
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="CAVE AI PRO"
-                           FontSize="28"
-                           FontWeight="Bold"
-                           Foreground="#FFEFF2F8"
-                           HorizontalAlignment="Center" />
-                <TextBlock Text="Survey workstation"
-                           FontSize="13"
-                           Foreground="#FF8A93A6"
-                           HorizontalAlignment="Center"
-                           Margin="0,6,0,0" />
-            </StackPanel>
-        </Grid>
 
-        <Grid x:Name="LogoEndFrame" Visibility="Collapsed" Opacity="0"
-              Background="#FF050608">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <Image Width="160" Height="160" Stretch="Uniform"
-                       Source="pack://application:,,,/Assets/logo.png"
-                       RenderOptions.BitmapScalingMode="HighQuality"
-                       Margin="0,0,0,18" />
-                <TextBlock Text="CAVE AI PRO"
-                           FontSize="30"
-                           FontWeight="Bold"
-                           Foreground="#FFEFF2F8"
-                           HorizontalAlignment="Center" />
-            </StackPanel>
+            <Grid VerticalAlignment="Top" Margin="20,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Press Esc to skip"
+                           VerticalAlignment="Center"
+                           Foreground="#66FFFFFF"
+                           FontSize="11.5" />
+                <Button x:Name="SkipButton"
+                        Grid.Column="1"
+                        Content="Skip"
+                        Margin="0,0,10,0"
+                        Click="Skip_Click"
+                        ToolTip="Skip intro (Esc)"
+                        Style="{StaticResource Intro.GlassButton}" />
+                <Button x:Name="MuteButton"
+                        Grid.Column="2"
+                        Content="Mute"
+                        Click="Mute_Click"
+                        ToolTip="Toggle intro audio"
+                        Style="{StaticResource Intro.GlassButton}" />
+            </Grid>
         </Grid>
-
-        <Grid VerticalAlignment="Top" Margin="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <Button x:Name="SkipButton"
-                    Grid.Column="1"
-                    Content="Skip video"
-                    Padding="16,8"
-                    Margin="0,0,8,0"
-                    Click="Skip_Click"
-                    ToolTip="Skip intro (Esc)"
-                    Background="#CC1B1F2A"
-                    Foreground="#FFEFF2F8"
-                    BorderBrush="#FF3A4254"
-                    BorderThickness="1"
-                    Cursor="Hand" />
-            <Button x:Name="MuteButton"
-                    Grid.Column="2"
-                    Content="Mute"
-                    Padding="16,8"
-                    Click="Mute_Click"
-                    ToolTip="Toggle intro audio"
-                    Background="#CC1B1F2A"
-                    Foreground="#FFEFF2F8"
-                    BorderBrush="#FF3A4254"
-                    BorderThickness="1"
-                    Cursor="Hand" />
-        </Grid>
-    </Grid>
+    </Border>
 </Window>

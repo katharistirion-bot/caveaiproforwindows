@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Auth;
 using Velopack;
 
 namespace CaveAiProForWindows;
@@ -20,6 +21,8 @@ public static class Program
                 .SetArgs(args)
                 .Run();
         }
+
+        MicrosoftTestMode.InitializeFromAppSettings();
 
         var app = new App();
         app.InitializeComponent();

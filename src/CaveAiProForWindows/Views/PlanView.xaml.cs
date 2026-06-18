@@ -16,6 +16,7 @@ using System.Windows.Threading;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.GenerativeMap;
+using CaveAiProForWindows.Services.ReferenceCatalog;
 using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows.Views;
@@ -178,6 +179,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     private bool _surveyHitLayoutReady;
     private bool _applyingSettings;
     private bool _showPlanAiUnderlay = true;
+    private bool _showReferencePins = true;
     private double _planAiOverlayOpacity = 0.52;
     private SurveyMapPickHighlight? _surveyPickHighlight;
     private CaveViewport3DFlyThrough? _flyThrough;
@@ -483,6 +485,11 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         MapZoomRoot.Height = h;
         SurveyCanvas.Width = w;
         SurveyCanvas.Height = h;
+        if (ReferencePinsLayer != null)
+        {
+            ReferencePinsLayer.Width = w;
+            ReferencePinsLayer.Height = h;
+        }
         DesignLayer.Width = w;
         DesignLayer.Height = h;
         ZoomScale.CenterX = w * 0.5;
@@ -553,7 +560,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 PropertyPaneTitleText.Text = "Survey overview";
             PropertySelectionStatusText.Text = "No item selected";
             ApplyPropertiesVisualState(PropertiesVisualState.None);
-            PropertyStationLegNameText.Text = "Open a cave project.";
+            PropertyStationLegNameText.Text = "Open a survey project.";
             PropertyCoordinatesText.Text = "-";
             PropertySurveyDataText.Text = "Survey stats appear after loading a project.";
             PropertyWallDimensionsText.Text = "-";
@@ -569,7 +576,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             PropertyPaneTitleText.Text = "Survey overview";
         PropertySelectionStatusText.Text = NoSelectionStatus;
         ApplyPropertiesVisualState(PropertiesVisualState.None);
-        PropertyStationLegNameText.Text = "Global cave stats";
+        PropertyStationLegNameText.Text = "Global survey stats";
         var siteLabel = SurveySiteTypeResolver.GetMapLabel(p);
         var siteLine = string.IsNullOrWhiteSpace(siteLabel) ? "" : $"Site type: {siteLabel}  |  ";
         PropertyCoordinatesText.Text = $"{siteLine}Stations: {stations}  |  Traverse legs: {legs}";
@@ -829,6 +836,10 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             SyncSurveyDetailDensityCombo(AppUiSettingsStore.LoadOrDefault().SurveyDetailDensity);
             SyncMapExportQualityCombo(AppUiSettingsStore.LoadOrDefault().MapExportQuality);
 
+            _showReferencePins = AppUiSettingsStore.LoadOrDefault().ShowReferencePinsOnPlan;
+            if (ReferencePinsCheck != null)
+                ReferencePinsCheck.IsChecked = _showReferencePins;
+
             if (EditorToolPan != null && EditorToolSelect != null && EditorToolDraw != null &&
                 EditorToolSymbol != null)
             {
@@ -920,6 +931,58 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         _planAiOverlayOpacity = Math.Clamp(PlanAiUnderlayOpacitySlider.Value, 0.15, 0.95);
         PersistGenerativePlanSettings();
         Redraw();
+    }
+
+    private void ApplyReferencePinsOverlay()
+    {
+        if (ReferencePinsLayer == null)
+            return;
+
+        ReferencePinsLayer.Children.Clear();
+        if (!_showReferencePins || Project == null || !_surveyHitLayoutReady || VisualizationMode == SurveyVisualizationMode.Pseudo3D)
+            return;
+
+        var pins = ReferenceCatalogPlanPins.CollectPins(Project);
+        if (pins.Count == 0)
+            return;
+
+        ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.PlanReferencePinsShown);
+
+        foreach (var pin in pins)
+        {
+            var pt = ReferenceCatalogPlanPins.TryPinToCanvas(pin, Project, _surveyHitLayout);
+            if (pt == null)
+                continue;
+
+            var size = pin.IsLinkedReference ? 12.0 : 8.0;
+            var dot = new System.Windows.Shapes.Ellipse
+            {
+                Width = size,
+                Height = size,
+                Fill = pin.IsLinkedReference
+                    ? Brushes.DeepSkyBlue
+                    : pin.Rich ? Brushes.LimeGreen : Brushes.Gold,
+                Stroke = pin.IsLinkedReference ? Brushes.White : Brushes.White,
+                StrokeThickness = pin.IsLinkedReference ? 1.5 : 0.75,
+                Opacity = 0.9,
+                ToolTip = pin.Name + (pin.IsLinkedReference ? " (linked reference)" : pin.Rich ? " (Surveyed)" : " (Sparse)"),
+            };
+            Canvas.SetLeft(dot, pt.Value.X - size * 0.5);
+            Canvas.SetTop(dot, pt.Value.Y - size * 0.5);
+            ReferencePinsLayer.Children.Add(dot);
+        }
+    }
+
+    private void ReferencePinsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_applyingSettings)
+            return;
+
+        _showReferencePins = ReferencePinsCheck?.IsChecked == true;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.ShowReferencePinsOnPlan = _showReferencePins;
+        AppUiSettingsStore.Save(all);
+        ApplyReferencePinsOverlay();
     }
 
     private void PersistPlanTab()
@@ -1123,6 +1186,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
             MaybeResetDesignLayerForProjectChange();
             SurveyCanvas.Children.Clear();
+            ReferencePinsLayer?.Children.Clear();
             StaleSurveyHitLayoutOnly();
             var p = Project;
             if (p == null)
@@ -1179,6 +1243,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 _surveyHitLayoutReady = PlanCanvasRenderer.TryComputeSurveyLayout(
                     scene, SurveyCanvas.Width, SurveyCanvas.Height, out _surveyHitLayout);
                 AndroidImportedSymbolPresenter.ClearImported(DesignLayer);
+                ApplyReferencePinsOverlay();
             }
             catch (Exception ex)
             {

@@ -1,0 +1,61 @@
+[
+  {
+    "name": "Certification Demo Cave",
+    "date": "2026-06-13",
+    "lat": 40.0,
+    "lon": 22.0,
+    "alt": 850,
+    "shots": [
+      {
+        "fromStation": "1",
+        "toStation": "2",
+        "distance": 12.5,
+        "azimuth": 90,
+        "clino": 0,
+        "left": 1.2,
+        "right": 0.8,
+        "up": 1.5,
+        "down": 0.5,
+        "notes": "Demo leg — Microsoft certification sample (offline, no Firebase)."
+      },
+      {
+        "fromStation": "2",
+        "toStation": "3",
+        "distance": 8.0,
+        "azimuth": 45,
+        "clino": -5,
+        "left": 0.9,
+        "right": 0.9,
+        "up": 1.0,
+        "down": 0.6
+      },
+      {
+        "fromStation": "3",
+        "toStation": "4",
+        "distance": 6.5,
+        "azimuth": 120,
+        "clino": 3,
+        "left": 1.0,
+        "right": 1.1,
+        "up": 1.2,
+        "down": 0.4
+      }
+    ],
+    "stationEnvironmentSnapshots": [
+      {
+        "stationName": "1",
+        "lat": 40.0001,
+        "lon": 22.0001,
+        "notes": "Bundled demo entrance — explore Plan, Section, Survey QC, and export menus without sign-in."
+      }
+    ],
+    "fieldCatalogEntries": [
+      {
+        "title": "Demo formation",
+        "category": "Geology",
+        "station": "2",
+        "notes": "Sample field catalog row for certification UI review."
+      }
+    ]
+  }
+]

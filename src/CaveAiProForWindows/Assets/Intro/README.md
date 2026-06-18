@@ -1,41 +1,43 @@
 # CAVE AI PRO — Intro video (`intro.mp4`)
 
-Place the final intro file here:
+Place the cinematic intro file here:
 
 ```
 Assets/Intro/intro.mp4
 ```
 
-The app copies it to the output folder on build when the file exists. If missing, a built-in animated fallback plays instead (no crash).
+## Recommended specs (premium Store / desktop feel)
 
-## Production spec
+| Property | Value |
+|----------|--------|
+| Resolution | **1920×1080** (16:9) |
+| Frame rate | 24 or 30 fps |
+| Codec | H.264 (AVC), yuv420p |
+| Duration | **12–18 seconds** |
+| Audio | Optional stereo AAC; app supports Mute |
+| Style | Dark cave aesthetic, subtle blue accent (#5B9DFF), logo hold at end |
 
-| Item | Requirement |
-|------|-------------|
-| **Duration** | 5–15 seconds |
-| **Codec** | H.264 video + AAC audio (Windows Media Foundation / MSIX friendly) |
-| **Resolution** | 1920×1080 preferred (16:9); 1280×720 minimum |
-| **Frame rate** | 24 or 30 fps |
-| **Audio** | Tense / anxiety-building score (orchestral, electronic, or hybrid). Music must be licensed for commercial use in the Microsoft Store build. |
-| **Mood** | Dark cave atmosphere — depth, stone, water drip, low light, subtle motion |
-| **End card** | Final **2 seconds** hold on the CAVE AI PRO logo (match `Assets/logo.png` / brand lockup) |
-| **UI** | English only; no on-screen text required (app shows **Skip video** / **Mute**) |
+## Suggested storyboard
 
-## Creative direction
+1. **0–3s** — Fade from black; slow push into stylized cave passage (depth, light beam).
+2. **3–8s** — Quick cuts: plan lines drawing, section profile, QC overlay (abstract, not UI screenshot).
+3. **8–12s** — Satellite / X-ray map glimpse; particles; professional tone.
+4. **12–16s** — Logo reveal with soft glow; title **CAVE AI PRO**; tagline *Professional cave survey workstation*.
+5. **16–18s** — Hold on logo (app transitions to main UI).
 
-1. Open in darkness or narrow passage — slow reveal.
-2. Build tension with rising drones, pulses, or strings (μουσική αγωνίας).
-3. Brief flashes of survey / cartography motifs optional (abstract, not UI screenshots).
-4. Resolve to full logo on black or deep cave backdrop; hold cleanly for the end card.
+## Fallback (no video)
 
-## After delivery
+If `intro.mp4` is missing, the app plays a **built-in animated sequence** (logo, survey lines, particles) — still polished, but MP4 greatly improves first impression.
+
+## After export
 
 1. Save as `intro.mp4` in this folder.
-2. Rebuild the app — MSBuild includes the file automatically when present.
-3. First launch after login shows the intro once; **Help → Intro video…** replays it.
+2. Rebuild / publish — file is copied next to the executable.
+3. First launch after sign-in shows the intro once; **Help → Intro video…** replays it.
 
-## File checklist
+## Checklist
 
 - [ ] `intro.mp4` — master deliverable
-- [ ] Licensed music stems / proof on file
-- [ ] Logo end frame matches current `Assets/logo.png`
+- [ ] Logo legible at 1080p on laptop and 4K displays
+- [ ] No copyrighted music without license
+- [ ] End frame matches app splash / onboarding branding

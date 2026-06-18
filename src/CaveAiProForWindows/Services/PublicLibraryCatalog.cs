@@ -1,5 +1,7 @@
 namespace CaveAiProForWindows.Services;
 
+using CaveAiProForWindows.Services.Auth;
+
 /// <summary>
 /// Public Cave Library (step 2 browse) — same Firebase catalog as Android; web portal for PC browsing.
 /// Keep URL in sync with Android <c>WEB_SITE_ORIGIN</c> and website <c>src/config/site.js</c> (VITE_SITE_ORIGIN).
@@ -63,6 +65,17 @@ public static class PublicLibraryCatalog
 
     public static void ShowInAppWindow(System.Windows.Window? owner, string? startUrl = null)
     {
+        if (MicrosoftTestMode.IsActive)
+        {
+            System.Windows.MessageBox.Show(
+                owner,
+                MicrosoftTestMode.CloudFeatureBlockedMessage,
+                "Public Cave Library",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
         if (_activeWindow != null)
         {
             try
@@ -102,11 +115,25 @@ public static class PublicLibraryCatalog
     public static void ShowMapInAppWindow(System.Windows.Window? owner) =>
         ShowInAppWindow(owner, WebMapUrlEmbedded);
 
+    /// <summary>Native reference catalog browse (cached index from caveaipro.com).</summary>
+    public static void ShowNativeReferenceCatalog(System.Windows.Window? owner) =>
+        Views.ReferenceCatalogWindow.ShowSingleton(owner);
+
     public static void ShowCaveAiInAppWindow(System.Windows.Window? owner) =>
         ShowInAppWindow(owner, WebCaveAiUrlEmbedded);
 
     public static void OpenMap()
     {
+        if (MicrosoftTestMode.IsActive)
+        {
+            System.Windows.MessageBox.Show(
+                MicrosoftTestMode.CloudFeatureBlockedMessage,
+                "Public Cave Library",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(WebMapUrlEmbedded)
         {
             UseShellExecute = true,

@@ -18,7 +18,17 @@ $env:CAVEAIPRO_FIREBASE_API_KEY = '<your-api-key>'
 
 Output: `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned.msix`
 
-Compile flag: **`STORE_REVIEW_UNLOCKED`** (via publish profile `MicrosoftStore-Review-Win64` only). The app shows a banner: *Store review build — subscription checks disabled* and skips the Google sign-in / subscription gate on launch.
+Compile flag: **`MICROSOFT_TEST_MODE`** (alias **`STORE_REVIEW_UNLOCKED`**, via publish profile `MicrosoftStore-Review-Win64` only). The app shows a banner: *Microsoft certification test mode — offline demo (no sign-in or Firebase)*, skips Google sign-in on launch, blocks cloud/Firebase features, and auto-loads bundled demo survey data.
+
+### runFullTrust justification (Partner Center)
+
+When Partner Center asks **Why do you need runFullTrust?**, paste:
+
+```
+Cave AI Pro is a full-trust Windows desktop companion for professional cave surveyors (WPF / .NET 8, EntryPoint Windows.FullTrustApplication). We require runFullTrust because core features use standard Win32 desktop APIs unavailable to sandboxed Store apps: (1) open/save/export survey projects via normal file dialogs and user-chosen folders; (2) interactive plan/section views and QC tools via full-trust WPF; (3) optional cloud sync for subscribers via WebView2 + Firebase; (4) self-contained .NET runtime with Windows.Desktop execution model. The app does not modify system settings or install drivers — it is a productivity tool for field survey data.
+```
+
+Also declare **Run full trust** under App capabilities before Submit.
 
 ### After certification passes
 
@@ -48,9 +58,10 @@ Product ID: 9PPF3HPZRL21
 App: Cave AI Pro — Windows Desktop Companion (full-trust desktop, WPF + WebView2).
 
 THIS SUBMISSION IS A STORE REVIEW BUILD
-- Subscription and Google sign-in gates are disabled for Microsoft certification testing only.
-- Launch the app — the main window opens directly (banner: "Store review build — subscription checks disabled").
-- No test Google account or password is required for this submission.
+- Google sign-in, Firebase, and subscription checks are disabled for Microsoft certification testing only.
+- Launch the app — the main window opens directly with bundled demo survey "Certification Demo Cave" (banner: "Microsoft certification test mode — offline demo (no sign-in or Firebase)").
+- No test Google account, password, or internet connection is required for this submission.
+- Cloud menus (Public Library, Publish to Cloud, collaboration, batch AI) show an informational message instead of contacting Firebase.
 - The production Store update after certification will restore Google sign-in and subscription verification.
 
 TECHNICAL NOTES
@@ -60,8 +71,8 @@ TECHNICAL NOTES
 
 TEST STEPS
 1. Install and launch Cave AI Pro.
-2. Confirm the review banner appears and the main application window opens without sign-in.
-3. Optional: File → Open to load a sample survey backup, or explore export menus.
+2. Confirm the review banner appears, demo cave "Certification Demo Cave" loads automatically, and the Plan / Survey QC tabs show traverse data without sign-in.
+3. Optional: File → Open to load another survey backup, or explore local export menus (Survex / Therion / DXF).
 
 CONTACT
 Developer: Georgios Kourentzis

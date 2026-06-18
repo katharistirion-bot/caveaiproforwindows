@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -32,7 +32,7 @@
   <!--
     Microsoft Store (MSIX): dotnet publish -c Release -p:PublishProfile=MicrosoftStore-Win64
     defines STORE_DISTRIBUTION (skips Velopack bootstrap + in-app updates; relaxes install guard for WindowsApps).
-    Store certification review only: MicrosoftStore-Review-Win64 adds STORE_REVIEW_UNLOCKED (see package-store-msix-review.ps1).
+    Store certification review only: MicrosoftStore-Review-Win64 adds MICROSOFT_TEST_MODE + STORE_REVIEW_UNLOCKED (see package-store-msix-review.ps1).
     Sideload / GitHub: use package-release.ps1 or ReleaseSingleFile-Win64 without STORE_DISTRIBUTION.
   -->
   <PropertyGroup Label="Distribution publish defaults (non-RID build safe)">
@@ -58,6 +58,13 @@
     <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\logo.ico" />
+    <!-- Debug-only dev toggle; never ship to Store / Release (subscription gate must stay enforced). -->
+    <Content Include="appsettings.json" Condition="'$(Configuration)' == 'Debug'">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Certification\certification-demo-survey.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Assets\DesktopAuth\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

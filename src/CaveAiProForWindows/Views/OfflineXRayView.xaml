@@ -24,6 +24,12 @@
 
         <DockPanel Grid.Row="1" Margin="0,10,0,8" LastChildFill="False">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <CheckBox x:Name="ReferencePinsCheck"
+                          Content="Reference pins"
+                          VerticalAlignment="Center"
+                          Margin="0,0,8,0"
+                          ToolTip="Show nearby reference catalog caves from cached index (bbox around survey, max 50)"
+                          Foreground="{DynamicResource Cave.TextSubdued}" />
                 <CheckBox x:Name="AiOverlayCheck"
                           Content="AI render overlay"
                           VerticalAlignment="Center"
@@ -95,6 +101,7 @@
                                    Stretch="Fill"
                                    RenderOptions.BitmapScalingMode="HighQuality"
                                    IsHitTestVisible="False" />
+                            <Canvas x:Name="ReferencePinsLayer" IsHitTestVisible="False" />
                             <Canvas x:Name="AiOverlayCanvas" IsHitTestVisible="False" />
                             <Canvas x:Name="TraverseLayer" IsHitTestVisible="True" />
                         </Canvas>

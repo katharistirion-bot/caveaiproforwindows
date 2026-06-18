@@ -49,4 +49,8 @@ public static class SurveySiteType
             SurveySiteTypeKind.Spring => "Spring",
             _ => "",
         };
+
+    /// <summary>Canonical tokens for site-type pickers (matches Android <c>SurveySiteType.pickerTokens</c>).</summary>
+    public static IReadOnlyList<string> PickerTokens { get; } =
+        ["CAVE", "MINE", "POTHOLE", "SPRING"];
 }

@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using CaveAiProForWindows.Services.Auth;
+
 namespace CaveAiProForWindows.Services.CloudPublish;
 
 /// <summary>
@@ -42,6 +44,8 @@ public sealed class FirebaseCallableClient
         object payload,
         CancellationToken cancellationToken = default)
     {
+        if (MicrosoftTestMode.IsActive)
+            MicrosoftTestMode.ThrowIfNetworkBlocked("Firebase Cloud Function");
         ArgumentNullException.ThrowIfNull(idToken);
         if (!idToken.IsUsable())
             throw new InvalidOperationException("Firebase ID token is missing or expired. Sign in again.");

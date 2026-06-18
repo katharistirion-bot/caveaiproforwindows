@@ -26,6 +26,9 @@ public sealed class SubscriptionEntitlementService
         FirebaseIdToken token,
         CancellationToken cancellationToken = default)
     {
+        if (MicrosoftTestMode.IsActive)
+            return MicrosoftTestMode.CreateSyntheticEntitlement();
+
         ArgumentNullException.ThrowIfNull(token);
         if (string.IsNullOrWhiteSpace(token.Subject))
             return Deny("Firebase token has no user id (sub).");

@@ -31,7 +31,7 @@ public sealed class AccountStatusFormatterTests
             SubscriptionAccessKind.InstallGraceTrial);
 
         var banner = AccountStatusFormatter.FormatWelcomeBanner(result);
-        StringAssert.Contains(banner, "Signed in successfully");
+        StringAssert.StartsWith(banner, "Signed in");
         StringAssert.Contains(banner, "install trial");
     }
 }

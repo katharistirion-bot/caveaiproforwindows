@@ -105,6 +105,19 @@ public partial class App : System.Windows.Application
 
             if (startupSurveyPaths.Count > 0 && main.DataContext is MainViewModel vm)
                 vm.LoadFromPaths(startupSurveyPaths);
+            else if (MicrosoftTestMode.IsActive && main.DataContext is MainViewModel vmDemo)
+            {
+                var demoPath = MicrosoftTestMode.ResolveBundledDemoSurveyPath();
+                if (demoPath != null)
+                {
+                    vmDemo.LoadFromPaths(new[] { demoPath });
+                    WriteStartupLog("MicrosoftTestMode: loaded bundled demo survey");
+                }
+                else
+                {
+                    WriteStartupLog("MicrosoftTestMode: bundled demo survey missing");
+                }
+            }
 
             _ = AppUpdateService.CheckForUpdatesOnStartupAsync(main);
         }
@@ -229,6 +242,9 @@ public partial class App : System.Windows.Application
     {
         try
         {
+#if !DEBUG
+            message = DiagnosticLogRedactor.RedactLine(message);
+#endif
             var dir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "CaveAiProForWindows");

@@ -21,6 +21,10 @@ jobs:
       - name: Test
         run: dotnet test tests/CaveAiProForWindows.Tests/CaveAiProForWindows.Tests.csproj -c Debug --no-restore --verbosity minimal
 
+      - name: Security audit
+        shell: pwsh
+        run: ./tools/security-audit.ps1
+
   release-build-publish:
     runs-on: windows-latest
     needs: test

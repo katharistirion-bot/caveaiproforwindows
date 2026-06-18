@@ -46,4 +46,8 @@
 
   <!-- Serialization / persistence helpers (reflection + stable JSON shapes) -->
   <SkipNamespace name="CaveAiProForWindows.Services.Persistence" />
+
+  <!-- Reference catalog + field trip JSON models (tests + LocalAppData round-trip) -->
+  <SkipNamespace name="CaveAiProForWindows.Services.FieldTrip" />
+  <SkipNamespace name="CaveAiProForWindows.Services.ReferenceCatalog" />
 </Obfuscator>

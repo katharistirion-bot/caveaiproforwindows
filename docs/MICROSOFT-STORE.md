@@ -14,7 +14,7 @@ Store builds use the compile constant **`STORE_DISTRIBUTION`** (set by publish p
 
 ## Version
 
-Application version is centralized in `Directory.Build.props` (`<Version>`). Current release: **1.4.0** (see `CHANGELOG.md`).
+Application version is centralized in `Directory.Build.props` (`<Version>`). Current release: **1.4.2** (see `CHANGELOG.md`).
 
 ## Obfuscation (required before packaging)
 
@@ -46,7 +46,7 @@ One command — build, obfuscate, publish Store profile, pack MSIX **without sig
 
 ### Store certification review MSIX (subscription bypass)
 
-For Microsoft certification only — skips Google sign-in and subscription gate (`STORE_REVIEW_UNLOCKED`):
+For Microsoft certification only — skips Google sign-in, blocks Firebase, loads demo survey (`MICROSOFT_TEST_MODE` / `STORE_REVIEW_UNLOCKED`):
 
 ```powershell
 .\tools\package-store-msix-review.ps1
@@ -68,9 +68,9 @@ Output: `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned.msix`. A
 
 Default folder: `_store_out\`
 
-Example: `_store_out\CaveAiProForWindows-1.4.0-Store-unsigned.msix`
+Example: `_store_out\CaveAiProForWindows-1.4.2-Store-unsigned.msix`
 
-Review certification example: `_store_out\CaveAiProForWindows-1.4.0-Store-Review-unsigned.msix`
+Review certification example: `_store_out\CaveAiProForWindows-1.4.2-Store-Review-unsigned.msix`
 
 ### Manual steps (equivalent)
 
@@ -115,7 +115,7 @@ Update `store/Package.appxmanifest` **Identity** and **Properties** (or pass par
 - **Publisher** — publisher ID from Product identity (e.g. `CN=54966508-95FA-45A0-B2A2-D1AF31D44DC4`; not the human-readable publisher name)
 - **PublisherDisplayName** — must match Partner Center exactly (e.g. `GeorgiosKourentzis` with no spaces; a mismatch such as `Georgios Kourentzis` causes validation **ERROR** on upload)
 - **Package family name (PFN)** — derived by Partner Center from **Name** + **Publisher** (e.g. `GeorgiosKourentzis.CaveAIPro_wvp8e4sf8kjk6`); you do not set it in the manifest, but it must match after upload
-- **Version** — stamped automatically from `Directory.Build.props` (four-part, e.g. `1.4.0.0`)
+- **Version** — stamped automatically from `Directory.Build.props` (four-part, e.g. `1.4.2.0`)
 
 Optional script overrides (use the same values as Product identity):
 

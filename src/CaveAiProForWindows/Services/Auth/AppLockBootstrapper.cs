@@ -10,16 +10,14 @@ namespace CaveAiProForWindows.Services.Auth;
 public static class AppLockBootstrapper
 {
     /// <summary>
-    /// Debug builds only: set <c>CAVEAIPRO_SKIP_APP_LOCK=1</c> to bypass the subscription gate locally.
-    /// </summary>
-    /// <summary>
-    /// Debug: <c>CAVEAIPRO_SKIP_APP_LOCK=1</c>. Release Store review MSIX: <see cref="StoreReviewBuild.IsActive"/>.
+    /// Debug: <c>appsettings.json</c> <c>"MicrosoftTestMode": true</c>, <c>CAVEAIPRO_SKIP_APP_LOCK=1</c>, or
+    /// <see cref="MicrosoftTestMode.IsActive"/> (Store review MSIX compile flag).
     /// </summary>
     public static bool IsBypassEnabled
     {
         get
         {
-            if (StoreReviewBuild.IsActive)
+            if (MicrosoftTestMode.IsActive)
                 return true;
 
 #if DEBUG
@@ -57,11 +55,11 @@ public static class AppLockBootstrapper
     {
         if (IsBypassEnabled)
         {
-            if (StoreReviewBuild.IsActive)
+            if (MicrosoftTestMode.IsActive)
             {
-                StoreReviewBuild.ActivateSession();
-                Debug.WriteLine("[AppLock] STORE_REVIEW_UNLOCKED — subscription gate bypassed for Store certification.");
-                App.WriteStartupLog("AppLock: STORE_REVIEW_UNLOCKED bypass");
+                MicrosoftTestMode.ActivateSession();
+                Debug.WriteLine("[AppLock] MicrosoftTestMode — sign-in and Firebase bypassed for Store certification.");
+                App.WriteStartupLog("AppLock: MicrosoftTestMode bypass");
             }
 
             return true;

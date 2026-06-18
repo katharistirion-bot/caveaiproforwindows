@@ -62,6 +62,15 @@ public static class CloudPublishWorkflow
             return null;
         }
 
+        if (!CloudPublishChecklistDialog.Confirm(
+                request.GetOwnerWindow(),
+                project,
+                request.GetLegalTermsAccepted()))
+        {
+            ReportError(request.Progress, "Publish cancelled at checklist.");
+            return null;
+        }
+
         var docId = await ResolvePublishedCaveDocIdAsync(project, request).ConfigureAwait(true);
         if (string.IsNullOrWhiteSpace(docId))
         {

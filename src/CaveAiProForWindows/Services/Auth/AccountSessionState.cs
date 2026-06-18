@@ -47,6 +47,13 @@ public static class AccountSessionState
     public static async Task<SubscriptionEntitlementResult?> RefreshEntitlementAsync(
         CancellationToken cancellationToken = default)
     {
+        if (MicrosoftTestMode.IsActive)
+        {
+            var synthetic = MicrosoftTestMode.CreateSyntheticEntitlement();
+            Apply(synthetic);
+            return synthetic;
+        }
+
         var token = CloudPublish.CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
         if (token == null)
             return null;

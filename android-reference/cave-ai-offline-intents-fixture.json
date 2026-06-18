@@ -1,0 +1,192 @@
+{
+  "version": 2,
+  "description": "Cross-platform offline intent contract — Android LocalCaveAiBrain + Windows CaveAiOfflineBrain must produce matching answer fragments (English).",
+  "cases": [
+    {
+      "intentId": "depth",
+      "query": "how deep",
+      "project": {
+        "name": "Demo Cave",
+        "surveySiteType": "CAVE",
+        "alt": 100,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 12, "azimuth": 0, "clino": -35 }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["depth", "m"]
+    },
+    {
+      "intentId": "traverse",
+      "query": "what is the traverse length",
+      "project": {
+        "name": "Demo Cave",
+        "surveySiteType": "CAVE",
+        "alt": 100,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 20, "azimuth": 90, "clino": 0 },
+          { "fromStation": "A2", "toStation": "A3", "distance": 15, "azimuth": 180, "clino": -5 }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 25,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["traverse", "m", "main"]
+    },
+    {
+      "intentId": "entrance_distance",
+      "query": "how far to the entrance",
+      "project": {
+        "name": "Demo Cave",
+        "surveySiteType": "CAVE",
+        "lat": 38.5,
+        "lon": 23.5,
+        "alt": 100,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 30, "azimuth": 0, "clino": 0 }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 42.5,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true,
+        "caveExitGuideEnabled": false
+      },
+      "expectedContains": ["entrance", "m"]
+    },
+    {
+      "intentId": "shot_count",
+      "query": "how many shots",
+      "project": {
+        "name": "Demo Cave",
+        "surveySiteType": "CAVE",
+        "alt": 100,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 10, "azimuth": 0, "clino": 0 },
+          { "fromStation": "A2", "toStation": "-", "distance": 3, "azimuth": 45, "clino": -10 },
+          { "fromStation": "A2", "toStation": "-", "distance": 2.5, "azimuth": 90, "clino": 0 }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["3", "main", "splay"]
+    },
+    {
+      "intentId": "pending_geo",
+      "query": "any pending geo samples",
+      "project": {
+        "name": "Demo Cave",
+        "surveySiteType": "CAVE",
+        "alt": 100,
+        "shots": [],
+        "rocks": [
+          { "imageUri": "file://sample1.jpg", "isAnalyzed": false, "station": "A1" },
+          { "imageUri": "file://sample2.jpg", "isAnalyzed": true, "station": "A2" }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 1,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["1", "field sample", "sync"]
+    },
+    {
+      "intentId": "site_type",
+      "query": "what kind of site is this",
+      "project": {
+        "name": "Old Quarry",
+        "surveySiteType": "MINE",
+        "alt": 50,
+        "shots": []
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": false
+      },
+      "expectedContains": ["Mine", "field survey"]
+    },
+    {
+      "intentId": "next_action",
+      "query": "what should I do next",
+      "project": {
+        "name": "Fresh Survey",
+        "surveySiteType": "CAVE",
+        "lat": 40.0,
+        "lon": 22.0,
+        "alt": 200,
+        "shots": []
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["HUD", "main leg"]
+    },
+    {
+      "intentId": "last_leg",
+      "query": "what was the last leg",
+      "project": {
+        "name": "Demo Cave",
+        "surveySiteType": "CAVE",
+        "alt": 100,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 18, "azimuth": 90, "clino": -12 }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["Last main leg", "A1", "A2", "m"]
+    },
+    {
+      "intentId": "volume",
+      "query": "what is the passage volume",
+      "project": {
+        "name": "Demo Cave",
+        "surveySiteType": "CAVE",
+        "alt": 100,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 10, "azimuth": 0, "clino": 0, "l": 1, "r": 1, "u": 1, "d": 1 }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["volume", "m³"]
+    },
+    {
+      "intentId": "clino",
+      "query": "what is the latest clino",
+      "project": {
+        "name": "Demo Cave",
+        "surveySiteType": "CAVE",
+        "alt": 100,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 10, "azimuth": 0, "clino": -25 }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["clino", "-25"]
+    }
+  ]
+}

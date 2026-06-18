@@ -2,6 +2,7 @@ using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 
 namespace CaveAiProForWindows;
@@ -19,6 +20,15 @@ public partial class SplashScreen : Window
         TryApplyLogo();
     }
 
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (Resources["SplashEnter"] is Storyboard enter)
+            enter.Begin(this);
+
+        if (Resources["ProgressShimmer"] is Storyboard shimmer)
+            shimmer.Begin(this, true);
+    }
+
     private void TryApplyLogo()
     {
         var logo = TryLoadPackImage("pack://application:,,,/Assets/logo.png");
@@ -28,9 +38,6 @@ public partial class SplashScreen : Window
         LogoImage.Visibility = Visibility.Visible;
     }
 
-    /// <summary>
-    /// Loads embedded PNG without pack-URI MIME sniffing (avoids FindMimeFromData TypeLoadException on some builds).
-    /// </summary>
     internal static ImageSource? TryLoadPackImage(string packUri)
     {
         try
@@ -55,7 +62,6 @@ public partial class SplashScreen : Window
         }
     }
 
-    /// <summary>Updates the small status line under the progress bar from background work.</summary>
     public void SetStatus(string text)
     {
         if (!Dispatcher.CheckAccess())
@@ -65,10 +71,9 @@ public partial class SplashScreen : Window
         }
 
         StatusLabel.Text = text ?? "";
-        StatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(0x6E, 0x76, 0x89));
+        StatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(0x8B, 0x95, 0xA8));
     }
 
-    /// <summary>Allow the sign-in window to appear above the splash.</summary>
     public void ReleaseTopmost()
     {
         if (!Dispatcher.CheckAccess())
@@ -80,7 +85,6 @@ public partial class SplashScreen : Window
         Topmost = false;
     }
 
-    /// <summary>Stops the indeterminate progress animation.</summary>
     public void StopProgress()
     {
         if (!Dispatcher.CheckAccess())
@@ -93,7 +97,6 @@ public partial class SplashScreen : Window
         ProgressBar.Value = 0;
     }
 
-    /// <summary>Stops the spinner and shows a user-facing error on the splash.</summary>
     public void ShowError(string title, string message)
     {
         if (!Dispatcher.CheckAccess())

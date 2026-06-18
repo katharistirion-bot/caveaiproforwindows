@@ -39,6 +39,12 @@ public sealed class CloudPublishMetadata
 
     public string? SurveyArchiveSchemaVersion { get; init; }
 
+    /// <summary>Optional reference catalog pin id (cross-platform publish parity).</summary>
+    public string? ReferenceCatalogId { get; init; }
+
+    /// <summary>Optional reference catalog country hint.</summary>
+    public string? ReferenceCatalogCountry { get; init; }
+
     public string SourceClient { get; init; } = "windows";
 
     public long UpdatedAtUtcMs { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

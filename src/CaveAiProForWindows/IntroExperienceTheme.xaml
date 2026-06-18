@@ -1,0 +1,85 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Shared cinematic palette for splash, intro video, and first-run onboarding -->
+    <Color x:Key="Intro.BgDeep">#FF06080D</Color>
+    <Color x:Key="Intro.BgMid">#FF0E1219</Color>
+    <Color x:Key="Intro.BgCard">#FF141A24</Color>
+    <Color x:Key="Intro.Accent">#FF5B9DFF</Color>
+    <Color x:Key="Intro.AccentSoft">#FF3D6FA8</Color>
+    <Color x:Key="Intro.TextPrimary">#FFF4F6FA</Color>
+    <Color x:Key="Intro.TextMuted">#FF8B95A8</Color>
+    <Color x:Key="Intro.TextDim">#FF5C6578</Color>
+    <Color x:Key="Intro.PanelLight">#FFF8F9FC</Color>
+    <Color x:Key="Intro.PanelLightText">#FF1A1F2E</Color>
+    <Color x:Key="Intro.PanelLightMuted">#FF5A6478</Color>
+
+    <LinearGradientBrush x:Key="Intro.BackgroundGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource Intro.BgDeep}" Offset="0" />
+        <GradientStop Color="#FF0A1018" Offset="0.45" />
+        <GradientStop Color="#FF121820" Offset="1" />
+    </LinearGradientBrush>
+
+    <RadialGradientBrush x:Key="Intro.AccentGlowBrush" GradientOrigin="0.5,0.35" Center="0.5,0.35" RadiusX="0.75" RadiusY="0.55">
+        <GradientStop Color="#334A7CFF" Offset="0" />
+        <GradientStop Color="#00000000" Offset="1" />
+    </RadialGradientBrush>
+
+    <Style x:Key="Intro.GlassButton" TargetType="Button">
+        <Setter Property="Background" Value="#33FFFFFF" />
+        <Setter Property="Foreground" Value="{StaticResource Intro.TextPrimary}" />
+        <Setter Property="BorderBrush" Value="#44FFFFFF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="18,9" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#55FFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#22FFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Intro.StepDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="Fill" Value="#FF2A3344" />
+        <Setter Property="Margin" Value="4,0" />
+    </Style>
+
+    <Style x:Key="Intro.StepDotActive" TargetType="Ellipse" BasedOn="{StaticResource Intro.StepDot}">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="Fill" Value="#FF5B9DFF" />
+    </Style>
+
+    <Style x:Key="Intro.SecondaryButton" TargetType="Button" BasedOn="{StaticResource Cave.ButtonBase}">
+        <Setter Property="Padding" Value="16,9" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <Style x:Key="Intro.PrimaryButton" TargetType="Button" BasedOn="{StaticResource Cave.AccentButton}">
+        <Setter Property="Padding" Value="20,10" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+</ResourceDictionary>
