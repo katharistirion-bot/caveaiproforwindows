@@ -242,4 +242,21 @@ public class FieldTripExportTests
         Assert.IsNotNull(url);
         StringAssert.Contains(url!, "google.com/maps/dir");
     }
+
+    [TestMethod]
+    public void MapDepthColors_TiersMatchContract()
+    {
+        Assert.AreEqual(
+            ReferenceCatalogMapDepthColors.Shallow,
+            ReferenceCatalogMapDepthColors.ReferenceFillColor(12));
+        Assert.AreEqual(
+            ReferenceCatalogMapDepthColors.Medium,
+            ReferenceCatalogMapDepthColors.ReferenceFillColor(80));
+        Assert.AreEqual(
+            ReferenceCatalogMapDepthColors.Deep,
+            ReferenceCatalogMapDepthColors.ReferenceFillColor(200));
+        Assert.AreEqual(
+            ReferenceCatalogMapDepthColors.Unknown,
+            ReferenceCatalogMapDepthColors.ReferenceFillColor(null));
+    }
 }

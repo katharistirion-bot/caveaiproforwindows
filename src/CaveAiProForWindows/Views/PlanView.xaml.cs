@@ -961,8 +961,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 Height = size,
                 Fill = pin.IsLinkedReference
                     ? Brushes.DeepSkyBlue
-                    : pin.Rich ? Brushes.LimeGreen : Brushes.Gold,
-                Stroke = pin.IsLinkedReference ? Brushes.White : Brushes.White,
+                    : ReferenceCatalogMapDepthColors.ReferenceFillBrush(pin.DepthM),
+                Stroke = Brushes.White,
                 StrokeThickness = pin.IsLinkedReference ? 1.5 : 0.75,
                 Opacity = 0.9,
                 ToolTip = pin.Name + (pin.IsLinkedReference ? " (linked reference)" : pin.Rich ? " (Surveyed)" : " (Sparse)"),

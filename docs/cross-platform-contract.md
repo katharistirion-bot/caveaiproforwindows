@@ -167,6 +167,27 @@ Android re-import of Windows-edited ZIP merges via `ZipPcEditedImportMerge` and 
 
 ---
 
+## Public Library map depth pin colors
+
+Reference catalog diamonds (and community dots where depth is known) use the same tier palette on **Web**, **Android**, and **Windows** native maps.
+
+| Tier | Range (`depthM`) | Fill hex | Notes |
+|------|------------------|----------|-------|
+| Shallow | 0–50 m (exclusive upper bound at 50 → Medium) | `#1565c0` | Blue |
+| Medium | 50–150 m | `#ef6c00` | Orange |
+| Deep | >150 m | `#c62828` | Red |
+| Unknown | missing, null, or ≤0 | `#ffb74d` | Amber reference diamond (community dots default to Shallow blue) |
+
+Implementation:
+
+- Web: `src/utils/mapDepthColors.js`, `CaveMap.jsx`, floating `CaveMapDepthLegend.jsx`
+- Android: `PublicLibraryMapDepthColors.kt`, `PublicLibraryMapDepthLegend.kt`
+- Windows: `ReferenceCatalogMapDepthColors.cs` (Reference catalog window, Plan/X-RAY reference overlays)
+
+Reference **clusters** keep cyan bubble styling (`#00ffff`) for readability; only single pins are depth-tinted.
+
+---
+
 ## Change process
 
 1. Update all three clients when changing keys or URL formats.

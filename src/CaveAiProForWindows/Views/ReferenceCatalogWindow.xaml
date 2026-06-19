@@ -146,11 +146,16 @@
 
             <TabItem Header="Map" x:Name="MapTab">
 
-                <Border BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" Background="#FF0F172A">
-
-                    <Canvas x:Name="MapCanvas" Background="#FF0F172A" MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp" />
-
-                </Border>
+                <Grid>
+                    <Border BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" Background="#FF0F172A">
+                        <Canvas x:Name="MapCanvas" Background="#FF0F172A" MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp" />
+                    </Border>
+                    <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10"
+                            Background="#E00D1117" BorderBrush="#30363D" BorderThickness="1"
+                            CornerRadius="6" Padding="8,6" IsHitTestVisible="False">
+                        <StackPanel x:Name="MapDepthLegendPanel" Orientation="Horizontal" />
+                    </Border>
+                </Grid>
 
             </TabItem>
 

@@ -13,6 +13,7 @@ public static class ReferenceCatalogPlanPins
         public required string Name { get; init; }
         public double Lat { get; init; }
         public double Lon { get; init; }
+        public double? DepthM { get; init; }
         public bool IsLinkedReference { get; init; }
         public bool Rich { get; init; }
     }
@@ -85,6 +86,7 @@ public static class ReferenceCatalogPlanPins
                 Name = link.Name,
                 Lat = link.Lat,
                 Lon = link.Lon,
+                DepthM = null,
                 IsLinkedReference = true,
                 Rich = true,
             });
@@ -110,6 +112,7 @@ public static class ReferenceCatalogPlanPins
                 Name = entry.Name,
                 Lat = entry.Lat,
                 Lon = entry.Lon,
+                DepthM = entry.DepthM,
                 IsLinkedReference = false,
                 Rich = entry.Rich,
             });

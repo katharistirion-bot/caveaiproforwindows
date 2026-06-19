@@ -71,9 +71,99 @@ public partial class ReferenceCatalogWindow : Window
 
             ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogOpen);
 
+            BuildMapDepthLegend();
+
             await LoadAsync();
 
         };
+
+    }
+
+
+
+    private void BuildMapDepthLegend()
+
+    {
+
+        if (MapDepthLegendPanel == null)
+
+            return;
+
+        MapDepthLegendPanel.Children.Clear();
+
+        var title = new TextBlock
+
+        {
+
+            Text = "Depth",
+
+            FontWeight = FontWeights.Bold,
+
+            FontSize = 10,
+
+            Foreground = Brushes.White,
+
+            Margin = new Thickness(0, 0, 8, 0),
+
+            VerticalAlignment = VerticalAlignment.Center,
+
+        };
+
+        MapDepthLegendPanel.Children.Add(title);
+
+        AddDepthLegendChip("Shallow", ReferenceCatalogMapDepthColors.Shallow);
+
+        AddDepthLegendChip("Medium", ReferenceCatalogMapDepthColors.Medium);
+
+        AddDepthLegendChip("Deep", ReferenceCatalogMapDepthColors.Deep);
+
+        AddDepthLegendChip("Unknown", ReferenceCatalogMapDepthColors.Unknown);
+
+    }
+
+
+
+    private void AddDepthLegendChip(string label, System.Windows.Media.Color fill)
+
+    {
+
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 8, 0) };
+
+        panel.Children.Add(new Polygon
+
+        {
+
+            Points = new PointCollection { new(4, 0), new(8, 4), new(4, 8), new(0, 4) },
+
+            Fill = new SolidColorBrush(fill),
+
+            Stroke = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4E, 0x34, 0x2E)),
+
+            StrokeThickness = 1,
+
+            Width = 8,
+
+            Height = 8,
+
+            Margin = new Thickness(0, 0, 4, 0),
+
+        });
+
+        panel.Children.Add(new TextBlock
+
+        {
+
+            Text = label,
+
+            FontSize = 9,
+
+            Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x8B, 0x94, 0x9E)),
+
+            VerticalAlignment = VerticalAlignment.Center,
+
+        });
+
+        MapDepthLegendPanel.Children.Add(panel);
 
     }
 
@@ -605,6 +695,8 @@ public partial class ReferenceCatalogWindow : Window
 
             var y = h - ((c.Lat - bounds.MinLat) / latSpan * (h - 20) + 10);
 
+            var depthM = c.Count == 1 ? c.Members[0].DepthM : null;
+
             var ellipse = new Ellipse
 
             {
@@ -613,7 +705,11 @@ public partial class ReferenceCatalogWindow : Window
 
                 Height = c.Count > 1 ? 14 : 10,
 
-                Fill = c.Count > 1 ? Brushes.Orange : Brushes.DeepSkyBlue,
+                Fill = c.Count > 1
+
+                    ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0xFF, 0xFF))
+
+                    : ReferenceCatalogMapDepthColors.ReferenceFillBrush(depthM),
 
                 Stroke = Brushes.White,
 

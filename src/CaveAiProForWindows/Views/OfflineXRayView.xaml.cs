@@ -559,7 +559,7 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
             {
                 Width = 8,
                 Height = 8,
-                Fill = pin.Rich ? Brushes.LimeGreen : Brushes.Gold,
+                Fill = ReferenceCatalogMapDepthColors.ReferenceFillBrush(pin.DepthM),
                 Stroke = Brushes.White,
                 StrokeThickness = 0.75,
                 Opacity = 0.85,
