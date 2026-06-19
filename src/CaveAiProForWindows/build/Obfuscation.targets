@@ -8,14 +8,18 @@
     <ObfuscatorEnabled Condition="'$(ObfuscatorEnabled)' == ''">true</ObfuscatorEnabled>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <_ObfRefTfm Condition="'$(_ObfRefTfm)' == ''">net8.0</_ObfRefTfm>
+  </PropertyGroup>
+
   <Target Name="_ResolveObfuscarReferencePaths"
           Returns="$(_ObfCoreRefPath);$(_ObfDesktopRefPath)">
-    <Exec Command="powershell -NoProfile -Command &quot;$root = Join-Path '$(NuGetPackageRoot)' 'microsoft.netcore.app.ref'; $pack = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Sort-Object { [Version]$_.Name } -Descending | Select-Object -First 1; if (-not $pack) { exit 1 }; $path = Join-Path $pack.FullName 'ref\net8.0'; if (-not (Test-Path (Join-Path $path 'System.Text.Json.dll'))) { exit 1 }; Write-Output $path&quot;"
+    <Exec Command="powershell -NoProfile -Command &quot;$tfm='$(_ObfRefTfm)'; $marker='System.Text.Json.dll'; $searchRoots=@(); if ('$(NuGetPackageRoot)' -ne '') { $searchRoots += (Join-Path '$(NuGetPackageRoot)' 'microsoft.netcore.app.ref') }; $pf=$env:ProgramFiles; if ($pf) { $searchRoots += (Join-Path $pf 'dotnet\packs\Microsoft.NETCore.App.Ref') }; if ($env:DOTNET_ROOT) { $searchRoots += (Join-Path $env:DOTNET_ROOT 'packs\Microsoft.NETCore.App.Ref') }; $sdkRoot='$(NetCoreSdkRoot)'; if ($sdkRoot -and (Test-Path $sdkRoot)) { $searchRoots += (Join-Path (Split-Path (Split-Path $sdkRoot -Parent) -Parent) 'packs\Microsoft.NETCore.App.Ref') }; foreach ($root in ($searchRoots | Select-Object -Unique)) { if (-not (Test-Path $root)) { continue }; $pack = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Sort-Object { try { [Version]$_.Name } catch { [Version]'0.0.0' } } -Descending | Select-Object -First 1; if (-not $pack) { continue }; $path = Join-Path $pack.FullName (Join-Path 'ref' $tfm); if (Test-Path (Join-Path $path $marker)) { Write-Output $path; exit 0 } }; exit 1&quot;"
           ConsoleToMSBuild="true"
           StandardOutputImportance="Low">
       <Output TaskParameter="ConsoleOutput" PropertyName="_ObfCoreRefPath" />
     </Exec>
-    <Exec Command="powershell -NoProfile -Command &quot;$root = Join-Path '$(NuGetPackageRoot)' 'microsoft.windowsdesktop.app.ref'; $pack = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Sort-Object { [Version]$_.Name } -Descending | Select-Object -First 1; if (-not $pack) { exit 1 }; $path = Join-Path $pack.FullName 'ref\net8.0'; if (-not (Test-Path (Join-Path $path 'PresentationFramework.dll'))) { exit 1 }; Write-Output $path&quot;"
+    <Exec Command="powershell -NoProfile -Command &quot;$tfm='$(_ObfRefTfm)'; $marker='PresentationFramework.dll'; $searchRoots=@(); if ('$(NuGetPackageRoot)' -ne '') { $searchRoots += (Join-Path '$(NuGetPackageRoot)' 'microsoft.windowsdesktop.app.ref') }; $pf=$env:ProgramFiles; if ($pf) { $searchRoots += (Join-Path $pf 'dotnet\packs\Microsoft.WindowsDesktop.App.Ref') }; if ($env:DOTNET_ROOT) { $searchRoots += (Join-Path $env:DOTNET_ROOT 'packs\Microsoft.WindowsDesktop.App.Ref') }; $sdkRoot='$(NetCoreSdkRoot)'; if ($sdkRoot -and (Test-Path $sdkRoot)) { $searchRoots += (Join-Path (Split-Path (Split-Path $sdkRoot -Parent) -Parent) 'packs\Microsoft.WindowsDesktop.App.Ref') }; foreach ($root in ($searchRoots | Select-Object -Unique)) { if (-not (Test-Path $root)) { continue }; $pack = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Sort-Object { try { [Version]$_.Name } catch { [Version]'0.0.0' } } -Descending | Select-Object -First 1; if (-not $pack) { continue }; $path = Join-Path $pack.FullName (Join-Path 'ref' $tfm); if (Test-Path (Join-Path $path $marker)) { Write-Output $path; exit 0 } }; exit 1&quot;"
           ConsoleToMSBuild="true"
           StandardOutputImportance="Low">
       <Output TaskParameter="ConsoleOutput" PropertyName="_ObfDesktopRefPath" />
@@ -40,9 +44,9 @@
     <Error Condition="!Exists('$(_ObfTemplatePath)')"
            Text="Missing Obfuscar template at $(_ObfTemplatePath)" />
     <Error Condition="!Exists('$(_ObfCoreRefPath)System.Text.Json.dll')"
-           Text="Unable to resolve .NET reference assemblies for Obfuscar from NuGet packages." />
+           Text="Unable to resolve .NET reference assemblies for Obfuscar (NuGet packages or SDK targeting packs)." />
     <Error Condition="!Exists('$(_ObfDesktopRefPath)PresentationFramework.dll')"
-           Text="Unable to resolve WPF reference assemblies for Obfuscar from NuGet packages." />
+           Text="Unable to resolve WPF reference assemblies for Obfuscar (NuGet packages or SDK targeting packs)." />
 
     <ReadLinesFromFile File="$(_ObfTemplatePath)">
       <Output TaskParameter="Lines" ItemName="_ObfTemplateLines" />
