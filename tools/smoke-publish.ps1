@@ -2,6 +2,7 @@
 param(
     [switch]$SkipTests,
     [switch]$LaunchSmokeTest,
+    [switch]$NoRestore,
     [int]$SmokeSeconds = 8
 )
 
@@ -16,11 +17,15 @@ if (-not $SkipTests) {
 }
 
 Write-Host "Publishing Release single-file win-x64…"
-dotnet publish (Join-Path $repoRoot 'src/CaveAiProForWindows/CaveAiProForWindows.csproj') `
-    -c Release `
-    -r win-x64 `
-    -p:PublishProfile=ReleaseSingleFile-Win64 `
-    --verbosity minimal
+$publishArgs = @(
+    (Join-Path $repoRoot 'src/CaveAiProForWindows/CaveAiProForWindows.csproj'),
+    '-c', 'Release',
+    '-r', 'win-x64',
+    '-p:PublishProfile=ReleaseSingleFile-Win64',
+    '--verbosity', 'minimal'
+)
+if ($NoRestore) { $publishArgs += '--no-restore' }
+dotnet publish @publishArgs
 
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
 

@@ -54,7 +54,7 @@ jobs:
 
       - name: Publish + smoke test
         shell: pwsh
-        run: ./tools/smoke-publish.ps1 -SkipTests -LaunchSmokeTest -SmokeSeconds 10
+        run: ./tools/smoke-publish.ps1 -SkipTests -NoRestore -LaunchSmokeTest -SmokeSeconds 10
 
       - name: Restore firebase-config placeholder in source
         if: always()

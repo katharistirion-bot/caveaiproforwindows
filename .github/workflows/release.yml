@@ -69,7 +69,7 @@ jobs:
 
       - name: Publish + smoke test
         shell: pwsh
-        run: ./tools/smoke-publish.ps1 -SkipTests -LaunchSmokeTest -SmokeSeconds 10
+        run: ./tools/smoke-publish.ps1 -SkipTests -NoRestore -LaunchSmokeTest -SmokeSeconds 10
 
       - name: Code sign published exe (optional)
         shell: pwsh
