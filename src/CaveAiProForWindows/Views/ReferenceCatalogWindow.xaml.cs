@@ -476,11 +476,18 @@ public partial class ReferenceCatalogWindow : Window
 
         if (entry.LengthM is > 0) AddLine("Length", $"{entry.LengthM:0.#} m");
 
+        if (entry.ElevationM is double elev && double.IsFinite(elev))
+            AddLine("Elevation", $"{elev:0.#} m");
+
         AddLine("Type", entry.CaveType);
 
-        AddLine("Badge", entry.Rich ? "Surveyed" : "Sparse");
+        AddLine("Badge", ReferenceCatalogDisplay.ListBadge(entry));
 
-        AddLine("Preview", entry.Preview);
+        var summary = ReferenceCatalogDisplay.ListSummary(entry);
+        if (!string.IsNullOrWhiteSpace(summary))
+            AddLine("Summary", summary);
+
+        AddLine("Preview", ReferenceCatalogDisplay.PreviewText(entry));
 
         AddLine("Share", ReferenceCatalogShareUrls.BuildShareUrl(entry));
 
@@ -498,9 +505,16 @@ public partial class ReferenceCatalogWindow : Window
 
             AddLine("Access", pin.AccessNote);
 
-            AddLine("Description", pin.Description);
+            AddLine("Description", ReferenceCatalogDisplay.PinDescription(pin));
 
             AddLine("Website", pin.Website);
+
+            AddLine("Wikipedia", pin.Wikipedia);
+
+            AddLine("Source", "OpenStreetMap");
+
+            if (!string.IsNullOrWhiteSpace(pin.OsmType) && pin.OsmId is > 0)
+                AddLine("OSM", $"{pin.OsmType}/{pin.OsmId}");
 
         }
 
@@ -852,9 +866,15 @@ public partial class ReferenceCatalogWindow : Window
 
         public string? Country => Entry.Country;
 
+        public string? Region => Entry.Region;
+
         public string DepthDisplay => Entry.DepthM is > 0 ? $"{Entry.DepthM:0.#}" : "";
 
-        public string Badge => Entry.Rich ? "Surveyed" : "Sparse";
+        public string LengthDisplay => Entry.LengthM is > 0 ? $"{Entry.LengthM:0.#}" : "";
+
+        public string Summary => ReferenceCatalogDisplay.PreviewText(Entry, 100);
+
+        public string Badge => ReferenceCatalogDisplay.ListBadge(Entry);
 
         public string DistanceDisplay { get; init; } = "";
 

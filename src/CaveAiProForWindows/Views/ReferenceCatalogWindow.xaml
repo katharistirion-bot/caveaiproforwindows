@@ -108,13 +108,19 @@
 
                         <DataGrid.Columns>
 
-                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" />
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.6*" />
 
                             <DataGridTextColumn Header="Country" Binding="{Binding Country}" Width="*" />
 
-                            <DataGridTextColumn Header="Depth" Binding="{Binding DepthDisplay}" Width="70" />
+                            <DataGridTextColumn Header="Region" Binding="{Binding Region}" Width="*" />
 
-                            <DataGridTextColumn Header="Badge" Binding="{Binding Badge}" Width="80" />
+                            <DataGridTextColumn Header="Depth" Binding="{Binding DepthDisplay}" Width="56" />
+
+                            <DataGridTextColumn Header="Length" Binding="{Binding LengthDisplay}" Width="56" />
+
+                            <DataGridTextColumn Header="Summary" Binding="{Binding Summary}" Width="2*" />
+
+                            <DataGridTextColumn Header="Badge" Binding="{Binding Badge}" Width="110" />
 
                             <DataGridTextColumn x:Name="DistanceColumn" Header="Dist (km)" Binding="{Binding DistanceDisplay}" Width="70" Visibility="Collapsed" />
 

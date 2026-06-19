@@ -72,6 +72,45 @@ public class ReferenceCatalogTests
     }
 
     [TestMethod]
+    public void Display_ListSummary_IncludesDepthAndRegion()
+    {
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "1",
+            Name = "Test Cave",
+            Country = "Greece",
+            Region = "Arcadia, Peloponnese",
+            DepthM = 120,
+            LengthM = 800,
+            Lat = 37.5,
+            Lon = 22.3,
+        };
+        var summary = ReferenceCatalogDisplay.ListSummary(entry);
+        StringAssert.Contains(summary, "Greece");
+        StringAssert.Contains(summary, "Arcadia");
+        StringAssert.Contains(summary, "120");
+        StringAssert.Contains(summary, "800");
+        Assert.AreEqual(ReferenceCatalogDisplay.RichOsmBadge, ReferenceCatalogDisplay.ListBadge(entry));
+    }
+
+    [TestMethod]
+    public void Display_Preview_UsesSynthesizedTextWhenPreviewMissing()
+    {
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "1",
+            Name = "Melissani Cave",
+            Country = "Greece",
+            Region = "Kefalonia, Ionian Islands",
+            Lat = 38.2,
+            Lon = 20.6,
+        };
+        var preview = ReferenceCatalogDisplay.PreviewText(entry);
+        StringAssert.Contains(preview, "Melissani Cave");
+        StringAssert.Contains(preview, "OpenStreetMap");
+    }
+
+    [TestMethod]
     public void SurveyStartUrl_IncludesActionSurvey()
     {
         var entry = new ReferenceCaveIndexEntry { Id = "osm-node-42", Country = "Greece", Lat = 38.2, Lon = 20.6 };
