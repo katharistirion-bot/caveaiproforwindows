@@ -34,6 +34,8 @@ Log: `src\CaveAiProForWindows\bin\Release\net8.0-windows\obfuscar.log` (or under
 
 Disable for local debugging: `-p:ObfuscatorEnabled=false`.
 
+If Release build fails with **MSB3026** / file-in-use errors (app still running, antivirus, or debugger holding `bin\Release` DLLs), close CaveAI Pro and any attached debugger, or run `KillBuildLock.bat` from the repo root. As a last resort, build without obfuscation: `-p:ObfuscatorEnabled=false` (not for Store submission).
+
 ## Store MSIX pipeline (unsigned)
 
 ### Production Store MSIX

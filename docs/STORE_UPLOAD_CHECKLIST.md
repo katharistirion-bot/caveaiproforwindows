@@ -58,6 +58,14 @@ $env:CAVEAIPRO_FIREBASE_API_KEY = '<Browser key from tools/local/firebase-web-co
 
 Full `dotnet build CaveAiProForWindows.sln -c Release` may still fail without Firebase env var (Obfuscar + `verify-firebase-config.ps1`). Store MSIX scripts inject config at pack time; use those scripts for Store artifacts.
 
+For local Release builds without a Browser key, skip the MSBuild guard:
+
+```powershell
+dotnet build CaveAiProForWindows.sln -c Release -p:VerifyFirebaseConfig=false
+```
+
+See `docs/SECURITY.md` for `-AllowPlaceholder` on `tools/inject-firebase-config.ps1` (script lives under `tools/`, not `scripts/`).
+
 ## Blockers needing user action
 
 | Blocker | Action |

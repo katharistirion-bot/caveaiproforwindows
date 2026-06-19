@@ -48,6 +48,24 @@ $env:CAVEAIPRO_FIREBASE_API_KEY = '<Firebase Web API key>'
 .\tools\verify-firebase-config.ps1   # fails if REPLACE_AT_BUILD remains (publish output)
 ```
 
+### Local Release builds without a Browser key
+
+Debug builds skip Firebase verification. For **local Release experiments** without injecting a real key:
+
+```powershell
+# Skip MSBuild guard (WebView auth falls back to live website config at runtime)
+dotnet build CaveAiProForWindows.sln -c Release -p:VerifyFirebaseConfig=false
+```
+
+To exercise the inject script without a key (leaves `REPLACE_AT_BUILD` in source):
+
+```powershell
+.\tools\inject-firebase-config.ps1 -AllowPlaceholder
+.\tools\verify-firebase-config.ps1 -AllowPlaceholder
+```
+
+**Store / sideload packaging** still requires a real Browser key — use `package-store-msix.ps1` or `package-release.ps1`, which inject before build and restore the placeholder afterward.
+
 CI: `.github/workflows/release.yml` **requires** secret `CAVEAIPRO_FIREBASE_API_KEY`.
 
 **Release guardrails (do not disable without reason):**

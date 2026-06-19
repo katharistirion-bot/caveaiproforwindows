@@ -10,7 +10,7 @@ Site origin for share URLs: **`https://www.caveaipro.com`**
 
 | Resource | URL |
 |----------|-----|
-| Meta | `https://www.caveaipro.com/data/reference-caves-meta.json` |
+| Meta | `https://www.caveaipro.com/data/reference-catalog-meta.json` |
 | Search index | `https://www.caveaipro.com/data/reference-caves-search-index.json` |
 | Country shards manifest | `https://www.caveaipro.com/data/reference-shards/manifest.json` |
 | Country shard | `https://www.caveaipro.com/data/reference-shards/{country-slug}.json` |

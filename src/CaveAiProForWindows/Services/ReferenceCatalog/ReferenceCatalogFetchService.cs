@@ -33,7 +33,7 @@ public sealed class ReferenceCatalogFetchService
         if (!forceRefresh && TryLoadDiskIndex(out disk, out stale) && !stale)
         {
             progress?.Report($"Reference catalog — {disk!.Entries.Count:N0} caves (cached)");
-            _memoryCache = ToState(disk, "disk");
+            _memoryCache = ToState(disk!, "disk");
             return _memoryCache;
         }
 

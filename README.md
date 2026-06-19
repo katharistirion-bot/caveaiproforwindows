@@ -104,6 +104,12 @@ dotnet publish src\CaveAiProForWindows\CaveAiProForWindows.csproj -c Release -r 
 .\tools\package-release.ps1 -Tag v1.4.0
 ```
 
+Local Release build without a Browser key (dev only — runtime WebView auth uses live website fallback):
+
+```powershell
+dotnet build -c Release -p:VerifyFirebaseConfig=false
+```
+
 See `docs/SECURITY.md` for Firebase config injection and `docs/INSTALL.md` for distribution channels.
 
 ## Code layout
