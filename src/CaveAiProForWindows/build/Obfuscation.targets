@@ -8,25 +8,18 @@
     <ObfuscatorEnabled Condition="'$(ObfuscatorEnabled)' == ''">true</ObfuscatorEnabled>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <_ObfRefTfm Condition="'$(_ObfRefTfm)' == ''">net8.0</_ObfRefTfm>
-  </PropertyGroup>
-
   <Target Name="_ResolveObfuscarReferencePaths"
           Returns="$(_ObfCoreRefPath);$(_ObfDesktopRefPath)">
-    <Exec Command="powershell -NoProfile -Command &quot;$tfm='$(_ObfRefTfm)'; $marker='System.Text.Json.dll'; $searchRoots=@(); if ('$(NuGetPackageRoot)' -ne '') { $searchRoots += (Join-Path '$(NuGetPackageRoot)' 'microsoft.netcore.app.ref') }; $pf=$env:ProgramFiles; if ($pf) { $searchRoots += (Join-Path $pf 'dotnet\packs\Microsoft.NETCore.App.Ref') }; if ($env:DOTNET_ROOT) { $searchRoots += (Join-Path $env:DOTNET_ROOT 'packs\Microsoft.NETCore.App.Ref') }; $sdkRoot='$(NetCoreSdkRoot)'; if ($sdkRoot -and (Test-Path $sdkRoot)) { $searchRoots += (Join-Path (Split-Path (Split-Path $sdkRoot -Parent) -Parent) 'packs\Microsoft.NETCore.App.Ref') }; foreach ($root in ($searchRoots | Select-Object -Unique)) { if (-not (Test-Path $root)) { continue }; $pack = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Sort-Object { try { [Version]$_.Name } catch { [Version]'0.0.0' } } -Descending | Select-Object -First 1; if (-not $pack) { continue }; $path = Join-Path $pack.FullName (Join-Path 'ref' $tfm); if (Test-Path (Join-Path $path $marker)) { Write-Output $path; exit 0 } }; exit 1&quot;"
-          ConsoleToMSBuild="true"
-          StandardOutputImportance="Low">
-      <Output TaskParameter="ConsoleOutput" PropertyName="_ObfCoreRefPath" />
-    </Exec>
-    <Exec Command="powershell -NoProfile -Command &quot;$tfm='$(_ObfRefTfm)'; $marker='PresentationFramework.dll'; $searchRoots=@(); if ('$(NuGetPackageRoot)' -ne '') { $searchRoots += (Join-Path '$(NuGetPackageRoot)' 'microsoft.windowsdesktop.app.ref') }; $pf=$env:ProgramFiles; if ($pf) { $searchRoots += (Join-Path $pf 'dotnet\packs\Microsoft.WindowsDesktop.App.Ref') }; if ($env:DOTNET_ROOT) { $searchRoots += (Join-Path $env:DOTNET_ROOT 'packs\Microsoft.WindowsDesktop.App.Ref') }; $sdkRoot='$(NetCoreSdkRoot)'; if ($sdkRoot -and (Test-Path $sdkRoot)) { $searchRoots += (Join-Path (Split-Path (Split-Path $sdkRoot -Parent) -Parent) 'packs\Microsoft.WindowsDesktop.App.Ref') }; foreach ($root in ($searchRoots | Select-Object -Unique)) { if (-not (Test-Path $root)) { continue }; $pack = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Sort-Object { try { [Version]$_.Name } catch { [Version]'0.0.0' } } -Descending | Select-Object -First 1; if (-not $pack) { continue }; $path = Join-Path $pack.FullName (Join-Path 'ref' $tfm); if (Test-Path (Join-Path $path $marker)) { Write-Output $path; exit 0 } }; exit 1&quot;"
-          ConsoleToMSBuild="true"
-          StandardOutputImportance="Low">
-      <Output TaskParameter="ConsoleOutput" PropertyName="_ObfDesktopRefPath" />
-    </Exec>
+    <!-- Reuse paths MSBuild already resolved for CoreCompile (works on CI without NuGet ref packs). -->
+    <ItemGroup>
+      <_ObfCoreRefAssembly Include="@(ReferencePath)" Condition="'%(Filename)' == 'System.Text.Json'" />
+      <_ObfDesktopRefAssembly Include="@(ReferencePath)" Condition="'%(Filename)' == 'PresentationFramework'" />
+    </ItemGroup>
     <PropertyGroup>
-      <_ObfCoreRefPath>$([System.IO.Path]::GetFullPath('$(_ObfCoreRefPath.Trim())'))$([System.IO.Path]::DirectorySeparatorChar)</_ObfCoreRefPath>
-      <_ObfDesktopRefPath>$([System.IO.Path]::GetFullPath('$(_ObfDesktopRefPath.Trim())'))$([System.IO.Path]::DirectorySeparatorChar)</_ObfDesktopRefPath>
+      <_ObfCoreRefDir>@(_ObfCoreRefAssembly->'%(RootDir)%(Directory)')</_ObfCoreRefDir>
+      <_ObfDesktopRefDir>@(_ObfDesktopRefAssembly->'%(RootDir)%(Directory)')</_ObfDesktopRefDir>
+      <_ObfCoreRefPath Condition="'$(_ObfCoreRefDir)' != ''">$([System.IO.Path]::GetFullPath('$(_ObfCoreRefDir)'))$([System.IO.Path]::DirectorySeparatorChar)</_ObfCoreRefPath>
+      <_ObfDesktopRefPath Condition="'$(_ObfDesktopRefDir)' != ''">$([System.IO.Path]::GetFullPath('$(_ObfDesktopRefDir)'))$([System.IO.Path]::DirectorySeparatorChar)</_ObfDesktopRefPath>
     </PropertyGroup>
   </Target>
 
