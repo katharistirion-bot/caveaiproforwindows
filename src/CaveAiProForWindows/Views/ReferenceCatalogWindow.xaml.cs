@@ -470,6 +470,9 @@ public partial class ReferenceCatalogWindow : Window
 
         AddLine("Region", entry.Region);
 
+        var locationLine = string.Join(" · ", new[] { entry.Region, entry.Country }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        AddLine("Location", locationLine);
+
         AddLine("Coordinates", $"{entry.Lat:F5}, {entry.Lon:F5}");
 
         if (entry.DepthM is > 0) AddLine("Depth", $"{entry.DepthM:0.#} m");
