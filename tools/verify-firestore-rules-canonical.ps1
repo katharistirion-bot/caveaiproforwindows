@@ -22,7 +22,14 @@ Write-Host "Windows stub:  $winLines lines  ($WindowsRules)"
 Write-Host "Website rules:   $webLines lines  ($WebsiteRules)"
 Write-Host "Android rules:   $andLines lines  ($AndroidRules)"
 
-if ($winLines -gt 0 -and $webLines -gt 0 -and $winLines -lt 50 -and $webLines -gt 200) {
+if ($webLines -lt 0 -or $andLines -lt 0) {
+    if ($webLines -lt 0) {
+        Write-Warning 'Website firestore.rules not found - skipping sibling comparison (single-repo checkout).'
+    }
+    if ($andLines -lt 0) {
+        Write-Warning 'Android firestore.rules not found - skipping sibling comparison (single-repo checkout).'
+    }
+} elseif ($winLines -gt 0 -and $webLines -gt 0 -and $winLines -lt 50 -and $webLines -gt 200) {
     Write-Host 'OK: Website has full Public Library rules; Windows stub is short (expected).'
 } elseif ($webLines -lt 50) {
     throw 'Website firestore.rules looks like Windows stub — deploy would break Public Library!'
@@ -44,7 +51,14 @@ $andStorageLines = Get-LineCount $AndroidStorage
 Write-Host "Website storage: $webStorageLines lines  ($WebsiteStorage)"
 Write-Host "Android storage: $andStorageLines lines  ($AndroidStorage)"
 
-if ($webStorageLines -gt 0 -and $andStorageLines -gt 0) {
+if ($webStorageLines -lt 0 -or $andStorageLines -lt 0) {
+    if ($webStorageLines -lt 0) {
+        Write-Warning 'Website storage.rules not found - skipping sibling comparison (single-repo checkout).'
+    }
+    if ($andStorageLines -lt 0) {
+        Write-Warning 'Android storage.rules not found - skipping sibling comparison (single-repo checkout).'
+    }
+} elseif ($webStorageLines -gt 0 -and $andStorageLines -gt 0) {
     $webStorageText = (Get-Content -LiteralPath $WebsiteStorage -Raw).Replace("`r`n", "`n")
     $andStorageText = (Get-Content -LiteralPath $AndroidStorage -Raw).Replace("`r`n", "`n")
     if ($webStorageText -eq $andStorageText) {

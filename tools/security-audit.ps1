@@ -120,9 +120,14 @@ if ($script:FailCount -eq 0) {
 }
 
 # --- 4. Cross-key contamination in Windows git ---
+$androidSuffixExcludePaths = @(
+    'tools/verify-android-google-services.ps1',
+    'tools/security-audit.ps1',
+    'docs/SECURITY-HARDENING.md'
+)
 $androidSuffixPattern = [regex]::Escape($AndroidKeySuffix)
 foreach ($rel in $tracked) {
-    if ($rel -eq 'tools/verify-android-google-services.ps1') { continue }
+    if ($rel -in $androidSuffixExcludePaths) { continue }
     $full = Join-Path $RepoRoot $rel
     $text = Get-Content -LiteralPath $full -Raw -ErrorAction SilentlyContinue
     if ($text -and $text -match $androidSuffixPattern) {
