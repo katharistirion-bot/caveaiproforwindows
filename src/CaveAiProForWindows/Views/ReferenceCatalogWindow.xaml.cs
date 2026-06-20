@@ -912,7 +912,7 @@ public partial class ReferenceCatalogWindow : Window
 
             return;
 
-        if (!ReferenceCatalogShareUrls.TryParseReferenceShareUrl(pasted, out var refId, out _) ||
+        if (!ReferenceCatalogShareUrls.TryParseReferenceShareUrl(pasted, out var refId, out var countryHint) ||
 
             string.IsNullOrWhiteSpace(refId))
 
@@ -925,6 +925,54 @@ public partial class ReferenceCatalogWindow : Window
         }
 
         var entry = _allEntries.FirstOrDefault(x => string.Equals(x.Id, refId, StringComparison.OrdinalIgnoreCase));
+
+        if (entry == null)
+
+        {
+
+            var pin = await _detailLoader.LoadByIdAsync(refId, countryHint).ConfigureAwait(true);
+
+            if (pin != null)
+
+            {
+
+                entry = new ReferenceCaveIndexEntry
+
+                {
+
+                    Id = pin.Id,
+
+                    Name = pin.Name,
+
+                    Lat = pin.Lat,
+
+                    Lon = pin.Lon,
+
+                    Country = pin.Country,
+
+                    Region = pin.Region,
+
+                    DepthM = pin.DepthM,
+
+                    LengthM = pin.LengthM,
+
+                    ElevationM = pin.ElevationM,
+
+                    CaveType = pin.CaveType,
+
+                    OsmType = pin.OsmType,
+
+                    OsmId = pin.OsmId,
+
+                    Preview = pin.Description ?? string.Empty,
+
+                    Rich = pin.Rich,
+
+                };
+
+            }
+
+        }
 
         if (entry == null)
 

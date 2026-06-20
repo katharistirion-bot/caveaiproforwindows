@@ -21,6 +21,19 @@ public static class CaveAiOfflineBrain
         var mains = shots.Where(s => s.IsTraverseLeg).ToList();
         var splays = shots.Count - mains.Count;
         var traverseM = mains.Sum(s => (double)s.Distance);
+
+        if (IsGreetingQuery(q))
+            return $"Hello. I am your on-device assistant for \"{project.Name}\" — {shots.Count} shots, {mains.Count} main legs, about {traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m traverse. Ask about depth, loops, or say \"summary\".";
+
+        if (IsThanksQuery(q))
+            return "You are welcome. Keep station names consistent, watch battery, and have a safe trip.";
+
+        if (IsOverviewStatusQuery(q))
+        {
+            var overviewDepth = ComputeMaxDepthBelowEntranceMeters(project);
+            return $"Project \"{project.Name}\": {shots.Count} shots ({mains.Count} mains, {splays} splays), traverse ~{traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m, max depth ~{overviewDepth.ToString("0.#", CultureInfo.InvariantCulture)} m.";
+        }
+
         var maxDepth = ComputeMaxDepthBelowEntranceMeters(project);
         var pendingGeo = CountPendingGeoSamples(project);
         var entranceLocked = project.Lat.HasValue && project.Lon.HasValue;
@@ -236,6 +249,25 @@ public static class CaveAiOfflineBrain
         ContainsAny(q, "loop", "closure", "misclosure") ||
         q.Contains("loop closure") ||
         q.Contains("loop quality");
+
+    private static bool IsGreetingQuery(string q)
+    {
+        if (q.Length > 48) return false;
+        return q is "hi" or "hey" or "yo" or "hello" ||
+            q.StartsWith("hi ", StringComparison.Ordinal) ||
+            q.StartsWith("hello ", StringComparison.Ordinal) ||
+            q.StartsWith("hey ", StringComparison.Ordinal) ||
+            q.StartsWith("good morning", StringComparison.Ordinal) ||
+            q.StartsWith("good evening", StringComparison.Ordinal);
+    }
+
+    private static bool IsThanksQuery(string q) =>
+        q.Length <= 40 && (q.Contains("thank") || q.Contains("thanks") || q.Contains("thx"));
+
+    private static bool IsOverviewStatusQuery(string q) =>
+        q.Contains("summary") || q.Contains("overview") || q.Contains("status") ||
+        q.Contains("what do i have") || q.Contains("how many shots") ||
+        (q.Contains("all") && q.Contains("good"));
 
     private static string BuildLoopMisclosureAnswer(CaveProjectDocument project)
     {

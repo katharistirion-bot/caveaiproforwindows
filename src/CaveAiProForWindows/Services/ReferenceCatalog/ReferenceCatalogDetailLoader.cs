@@ -12,6 +12,7 @@ public sealed class ReferenceCatalogDetailLoader
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private Dictionary<string, string>? _countrySlugMap;
+    private List<string> _shardSlugs = [];
     private readonly Dictionary<string, Dictionary<string, ReferenceCavePin>> _shardCache = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task<ReferenceCavePin?> LoadByIdAsync(
@@ -23,10 +24,18 @@ public sealed class ReferenceCatalogDetailLoader
         if (string.IsNullOrWhiteSpace(needle))
             return null;
 
+        await EnsureManifestAsync(cancellationToken).ConfigureAwait(false);
+
         if (!string.IsNullOrWhiteSpace(countryHint))
         {
-            await EnsureManifestAsync(cancellationToken).ConfigureAwait(false);
             var slug = ResolveSlug(countryHint);
+            var fromShard = await TryLoadFromShardAsync(slug, needle, cancellationToken).ConfigureAwait(false);
+            if (fromShard != null)
+                return fromShard;
+        }
+
+        foreach (var slug in _shardSlugs)
+        {
             var fromShard = await TryLoadFromShardAsync(slug, needle, cancellationToken).ConfigureAwait(false);
             if (fromShard != null)
                 return fromShard;
@@ -72,6 +81,7 @@ public sealed class ReferenceCatalogDetailLoader
                         s => s.Country,
                         s => s.Slug,
                         StringComparer.OrdinalIgnoreCase);
+                    _shardSlugs = cached.Shards.Select(s => s.Slug).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                     return;
                 }
             }
@@ -91,10 +101,13 @@ public sealed class ReferenceCatalogDetailLoader
                 s => s.Country,
                 s => s.Slug,
                 StringComparer.OrdinalIgnoreCase) ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _shardSlugs = manifest?.Shards.Select(s => s.Slug).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+                ?? [];
         }
         catch
         {
             _countrySlugMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _shardSlugs = [];
         }
     }
 

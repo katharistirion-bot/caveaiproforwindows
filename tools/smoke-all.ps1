@@ -64,11 +64,15 @@ try {
                 }
             }
             Invoke-Step 'Web unit tests (site-identity + greeting + contract)' {
-                npm run test:site-identity
+                $prevEap = $ErrorActionPreference
+                $ErrorActionPreference = 'Continue'
+                npm run test:site-identity 2>&1 | Out-Host
                 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                npm run test:cave-ai-greeting
+                npm run test:cave-ai-greeting 2>&1 | Out-Host
                 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                node --test scripts/site-identity-contract.test.mjs
+                node --test scripts/site-identity-contract.test.mjs 2>&1 | Out-Host
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                $ErrorActionPreference = $prevEap
             }
             if (-not $SkipWebBuild) {
                 Invoke-Step 'Web production build' {
