@@ -10,11 +10,25 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
+$restoreScript = Join-Path $repoRoot 'tools/restore-firebase-config-placeholder.ps1'
+$injectScript = Join-Path $repoRoot 'tools/inject-firebase-config.ps1'
+
+function Restore-SourceFirebasePlaceholder {
+    if (Test-Path -LiteralPath $restoreScript) {
+        & $restoreScript -RepoRoot $repoRoot
+    }
+}
+
+try {
 if (-not $SkipTests) {
     Write-Host "Running unit tests (Debug)…"
     dotnet test (Join-Path $repoRoot 'tests/CaveAiProForWindows.Tests/CaveAiProForWindows.Tests.csproj') -c Debug --verbosity minimal
     if ($LASTEXITCODE -ne 0) { throw "dotnet test failed with exit code $LASTEXITCODE" }
 }
+
+Write-Host 'Injecting Firebase client config (required for Release publish verify)…'
+& $injectScript -RepoRoot $repoRoot
+if ($LASTEXITCODE -ne 0) { throw 'inject-firebase-config.ps1 failed.' }
 
 Write-Host "Publishing Release single-file win-x64…"
 $publishArgs = @(
@@ -98,3 +112,6 @@ if ($LaunchSmokeTest) {
 }
 
 Write-Host "Smoke publish completed successfully."
+} finally {
+    Restore-SourceFirebasePlaceholder
+}

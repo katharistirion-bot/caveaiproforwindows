@@ -2,15 +2,15 @@
 
   <PropertyGroup>
 
-    <Version>1.5.2</Version>
+    <Version>1.5.3</Version>
 
-    <AssemblyVersion>1.5.2.0</AssemblyVersion>
+    <AssemblyVersion>1.5.3.0</AssemblyVersion>
 
-    <FileVersion>1.5.2.0</FileVersion>
+    <FileVersion>1.5.3.0</FileVersion>
 
-    <InformationalVersion>1.5.2</InformationalVersion>
+    <InformationalVersion>1.5.3</InformationalVersion>
 
-    <CaveInstallerProductVersion>1.5.2.0</CaveInstallerProductVersion>
+    <CaveInstallerProductVersion>1.5.3.0</CaveInstallerProductVersion>
 
   </PropertyGroup>
 

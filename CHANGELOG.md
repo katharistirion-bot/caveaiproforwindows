@@ -33,16 +33,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Post sign-in setup wizard matches new onboarding visual language
 - Account banner shows trial days remaining prominently
 
-## [Unreleased]
+## [1.5.3] - 2026-06-20
 
 ### Added
 
-- PLAN tab reference pin overlay: linked `referenceCatalogLink` entrance and nearby cached index pins (toggle in Plan display + LEGAL & SETTINGS)
-- Tools → **Survey vs reference link…** — compare selected project entrance/traverse stats vs linked reference catalog metadata
-- Field Trip Planner: add community/published cave stops by pasting Firestore doc id or share URL (`k:p` field trip codec)
-- Unit tests for plan geo mapping, survey vs reference compare, and field trip stop import parsing
+- **Docked Cave AI assistant** panel (on-device Q&A; Help → Cloud AI on web when signed in)
+- **Similar caves nearby** in Reference Catalog detail
+- **Per-cave favorites** (signed-in Firestore + local cache; My favorites filter)
+- **Offline trip narrative** intent in on-device Cave AI brain (parity with Android)
 
-## [1.5.2] - 2026-06-15
+### Fixed
+
+- Reference catalog share URL fallback via country shard loader
+- Offline brain greetings and trip/expedition report routing
+
+## [Unreleased]
 
 ### Added
 
