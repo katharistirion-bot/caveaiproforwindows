@@ -90,7 +90,7 @@
                 <MenuItem Header="_Compare two backups…" Command="{Binding CompareBackupsCommand}" />
                 <MenuItem Header="Survey _diff (legs/stations)…" Command="{Binding CompareSurveysCommand}" />
                 <MenuItem Header="Cave AI offline _Q&amp;A…" Command="{Binding ShowOfflineCaveAiQaCommand}"
-                          ToolTip="Rule-based answers from the selected project (depth, traverse, site type) — no Gemini." />
+                          ToolTip="Rule-based answers from the selected project (depth, traverse, site type) — no Cloud AI." />
                 <MenuItem Header="_Loop closure assistant…" Command="{Binding ShowLoopClosureAssistantCommand}" />
                 <Separator />
                 <MenuItem Header="Publication _sheet…" Command="{Binding OpenPublicationSheetCommand}"

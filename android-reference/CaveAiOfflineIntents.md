@@ -24,6 +24,8 @@ English-only user-visible strings.
 | `last_leg` | "last leg", "last main leg", "latest main" | Latest main leg from→to, tape m, clino ° |
 | `volume` | "passage volume", "how big", "how large" | Rough LRUD × leg prism volume in m³ (indicative) |
 | `clino` | "latest clino", "inclination", "slope" (not rope/SRT) | Latest main clino ° with station pair |
+| `loop_misclosure` | "loop closure", "misclosure", "loop quality" | Detected loop count, worst |Δ|, ppm when applicable |
+| `trip_narrative` | "trip report", "expedition report", "mission writer", "expedition summary" | Structured offline expedition report excerpt from project shots, loops, geo/bio, notes — **never** mention Gemini or cloud AI |
 
 ## Greeting (separate)
 

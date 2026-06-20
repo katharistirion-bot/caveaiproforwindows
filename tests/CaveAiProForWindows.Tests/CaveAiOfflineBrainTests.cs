@@ -132,6 +132,64 @@ public sealed class CaveAiOfflineBrainTests
     }
 
     [TestMethod]
+    public void BuildOfflineTripEndNarrative_includesStructuredSections()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Demo Cave",
+            Date = "2026-06-01",
+            Lat = 38.5,
+            Lon = 23.5,
+            Alt = 120,
+            Shots =
+            [
+                new ShotRecord
+                {
+                    FromStation = "A1",
+                    ToStation = "A2",
+                    Distance = 20,
+                    Azimuth = 90,
+                    Clino = -15,
+                    Notes = "Large chamber",
+                },
+                new ShotRecord
+                {
+                    FromStation = "A2",
+                    ToStation = "A3",
+                    Distance = 12,
+                    Azimuth = 180,
+                    Clino = -5,
+                },
+            ],
+        };
+
+        var report = TripEndNarrativeOffline.BuildOfflineTripEndNarrative(project);
+        StringAssert.Contains(report, "Expedition Overview");
+        StringAssert.Contains(report, "Survey Statistics");
+        StringAssert.Contains(report, "Demo Cave");
+        Assert.IsFalse(report.Contains("Gemini", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Answer_tripNarrativeIntent_matchesOfflineChatAnswer()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Demo Cave",
+            Date = "2026-06-01",
+            Alt = 120,
+            Shots =
+            [
+                new ShotRecord { FromStation = "A1", ToStation = "A2", Distance = 20, Azimuth = 90, Clino = -15 },
+            ],
+        };
+
+        var reply = CaveAiOfflineBrain.Answer(project, "draft a trip report summary");
+        StringAssert.Contains(reply, "Expedition Overview");
+        Assert.IsFalse(reply.Contains("Gemini", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
     public void Fixture_cases_produceExpectedAnswerFragments()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "android-reference", "cave-ai-offline-intents-fixture.json");

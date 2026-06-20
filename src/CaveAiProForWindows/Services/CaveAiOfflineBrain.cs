@@ -15,7 +15,7 @@ public static class CaveAiOfflineBrain
 
         var q = Normalize(query);
         if (q.Length == 0)
-            return "Ask about depth, traverse length, shot count, return distance, pending geo samples, site type, last leg, volume, clino, or next step (English only).";
+            return "Ask about depth, traverse length, shot count, return distance, pending geo samples, site type, last leg, volume, clino, trip report, or next step (English only).";
 
         var shots = project.Shots;
         var mains = shots.Where(s => s.IsTraverseLeg).ToList();
@@ -27,6 +27,9 @@ public static class CaveAiOfflineBrain
 
         if (IsThanksQuery(q))
             return "You are welcome. Keep station names consistent, watch battery, and have a safe trip.";
+
+        if (IsTripNarrativeQuery(q))
+            return TripEndNarrativeOffline.BuildOfflineTripNarrativeChatAnswer(project);
 
         if (IsOverviewStatusQuery(q))
         {
@@ -109,7 +112,7 @@ public static class CaveAiOfflineBrain
         var siteLabelFallback = SurveySiteTypeResolver.GetMapLabel(project, library);
         return
             $"Project \"{project.Name}\" — {siteLabelFallback}. {shots.Count} shots, ~{traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m traverse, max depth ~{maxDepth.ToString("0.#", CultureInfo.InvariantCulture)} m. " +
-            "Ask about depth, traverse, shots, return distance, pending geo, site type, last leg, volume, clino, or next step.";
+            "Ask about depth, traverse, shots, return distance, pending geo, site type, last leg, volume, clino, trip report, or next step.";
     }
 
     private static string BuildNextActionAnswer(
@@ -250,6 +253,13 @@ public static class CaveAiOfflineBrain
         q.Contains("loop closure") ||
         q.Contains("loop quality");
 
+    private static bool IsTripNarrativeQuery(string q) =>
+        (ContainsAny(q, "narrative", "report", "summary") &&
+         ContainsAny(q, "trip", "expedition", "mission", "survey")) ||
+        q.Contains("trip report") ||
+        q.Contains("expedition report") ||
+        q.Contains("mission writer");
+
     private static bool IsGreetingQuery(string q)
     {
         if (q.Length > 48) return false;
@@ -265,9 +275,10 @@ public static class CaveAiOfflineBrain
         q.Length <= 40 && (q.Contains("thank") || q.Contains("thanks") || q.Contains("thx"));
 
     private static bool IsOverviewStatusQuery(string q) =>
+        !IsTripNarrativeQuery(q) && (
         q.Contains("summary") || q.Contains("overview") || q.Contains("status") ||
         q.Contains("what do i have") || q.Contains("how many shots") ||
-        (q.Contains("all") && q.Contains("good"));
+        (q.Contains("all") && q.Contains("good")));
 
     private static string BuildLoopMisclosureAnswer(CaveProjectDocument project)
     {

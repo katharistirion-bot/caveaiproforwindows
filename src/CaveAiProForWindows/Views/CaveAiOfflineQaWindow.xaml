@@ -8,7 +8,7 @@
         Foreground="{DynamicResource Cave.Text}">
     <DockPanel Margin="12">
         <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,10"
-                   Text="Rule-based answers from the selected project — no Gemini or network required. Ask about depth, traverse length, shots, or site type (English)." />
+                   Text="Rule-based answers from the selected project — no Cloud AI or network required. Ask about depth, traverse length, shots, trip report, or site type (English)." />
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <TextBox x:Name="QueryBox" MinHeight="28" Margin="0,0,0,8"
                      ToolTip="e.g. What is the max depth? What site type is this?" />

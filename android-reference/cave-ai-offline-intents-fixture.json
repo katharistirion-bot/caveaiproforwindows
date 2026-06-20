@@ -207,6 +207,31 @@
         "entranceGpsLocked": true
       },
       "expectedContains": ["loop", "|Δ|", "m"]
+    },
+    {
+      "intentId": "trip_narrative",
+      "query": "draft a trip report summary",
+      "project": {
+        "name": "Demo Cave",
+        "date": "2026-06-01",
+        "surveySiteType": "CAVE",
+        "lat": 38.5,
+        "lon": 23.5,
+        "alt": 120,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 20, "azimuth": 90, "clino": -15, "notes": "Large chamber" },
+          { "fromStation": "A2", "toStation": "A3", "distance": 12, "azimuth": 180, "clino": -5 }
+        ],
+        "rocks": [
+          { "imageUri": "file://sample1.jpg", "isAnalyzed": true, "station": "A2" }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["Expedition Overview", "Survey Statistics", "Demo Cave", "m"]
     }
   ]
 }
