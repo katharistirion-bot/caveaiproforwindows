@@ -65,6 +65,9 @@ public partial class ReferenceCatalogWindow : Window
             ApplyFilter();
         };
 
+        RichMetadataOnlyCheck.Checked += (_, _) => ApplyFilter();
+        RichMetadataOnlyCheck.Unchecked += (_, _) => ApplyFilter();
+
         Loaded += async (_, _) =>
 
         {
@@ -350,8 +353,9 @@ public partial class ReferenceCatalogWindow : Window
 
 
         var country = CountryCombo.SelectedItem as string;
+        var richMetadataOnly = RichMetadataOnlyCheck.IsChecked == true;
 
-        if (!ReferenceCatalogSearch.ShouldRunSearch(SearchBox.Text, country, nearMe))
+        if (!ReferenceCatalogSearch.ShouldRunSearch(SearchBox.Text, country, nearMe, richMetadataOnly))
 
         {
 
@@ -375,7 +379,8 @@ public partial class ReferenceCatalogWindow : Window
 
             nearLon,
 
-            nearRadiusKm: radiusKm);
+            nearRadiusKm: radiusKm,
+            richMetadataOnly: richMetadataOnly);
 
         ResultsGrid.ItemsSource = BuildRows(filtered, nearLat, nearLon, nearMe);
 
@@ -384,6 +389,8 @@ public partial class ReferenceCatalogWindow : Window
             var source = _nearMeOrigin?.SourceLabel ?? TryGetProjectNearMeOrigin()?.SourceLabel ?? "GPS";
             StatusText.Text = $"Near me ({source}): {filtered.Count} caves within {radiusKm:0} km.";
         }
+
+        DrawMap();
     }
 
 

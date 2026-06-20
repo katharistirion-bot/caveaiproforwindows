@@ -44,6 +44,20 @@ public class ReferenceCatalogTests
     }
 
     [TestMethod]
+    public void Search_RichMetadataOnly_FiltersSparseEntries()
+    {
+        var entries = new List<ReferenceCaveIndexEntry>
+        {
+            new() { Id = "1", Name = "Rich Cave", Country = "Greece", Lat = 38.2, Lon = 20.6, DepthM = 120 },
+            new() { Id = "2", Name = "Sparse Cave", Country = "Greece", Lat = 38.3, Lon = 20.7 },
+        };
+        var hits = ReferenceCatalogSearch.Filter(entries, null, null, null, null, richMetadataOnly: true);
+        Assert.AreEqual(1, hits.Count);
+        Assert.AreEqual("1", hits[0].Id);
+        Assert.IsTrue(ReferenceCatalogSearch.ShouldRunSearch(null, null, false, richMetadataOnly: true));
+    }
+
+    [TestMethod]
     public void Search_SortsByName_WhenNotNearMe()
     {
         var entries = new List<ReferenceCaveIndexEntry>

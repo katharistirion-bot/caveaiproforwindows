@@ -25,7 +25,8 @@ public static class ReferenceCatalogSearch
         double? nearLat,
         double? nearLon,
         double nearRadiusKm = 50,
-        int maxResults = 500)
+        int maxResults = 500,
+        bool richMetadataOnly = false)
     {
         IEnumerable<ReferenceCaveIndexEntry> q = entries;
 
@@ -33,6 +34,11 @@ public static class ReferenceCatalogSearch
             !string.Equals(countryFilter, "All", StringComparison.OrdinalIgnoreCase))
         {
             q = q.Where(e => string.Equals(e.Country, countryFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (richMetadataOnly)
+        {
+            q = q.Where(ReferenceCatalogDisplay.HasRichMetadata);
         }
 
         var tokens = Tokenize(searchText);
@@ -81,8 +87,9 @@ public static class ReferenceCatalogSearch
             .ToList();
     }
 
-    public static bool ShouldRunSearch(string? searchText, string? countryFilter, bool nearMe) =>
+    public static bool ShouldRunSearch(string? searchText, string? countryFilter, bool nearMe, bool richMetadataOnly = false) =>
         nearMe ||
+        richMetadataOnly ||
         !string.IsNullOrWhiteSpace(countryFilter) && !string.Equals(countryFilter, "All", StringComparison.OrdinalIgnoreCase) ||
         Tokenize(searchText).Any(t => t.Length >= 2);
 
