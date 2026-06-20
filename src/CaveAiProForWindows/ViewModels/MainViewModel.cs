@@ -227,6 +227,8 @@ public partial class MainViewModel : ObservableObject
     /// <summary>True when no survey file and no Android Cave Library snapshot — welcome overlay.</summary>
     public bool HasNoProjects => Projects.Count == 0 && _knownCaveMaster.Count == 0;
 
+    public CaveAiAssistantViewModel Assistant { get; } = new();
+
     public MainViewModel()
     {
         foreach (var p in RecentPathsStore.Load())
@@ -236,6 +238,10 @@ public partial class MainViewModel : ObservableObject
         HookProjectListViewFilter(Projects);
         RefreshSurveyQcIssueRows();
         NotifyLegalGateCommands();
+        Assistant.Attach(
+            () => SelectedProject,
+            () => _knownCaveMaster,
+            () => CloudPublishWebViewHost.TokenCache.TryGetUsableToken() != null);
     }
 
     partial void OnLegalTermsAcceptedChanged(bool value)
@@ -310,6 +316,7 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = value == null
             ? "No project selected."
             : FormatSelectedProjectStatus(value);
+        Assistant.NotifyProjectChanged();
     }
 
     private static string FormatSelectedProjectStatus(CaveProjectDocument project)

@@ -273,4 +273,28 @@ public class FieldTripExportTests
             ReferenceCatalogMapDepthColors.Unknown,
             ReferenceCatalogMapDepthColors.ReferenceFillColor(null));
     }
+
+    [TestMethod]
+    public void SimilarCaves_RanksByProximityAndDepthBand()
+    {
+        var source = new ReferenceCaveIndexEntry
+        {
+            Id = "a",
+            Name = "Source",
+            Lat = 38,
+            Lon = 23,
+            Country = "Greece",
+            Region = "Attica",
+            DepthM = 120,
+        };
+        var index = new List<ReferenceCaveIndexEntry>
+        {
+            source,
+            new() { Id = "b", Name = "Near shallow", Lat = 38.01, Lon = 23.01, Country = "Greece", DepthM = 10 },
+            new() { Id = "c", Name = "Near similar depth", Lat = 38.02, Lon = 23.02, Country = "Greece", DepthM = 130 },
+        };
+        var hits = ReferenceCatalogSimilarCaves.FindSimilar(source, index);
+        Assert.AreEqual(2, hits.Count);
+        Assert.AreEqual("c", hits[0].Entry.Id);
+    }
 }

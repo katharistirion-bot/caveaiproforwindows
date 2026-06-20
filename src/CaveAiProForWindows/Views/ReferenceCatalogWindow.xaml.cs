@@ -14,6 +14,7 @@ using CaveAiProForWindows.Services;
 
 using CaveAiProForWindows.Services.FieldTrip;
 
+using CaveAiProForWindows.Services.Favorites;
 using CaveAiProForWindows.Services.ReferenceCatalog;
 
 using CaveAiProForWindows.ViewModels;
@@ -31,6 +32,8 @@ public partial class ReferenceCatalogWindow : Window
     private readonly ReferenceCatalogFetchService _fetch = new();
 
     private readonly ReferenceCatalogDetailLoader _detailLoader = new();
+
+    private readonly CaveFavoriteService _favorites = new();
 
     private IReadOnlyList<ReferenceCaveIndexEntry> _allEntries = [];
 
@@ -290,6 +293,8 @@ public partial class ReferenceCatalogWindow : Window
 
             DrawMap();
 
+            _ = _favorites.RefreshFromCloudAsync();
+
         }
 
         catch (Exception ex)
@@ -381,6 +386,12 @@ public partial class ReferenceCatalogWindow : Window
 
             nearRadiusKm: radiusKm,
             richMetadataOnly: richMetadataOnly);
+
+        if (FavoritesOnlyCheck.IsChecked == true)
+        {
+            var favIds = _favorites.CachedFavoriteIds;
+            filtered = filtered.Where(e => favIds.Contains(e.Id)).ToList();
+        }
 
         ResultsGrid.ItemsSource = BuildRows(filtered, nearLat, nearLon, nearMe);
 
@@ -626,6 +637,70 @@ public partial class ReferenceCatalogWindow : Window
 
         }
 
+        var similar = ReferenceCatalogSimilarCaves.FindSimilar(entry, _allEntries);
+        if (similar.Count > 0)
+        {
+            DetailPanel.Children.Add(new TextBlock
+            {
+                Text = "Similar caves nearby",
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 12, 0, 6),
+            });
+            foreach (var match in similar)
+            {
+                var line = $"{match.Entry.Name} — {match.DistanceKm:0.#} km";
+                if (match.Entry.DepthM is > 0)
+                    line += $", ~{match.Entry.DepthM:0.#} m";
+                var link = new TextBlock
+                {
+                    Text = line,
+                    TextDecorations = TextDecorations.Underline,
+                    Foreground = (Brush)FindResource("Cave.AccentBrush"),
+                    Cursor = Cursors.Hand,
+                    Margin = new Thickness(0, 0, 0, 4),
+                    Tag = match.Entry,
+                };
+                link.MouseLeftButtonUp += (_, _) =>
+                {
+                    if (link.Tag is ReferenceCaveIndexEntry target)
+                    {
+                        _ = ShowDetailAsync(target);
+                        ResultsGrid.SelectedItem = BuildRows([target], null, null, false).FirstOrDefault();
+                    }
+                };
+                DetailPanel.Children.Add(link);
+            }
+        }
+
+        var favBtn = new Button
+        {
+            Content = _favorites.IsFavoritedLocally(entry.Id) ? "★ Favorited" : "☆ Add to favorites",
+            Margin = new Thickness(0, 12, 0, 0),
+            Padding = new Thickness(12, 6, 12, 6),
+            Tag = entry,
+        };
+        favBtn.Click += async (_, _) =>
+        {
+            if (favBtn.Tag is not ReferenceCaveIndexEntry favEntry)
+                return;
+            try
+            {
+                var next = !_favorites.IsFavoritedLocally(favEntry.Id);
+                await _favorites.SetFavoriteAsync(
+                    favEntry.Id,
+                    next,
+                    "reference",
+                    favEntry.Name,
+                    favEntry.Country);
+                favBtn.Content = next ? "★ Favorited" : "☆ Add to favorites";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Favorites", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        };
+        DetailPanel.Children.Add(favBtn);
+
 
 
         StatusText.Text = $"{_allEntries.Count:N0} caves in index";
@@ -763,6 +838,8 @@ public partial class ReferenceCatalogWindow : Window
 
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await LoadAsync(forceRefresh: true);
+
+    private void FavoritesOnlyCheck_Changed(object sender, RoutedEventArgs e) => ApplyFilter();
 
 
 

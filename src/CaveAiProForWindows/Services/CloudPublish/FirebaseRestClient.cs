@@ -192,6 +192,87 @@ public sealed class FirebaseRestClient : IDisposable
         return ParsePublishedCaveDocument(body);
     }
 
+    /// <summary>HEAD-equivalent via GET — returns whether a Firestore document exists.</summary>
+    public async Task<bool> DocumentExistsAsync(
+        FirebaseIdToken token,
+        string documentPath,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        var normalized = documentPath.Trim().TrimStart('/');
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{normalized}";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        return resp.IsSuccessStatusCode;
+    }
+
+    public async Task DeleteDocumentAsync(
+        FirebaseIdToken token,
+        string documentPath,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        var normalized = documentPath.Trim().TrimStart('/');
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{normalized}";
+
+        using var req = new HttpRequestMessage(HttpMethod.Delete, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode && resp.StatusCode != System.Net.HttpStatusCode.NotFound)
+        {
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new FirebaseRestException(
+                $"Firestore DELETE failed ({(int)resp.StatusCode}): {Truncate(body)}",
+                resp.StatusCode,
+                body);
+        }
+    }
+
+    public async Task<IReadOnlyList<string>> ListSubcollectionDocumentIdsAsync(
+        FirebaseIdToken token,
+        string collectionPath,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        var normalized = collectionPath.Trim().TrimStart('/').TrimEnd('/');
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{normalized}";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new FirebaseRestException(
+                $"Firestore LIST failed ({(int)resp.StatusCode}): {Truncate(body)}",
+                resp.StatusCode,
+                body);
+
+        using var doc = JsonDocument.Parse(body);
+        if (!doc.RootElement.TryGetProperty("documents", out var docs) || docs.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var ids = new List<string>();
+        foreach (var item in docs.EnumerateArray())
+        {
+            if (!item.TryGetProperty("name", out var nameEl))
+                continue;
+            var name = nameEl.GetString();
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+            ids.Add(name.Split('/').LastOrDefault() ?? "");
+        }
+
+        return ids.Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
+    }
+
     private static PublishedCaveDocument ParsePublishedCaveDocument(string json)
     {
         using var doc = JsonDocument.Parse(json);

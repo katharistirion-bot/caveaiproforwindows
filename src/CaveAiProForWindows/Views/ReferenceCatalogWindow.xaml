@@ -44,6 +44,8 @@
 
                     <ColumnDefinition Width="Auto" />
 
+                    <ColumnDefinition Width="Auto" />
+
                 </Grid.ColumnDefinitions>
 
                 <Grid.RowDefinitions>
@@ -66,7 +68,12 @@
                           VerticalAlignment="Center" Margin="0,0,12,0"
                           ToolTip="Show only reference caves with depth, length, region, or other enriched OSM metadata" />
 
-                <Button Grid.Row="0" Grid.Column="4" Content="Force refresh" Padding="12,6" Margin="0,0,8,0" Click="Refresh_Click"
+                <CheckBox x:Name="FavoritesOnlyCheck" Grid.Row="0" Grid.Column="4" Content="My favorites"
+                          VerticalAlignment="Center" Margin="0,0,12,0"
+                          Checked="FavoritesOnlyCheck_Changed" Unchecked="FavoritesOnlyCheck_Changed"
+                          ToolTip="Show only caves you starred (sign in with Google first)" />
+
+                <Button Grid.Row="0" Grid.Column="5" Content="Force refresh" Padding="12,6" Margin="0,0,8,0" Click="Refresh_Click"
 
                         ToolTip="Bypass cache — re-fetch meta + index from caveaipro.com" />
 

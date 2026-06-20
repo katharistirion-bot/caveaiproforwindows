@@ -91,6 +91,8 @@
                 <MenuItem Header="Survey _diff (legs/stations)…" Command="{Binding CompareSurveysCommand}" />
                 <MenuItem Header="Cave AI offline _Q&amp;A…" Command="{Binding ShowOfflineCaveAiQaCommand}"
                           ToolTip="Rule-based answers from the selected project (depth, traverse, site type) — no Cloud AI." />
+                <MenuItem Header="Cave AI _assistant panel" Command="{Binding Assistant.TogglePanelCommand}"
+                          ToolTip="Docked side panel — on-device chat for the selected project." />
                 <MenuItem Header="_Loop closure assistant…" Command="{Binding ShowLoopClosureAssistantCommand}" />
                 <Separator />
                 <MenuItem Header="Publication _sheet…" Command="{Binding OpenPublicationSheetCommand}"
@@ -195,6 +197,8 @@
                 <Button Content="Public Library" Command="{Binding OpenPublicLibraryCatalogCommand}"
                         Click="OpenPublicLibraryToolbar_Click"
                         ToolTip="Browse published caves in-app (WebView2 · Google sign-in)" Padding="10,6" />
+                <Button Content="Assistant" Command="{Binding Assistant.TogglePanelCommand}"
+                        ToolTip="Docked Cave AI assistant (on-device Q&amp;A)" Padding="10,6" Margin="4,0,0,0" />
             </ToolBar>
         </ToolBarTray>
 
@@ -370,6 +374,7 @@
                         <ColumnDefinition Width="280" />
                         <ColumnDefinition Width="6" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <DockPanel Grid.Column="0">
@@ -688,6 +693,10 @@
                             </ScrollViewer>
                         </TabItem>
                         </TabControl>
+
+                        <views:CaveAiAssistantPanel Grid.Column="3" Width="320"
+                                                    DataContext="{Binding Assistant}"
+                                                    Visibility="{Binding Assistant.PanelVisible, Converter={StaticResource BoolToVisibility}}" />
 
                         <Border Panel.ZIndex="2"
                                 Background="{DynamicResource Cave.Background}"
