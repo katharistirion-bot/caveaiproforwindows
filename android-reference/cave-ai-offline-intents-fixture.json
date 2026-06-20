@@ -187,6 +187,26 @@
         "entranceGpsLocked": true
       },
       "expectedContains": ["clino", "-25"]
+    },
+    {
+      "intentId": "loop_misclosure",
+      "query": "what is the loop misclosure",
+      "project": {
+        "name": "Loop Demo",
+        "surveySiteType": "CAVE",
+        "alt": 100,
+        "shots": [
+          { "fromStation": "A1", "toStation": "A2", "distance": 10, "azimuth": 0, "clino": 0 },
+          { "fromStation": "A2", "toStation": "A3", "distance": 10, "azimuth": 90, "clino": 0 },
+          { "fromStation": "A3", "toStation": "A1", "distance": 14.2, "azimuth": 225, "clino": 0 }
+        ]
+      },
+      "telemetry": {
+        "distEntranceM": 0,
+        "pendingGeoSamples": 0,
+        "entranceGpsLocked": true
+      },
+      "expectedContains": ["loop", "|Δ|", "m"]
     }
   ]
 }

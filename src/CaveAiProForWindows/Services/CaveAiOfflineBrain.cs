@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.SurveyAnalysis;
 
 namespace CaveAiProForWindows.Services;
 
@@ -50,6 +51,9 @@ public static class CaveAiOfflineBrain
                 return $"Latest main clino is {lastMain.Clino.ToString("0.#", CultureInfo.InvariantCulture)}° ({lastMain.FromStation}→{lastMain.ToStation}).";
             return "Log main legs to record clino per leg; none yet.";
         }
+
+        if (IsLoopMisclosureQuery(q))
+            return BuildLoopMisclosureAnswer(project);
 
         if (ContainsAny(q, "depth", "deep", "vertical"))
             return $"Max depth span vs entrance ~{maxDepth.ToString("0.#", CultureInfo.InvariantCulture)} m.";
@@ -227,6 +231,40 @@ public static class CaveAiOfflineBrain
     private static bool IsClinoQuery(string q) =>
         (ContainsAny(q, "clino", "inclination", "slope", "grade") || q.Contains("latest clino")) &&
         !ContainsAny(q, "rope", "rig", "descend", "srt", "harness");
+
+    private static bool IsLoopMisclosureQuery(string q) =>
+        ContainsAny(q, "loop", "closure", "misclosure") ||
+        q.Contains("loop closure") ||
+        q.Contains("loop quality");
+
+    private static string BuildLoopMisclosureAnswer(CaveProjectDocument project)
+    {
+        var loops = SurveyLoopClosureAdjuster.DetectLoops(project);
+        if (loops.Count == 0)
+            return "No traverse loops detected yet — log closing shots to known stations to measure misclosure.";
+
+        var worst = loops.OrderByDescending(l => l.MisclosureMeters).First();
+        var inv = CultureInfo.InvariantCulture;
+        var severity = LoopClosureSeverityClassifier.SeverityCaption(LoopClosureSeverityClassifier.Classify(worst.MisclosureMeters));
+        var headline = $"{loops.Count} loop{(loops.Count == 1 ? "" : "s")} — worst |Δ|={worst.MisclosureMeters.ToString("0.##", inv)} m ({severity})";
+        var ppm = worst.TotalLegLength > 0
+            ? (worst.MisclosureMeters / worst.TotalLegLength) * 1_000_000
+            : 0;
+        var cycle = string.Join("→", worst.Stations);
+        var sb = new System.Text.StringBuilder(headline);
+        sb.Append(". Worst cycle: ").Append(cycle);
+        sb.Append("; path ~").Append(worst.TotalLegLength.ToString("0.#", inv)).Append(" m");
+        if (ppm > 0)
+            sb.Append(", ~").Append(ppm.ToString("0", inv)).Append(" ppm");
+        sb.Append('.');
+        if (loops.Count > 1)
+        {
+            var total = loops.Sum(l => l.MisclosureMeters);
+            sb.Append(" Total |Δ| across ").Append(loops.Count).Append(" loop(s): ~")
+                .Append(total.ToString("0.##", inv)).Append(" m.");
+        }
+        return sb.ToString();
+    }
 
     private static double ComputeRoughVolumeM3(CaveProjectDocument project)
     {

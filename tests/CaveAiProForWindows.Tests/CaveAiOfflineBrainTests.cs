@@ -114,6 +114,24 @@ public sealed class CaveAiOfflineBrainTests
     }
 
     [TestMethod]
+    public void Answer_loopMisclosure_reportsDetectedLoop()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Loop Demo",
+            Shots =
+            [
+                new ShotRecord { FromStation = "A1", ToStation = "A2", Distance = 10, Azimuth = 0, Clino = 0 },
+                new ShotRecord { FromStation = "A2", ToStation = "A3", Distance = 10, Azimuth = 90, Clino = 0 },
+                new ShotRecord { FromStation = "A3", ToStation = "A1", Distance = 14.2f, Azimuth = 225, Clino = 0 },
+            ],
+        };
+        var reply = CaveAiOfflineBrain.Answer(project, "what is the loop misclosure");
+        StringAssert.Contains(reply, "loop");
+        StringAssert.Contains(reply, "m");
+    }
+
+    [TestMethod]
     public void Fixture_cases_produceExpectedAnswerFragments()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "android-reference", "cave-ai-offline-intents-fixture.json");
