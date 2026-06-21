@@ -28,8 +28,6 @@ public static class PublicLibraryCatalog
 
     public static string WebMapUrl => WebOrigin + "/map";
 
-    public static string WebCaveAiUrl => WebOrigin + "/ai";
-
     public static string WebBrowseUrl => WebMapUrl;
 
     /// <summary>Appends <c>?embed=windows</c> so the web portal uses redirect sign-in inside WebView2.</summary>
@@ -44,8 +42,6 @@ public static class PublicLibraryCatalog
     }
 
     public static string WebMapUrlEmbedded => WithEmbed(WebMapUrl);
-
-    public static string WebCaveAiUrlEmbedded => WithEmbed(WebCaveAiUrl);
 
     /// <summary>Secure desktop auth endpoint for WebView2 postMessage token delivery.</summary>
     public static string DesktopAuthUrl
@@ -119,9 +115,6 @@ public static class PublicLibraryCatalog
     public static void ShowNativeReferenceCatalog(System.Windows.Window? owner) =>
         Views.ReferenceCatalogWindow.ShowSingleton(owner);
 
-    public static void ShowCaveAiInAppWindow(System.Windows.Window? owner) =>
-        ShowInAppWindow(owner, WebCaveAiUrlEmbedded);
-
     public static void OpenMap()
     {
         if (MicrosoftTestMode.IsActive)
@@ -135,14 +128,6 @@ public static class PublicLibraryCatalog
         }
 
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(WebMapUrlEmbedded)
-        {
-            UseShellExecute = true,
-        });
-    }
-
-    public static void OpenCaveAi()
-    {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(WebCaveAiUrlEmbedded)
         {
             UseShellExecute = true,
         });

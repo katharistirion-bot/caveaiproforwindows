@@ -157,6 +157,25 @@ public sealed class CloudPublishService
 
         progress?.Report("Updating Firestore published cave…");
         ReferenceSurveyLinkService.TryGetLink(bundle.Project, out var refLink);
+
+        string? publishedCaveName = null;
+        try
+        {
+            var existing = await _rest.GetPublishedCaveDocumentAsync(
+                    bundle.PublishedCaveDocId.Trim(),
+                    token,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            publishedCaveName = existing.CaveName;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not read published cave name for search key: {ex.Message}");
+        }
+
+        if (string.IsNullOrWhiteSpace(publishedCaveName))
+            publishedCaveName = CaveProjectDisplayNames.GetDisplayName(bundle.Project);
+
         var metadata = new CloudPublishMetadata
         {
             PublishedCaveDocId = bundle.PublishedCaveDocId.Trim(),
@@ -168,6 +187,7 @@ public sealed class CloudPublishService
             SurveyArchiveSchemaVersion = bundle.Project.SurveyArchiveSchemaVersion,
             ReferenceCatalogId = refLink?.Id,
             ReferenceCatalogCountry = refLink?.Country,
+            CaveNameSearchKey = PublicLibrarySearchKey.FromCaveName(publishedCaveName),
             UpdatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         };
 

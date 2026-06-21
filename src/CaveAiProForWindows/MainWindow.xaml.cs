@@ -438,19 +438,6 @@ public partial class MainWindow : Window
         FieldTripPlannerWindow.Show(this);
     }
 
-    private void OpenWebCaveAiExternal_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            PublicLibraryCatalog.OpenCaveAi();
-        }
-        catch (Exception ex)
-        {
-            System.Windows.MessageBox.Show(this, ex.Message, "Cave AI", MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-        }
-    }
-
     private void OpenDataInspector_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm && !vm.LegalTermsAccepted)

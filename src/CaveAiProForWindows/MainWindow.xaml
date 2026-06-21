@@ -89,10 +89,6 @@
                           ToolTip="Summary, raw JSON scan, QC, shots table, catalog, ZIP archive, integrity — same panels as before, in a separate window." />
                 <MenuItem Header="_Compare two backups…" Command="{Binding CompareBackupsCommand}" />
                 <MenuItem Header="Survey _diff (legs/stations)…" Command="{Binding CompareSurveysCommand}" />
-                <MenuItem Header="Cave AI offline _Q&amp;A…" Command="{Binding ShowOfflineCaveAiQaCommand}"
-                          ToolTip="Rule-based answers from the selected project (depth, traverse, site type) — no Cloud AI." />
-                <MenuItem Header="Cave AI _assistant panel" Command="{Binding Assistant.TogglePanelCommand}"
-                          ToolTip="Docked side panel — on-device chat for the selected project." />
                 <MenuItem Header="_Loop closure assistant…" Command="{Binding ShowLoopClosureAssistantCommand}" />
                 <Separator />
                 <MenuItem Header="Publication _sheet…" Command="{Binding OpenPublicationSheetCommand}"
@@ -121,12 +117,8 @@
                           ToolTip="Browse community-published caves in-app (WebView2 · Google sign-in)." />
                 <MenuItem Header="_Download from Public Library…" Command="{Binding DownloadPublicLibraryBackupCommand}"
                           ToolTip="Fetch surveyJsonUrl + cartography assets into a local .zip or .json backup." />
-                <MenuItem Header="Cave _AI on web…" Command="{Binding OpenWebCaveAiCommand}"
-                          ToolTip="Open CaveAI assistant page in-app (same portal as website /ai)." />
                 <MenuItem Header="Public Library in _browser…" Click="OpenPublicLibraryExternal_Click"
                           ToolTip="Open the web map in your default browser." />
-                <MenuItem Header="Cave AI in _browser…" Click="OpenWebCaveAiExternal_Click"
-                          ToolTip="Open /ai in your default browser." />
                 <Separator />
                 <MenuItem x:Name="MenuCheckUpdates" Header="Check for _updates…" Command="{Binding CheckForUpdatesCommand}"
                           ToolTip="Check GitHub Releases (Velopack Setup.exe install gets in-app updates; MSI opens release page)" />
@@ -197,8 +189,6 @@
                 <Button Content="Public Library" Command="{Binding OpenPublicLibraryCatalogCommand}"
                         Click="OpenPublicLibraryToolbar_Click"
                         ToolTip="Browse published caves in-app (WebView2 · Google sign-in)" Padding="10,6" />
-                <Button Content="Assistant" Command="{Binding Assistant.TogglePanelCommand}"
-                        ToolTip="Docked Cave AI assistant (on-device Q&amp;A)" Padding="10,6" Margin="4,0,0,0" />
             </ToolBar>
         </ToolBarTray>
 
@@ -374,7 +364,6 @@
                         <ColumnDefinition Width="280" />
                         <ColumnDefinition Width="6" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <DockPanel Grid.Column="0">
@@ -693,10 +682,6 @@
                             </ScrollViewer>
                         </TabItem>
                         </TabControl>
-
-                        <views:CaveAiAssistantPanel Grid.Column="3" Width="320"
-                                                    DataContext="{Binding Assistant}"
-                                                    Visibility="{Binding Assistant.PanelVisible, Converter={StaticResource BoolToVisibility}}" />
 
                         <Border Panel.ZIndex="2"
                                 Background="{DynamicResource Cave.Background}"

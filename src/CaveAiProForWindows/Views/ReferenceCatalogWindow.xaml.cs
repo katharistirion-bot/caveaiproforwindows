@@ -1,3 +1,5 @@
+using System.Threading;
+
 using System.Windows;
 
 using System.Windows.Controls;
@@ -16,6 +18,8 @@ using CaveAiProForWindows.Services.FieldTrip;
 
 using CaveAiProForWindows.Services.Favorites;
 using CaveAiProForWindows.Services.ReferenceCatalog;
+
+using System.Windows.Threading;
 
 using CaveAiProForWindows.ViewModels;
 
@@ -47,6 +51,10 @@ public partial class ReferenceCatalogWindow : Window
 
     private bool _nearMeLocating;
 
+    private readonly DispatcherTimer _searchDebounceTimer;
+
+    private int _filterGeneration;
+
 
 
     public ReferenceCatalogWindow()
@@ -55,7 +63,27 @@ public partial class ReferenceCatalogWindow : Window
 
         InitializeComponent();
 
-        SearchBox.TextChanged += (_, _) => ApplyFilter();
+        _searchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
+
+        _searchDebounceTimer.Tick += (_, _) =>
+
+        {
+
+            _searchDebounceTimer.Stop();
+
+            ApplyFilter();
+
+        };
+
+        SearchBox.TextChanged += (_, _) =>
+
+        {
+
+            _searchDebounceTimer.Stop();
+
+            _searchDebounceTimer.Start();
+
+        };
 
         CountryCombo.SelectionChanged += (_, _) => ApplyFilter();
 
@@ -317,54 +345,81 @@ public partial class ReferenceCatalogWindow : Window
 
     {
 
+        var generation = Interlocked.Increment(ref _filterGeneration);
+
         var nearMe = NearMeCheck.IsChecked == true;
 
-        DistanceColumn.Visibility = nearMe ? Visibility.Visible : Visibility.Collapsed;
+        var country = CountryCombo.SelectedItem as string;
 
+        var richMetadataOnly = RichMetadataOnlyCheck.IsChecked == true;
 
-
-        double? nearLat = null;
-
-        double? nearLon = null;
+        var searchText = SearchBox.Text;
 
         var radiusKm = RadiusSlider.Value;
+
+        var favoritesOnly = FavoritesOnlyCheck.IsChecked == true;
+
+        var favIds = favoritesOnly ? _favorites.CachedFavoriteIds : null;
+
+        var entries = _allEntries;
+
+        var nearMeLocating = _nearMeLocating;
+
+        var nearMeOrigin = _nearMeOrigin ?? TryGetProjectNearMeOrigin();
+
+
+
+        DistanceColumn.Visibility = nearMe ? Visibility.Visible : Visibility.Collapsed;
 
         RadiusLabel.Text = $"{radiusKm:0} km";
 
 
 
         if (nearMe)
+
         {
-            if (_nearMeLocating)
+
+            if (nearMeLocating)
+
             {
+
                 if (StatusText.Text is not { Length: > 0 } s || !s.StartsWith("Near me:", StringComparison.Ordinal))
+
                     StatusText.Text = "Near me: getting Windows location…";
+
                 ResultsGrid.ItemsSource = Array.Empty<ReferenceCatalogRow>();
+
                 return;
+
             }
 
-            var origin = _nearMeOrigin ?? TryGetProjectNearMeOrigin();
-            if (origin == null)
+
+
+            if (nearMeOrigin == null)
+
             {
+
                 StatusText.Text = "Near me: allow location access or open a survey project with entrance GPS.";
+
                 ResultsGrid.ItemsSource = Array.Empty<ReferenceCatalogRow>();
+
                 return;
+
             }
 
-            nearLat = origin.Lat;
-            nearLon = origin.Lon;
         }
 
 
 
-        var country = CountryCombo.SelectedItem as string;
-        var richMetadataOnly = RichMetadataOnlyCheck.IsChecked == true;
-
-        if (!ReferenceCatalogSearch.ShouldRunSearch(SearchBox.Text, country, nearMe, richMetadataOnly))
+        if (!ReferenceCatalogSearch.ShouldRunSearch(searchText, country, nearMe, richMetadataOnly))
 
         {
 
-            ResultsGrid.ItemsSource = BuildRows(_allEntries.Take(200).ToList(), nearLat, nearLon, nearMe);
+            ResultsGrid.ItemsSource = BuildRows(entries.Take(200).ToList(), nearMeOrigin?.Lat, nearMeOrigin?.Lon, nearMe);
+
+            if (MainTabs.SelectedIndex == 1)
+
+                DrawMap();
 
             return;
 
@@ -372,36 +427,72 @@ public partial class ReferenceCatalogWindow : Window
 
 
 
-        var filtered = ReferenceCatalogSearch.Filter(
+        _ = Task.Run(() =>
 
-            _allEntries,
-
-            SearchBox.Text,
-
-            country,
-
-            nearLat,
-
-            nearLon,
-
-            nearRadiusKm: radiusKm,
-            richMetadataOnly: richMetadataOnly);
-
-        if (FavoritesOnlyCheck.IsChecked == true)
         {
-            var favIds = _favorites.CachedFavoriteIds;
-            filtered = filtered.Where(e => favIds.Contains(e.Id)).ToList();
-        }
 
-        ResultsGrid.ItemsSource = BuildRows(filtered, nearLat, nearLon, nearMe);
+            var filtered = ReferenceCatalogSearch.Filter(
 
-        if (nearMe && nearLat.HasValue && nearLon.HasValue)
+                entries,
+
+                searchText,
+
+                country,
+
+                nearMe ? nearMeOrigin?.Lat : null,
+
+                nearMe ? nearMeOrigin?.Lon : null,
+
+                nearRadiusKm: radiusKm,
+
+                richMetadataOnly: richMetadataOnly);
+
+            if (favoritesOnly && favIds != null)
+
+                filtered = filtered.Where(e => favIds.Contains(e.Id)).ToList();
+
+            var rows = BuildRows(filtered, nearMeOrigin?.Lat, nearMeOrigin?.Lon, nearMe);
+
+            return (rows, filtered.Count, nearMe, nearMeOrigin, radiusKm);
+
+        }).ContinueWith(t =>
+
         {
-            var source = _nearMeOrigin?.SourceLabel ?? TryGetProjectNearMeOrigin()?.SourceLabel ?? "GPS";
-            StatusText.Text = $"Near me ({source}): {filtered.Count} caves within {radiusKm:0} km.";
-        }
 
-        DrawMap();
+            if (generation != _filterGeneration || t.IsFaulted)
+
+                return;
+
+            var (rows, count, nearMeActive, origin, radius) = t.Result;
+
+            Dispatcher.Invoke(() =>
+
+            {
+
+                if (generation != _filterGeneration)
+
+                    return;
+
+                ResultsGrid.ItemsSource = rows;
+
+                if (nearMeActive && origin != null)
+
+                {
+
+                    var source = origin.SourceLabel ?? "GPS";
+
+                    StatusText.Text = $"Near me ({source}): {count} caves within {radius:0} km.";
+
+                }
+
+                if (MainTabs.SelectedIndex == 1)
+
+                    DrawMap();
+
+            });
+
+        }, TaskScheduler.Default);
+
     }
 
 

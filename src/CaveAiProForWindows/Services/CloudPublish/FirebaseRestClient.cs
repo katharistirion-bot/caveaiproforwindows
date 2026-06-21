@@ -157,6 +157,8 @@ public sealed class FirebaseRestClient : IDisposable
             pairs.Add(new("referenceCatalogId", metadata.ReferenceCatalogId.Trim()));
         if (!string.IsNullOrWhiteSpace(metadata.ReferenceCatalogCountry))
             pairs.Add(new("referenceCatalogCountry", metadata.ReferenceCatalogCountry.Trim()));
+        if (!string.IsNullOrWhiteSpace(metadata.CaveNameSearchKey))
+            pairs.Add(new("caveNameSearchKey", metadata.CaveNameSearchKey.Trim()));
 
         var fields = FirestoreFieldBuilder.BuildFields(pairs);
         var docPath = $"published_caves/{metadata.PublishedCaveDocId.Trim()}";
@@ -314,7 +316,7 @@ public sealed class FirebaseRestClient : IDisposable
             SurveyJsonUrl = ReadString("surveyJsonUrl"),
             SurveyJsonMediaUrl = ReadString("surveyJsonMediaUrl"),
             CartographyImageUrls = ReadStringArray("cartographyImageUrls"),
-            CaveName = ReadString("name") ?? ReadString("caveName"),
+            CaveName = ReadString("caveName"),
         };
     }
 

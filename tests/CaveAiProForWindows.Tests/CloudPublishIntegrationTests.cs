@@ -20,6 +20,7 @@ public sealed class CloudPublishIntegrationTests
         var handler = new RecordingHttpHandler();
         handler.Enqueue(HttpStatusCode.OK, """{"name":"users/uid123/desktop_publishes/s1/cave/ai_map.png","bucket":"b.appspot.com","downloadTokens":"tok1"}""");
         handler.Enqueue(HttpStatusCode.OK, """{"name":"users/uid123/desktop_publishes/s1/cave/data.json","bucket":"b.appspot.com","downloadTokens":"tok2"}""");
+        handler.Enqueue(HttpStatusCode.OK, """{"fields":{"caveName":{"stringValue":"Demo Cave"}}}""");
         handler.Enqueue(HttpStatusCode.OK, "{}");
 
         var cache = new FirebaseAuthTokenCache();
@@ -38,10 +39,12 @@ public sealed class CloudPublishIntegrationTests
         var metadata = await service.PublishAsync(bundle, token!);
         Assert.AreEqual("caveDoc1", metadata.PublishedCaveDocId);
         Assert.IsTrue(metadata.CartographyImageUrls?[0].Contains("token=tok1", StringComparison.Ordinal));
-        Assert.AreEqual(3, handler.Requests.Count);
+        Assert.AreEqual(4, handler.Requests.Count);
         StringAssert.Contains(handler.Requests[0].Uri, "firebasestorage.googleapis.com");
         StringAssert.Contains(handler.Requests[2].Uri, "published_caves/caveDoc1");
-        Assert.AreEqual("PATCH", handler.Requests[2].Method);
+        Assert.AreEqual("GET", handler.Requests[2].Method);
+        StringAssert.Contains(handler.Requests[3].Uri, "published_caves/caveDoc1");
+        Assert.AreEqual("PATCH", handler.Requests[3].Method);
     }
 
     [TestMethod]

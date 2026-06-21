@@ -227,8 +227,6 @@ public partial class MainViewModel : ObservableObject
     /// <summary>True when no survey file and no Android Cave Library snapshot — welcome overlay.</summary>
     public bool HasNoProjects => Projects.Count == 0 && _knownCaveMaster.Count == 0;
 
-    public CaveAiAssistantViewModel Assistant { get; } = new();
-
     public MainViewModel()
     {
         foreach (var p in RecentPathsStore.Load())
@@ -238,10 +236,6 @@ public partial class MainViewModel : ObservableObject
         HookProjectListViewFilter(Projects);
         RefreshSurveyQcIssueRows();
         NotifyLegalGateCommands();
-        Assistant.Attach(
-            () => SelectedProject,
-            () => _knownCaveMaster,
-            () => CloudPublishWebViewHost.TokenCache.TryGetUsableToken() != null);
     }
 
     partial void OnLegalTermsAcceptedChanged(bool value)
@@ -316,7 +310,6 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = value == null
             ? "No project selected."
             : FormatSelectedProjectStatus(value);
-        Assistant.NotifyProjectChanged();
     }
 
     private static string FormatSelectedProjectStatus(CaveProjectDocument project)
@@ -691,28 +684,6 @@ public partial class MainViewModel : ObservableObject
                 Wpf.Application.Current.MainWindow,
                 ex.Message,
                 "Public Cave Library",
-                Wpf.MessageBoxButton.OK,
-                Wpf.MessageBoxImage.Warning);
-        }
-    }
-
-    [RelayCommand]
-    private void OpenWebCaveAi()
-    {
-        if (TryNotifyCloudBlockedInTestMode("Cave AI"))
-            return;
-
-        try
-        {
-            PublicLibraryCatalog.ShowCaveAiInAppWindow(Wpf.Application.Current.MainWindow);
-            StatusMessage = $"Cave AI web · {PublicLibraryCatalog.WebOrigin}";
-        }
-        catch (Exception ex)
-        {
-            Wpf.MessageBox.Show(
-                Wpf.Application.Current.MainWindow,
-                ex.Message,
-                "Cave AI",
                 Wpf.MessageBoxButton.OK,
                 Wpf.MessageBoxImage.Warning);
         }
@@ -1876,15 +1847,6 @@ public partial class MainViewModel : ObservableObject
             return;
         var owner = Wpf.Application.Current.MainWindow;
         new LoopClosureAssistantWindow(SelectedProject) { Owner = owner }.ShowDialog();
-    }
-
-    [RelayCommand(CanExecute = nameof(CanShowLoopClosureAssistant))]
-    private void ShowOfflineCaveAiQa()
-    {
-        if (SelectedProject == null)
-            return;
-        var owner = Wpf.Application.Current.MainWindow;
-        new CaveAiOfflineQaWindow(SelectedProject, _knownCaveMaster) { Owner = owner }.ShowDialog();
     }
 
     private bool CanShowLoopClosureAssistant() => LegalTermsGateOpen() && SelectedProject != null;
