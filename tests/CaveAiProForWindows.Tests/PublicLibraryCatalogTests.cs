@@ -38,4 +38,21 @@ public class PublicLibraryCatalogTests
             Environment.SetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN", env);
         }
     }
+
+    [TestMethod]
+    public void WebExploreMapUrlEmbedded_includes_embed_and_path()
+    {
+        var env = Environment.GetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN");
+        try
+        {
+            Environment.SetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN", "https://test.example");
+            var url = PublicLibraryCatalog.WebExploreMapUrlEmbedded;
+            StringAssert.Contains(url, "view=explore");
+            StringAssert.Contains(url, "embed=windows");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN", env);
+        }
+    }
 }

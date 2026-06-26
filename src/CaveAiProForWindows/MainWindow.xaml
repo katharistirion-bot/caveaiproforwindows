@@ -39,6 +39,9 @@
                 <MenuItem Header="Show in _Explorer" Command="{Binding RevealCurrentFileInExplorerCommand}"
                           ToolTip="Select the open .json or .zip in File Explorer" />
                 <Separator />
+                <MenuItem Header="_Open from cloud…" Command="{Binding OpenSurveyProjectFromCloudCommand}"
+                          ToolTip="Import a private survey synced from CaveAI Pro (Android) via Survey Cloud." />
+                <Separator />
                 <MenuItem x:Name="MenuSave" Header="_Save project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S"
                           ToolTip="Write sketch mapObjects, AI assets, and all loaded projects back to the open .json or .zip file" />
                 <Separator />
@@ -90,17 +93,14 @@
                 <MenuItem Header="_Compare two backups…" Command="{Binding CompareBackupsCommand}" />
                 <MenuItem Header="Survey _diff (legs/stations)…" Command="{Binding CompareSurveysCommand}" />
                 <MenuItem Header="_Loop closure assistant…" Command="{Binding ShowLoopClosureAssistantCommand}" />
+                <MenuItem Header="{x:Static loc:AppStrings.MenuDesignPlanFromSurvey}" Command="{Binding OpenDesignFromSurveyCommand}"
+                          ToolTip="Open Sketch Editor and generate LRUD wall outlines + symbols from traverse (cartography → plan design)" />
                 <Separator />
                 <MenuItem Header="Publication _sheet…" Command="{Binding OpenPublicationSheetCommand}"
                           ToolTip="Composite survey presentation (elevation + plan + optional 3D) in a separate window — does not change existing map tabs." />
                 <Separator />
                 <MenuItem Header="_Share for collaboration…" Command="{Binding ShareCollaborationCommand}"
                           ToolTip="Create shared Firestore project — team comments + mobile push" />
-                <Separator />
-                <MenuItem Header="Re-_publish to Public Library…" Command="{Binding RepublishToCloudCommand}"
-                          ToolTip="Update cartographyImageUrls on the linked published_caves document when AI render exists." />
-                <MenuItem Header="Re-publish _all with AI…" Command="{Binding RepublishAllWithAiCommand}" />
-                <MenuItem Header="Batch _AI render…" Command="{Binding BatchAiRenderCommand}" />
                 <Separator />
                 <MenuItem Header="Reference vs _community compare…" Command="{Binding CompareReferenceCommunityCommand}" />
                 <MenuItem Header="Survey vs _reference link…" Command="{Binding CompareSurveyToReferenceLinkCommand}"
@@ -115,6 +115,8 @@
                           ToolTip="Native reference catalog (60k+ caves) — cached from caveaipro.com." />
                 <MenuItem Header="Public Library _WebView…" Click="OpenPublicLibraryWebView_Click"
                           ToolTip="Browse community-published caves in-app (WebView2 · Google sign-in)." />
+                <MenuItem Header="{x:Static loc:AppStrings.MenuExploreMap}" Click="OpenExploreMapWebView_Click"
+                          ToolTip="Terrain explore map for reference cave discovery (WebView2)." />
                 <MenuItem Header="_Download from Public Library…" Command="{Binding DownloadPublicLibraryBackupCommand}"
                           ToolTip="Fetch surveyJsonUrl + cartography assets into a local .zip or .json backup." />
                 <MenuItem Header="Public Library in _browser…" Click="OpenPublicLibraryExternal_Click"
@@ -126,11 +128,6 @@
                           ToolTip="Opens %LOCALAPPDATA%\CaveAiProForWindows (startup.log, last-error.txt)" />
                 <MenuItem Header="{x:Static loc:AppStrings.MenuExportDiagnosticBundle}" Command="{Binding ExportDiagnosticBundleCommand}"
                           ToolTip="Zip logs and redacted ui-settings for support." />
-                <MenuItem x:Name="ApiSettingsMenuItem" Header="_Developer API Settings (Replicate)…"
-                          Click="OpenApiSettings_Click"
-                          ToolTip="Developer only — local Replicate API token (CAVEAIPRO_REPLICATE_BYOK=1)"
-                          Visibility="Collapsed" />
-                <Separator x:Name="ApiSettingsMenuSeparator" Visibility="Collapsed" />
                 <MenuItem x:Name="MenuIntroVideo" Header="_Intro video…" Click="ReplayIntroVideo_Click"
                           ToolTip="Replay the CAVE AI PRO intro (Skip anytime with Esc)" />
                 <MenuItem x:Name="MenuAbout" Header="_About" Command="{Binding AboutCommand}" InputGestureText="F1" />
@@ -155,7 +152,7 @@
                         Click="LegalRequiredOverlay_GoToLegal_Click" />
                 <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
                            Foreground="{DynamicResource Cave.TextMuted}"
-                           Text="Accept the End User License Agreement on the LEGAL &amp; SETTINGS tab before export, cloud publish, collaboration, or generative AI features." />
+                           Text="Accept the End User License Agreement on the LEGAL &amp; SETTINGS tab before export, cloud publish, or collaboration." />
             </DockPanel>
         </Border>
 
@@ -217,6 +214,11 @@
                 </StackPanel>
             </StatusBarItem>
             <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding FooterContextLine}" TextTrimming="CharacterEllipsis" MaxWidth="360"
+                           Foreground="{DynamicResource Cave.TextSubdued}" ToolTip="Android sync folder, subscription, last backup age" />
+            </StatusBarItem>
+            <Separator />
             <StatusBarItem HorizontalAlignment="Right">
                 <TextBlock Text="{Binding SourcePathDisplay}" TextTrimming="CharacterEllipsis" MaxWidth="420"
                            Foreground="{DynamicResource Cave.TextSubdued}" />
@@ -243,6 +245,22 @@
                             Command="{Binding DismissAccountBannerCommand}" />
                 </StackPanel>
                 <TextBlock Text="{Binding AccountBannerMessage}" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="#FFE2E8F0" Margin="0,0,12,0" />
+            </DockPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Top" Padding="10,8" Margin="0"
+                Background="#FF312E81" BorderBrush="#FF6366F1" BorderThickness="0,0,0,1"
+                Visibility="{Binding UpdateAvailableBannerVisible, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="{x:Static loc:AppStrings.UpdateAvailableOpenRelease}" Padding="12,5" Margin="0,0,8,0"
+                            Command="{Binding OpenPendingReleasePageCommand}"
+                            Style="{StaticResource Cave.AccentButton}" />
+                    <Button Content="{x:Static loc:AppStrings.UpdateAvailableDismiss}" Padding="12,5"
+                            Command="{Binding DismissUpdateAvailableBannerCommand}" />
+                </StackPanel>
+                <TextBlock Text="{Binding UpdateAvailableBannerMessage}" TextWrapping="Wrap" VerticalAlignment="Center"
                            Foreground="#FFE2E8F0" Margin="0,0,12,0" />
             </DockPanel>
         </Border>
@@ -457,8 +475,11 @@
                                                       Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
                                                       ZipPath="{Binding DataContext.ActiveZipPathForMaps, ElementName=Shell}" />
                         </TabItem>
-                        <TabItem Header="X-RAY" x:Name="XRayTab" ToolTip="Geo-calibrated satellite map: bounding-box alignment, zoom/pan, station pick syncs Plan/Section, AI render overlay">
+                        <TabItem Header="X-RAY" x:Name="XRayTab" ToolTip="Geo-calibrated satellite map: bounding-box alignment, zoom/pan, station pick syncs Plan/Section">
                             <ContentControl x:Name="XRayTabHost" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
+                        </TabItem>
+                        <TabItem Header="SURFACE" x:Name="SurfaceTab" ToolTip="MapLibre surface map around cave entrance — OSM basemap, hillshade/terrain, entrance pin">
+                            <ContentControl x:Name="SurfaceTabHost" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
                         </TabItem>
                         <TabItem Header="PLAN 2-TONE" ToolTip="Two-tone walls, dark canvas">
                             <views:PlanView VerticalAlignment="Stretch"
@@ -503,18 +524,26 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,8"
                                            Foreground="{DynamicResource Cave.TextMuted}" FontSize="12.5"
                                            Text="Traverse statistics (readonly box) mirror TraverseQcStats.BuildSummaryText. The DataGrid is bound to SurveyQcIssueRows — populated by TraverseQcStats.BuildSurveyQcIssueRows for the selected project (duplicate legs, disconnected components, bidirectional pairs, etc.). All processing is local to this Windows WPF app." />
-                                <TextBox Grid.Row="1" Text="{Binding StatisticsText, Mode=OneWay}" IsReadOnly="True"
+                                <Border Grid.Row="1" Margin="0,0,0,8" Padding="10,8" CornerRadius="6"
+                                        Background="{DynamicResource Cave.BannerTint}"
+                                        BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+                                    <TextBlock Text="{Binding OfflineBrainHintText, Mode=OneWay}" TextWrapping="Wrap"
+                                               FontSize="11.5" Foreground="{DynamicResource Cave.TextMuted}"
+                                               ToolTip="On-device survey hints (no cloud AI)" />
+                                </Border>
+                                <TextBox Grid.Row="2" Text="{Binding StatisticsText, Mode=OneWay}" IsReadOnly="True"
                                          TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
                                          MinHeight="120" MaxHeight="220" Margin="0,0,0,10" Padding="8"
                                          FontFamily="Consolas" FontSize="12"
                                          Background="{DynamicResource Cave.Surface}" Foreground="{DynamicResource Cave.Text}"
                                          BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" />
-                                <DataGrid Grid.Row="2" ItemsSource="{Binding SurveyQcIssueRows}" AutoGenerateColumns="False"
+                                <DataGrid Grid.Row="3" ItemsSource="{Binding SurveyQcIssueRows}" AutoGenerateColumns="False"
                                           IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                           Background="{DynamicResource Cave.Surface}"
@@ -527,8 +556,8 @@
                                 </DataGrid>
                             </Grid>
                         </TabItem>
-                        <TabItem Header="SKETCH EDITOR"
-                                 ToolTip="Plan survey as base map — draw and stamp symbols on a transparent overlay (same pan/zoom as PLAN)">
+                        <TabItem x:Name="SketchEditorTabItem" Header="SKETCH EDITOR"
+                                 ToolTip="Plan survey as base map — draw and stamp symbols on a transparent overlay (same pan/zoom as PLAN). After cartography, use Procedural Assist for LRUD walls.">
                             <views:SketchEditorView x:Name="SketchEditorControl" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                                                     VisualizationMode="{x:Static services:SurveyVisualizationMode.Standard}"
                                                     Project="{Binding DataContext.SelectedProject, ElementName=Shell}"
@@ -536,8 +565,8 @@
                                                     MapRows="{Binding DataContext.MapAssetRows, ElementName=Shell}"
                                                     MapInventory="{Binding DataContext.MapInventoryRows, ElementName=Shell}" />
                         </TabItem>
-                        <TabItem Header="AI ANALYTICS"
-                                 ToolTip="Offline QC statistics, LRUD-based volumetric geometry, and local topological lead hints — all on this PC, no cloud LLMs">
+                        <TabItem Header="SURVEY INTELLIGENCE"
+                                 ToolTip="Offline survey dashboard — project health, Android sync, backup diff, batch QC, and rule-based insights (no cloud AI)">
                             <Grid>
                                 <views:AiAnalyticsView VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                                                       Project="{Binding DataContext.SelectedProject, ElementName=Shell}" />
@@ -606,9 +635,9 @@
                                                 <TextBlock TextWrapping="Wrap" FontSize="12"
                                                            Foreground="{DynamicResource Cave.TextMuted}"
                                                            Text="{x:Static legal:LegalTexts.TrademarkNotice}" />
-                                                <TextBlock TextWrapping="Wrap" FontSize="11.5" Margin="0,8,0,0"
-                                                           Foreground="{DynamicResource Cave.TextSubdued}"
-                                                           Text="Publisher: Georgios Kourentzis · caveaipro@gmail.com · Document v1.2 (June 2026). Android and web editions use the same Developer and core safety terms." />
+                                                <TextBlock x:Name="LegalPublisherMetaText"
+                                                           TextWrapping="Wrap" FontSize="11.5" Margin="0,8,0,0"
+                                                           Foreground="{DynamicResource Cave.TextSubdued}" />
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -637,7 +666,7 @@
                                               Foreground="{DynamicResource Cave.Text}"
                                               IsChecked="{Binding DataContext.LegalTermsAccepted, ElementName=Shell, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                         <TextBlock TextWrapping="Wrap" MaxWidth="860"
-                                                   Text="I have read and accept the End User License Agreement (EULA). I acknowledge that Georgios Kourentzis owns all intellectual property in CAVE AI PRO and that my use is licensed, not a sale of ownership." />
+                                                   Text="I Agree and Accept the End User License Agreement (EULA). I acknowledge that Georgios Kourentzis owns all intellectual property in CAVE AI PRO and that my use is licensed, not a sale of ownership." />
                                     </CheckBox>
                                     <TextBlock Text="{Binding DataContext.ReferenceLinkSummary, ElementName=Shell}"
                                                TextWrapping="Wrap" Margin="0,0,0,12" FontSize="12"
@@ -651,7 +680,7 @@
                                                Foreground="{DynamicResource Cave.Text}" />
                                     <TextBlock TextWrapping="Wrap" FontSize="12.5" Margin="0,0,0,12"
                                                Foreground="{DynamicResource Cave.TextMuted}"
-                                               Text="CAVE AI PRO for Windows is an offline-first survey workstation. Core analytics and exports require no cloud APIs. Optional generative map rendering (Sketch Editor → AI Render) uses CaveAI Cloud AI when you are signed in with your CaveAI Pro Google account." />
+                                               Text="CAVE AI PRO for Windows is an offline-first survey workstation. Core analytics and exports require no cloud APIs." />
                                     <CheckBox x:Name="ShowReferencePinsSetting"
                                               Margin="0,0,0,8"
                                               FontSize="13"
@@ -664,20 +693,6 @@
                                               Foreground="{DynamicResource Cave.Text}"
                                               Content="Show reference catalog pins on PLAN tab (linked entrance + nearby cached index)"
                                               Click="ShowReferencePinsOnPlanSetting_Changed" />
-                                    <Separator Margin="0,8,0,16" />
-                                    <TextBlock Text="Generative AI (Cloud)" FontWeight="SemiBold" FontSize="14"
-                                               Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
-                                    <TextBlock TextWrapping="Wrap" FontSize="12.5" Margin="0,0,0,10"
-                                               Foreground="{DynamicResource Cave.TextMuted}"
-                                               Text="Sketch Editor → AI Render sends your structure mask and prompt to CaveAI cloud services (Replicate ControlNet). Sign in with the same Google account as CaveAI Pro on Android; an active subscription or trial is required." />
-                                    <TextBlock x:Name="ReplicateTokenStatusText" TextWrapping="Wrap" FontSize="12"
-                                               Foreground="{DynamicResource Cave.TextSubdued}" Margin="0,0,0,12" />
-                                    <Button x:Name="GenerativeAiApiSettingsButton" Content="Developer API Settings…"
-                                            Padding="14,8" HorizontalAlignment="Left"
-                                            Style="{StaticResource Cave.AccentButton}"
-                                            Click="OpenApiSettings_Click"
-                                            ToolTip="Developer only — local Replicate API token (CAVEAIPRO_REPLICATE_BYOK=1)"
-                                            Visibility="Collapsed" />
                                 </StackPanel>
                             </ScrollViewer>
                         </TabItem>

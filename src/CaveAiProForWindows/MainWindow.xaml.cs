@@ -8,7 +8,6 @@ using System.Windows.Media;
 using Microsoft.Win32;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.Auth;
-using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.Services.Localization;
 using CaveAiProForWindows.Services.Collaboration;
@@ -24,9 +23,13 @@ public partial class MainWindow : Window
     private PlanView? _planView;
     private PlanView? _model3DView;
     private OfflineXRayView? _xRayView;
+    private SurfaceMapView? _surfaceMapView;
     private bool _planTabInitialized;
     private bool _model3DTabInitialized;
     private bool _xRayTabInitialized;
+    private bool _surfaceTabInitialized;
+    private System.Windows.Threading.DispatcherTimer? _entitlementTimer;
+    private DateTime _lastEntitlementCheckUtc = DateTime.MinValue;
 
     private PlanView? PlanViewControl => _planView;
     private OfflineXRayView? OfflineXRayViewControl => _xRayView;
@@ -54,8 +57,6 @@ public partial class MainWindow : Window
             {
                 UiLocalizationService.ApplyToMainWindow(this, vmLoad);
             }
-            ApplyGenerativeAiUiVisibility();
-            RefreshReplicateTokenStatusUi();
             ApplyLegalDisclaimerDocument();
             SurveyWorkspaceNavigator.Register(this);
             vm.PersistProjectBeforeSave = project =>
@@ -64,11 +65,24 @@ public partial class MainWindow : Window
                     SketchEditorControl.TryPersistSessionToProject(project);
             };
             WirePlanViewExportCallbacks(vm);
+            vm.CaptureCloudPublishArtifacts = () => SketchEditorControl.TryCaptureCloudPublishArtifacts();
+            vm.NavigateToDesignFromSurvey = runProceduralAssist => OpenSketchEditorForDesign(runProceduralAssist);
             IntroVideoWindow.ShowIfFirstRun(this);
             WelcomeOnboardingWindow.ShowIfFirstRun(this);
             PostSignInWizardWindow.ShowIfNeeded(this);
             if (DataContext is MainViewModel vmBanner)
+            {
                 vmBanner.RefreshAccountBannerFromSession();
+                vmBanner.RefreshFooterStatus();
+            }
+
+            _entitlementTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(30),
+            };
+            _entitlementTimer.Tick += (_, _) => RefreshEntitlementIfStale(force: true);
+            _entitlementTimer.Start();
+            Activated += (_, _) => RefreshEntitlementIfStale();
             _autosave = new ProjectAutosaveService();
             _autosave.Configure(
                 () => vm.SelectedProject,
@@ -93,6 +107,8 @@ public partial class MainWindow : Window
             _autosave = null;
             _collaborationNotifications?.Dispose();
             _collaborationNotifications = null;
+            _entitlementTimer?.Stop();
+            _entitlementTimer = null;
             WindowPlacementStore.SaveFrom(this);
         };
         PreviewKeyDown += OnMainWindowPreviewKeyDown;
@@ -110,6 +126,8 @@ public partial class MainWindow : Window
             EnsureModel3DTab();
         else if (ReferenceEquals(tab, XRayTab))
             EnsureXRayTab();
+        else if (ReferenceEquals(tab, SurfaceTab))
+            EnsureSurfaceTab();
     }
 
     private void EnsurePlanTab()
@@ -154,6 +172,26 @@ public partial class MainWindow : Window
             new System.Windows.Data.Binding("DataContext.MapInventoryRows") { ElementName = "Shell" });
         XRayTabHost.Content = _xRayView;
         _xRayTabInitialized = true;
+    }
+
+    private void EnsureSurfaceTab()
+    {
+        if (_surfaceTabInitialized)
+            return;
+
+        _surfaceMapView = new SurfaceMapView
+        {
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        _surfaceMapView.SetBinding(SurfaceMapView.ProjectProperty,
+            new System.Windows.Data.Binding("DataContext.SelectedProject") { ElementName = "Shell" });
+        _surfaceMapView.SetBinding(SurfaceMapView.ZipPathProperty,
+            new System.Windows.Data.Binding("DataContext.ActiveZipPathForMaps") { ElementName = "Shell" });
+        _surfaceMapView.SetBinding(SurfaceMapView.CloudAssetCacheDirProperty,
+            new System.Windows.Data.Binding("DataContext.CloudAssetCacheDir") { ElementName = "Shell" });
+        SurfaceTabHost.Content = _surfaceMapView;
+        _surfaceTabInitialized = true;
     }
 
     private PlanView CreateBoundPlanView(SurveyVisualizationMode mode)
@@ -271,6 +309,27 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.Key == Key.Delete && !IsTextInputFocused())
+        {
+            var surfaceDel = TryResolveFocusedMapSurface();
+            if (surfaceDel?.TryDeleteSelectedInk() == true)
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.None && !IsTextInputFocused())
+        {
+            var surfacePlain = TryResolveFocusedMapSurface();
+            if (surfacePlain != null && e.Key == Key.W)
+            {
+                surfacePlain.ApplyMapEditorTool(MapCanvasEditorTool.DrawLine);
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (Keyboard.Modifiers != ModifierKeys.Control)
             return;
         if (IsTextInputFocused())
@@ -282,6 +341,22 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
+            case Key.Z:
+                surface.UndoSketchEdit();
+                e.Handled = true;
+                break;
+            case Key.Y:
+                surface.RedoSketchEdit();
+                e.Handled = true;
+                break;
+            case Key.D:
+                if (surface.TryDuplicateSelectedInk())
+                    e.Handled = true;
+                break;
+            case Key.F:
+                surface.FitMapToSurveyBounds();
+                e.Handled = true;
+                break;
             case Key.D1:
             case Key.NumPad1:
                 surface.ApplyMapEditorTool(MapCanvasEditorTool.PanZoom);
@@ -305,6 +380,11 @@ public partial class MainWindow : Window
             case Key.D5:
             case Key.NumPad5:
                 surface.ApplyMapEditorTool(MapCanvasEditorTool.Erase);
+                e.Handled = true;
+                break;
+            case Key.D6:
+            case Key.NumPad6:
+                surface.ApplyMapEditorTool(MapCanvasEditorTool.DrawLine);
                 e.Handled = true;
                 break;
             case Key.D0:
@@ -398,6 +478,18 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Public Cave Library", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OpenExploreMapWebView_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            PublicLibraryCatalog.ShowInAppWindow(this, PublicLibraryCatalog.WebExploreMapUrlEmbedded);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Explore map", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -582,34 +674,17 @@ public partial class MainWindow : Window
 
     private void ApplyLegalDisclaimerDocument()
     {
+        if (LegalPublisherMetaText != null)
+        {
+            LegalPublisherMetaText.Text =
+                $"Publisher: {LegalTexts.PublisherName} · {LegalTexts.ContactEmail} · " +
+                $"Document v{LegalTexts.DocumentVersion} ({LegalTexts.LastUpdated}). " +
+                "Android and web editions use the same Developer and core safety terms.";
+        }
+
         if (LegalDisclaimerRichText == null)
             return;
         LegalRichTextFormatter.ApplyPlainText(LegalDisclaimerRichText, LegalTexts.FullDisclaimerAndEula);
-    }
-
-    private void ApplyGenerativeAiUiVisibility()
-    {
-        var showDevApiSettings = GenerativeAiAccessGate.UseDirectByok;
-        var devVisibility = showDevApiSettings ? Visibility.Visible : Visibility.Collapsed;
-        if (ApiSettingsMenuItem != null)
-            ApiSettingsMenuItem.Visibility = devVisibility;
-        if (ApiSettingsMenuSeparator != null)
-            ApiSettingsMenuSeparator.Visibility = devVisibility;
-        if (GenerativeAiApiSettingsButton != null)
-            GenerativeAiApiSettingsButton.Visibility = devVisibility;
-    }
-
-    private void RefreshReplicateTokenStatusUi()
-    {
-        if (ReplicateTokenStatusText == null)
-            return;
-        ReplicateTokenStatusText.Text = GenerativeAiAccessGate.StatusText();
-    }
-
-    private void OpenApiSettings_Click(object sender, RoutedEventArgs e)
-    {
-        ApiSettingsWindow.Show(this);
-        RefreshReplicateTokenStatusUi();
     }
 
     /// <summary>Focus PLAN tab and zoom X-Ray / Plan to the given station (called from navigator hub).</summary>
@@ -633,6 +708,15 @@ public partial class MainWindow : Window
     {
         if (MainSurveyTabControl != null)
             MainSurveyTabControl.SelectedIndex = 4;
+    }
+
+    /// <summary>Select SKETCH EDITOR and optionally run procedural LRUD assist.</summary>
+    public void OpenSketchEditorForDesign(bool runProceduralAssist = false)
+    {
+        if (MainSurveyTabControl != null && SketchEditorTabItem != null)
+            MainSurveyTabControl.SelectedItem = SketchEditorTabItem;
+
+        SketchEditorControl.BeginDesignFromSurvey(runProceduralAssist);
     }
 
     public void ApplyPlanViewLocalization()
@@ -685,7 +769,11 @@ public partial class MainWindow : Window
     private void OnAndroidSyncSettingsChanged(object? sender, EventArgs e)
     {
         if (DataContext is MainViewModel vm)
-            Dispatcher.BeginInvoke(() => StartAndroidBackupSyncWatcher(vm));
+            Dispatcher.BeginInvoke(() =>
+            {
+                StartAndroidBackupSyncWatcher(vm);
+                vm.RefreshFooterStatus();
+            });
     }
 
     private void OnAndroidSyncFilesChanged(object? sender, AndroidSyncFilesChangedEventArgs e)
@@ -708,5 +796,29 @@ public partial class MainWindow : Window
         };
         var settings = AppUiSettingsStore.LoadOrDefault();
         _collaborationNotifications.TrackProject(settings.CollaborationSharedProjectId);
+    }
+
+    private async void RefreshEntitlementIfStale(bool force = false)
+    {
+        if (!force && DateTime.UtcNow - _lastEntitlementCheckUtc < TimeSpan.FromMinutes(5))
+            return;
+
+        _lastEntitlementCheckUtc = DateTime.UtcNow;
+        if (MicrosoftTestMode.IsActive)
+            return;
+
+        try
+        {
+            var result = await AccountSessionState.RefreshEntitlementAsync().ConfigureAwait(true);
+            if (result == null || DataContext is not MainViewModel vm)
+                return;
+
+            vm.RefreshAccountBannerFromSession();
+            vm.RefreshFooterStatus();
+        }
+        catch
+        {
+            /* offline — keep last known entitlement */
+        }
     }
 }

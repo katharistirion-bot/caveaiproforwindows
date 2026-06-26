@@ -28,6 +28,8 @@ public static class PublicLibraryCatalog
 
     public static string WebMapUrl => WebOrigin + "/map";
 
+    public static string WebExploreMapUrl => WebOrigin + "/map?view=explore";
+
     public static string WebBrowseUrl => WebMapUrl;
 
     /// <summary>Appends <c>?embed=windows</c> so the web portal uses redirect sign-in inside WebView2.</summary>
@@ -42,6 +44,8 @@ public static class PublicLibraryCatalog
     }
 
     public static string WebMapUrlEmbedded => WithEmbed(WebMapUrl);
+
+    public static string WebExploreMapUrlEmbedded => WithEmbed(WebExploreMapUrl);
 
     /// <summary>Secure desktop auth endpoint for WebView2 postMessage token delivery.</summary>
     public static string DesktopAuthUrl

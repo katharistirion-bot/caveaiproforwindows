@@ -18,8 +18,13 @@ public static class AppStrings
     public static string MenuCompareBackups => "Compare two backups…";
     public static string MenuSurveyCompare => "Survey diff (legs/stations)…";
     public static string MenuLoopClosure => "Loop closure assistant…";
+    public static string MenuDesignPlanFromSurvey => "Design plan from survey…";
+    public static string DesignAfterMappingSnackbar =>
+        "Survey loaded — open Sketch Editor to design the plan (LRUD walls and symbols from traverse).";
+    public static string DesignAfterMappingSnackbarAction => "Design now";
+    public static string DesignFromSurveyStatus =>
+        "Sketch Editor — use Procedural Assist to generate LRUD walls, then edit and Save project.";
     public static string MenuRepublish => "Re-publish to Public Library…";
-    public static string MenuBatchAiRender => "Batch AI render…";
     public static string MenuDownloadLibrary => "Download from Public Library…";
     public static string ToolbarOpen => "Open";
     public static string ToolbarSave => "Save";
@@ -35,14 +40,13 @@ public static class AppStrings
     public static string OnboardingStep1Body =>
         "File → Open, or drag a CaveAI Pro backup (.json or .zip) from your phone or sync folder. " +
         "Full ZIP archives include photos, maps, and integrity manifests.";
-    public static string OnboardingStep2Title => "Plan, section & survey QC";
+    public static string OnboardingStep2Title => "Plan & Section — view only";
     public static string OnboardingStep2Body =>
-        "Inspect traverse quality, loop closure, plan and section views, and integrity checks. " +
-        "Export to Survex, Therion, DXF, SVG, and office PDF reports.";
-    public static string OnboardingStep3Title => "Generative cartography";
+        "PLAN and SECTION tabs show traverse, LRUD walls, and symbols (read-only). Use Survey Intelligence as your QC hub — loop closure, integrity, and expedition metrics.";
+    public static string OnboardingStep3Title => "Sketch Editor — design after mapping";
     public static string OnboardingStep3Body =>
-        "Sketch Editor captures structure masks from your survey. AI Render produces publication-ready " +
-        "maps via CaveAI cloud — ideal for brochures and team review.";
+        "After cartography (PLAN / SECTION / QC), open SKETCH EDITOR or Tools → Design plan from survey. " +
+        "Procedural Assist draws LRUD walls and symbols from traverse data; edit, Save project, then export or publish.";
     public static string OnboardingStep4Title => "3D labels & publication";
     public static string OnboardingStep4Body =>
         "Use the 3D MODEL tab for labeled overviews, then Tools → Publication sheet for composite plan, " +
@@ -76,6 +80,12 @@ public static class AppStrings
     public static string AndroidSyncReloaded(string fileName) =>
         $"Reloaded Android backup: {fileName}";
 
+    public static string UpdateAvailableBannerMessage(string remoteVersion, string currentVersion) =>
+        $"Version {remoteVersion} is available (you are on {currentVersion}). " +
+        "MSI and portable installs do not auto-update — use Setup.exe from GitHub for in-app updates, or open the release page.";
+    public static string UpdateAvailableOpenRelease => "Open release page";
+    public static string UpdateAvailableDismiss => "Dismiss";
+
     public static string AccountBannerDismiss => "Dismiss";
 
     public static string AccountBannerManagePlay =>
@@ -94,6 +104,7 @@ public static class AppStrings
         $"Get CaveAI Pro: {AccountLinks.PlayStoreAppUrl}";
 
     public static string MenuReferenceCatalog => "Public Cave _Library (reference catalog)…";
+    public static string MenuExploreMap => "Explore _map…";
     public static string MenuFieldTripPlanner => "Field _Trip Planner…";
     public static string MenuBatchSurveyQc => "Batch survey _QC…";
     public static string MenuExportDiagnosticBundle => "Export _diagnostic bundle…";
