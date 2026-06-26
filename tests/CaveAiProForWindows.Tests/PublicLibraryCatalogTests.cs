@@ -55,4 +55,27 @@ public class PublicLibraryCatalogTests
             Environment.SetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN", env);
         }
     }
+
+    [TestMethod]
+    public void RememberExploreMapViewportUrl_persists_url()
+    {
+        var path = AppUiSettingsStore.SettingsPath;
+        var backup = File.Exists(path) ? File.ReadAllText(path) : null;
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+            PublicLibraryCatalog.RememberExploreMapViewportUrl("https://www.caveaipro.com/map?view=explore&lat=40&lon=10");
+            var loaded = AppUiSettingsStore.LoadOrDefault();
+            Assert.AreEqual("https://www.caveaipro.com/map?view=explore&lat=40&lon=10", loaded.ExploreMap.LastViewportUrl);
+            StringAssert.Contains(PublicLibraryCatalog.ResolveExploreMapOpenUrl(), "lat=40");
+        }
+        finally
+        {
+            if (backup != null)
+                File.WriteAllText(path, backup);
+            else if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
 }

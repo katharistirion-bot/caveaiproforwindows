@@ -485,7 +485,9 @@ public partial class MainWindow : Window
     {
         try
         {
-            PublicLibraryCatalog.ShowInAppWindow(this, PublicLibraryCatalog.WebExploreMapUrlEmbedded);
+            var url = PublicLibraryCatalog.ResolveExploreMapOpenUrl();
+            PublicLibraryCatalog.RememberExploreMapViewportUrl(url);
+            PublicLibraryCatalog.ShowInAppWindow(this, url);
         }
         catch (Exception ex)
         {

@@ -1,5 +1,6 @@
 namespace CaveAiProForWindows.Services;
 
+using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services.Auth;
 
 /// <summary>
@@ -46,6 +47,25 @@ public static class PublicLibraryCatalog
     public static string WebMapUrlEmbedded => WithEmbed(WebMapUrl);
 
     public static string WebExploreMapUrlEmbedded => WithEmbed(WebExploreMapUrl);
+
+    /// <summary>Explore map URL — restores last viewport when persisted (offline re-open hint).</summary>
+    public static string ResolveExploreMapOpenUrl()
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault().ExploreMap;
+        if (settings.PreferLastViewport && !string.IsNullOrWhiteSpace(settings.LastViewportUrl))
+            return WithEmbed(settings.LastViewportUrl);
+        return WebExploreMapUrlEmbedded;
+    }
+
+    /// <summary>Persist Explore map URL (including lat/lon/zoom/layers query) for next Help → Explore map.</summary>
+    public static void RememberExploreMapViewportUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.ExploreMap.LastViewportUrl = url.Trim();
+        AppUiSettingsStore.Save(all);
+    }
 
     /// <summary>Secure desktop auth endpoint for WebView2 postMessage token delivery.</summary>
     public static string DesktopAuthUrl

@@ -1,17 +1,22 @@
-# CAVE AI PRO — PC companion
+# CAVE AI PRO — Windows survey workstation
 
-> **Install:** [docs/INSTALL.md](docs/INSTALL.md) — download from [caveaipro.com](https://www.caveaipro.com/#windows-download) (Windows companion for active subscribers).
+> **Install:** [docs/INSTALL.md](docs/INSTALL.md) — download from [caveaipro.com](https://www.caveaipro.com/#windows-download) (active CaveAI Pro subscribers).
 
-Desktop companion for **CaveAI Pro (Android)**: loads the **same** speleological data the mobile app exports or saves, and processes it on PC (survey summary, shot CSV export, plan printing, Survex/Therion/DXF exports).
+Desktop **survey workstation** for **CaveAI Pro (Android)**: import backups, QC traverse data, plan/section/3D/X-Ray views, sketch editor, reference catalog, field trip planner, cloud publish, and office exports (Survex, Therion, DXF, SVG, PDF, CSV).
+
+**Current version:** 1.5.4 (see `Directory.Build.props`, `CHANGELOG.md`).
 
 ### Distribution (Play Store vs PC)
 
-- **CaveAI Pro (Android):** distributed via **Google Play** (as defined by the publisher).
-- **CAVE AI PRO (PC, this repo):** **not** on Google Play; runs on **Windows PC** (x64, Win 10/11). **Public download** from [caveaipro.com](https://www.caveaipro.com/#windows-download) (Velopack Setup.exe / MSI). **Microsoft Store** listing is in preparation — see `docs/MICROSOFT-STORE.md`. If you only have the mobile app from Play, you need a **separate** PC installer from the website or (when available) the Microsoft Store.
-- Legal / store wording (English): `legal/00-DISTRIBUTION-PLATFORMS.md`.
-- Build channels: `docs/INSTALL.md` — sideload (`package-release.ps1`) vs Store (`PublishProfile=MicrosoftStore-Win64`, `STORE_DISTRIBUTION`).
+- **CaveAI Pro (Android):** Google Play — field recording, BLE instruments, live survey.
+- **CAVE AI PRO (Windows):** Velopack `Setup.exe` or MSI from [caveaipro.com](https://www.caveaipro.com/#windows-download); Microsoft Store pipeline in `docs/MICROSOFT-STORE.md`.
+- **Subscription:** same Google account / Firestore entitlement as Android; Windows has no separate IAP.
 
-## Working with the Android app
+### Workstation tabs (high level)
+
+PLAN · SECTION · 3D · LONG PROFILE · GEO & BIO · PHOTOS · X-RAY · SKETCH EDITOR · SURVEY QC · SURVEY INTELLIGENCE · INTEGRITY · LEGAL & SETTINGS · Reference Catalog · Field Trip Planner · Cloud Publish · Android folder sync.
+
+### Working with the Android app
 
 | Android source | What the PC app does |
 |----------------|----------------------|
@@ -67,7 +72,31 @@ Fields explicitly named in the Windows model (`CaveProjectDocument` / `ShotRecor
 
 **Note:** Opening **only** `caveai_database_v1.json` without a ZIP means local files that were `content://` on mobile are not on PC — you need a **full ZIP** with `photos/` and `export_assets/` for the same file paths to work.
 
+### Surface map & Aerial DEM (DSM / hillshade)
+
+| Platform | Role |
+|----------|------|
+| **Android** | **Import only** — Surface Map (GPS) → Mission control → **Aerial DEM**. Formats: GeoTIFF (preferred), LAS/LAZ bounds, PNG/JPEG with SW/NE WGS84 corners. Stored as `surfaceLidarRaster` in `data.json`. |
+| **Windows** | **Display** after opening a backup ZIP or **File → Open from cloud…** — Surface map tab (MapLibre) with **Surface LiDAR** toggle. Online Hillshade / Copernicus / 3D terrain toggles are streaming layers, not your imported file. |
+| **Web** | **Display** after Survey Cloud sync — `/survey/{projectId}/surface` or published `/workspace/{caveId}/surface` → enable **Surface LiDAR** in the toolbar. |
+
+**Not LiDAR Map:** Android **Map tab → LiDAR Map** is for **interior** point-cloud scans (.LAS / .LAZ / .OBJ). It does not populate `surfaceLidarRaster`.
+
+**Data sources:** Copernicus DEM GLO-30, USGS EarthExplorer, OpenTopography; QGIS hillshade export; drone DSM (Pix4D, WebODM). Clip large rasters before field import on low-end hardware.
+
+**Checklist:** lock entrance GPS → Aerial DEM → Apply raster → Fit view on Android → sync or ZIP → Surface LiDAR toggle on Web/Windows.
+
+In-app Android guide: ☰ menu → **User guide** → **Aerial DEM / surface DSM import**. Web: [Getting started — Surface map](https://www.caveaipro.com/getting-started).
+
+### Explore map (Public Library terrain mode)
+
+**Help → Explore map…** opens the unified web Explore terrain view in WebView2 (`/map?view=explore&embed=windows`). The app remembers the last viewport URL in UI settings (`exploreMap.lastViewportUrl`) so you can re-open the same area. **Full offline Explore is not supported** — satellite, hillshade, and pin shards require network access (same as the website). For offline terrain around a project entrance, use the **Surface map** tab with optional tile cache instead.
+
 ### Survex
+
+The `.svx` file contains only **traverse** shots (`*data normal from to tape compass clino`) and a provisional `*fix` at station `0 0 0` — **verify** conventions/units before production use (Survex/Cavern).
+
+## Build / Run
 
 The `.svx` file contains only **traverse** shots (`*data normal from to tape compass clino`) and a provisional `*fix` at station `0 0 0` — **verify** conventions/units before production use (Survex/Cavern).
 
@@ -114,27 +143,17 @@ See `docs/SECURITY.md` for Firebase config injection and `docs/INSTALL.md` for d
 
 ## Code layout
 
-- `Models/` — field subset compatible with Android Gson (`Shot`, `CaveProject`).
-- `Services/ExplorationDataLoader.cs` — `*.json` or `*.zip`.
-- `Services/ExplorationAnalytics.cs` — summary + CSV UTF-8 BOM.
-- `Services/IntegrityVerifier.cs` — `integrity_manifest.json` verification.
-- `Services/ZipPhotoExtractor.cs` — extract `photos/**` from ZIP.
-- `Services/SurvexExporter.cs` — minimal `.svx` traverse centerline.
-- `Services/SurveyStationGeometry.cs` — same station reduction as `calculateCaveCoordinates` (Android) + `vectorLines` for plan.
-- `Views/PlanView.*` — 2D plan view.
+- `ViewModels/MainViewModel.cs` — workspace shell (open/save, exports, cloud, sync).
+- `Services/ExplorationDataLoader.cs`, `LoadFromPathsWorker.cs` — backup load pipeline.
+- `Services/SurvexExporter.cs`, `TherionProjectExporter.cs`, `SurveyDxfExporter.cs` — exports.
+- `Services/ClientErrorTelemetryService.cs` — anonymised error reports (signed-in Firestore upload).
+- `Views/PlanView.*`, `SketchEditorView.*`, `OfflineXRayView.*` — cartography UI.
+- `docs/cross-platform-contract.md`, `docs/sync-contract.md` — Android parity contracts.
+- `docs/LOCALIZATION.md` — English-primary UI; optional Greek menu chrome.
 
-## Roadmap: cave survey workstation (with CaveAI Pro — Android)
+## Roadmap status
 
-**Roles:** **mobile (`d:\caveaipro`)** remains the field recording hub (map, sketching, `vectorLines`, DXF, backup ZIP). **Windows** extends to a desktop workstation: same `data.json` / ZIP, summary, Survex/CSV, integrity, and progressively **plan + QC** on a large screen.
-
-| Phase | Goal |
-|-------|------|
-| **1 — Data** | Full map-field reading from JSON (`vectorLines` already recognized; summary with line counts). Android: stable exports / schema version where needed. |
-| **2 — PC plan** | 2D plan canvas (same survey frame as app): centerline from shots + `vectorLines` by `viewMode`. |
-| **3 — Exports** | DXF/SVG aligned with `DxfExport.kt`; improved Survex (units, stations); optional Therion `.th` later. |
-| **4 — QC** | Loop closure / length / hints aligned with Android logic where available. |
-
-Near-term code ideas: Therion `.th`, richer `vectorLines`/`mapSymbols` import, DXF Windows↔Android alignment.
+Phases 1–4 from the original companion roadmap are **largely complete** (data load, plan canvas, exports, QC). Ongoing: Store listing, fuller Greek UI, Firebase App Check, maintainability splits in `MainViewModel`.
 
 ### CaveAI Pro (Android)
 

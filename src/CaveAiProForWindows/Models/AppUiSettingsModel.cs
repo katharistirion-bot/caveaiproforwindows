@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.SketchAssist;
 
 namespace CaveAiProForWindows.Models;
 
@@ -14,14 +15,17 @@ public sealed class AppUiSettingsModel
     public MapTabPersistedState Section { get; set; } = new();
     public MapTabPersistedState XRay { get; set; } = new();
 
+    /// <summary>MapLibre surface map (terrain around cave entrance).</summary>
+    public SurfaceMapPersistedState SurfaceMap { get; set; } = new();
+
+    /// <summary>Last Explore map URL opened in WebView2 (offline re-open hint).</summary>
+    public ExploreMapPersistedState ExploreMap { get; set; } = new();
+
     /// <summary><see cref="Services.SurveyDetailDensity"/> — Minimal / Standard / Full label preset.</summary>
     public string SurveyDetailDensity { get; set; } = "Full";
 
     /// <summary><see cref="Services.MapExportQuality"/> — Standard (~300 DPI) or Print (~600 DPI) raster exports.</summary>
     public string MapExportQuality { get; set; } = "Standard";
-
-    /// <summary>Non-secret generative map preferences (API token lives in Windows Credential Manager).</summary>
-    public GenerativeMapSettings GenerativeMap { get; set; } = new();
 
     /// <summary>Android Desktop Sync folder watched by AI Analytics.</summary>
     public AndroidSyncSettings AndroidSync { get; set; } = new();
@@ -41,7 +45,7 @@ public sealed class AppUiSettingsModel
     /// <summary>Cinematic intro video shown once after login (<see cref="Views.IntroVideoWindow"/>).</summary>
     public bool HasSeenIntroVideo { get; set; }
 
-    /// <summary>UI language code: <c>en</c> or <c>el</c>.</summary>
+    /// <summary>UI language code (English only; non-<c>en</c> values are reset on startup).</summary>
     public string UiLanguage { get; set; } = "en";
 
     /// <summary>Last shared collaboration project id for comment notifications.</summary>
@@ -53,26 +57,53 @@ public sealed class AppUiSettingsModel
 
 public static class AppUiSettingsSchema
 {
-    public const int Current = 6;
+    public const int Current = 8;
 }
 
-public sealed class GenerativeMapSettings
+/// <summary>Persisted MapLibre surface-map camera and layer toggles.</summary>
+public sealed class SurfaceMapPersistedState
 {
-    public string DefaultPrompt { get; set; } =
-        "photorealistic cave survey map, top-down view, rock textures, underground river";
+    public bool HillshadeEnabled { get; set; } = true;
 
-    public bool ShowAiRenderOnCanvas { get; set; } = true;
+    /// <summary>MapLibre terrain exaggeration (0 = flat).</summary>
+    public bool Terrain3dEnabled { get; set; }
 
-    public double GuidanceScale { get; set; } = 9;
+    /// <summary>Survey traverse center-line overlay on the surface map.</summary>
+    public bool CorridorOverlayEnabled { get; set; } = true;
 
-    /// <summary>Opacity (0–1) for generative map overlay on the X-Ray geo map.</summary>
-    public double XRayAiOverlayOpacity { get; set; } = 0.52;
+    /// <summary>Copernicus GLO-30 DSM overlay (EOX tiles, client-side).</summary>
+    public bool CopernicusDsmEnabled { get; set; }
 
-    /// <summary>Opacity (0–1) for generative map underlay on the Plan tab.</summary>
-    public double PlanAiOverlayOpacity { get; set; } = 0.52;
+    /// <summary>Georeferenced surface LiDAR / DSM raster overlay from project JSON.</summary>
+    public bool LidarOverlayEnabled { get; set; } = true;
 
-    /// <summary>Last selected built-in prompt preset id (empty = custom prompt).</summary>
-    public string SelectedPromptPresetId { get; set; } = "photoreal";
+    /// <summary>Cache OSM / hillshade / DEM tiles locally for offline use (WebView2 intercept).</summary>
+    public bool OfflineTileCacheEnabled { get; set; } = true;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double CenterLon { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double CenterLat { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double Zoom { get; set; } = 14;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double Bearing { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double Pitch { get; set; }
+}
+
+/// <summary>Cached Explore map WebView URL for quick re-open (online tiles still required).</summary>
+public sealed class ExploreMapPersistedState
+{
+    /// <summary>Full https URL including viewport/layer query params when available.</summary>
+    public string? LastViewportUrl { get; set; }
+
+    /// <summary>When set, Help → Explore map opens <see cref="LastViewportUrl"/> instead of world default.</summary>
+    public bool PreferLastViewport { get; set; } = true;
 }
 
 public sealed class MapTabPersistedState
@@ -119,6 +150,22 @@ public sealed class MapTabPersistedState
 
     /// <summary>Survey-metre coordinate grid on plan/section canvas.</summary>
     public bool ShowCoordinateGrid { get; set; }
+
+    /// <summary>Sketch Editor: snap freehand/line endpoints to traverse stations.</summary>
+    public bool SnapToStations { get; set; }
+
+    /// <summary>User ink stroke width on the design layer (DIP).</summary>
+    public double InkStrokeWidthPx { get; set; } = 1.5;
+
+    /// <summary>Dashed stroke style for freehand / line tools (generic ink only).</summary>
+    public bool InkDashedStrokes { get; set; }
+
+    /// <summary>
+    /// UIS wall ink profile for line/freehand tools:
+    /// <see cref="SketchWallInkProfiles.Wall"/>, <see cref="SketchWallInkProfiles.WallEstimated"/>,
+    /// <see cref="SketchWallInkProfiles.FillBoundary"/>, or <see cref="SketchWallInkProfiles.Ink"/>.
+    /// </summary>
+    public string InkWallProfile { get; set; } = SketchWallInkProfiles.Wall;
 
     /// <summary>Diagonal rock hatching inside filled LRUD passage polygons.</summary>
     public bool ShowWallHatching { get; set; }
