@@ -35,6 +35,10 @@ If `intro.mp4` is missing, the app plays a **built-in animated sequence** (logo,
 2. Rebuild / publish — file is copied next to the executable.
 3. First launch after sign-in shows the intro once; **Help → Intro video…** replays it.
 
+## Remote Config / feature flag
+
+**There is no Firebase Remote Config flag** for the intro video on Windows. The gate is **off by default** when `intro.mp4` is absent (current repo state). To enable first-run video, add `Assets/Intro/intro.mp4` and rebuild — no cloud flag required.
+
 ## Checklist
 
 - [ ] `intro.mp4` — master deliverable
