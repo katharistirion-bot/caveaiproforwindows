@@ -33,9 +33,10 @@ public partial class ProjectCollaborationWindow : Window
         var client = new ProjectCollaborationClient();
         try
         {
+            var surveyJsonUrl = await TryResolveSurveyJsonUrlAsync(project).ConfigureAwait(true);
             var projectId = await client.ShareProjectAsync(
                 project.Name,
-                surveyJsonUrl: null,
+                surveyJsonUrl,
                 memberEmails: null,
                 CancellationToken.None).ConfigureAwait(true);
 
@@ -111,4 +112,26 @@ public partial class ProjectCollaborationWindow : Window
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    private static async Task<string?> TryResolveSurveyJsonUrlAsync(CaveProjectDocument project)
+    {
+        var docId = LinkedLibraryCaveIdResolver.TryGet(project);
+        if (string.IsNullOrWhiteSpace(docId))
+            return null;
+
+        var token = FirebaseAuthTokenStore.TryLoad();
+        if (token == null || !token.IsUsable())
+            return null;
+
+        try
+        {
+            var rest = new FirebaseRestClient();
+            var doc = await rest.GetPublishedCaveDocumentAsync(docId.Trim(), token).ConfigureAwait(false);
+            return doc.SurveyJsonUrl ?? doc.SurveyJsonMediaUrl;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

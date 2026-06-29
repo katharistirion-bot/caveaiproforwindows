@@ -1106,6 +1106,9 @@ public static class PlanCanvasRenderer
             if (splayXRay && pl.Type is "lrudPlanRibbon" or "lrudPlan" or "lrudProfile")
                 continue;
 
+            if (!opt.ShowPersistedSketchInk && SurveyStationGeometry.IsPersistedSketchWallType(pl.Type))
+                continue;
+
             switch (pl.Type)
             {
                 case "lrudPlanRibbon":
@@ -1348,6 +1351,8 @@ public static class PlanCanvasRenderer
 
         foreach (var sym in scene.Symbols)
         {
+            if (!opt.ShowPersistedSketchInk)
+                continue;
             var symEl = AndroidMapSymbolVisualFactory.CreateVisual(sym, planLayout, highContrast);
             AddVectorElement(symEl);
         }

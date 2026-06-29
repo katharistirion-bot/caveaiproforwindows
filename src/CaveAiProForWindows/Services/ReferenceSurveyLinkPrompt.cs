@@ -26,6 +26,12 @@ public static class ReferenceSurveyLinkPrompt
                 continue;
 
             var best = matches[0];
+            if (best.Score >= 0.85 && best.DistanceKm <= 0.5)
+            {
+                ReferenceSurveyLinkService.SetLink(project, best.Entry);
+                continue;
+            }
+
             var sb = new StringBuilder();
             sb.AppendLine($"Survey \"{project.Name}\" may match a reference catalog cave:");
             sb.AppendLine();

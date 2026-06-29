@@ -1,0 +1,113 @@
+<UserControl x:Class="CaveAiProForWindows.Views.SurfaceMapView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             Background="{DynamicResource Cave.Background}">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Vertical">
+            <TextBlock Text="Surface map"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource Cave.Text}" />
+            <TextBlock Text="OSM basemap with optional hillshade / terrain around the project entrance (MapLibre GL JS). Requires internet for tiles."
+                       FontSize="11.5"
+                       Margin="0,4,0,0"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource Cave.TextMuted}" />
+        </StackPanel>
+
+        <DockPanel Grid.Row="1" Margin="0,10,0,8" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <CheckBox x:Name="HillshadeCheck"
+                          Content="Hillshade"
+                          IsChecked="False"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          Foreground="{DynamicResource Cave.TextSubdued}"
+                          ToolTip="Wikimedia hillshade overlay (client-side tiles)" />
+                <CheckBox x:Name="Terrain3dCheck"
+                          Content="3D terrain"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          Foreground="{DynamicResource Cave.TextSubdued}"
+                          ToolTip="MapLibre terrain from Terrarium DEM (client-side tiles)" />
+                <CheckBox x:Name="CorridorCheck"
+                          Content="Survey corridor"
+                          IsChecked="True"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          Foreground="{DynamicResource Cave.TextSubdued}"
+                          ToolTip="Traverse center line projected to WGS84 from survey legs" />
+                <CheckBox x:Name="LidarCheck"
+                          Content="Surface LiDAR"
+                          IsChecked="False"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          Foreground="{DynamicResource Cave.TextSubdued}"
+                          ToolTip="Georeferenced surface DSM / LiDAR raster from project JSON" />
+                <CheckBox x:Name="CopernicusCheck"
+                          Content="Copernicus DSM"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          Foreground="{DynamicResource Cave.TextSubdued}"
+                          ToolTip="Copernicus GLO-30 hillshade from EOX (client-side tiles)" />
+                <CheckBox x:Name="OfflineCacheCheck"
+                          Content="Offline tile cache"
+                          IsChecked="True"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          Foreground="{DynamicResource Cave.TextSubdued}"
+                          ToolTip="Cache OSM / hillshade / DEM tiles locally (128 MB LRU)" />
+                <Button Content="Fit entrance" Padding="10,6" Margin="0,0,6,0" Click="FitEntrance_Click"
+                        ToolTip="Center on project entrance coordinates" />
+                <Button Content="Export PNG" Padding="10,6" Margin="0,0,6,0" Click="ExportPng_Click"
+                        ToolTip="Save surface map screenshot" />
+                <Button Content="Reload map" Padding="10,6" Click="ReloadMap_Click"
+                        ToolTip="Reload MapLibre surface map" />
+            </StackPanel>
+            <TextBlock x:Name="StatusText"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{DynamicResource Cave.TextMuted}"
+                       Text="—" />
+        </DockPanel>
+
+        <Border Grid.Row="2"
+                Background="#0d1117"
+                BorderBrush="{DynamicResource Cave.Border}"
+                BorderThickness="1"
+                CornerRadius="4">
+            <Grid>
+                <wv2:WebView2 x:Name="SurfaceWebView" />
+                <TextBlock x:Name="PlaceholderText"
+                           Text="Initializing WebView2…"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource Cave.TextMuted}"
+                           FontSize="12" />
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="3"
+                   x:Name="CoordsText"
+                   Margin="0,8,0,0"
+                   FontSize="11"
+                   Foreground="{DynamicResource Cave.TextMuted}"
+                   Text="No project loaded." />
+        <TextBlock Grid.Row="3"
+                   x:Name="EntranceHintText"
+                   Margin="0,26,0,0"
+                   FontSize="11"
+                   Foreground="{DynamicResource Cave.TextMuted}"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed"
+                   Text="Set entrance lat/lon in project settings to center the map on the cave." />
+    </Grid>
+</UserControl>

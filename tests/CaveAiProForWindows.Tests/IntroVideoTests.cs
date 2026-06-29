@@ -9,10 +9,11 @@ namespace CaveAiProForWindows.Tests;
 public sealed class IntroVideoTests
 {
     [TestMethod]
-    public void Gate_shows_intro_when_not_seen()
+    public void Gate_shows_intro_when_not_seen_and_video_bundled()
     {
         var settings = new AppUiSettingsModel { HasSeenIntroVideo = false };
-        Assert.IsTrue(IntroVideoGate.ShouldShowFirstRun(settings));
+        var expected = IntroVideoAssetPaths.IsVideoBundled;
+        Assert.AreEqual(expected, IntroVideoGate.ShouldShowFirstRun(settings));
     }
 
     [TestMethod]

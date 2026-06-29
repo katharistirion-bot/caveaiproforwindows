@@ -48,6 +48,9 @@ public sealed class CloudPublishMetadata
     /// <summary>Normalized prefix search key (Firestore <c>caveNameSearchKey</c>).</summary>
     public string? CaveNameSearchKey { get; init; }
 
+    /// <summary>Gallery photo URLs from backup ZIP upload (optional).</summary>
+    public IReadOnlyList<string>? GalleryPhotoUrls { get; init; }
+
     public string SourceClient { get; init; } = "windows";
 
     public long UpdatedAtUtcMs { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

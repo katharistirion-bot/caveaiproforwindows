@@ -1,5 +1,6 @@
 rules_version = '2';
 
+// STUB ONLY — deploy canonical rules from the CaveAIpro website repo (not this Windows repo).
 // Client apps use Firebase Callable functions (Admin SDK) for collaboration and AI.
 // Direct Firestore reads/writes from desktop/mobile should stay denied unless explicitly opened.
 service cloud.firestore {

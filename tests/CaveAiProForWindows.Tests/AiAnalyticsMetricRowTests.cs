@@ -7,19 +7,24 @@ namespace CaveAiProForWindows.Tests;
 public sealed class AiAnalyticsMetricRowTests
 {
     [TestMethod]
-    public void CanSelectStation_requires_android_note_and_valid_station()
+    public void CanSelectStation_requires_valid_station_and_non_separator_metric()
     {
         var row = new AiAnalyticsMetricRow
         {
             Station = "A1",
             AndroidContext = "Draft blows east",
+            Metric = "QC geometry warning",
         };
         Assert.IsTrue(row.CanSelectStation);
 
-        row.AndroidContext = "";
+        row.Station = "";
         Assert.IsFalse(row.CanSelectStation);
 
-        row.AndroidContext = "Note";
+        row.Station = "A1";
+        row.Metric = "— QC summary —";
+        Assert.IsFalse(row.CanSelectStation);
+
+        row.Metric = "Finding";
         row.Station = "—";
         Assert.IsFalse(row.CanSelectStation);
     }

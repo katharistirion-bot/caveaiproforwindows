@@ -1,7 +1,9 @@
-using System.IO;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services.FieldTrip;
 using CaveAiProForWindows.Services.ReferenceCatalog;
@@ -93,6 +95,127 @@ public partial class FieldTripPlannerWindow : Window
         TripNameBox.Text = _selectedTrip.Name;
         TripNotesBox.Text = _selectedTrip.Notes ?? "";
         StopsList.ItemsSource = _selectedTrip.Stops;
+        RefreshStopsMapPreview();
+    }
+
+    private void StopsList_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshStopsMapPreview();
+
+    private void RefreshStopsMapPreview()
+    {
+        StopsMapPreview.Children.Clear();
+        if (_selectedTrip == null)
+            return;
+
+        var stops = _selectedTrip.Stops.Where(s => s.Lat != 0 || s.Lon != 0).ToList();
+        if (stops.Count == 0)
+        {
+            StopsMapPreview.Children.Add(new TextBlock
+            {
+                Text = "Add stops with coordinates to see a preview.",
+                Foreground = Brushes.Gray,
+                Margin = new Thickness(8),
+            });
+            return;
+        }
+
+        var minLat = stops.Min(s => s.Lat);
+        var maxLat = stops.Max(s => s.Lat);
+        var minLon = stops.Min(s => s.Lon);
+        var maxLon = stops.Max(s => s.Lon);
+        if (Math.Abs(maxLat - minLat) < 1e-8)
+        {
+            minLat -= 0.001;
+            maxLat += 0.001;
+        }
+
+        if (Math.Abs(maxLon - minLon) < 1e-8)
+        {
+            minLon -= 0.001;
+            maxLon += 0.001;
+        }
+
+        void LayoutPreview(object? sender, EventArgs _)
+        {
+            StopsMapPreview.Children.Clear();
+            var w = StopsMapPreview.ActualWidth;
+            var h = StopsMapPreview.ActualHeight;
+            if (w < 8 || h < 8)
+                return;
+
+            const int gridLines = 4;
+            for (var g = 1; g < gridLines; g++)
+            {
+                var gx = g * w / gridLines;
+                var gy = g * h / gridLines;
+                StopsMapPreview.Children.Add(new Line
+                {
+                    X1 = gx, Y1 = 0, X2 = gx, Y2 = h,
+                    Stroke = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                    StrokeThickness = 1,
+                    IsHitTestVisible = false,
+                });
+                StopsMapPreview.Children.Add(new Line
+                {
+                    X1 = 0, Y1 = gy, X2 = w, Y2 = gy,
+                    Stroke = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                    StrokeThickness = 1,
+                    IsHitTestVisible = false,
+                });
+            }
+
+            var points = new List<Point>();
+            for (var i = 0; i < stops.Count; i++)
+            {
+                var s = stops[i];
+                var x = (s.Lon - minLon) / (maxLon - minLon) * (w - 16) + 8;
+                var y = (maxLat - s.Lat) / (maxLat - minLat) * (h - 16) + 8;
+                points.Add(new Point(x, y));
+            }
+
+            if (points.Count > 1)
+            {
+                StopsMapPreview.Children.Add(new Polyline
+                {
+                    Points = new PointCollection(points),
+                    Stroke = new SolidColorBrush(Color.FromArgb(180, 80, 160, 255)),
+                    StrokeThickness = 2,
+                    StrokeDashArray = [4, 3],
+                    IsHitTestVisible = false,
+                });
+            }
+
+            for (var i = 0; i < stops.Count; i++)
+            {
+                var s = stops[i];
+                var pt = points[i];
+                var dot = new Ellipse
+                {
+                    Width = 10,
+                    Height = 10,
+                    Fill = i == 0 ? Brushes.LimeGreen : Brushes.DeepSkyBlue,
+                    ToolTip = $"{i + 1}. {s.Name}",
+                };
+                Canvas.SetLeft(dot, pt.X - 5);
+                Canvas.SetTop(dot, pt.Y - 5);
+                StopsMapPreview.Children.Add(dot);
+
+                var label = new TextBlock
+                {
+                    Text = (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    FontSize = 9,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = Brushes.White,
+                    IsHitTestVisible = false,
+                };
+                Canvas.SetLeft(label, pt.X + 6);
+                Canvas.SetTop(label, pt.Y - 6);
+                StopsMapPreview.Children.Add(label);
+            }
+        }
+
+        StopsMapPreview.SizeChanged -= LayoutPreview;
+        StopsMapPreview.SizeChanged += LayoutPreview;
+        LayoutPreview(StopsMapPreview, EventArgs.Empty);
     }
 
     private void SaveCurrentTripFields()
@@ -278,23 +401,23 @@ public partial class FieldTripPlannerWindow : Window
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
-    private void CopyShareLink_Click(object sender, RoutedEventArgs e)
+    private async void CopyShareLink_Click(object sender, RoutedEventArgs e)
     {
         var trip = CurrentTrip();
         if (trip == null || trip.Stops.Count == 0)
             return;
-        var url = FieldTripShareCodec.BuildShareUrl(trip.Stops);
+        var url = await FieldTripShareCodec.BuildShareUrlAsync(trip.Stops);
         Clipboard.SetText(url);
         MessageBox.Show(this, "Share link copied to clipboard:\n" + url, "Field trip", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    private void ImportShareLink_Click(object sender, RoutedEventArgs e)
+    private async void ImportShareLink_Click(object sender, RoutedEventArgs e)
     {
         var pasted = ShareUrlPrompt.Show(this, "Field trip share link", "Paste a caveaipro.com field trip URL:");
         if (string.IsNullOrWhiteSpace(pasted))
             return;
 
-        var payload = FieldTripShareCodec.TryParseFromUrl(pasted);
+        var payload = await FieldTripShareCodec.TryParseFromUrlAsync(pasted);
         if (payload == null)
         {
             MessageBox.Show(this, "Could not parse field trip link.", "Field trip", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -317,12 +440,12 @@ public partial class FieldTripPlannerWindow : Window
         MessageBox.Show(this, $"Imported {trip.Stops.Count} stop(s).", "Field trip", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    private void OpenShareOnWeb_Click(object sender, RoutedEventArgs e)
+    private async void OpenShareOnWeb_Click(object sender, RoutedEventArgs e)
     {
         var trip = CurrentTrip();
         if (trip == null || trip.Stops.Count == 0)
             return;
-        var url = FieldTripShareCodec.BuildShareUrl(trip.Stops);
+        var url = await FieldTripShareCodec.BuildShareUrlAsync(trip.Stops);
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 

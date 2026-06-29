@@ -38,7 +38,7 @@ public static class DesignLayerProceduralApplicator
 
         foreach (var stroke in result.Strokes.Where(s => s.IsDrawable))
         {
-            var meta = DesignLayerInkMetadata.ForProceduralWall();
+            var meta = stroke.Metadata ?? DesignLayerInkMetadata.ForProceduralWall();
             var poly = CreatePolyline(stroke, layout, meta);
             designLayer.Children.Add(poly);
             added++;
@@ -69,23 +69,8 @@ public static class DesignLayerProceduralApplicator
         PlanCanvasSurveyLayout layout,
         DesignLayerInkMetadata meta)
     {
-        var brush = DesignLayerInkMetadata.ArgbToBrush(meta.StrokeColorArgb)
-            ?? Brushes.Black;
-        var poly = new Polyline
-        {
-            Stroke = brush,
-            StrokeThickness = meta.StrokeWidthPx ?? SketchStrokeStyleDefaults.DefaultStrokeWidthPx,
-            StrokeLineJoin = PenLineJoin.Round,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            Tag = meta,
-        };
-
-        if (string.Equals(meta.Source, SketchStrokeStyleDefaults.ProceduralSource, StringComparison.OrdinalIgnoreCase))
-        {
-            poly.StrokeDashArray = new DoubleCollection { 4, 3 };
-            poly.Opacity = 0.85;
-        }
+        var poly = new Polyline();
+        SketchWallInkStyle.ApplyToPolyline(poly, meta);
 
         foreach (var (sx, sy) in stroke.Points)
         {

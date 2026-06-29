@@ -16,6 +16,7 @@ public static class SurveyBatchMapExporter
         IReadOnlyList<CaveProjectDocument> projects,
         string folderPath,
         bool includePlanSvg = true,
+        bool includePlanPng = true,
         bool includeSectionSvg = true,
         bool includeLongProfileSvg = true,
         bool include3DPng = true)
@@ -42,6 +43,25 @@ public static class SurveyBatchMapExporter
                         SurveyStationGeometry.AndroidViewModePlan,
                         SurveyVisualizationMode.Standard,
                         PlanCanvasDrawOptionsFactory.ForExport(SurveyCanvasKind.Plan));
+                }, path, written, errors);
+            }
+
+            if (includePlanPng)
+            {
+                var path = Path.Combine(folderPath, prefix + "_plan.png");
+                TryWrite(() =>
+                {
+                    var png = PlanMapRasterExporter.TryCapturePlanPngHighRes(
+                        p,
+                        SurveyVisualizationMode.Standard,
+                        highContrast: false,
+                        PlanCanvasDrawOptionsFactory.ForExport(SurveyCanvasKind.Plan),
+                        underlays: Array.Empty<PlanRasterUnderlay>(),
+                        zipPath: null,
+                        quality: MapExportQuality.Standard);
+                    if (png == null)
+                        throw new InvalidOperationException("Could not render plan PNG.");
+                    File.WriteAllBytes(path, png);
                 }, path, written, errors);
             }
 

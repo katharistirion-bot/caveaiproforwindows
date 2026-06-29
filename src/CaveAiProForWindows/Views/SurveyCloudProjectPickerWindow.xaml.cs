@@ -1,0 +1,75 @@
+using System.Windows;
+using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.SurveyCloud;
+
+namespace CaveAiProForWindows.Views;
+
+public partial class SurveyCloudProjectPickerWindow : Window
+{
+    private readonly FirebaseIdToken _token;
+    private List<SurveyCloudPickerRow> _rows = [];
+
+    public SurveyCloudProjectMeta? SelectedMeta { get; private set; }
+
+    private SurveyCloudProjectPickerWindow(FirebaseIdToken token)
+    {
+        _token = token;
+        InitializeComponent();
+        Loaded += async (_, _) => await ReloadAsync();
+    }
+
+    public static Task<SurveyCloudProjectMeta?> TryPickAsync(Window? owner, FirebaseIdToken token)
+    {
+        var dlg = new SurveyCloudProjectPickerWindow(token) { Owner = owner };
+        return Task.FromResult(dlg.ShowDialog() == true ? dlg.SelectedMeta : null);
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            var list = await SurveyCloudProjectService.ListOwnerProjectsAsync(_token).ConfigureAwait(true);
+            _rows = list
+                .Select(m => new SurveyCloudPickerRow(m))
+                .ToList();
+            ProjectsList.ItemsSource = _rows;
+            if (_rows.Count > 0)
+                ProjectsList.SelectedIndex = 0;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Survey Cloud", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async void Refresh_Click(object sender, RoutedEventArgs e) => await ReloadAsync();
+
+    private void Open_Click(object sender, RoutedEventArgs e)
+    {
+        if (ProjectsList.SelectedItem is not SurveyCloudPickerRow row)
+        {
+            MessageBox.Show(this, "Select a survey project.", "Survey Cloud", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        SelectedMeta = row.Meta;
+        DialogResult = true;
+        Close();
+    }
+
+    private sealed class SurveyCloudPickerRow(SurveyCloudProjectMeta meta)
+    {
+        public SurveyCloudProjectMeta Meta { get; } = meta;
+
+        public string DisplayLine
+        {
+            get
+            {
+                var when = meta.UpdatedAtMs > 0
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(meta.UpdatedAtMs).LocalDateTime.ToString("yyyy-MM-dd HH:mm")
+                    : "unknown time";
+                return $"{meta.CaveName} — {meta.ShotCount} shots — {when} ({meta.PlatformOrigin})";
+            }
+        }
+    }
+}

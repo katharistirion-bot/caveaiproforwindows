@@ -22,6 +22,9 @@ public sealed class CloudPublishArtifactBundle
 
     /// <summary>UTF-8 JSON bytes — typically single-project <c>data.json</c> array.</summary>
     public byte[]? SurveyJsonUtf8 { get; init; }
+
+    /// <summary>Gallery photos from backup ZIP (uploaded during publish).</summary>
+    public IReadOnlyList<CloudPublishPhotoCollector.GalleryPhoto>? GalleryPhotos { get; init; }
 }
 
 /// <summary>
@@ -155,6 +158,21 @@ public sealed class CloudPublishService
             surveyUrl = up.MediaUrl;
         }
 
+        var galleryUrls = new List<string>();
+        if (bundle.GalleryPhotos is { Count: > 0 } photos)
+        {
+            var index = 0;
+            foreach (var photo in photos.Take(CloudPublishPhotoCollector.MaxGalleryPhotos))
+            {
+                index++;
+                progress?.Report($"Uploading gallery photo {index}/{photos.Count}…");
+                var path = $"{sessionPrefix}/{projectSlug}/gallery/{index:00}_{SanitizePathSegment(photo.FileName)}";
+                var up = await _rest.UploadBytesAsync(token, path, photo.Bytes, photo.ContentType, cancellationToken)
+                    .ConfigureAwait(false);
+                galleryUrls.Add(up.MediaUrl);
+            }
+        }
+
         progress?.Report("Updating Firestore published cave…");
         ReferenceSurveyLinkService.TryGetLink(bundle.Project, out var refLink);
 
@@ -188,6 +206,7 @@ public sealed class CloudPublishService
             ReferenceCatalogId = refLink?.Id,
             ReferenceCatalogCountry = refLink?.Country,
             CaveNameSearchKey = PublicLibrarySearchKey.FromCaveName(publishedCaveName),
+            GalleryPhotoUrls = galleryUrls.Count > 0 ? galleryUrls : null,
             UpdatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         };
 

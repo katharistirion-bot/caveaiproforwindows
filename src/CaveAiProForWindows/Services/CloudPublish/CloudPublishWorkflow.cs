@@ -118,6 +118,7 @@ public static class CloudPublishWorkflow
                 AiMapPng = capture.AiMapPng,
                 StructureMaskPng = capture.StructureMaskPng,
                 SurveyJsonUtf8 = capture.SurveyJsonUtf8,
+                GalleryPhotos = capture.PendingGalleryPhotos,
             };
 
             var stringProgress = new Progress<string>(message =>

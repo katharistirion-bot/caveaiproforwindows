@@ -13,14 +13,13 @@ public sealed class InstallationGuardTests
         StringAssert.Contains(InstallationGuard.BlockedUserMessage, "GitHub Releases");
     }
 
+#if STORE_DISTRIBUTION
     [TestMethod]
     public void BlockedUserMessage_mentions_store_when_store_build()
     {
-        if (!DistributionChannel.IsMicrosoftStoreBuild)
-            return;
-
         StringAssert.Contains(InstallationGuard.BlockedUserMessage, "Microsoft Store");
     }
+#endif
 
     [TestMethod]
     public void IsMicrosoftStoreInstallPath_detects_WindowsApps()

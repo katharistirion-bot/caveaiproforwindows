@@ -18,6 +18,8 @@ Script: `tools/sign-release.ps1` — uses Windows SDK `signtool` with SHA256 + D
 
 If secrets are missing, signing is skipped (exit 0) and a warning is printed.
 
+**Production recommendation:** configure both secrets before tagging a public release. Unsigned `Setup.exe` / MSI builds trigger Windows SmartScreen warnings and erode user trust. The release workflow writes a prominent warning to the job log when `WINDOWS_CERT_BASE64` is absent on tag builds.
+
 ## Local signing
 
 ```powershell

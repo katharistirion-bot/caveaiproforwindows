@@ -188,6 +188,124 @@ Reference **clusters** keep cyan bubble styling (`#00ffff`) for readability; onl
 
 ---
 
+## Surface map (`surfaceMap`)
+
+Shared MapLibre GL JS surface map for terrain around the cave entrance. **Phase 1** (Windows): embedded `Assets/surface-map/` in WebView2; Android uses OSM/Google in `SurfaceMapScreen.kt`. Web portal repo is out of scope until a sibling checkout exists.
+
+### Host → map message (`type: "project"`)
+
+Posted via WebView2 `PostWebMessageAsJson` when the active project changes.
+
+```json
+{
+  "type": "project",
+  "payload": {
+    "name": "Cave name",
+    "lat": 39.0742,
+    "lon": 21.8243,
+    "declinationDeg": 2.5,
+    "surfaceLidarRaster": {
+      "imageUrl": "https://caveai-surface-cache.local/project_abc/lidar.png",
+      "southWestLat": 39.07,
+      "southWestLon": 21.82,
+      "northEastLat": 39.08,
+      "northEastLon": 21.83,
+      "opacity": 0.55
+    },
+    "surveyCorridor": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [21.8243, 39.0742],
+              [21.8248, 39.0746],
+              [21.8252, 39.0744]
+            ]
+          }
+        }
+      ]
+    },
+    "mapState": {
+      "hillshadeEnabled": true,
+      "terrain3dEnabled": false,
+      "corridorOverlayEnabled": true,
+      "centerLon": 21.8243,
+      "centerLat": 39.0742,
+      "zoom": 15,
+      "bearing": 0,
+      "pitch": 0
+    }
+  }
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `name` | string | Project display name |
+| `lat`, `lon` | number? | Entrance WGS84 (from `data.json` `lat`/`lon`) |
+| `declinationDeg` | number? | From `surveyCalibrationProfile.magneticDeclinationAppliedDeg` when set |
+| `surfaceLidarRaster` | object? | Mirrors Android `SurfaceLidarRasterOverlay` bounds; `imageUrl` is https (remote) or virtual-host local cache |
+| `surveyCorridor` | object? | GeoJSON `FeatureCollection` of traverse center-line `LineString` features in WGS84 `[lon, lat]` order; omitted when entrance coords or traverse legs are unavailable |
+| `mapState` | object? | Persisted UI: layer toggles + camera (Windows `AppUiSettingsModel.surfaceMap`) |
+
+### Map → host messages
+
+| `type` | Purpose |
+|--------|---------|
+| `ready` | MapLibre loaded; host may push `project` |
+| `mapState` | Camera/layer persistence (`payload` mirrors `mapState` above) |
+| `status` | Human-readable status line (`message`) |
+
+Host may send `type: "layers"` (`hillshadeEnabled`, `terrain3dEnabled`, `corridorOverlayEnabled`) or `type: "fitEntrance"`.
+
+### Survey corridor geometry (Phase 2)
+
+Windows builds `surveyCorridor` from traverse legs (`toStation != "-"`):
+
+1. Anchor first station at project entrance `lat`/`lon`.
+2. For each leg, apply horizontal distance `distance * cos(clino)` along geographic bearing `azimuth + declinationDeg` (from `surveyCalibrationProfile.magneticDeclinationAppliedDeg`, else `0`).
+3. Split connected traverse chains (Android `splitTraverseStationChains`) — one `LineString` feature per chain.
+4. Coordinates are geodesic steps on WGS84 (Android `buildSurfaceStationCoordsGps`).
+
+MapLibre renders the overlay as a teal line (`#00d4aa`) with green start / red end markers per chain when `mapState.corridorOverlayEnabled` is true (default).
+
+### Tile sources (client-side URLs — no Firebase proxy)
+
+| Layer | URL pattern |
+|-------|-------------|
+| OSM basemap | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
+| Hillshade | `https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png` |
+| DEM / 3D terrain | `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png` (Terrarium encoding) |
+
+MapLibre GL JS is loaded from CDN (`unpkg.com/maplibre-gl@4.7.1`) in v1 embedded assets.
+
+### Android `surfaceLidarRaster` JSON (backup)
+
+Same object as Android `CaveProject.surfaceLidarRaster`:
+
+```json
+{
+  "imageUri": "maps/xray/surface_dsm.png",
+  "southWestLat": 39.07,
+  "southWestLon": 21.82,
+  "northEastLat": 39.08,
+  "northEastLon": 21.83,
+  "opacity": 0.55
+}
+```
+
+Windows resolves `imageUri` from backup ZIP / sibling files and serves via `caveai-surface-cache.local` virtual host when local.
+
+### Phase 3 (not in scope)
+
+- Firebase tile proxy
+- Shared assets in caveaipro.com web repo
+
+---
+
 ## Change process
 
 1. Update all three clients when changing keys or URL formats.

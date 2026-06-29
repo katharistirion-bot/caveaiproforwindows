@@ -81,6 +81,50 @@ public static class AppUpdateService
 #endif
     }
 
+    /// <summary>Latest GitHub release tag when newer than <see cref="CurrentVersion"/>; null when up to date or unreachable.</summary>
+    public static async Task<RemoteVersionInfo?> TryFetchRemoteVersionAsync() =>
+        await TryFetchLatestReleaseAsync().ConfigureAwait(false) is { } latest &&
+        IsRemoteNewer(latest.Version, CurrentVersion)
+            ? latest
+            : null;
+
+    /// <summary>Latest GitHub release metadata, or null when the API call fails.</summary>
+    public static async Task<RemoteVersionInfo?> TryFetchLatestReleaseAsync()
+    {
+        if (IsUpdateCheckDisabled)
+            return null;
+
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var apiUrl = $"https://api.github.com/repos/{GitHubRepo}/releases/latest";
+            using var req = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+            req.Headers.UserAgent.ParseAdd("CaveAiProForWindows/" + CurrentVersion);
+            using var resp = await http.SendAsync(req).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                return null;
+
+            var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            var tag = doc.RootElement.TryGetProperty("tag_name", out var tagEl)
+                ? tagEl.GetString()?.TrimStart('v', 'V') ?? ""
+                : "";
+            var htmlUrl = doc.RootElement.TryGetProperty("html_url", out var urlEl)
+                ? urlEl.GetString() ?? GitHubRepoUrl + "/releases"
+                : GitHubRepoUrl + "/releases";
+            if (string.IsNullOrWhiteSpace(tag))
+                return null;
+
+            return new RemoteVersionInfo(tag, htmlUrl);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public sealed record RemoteVersionInfo(string Version, string ReleasePageUrl);
+
     /// <summary>Help → Check for updates (manual, shows feedback when up to date).</summary>
     public static async Task CheckForUpdatesAsync(Window? owner, bool silent = false)
     {
@@ -216,12 +260,8 @@ public static class AppUpdateService
 
     private static async Task CheckGitHubReleasesJsonAsync(Window? owner, bool silent)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        var apiUrl = $"https://api.github.com/repos/{GitHubRepo}/releases/latest";
-        using var req = new HttpRequestMessage(HttpMethod.Get, apiUrl);
-        req.Headers.UserAgent.ParseAdd("CaveAiProForWindows/" + CurrentVersion);
-        using var resp = await http.SendAsync(req).ConfigureAwait(false);
-        if (!resp.IsSuccessStatusCode)
+        var latest = await TryFetchLatestReleaseAsync().ConfigureAwait(false);
+        if (latest == null)
         {
             if (!silent)
             {
@@ -239,16 +279,7 @@ public static class AppUpdateService
             return;
         }
 
-        var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        using var doc = JsonDocument.Parse(json);
-        var tag = doc.RootElement.TryGetProperty("tag_name", out var tagEl)
-            ? tagEl.GetString()?.TrimStart('v', 'V') ?? ""
-            : "";
-        var htmlUrl = doc.RootElement.TryGetProperty("html_url", out var urlEl)
-            ? urlEl.GetString() ?? GitHubRepoUrl + "/releases"
-            : GitHubRepoUrl + "/releases";
-
-        if (!IsRemoteNewer(tag, CurrentVersion))
+        if (!IsRemoteNewer(latest.Version, CurrentVersion))
         {
             if (!silent)
             {
@@ -264,11 +295,14 @@ public static class AppUpdateService
             return;
         }
 
+        if (silent)
+            return;
+
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
             var result = MessageBox.Show(
                 owner,
-                $"Version {tag} is available on GitHub.\n\n" +
+                $"Version {latest.Version} is available on GitHub.\n\n" +
                 "Install CaveAiProForWindows-*-Setup.exe for automatic in-app updates, " +
                 "or open the release page to download manually?",
                 "CAVE AI PRO — Update available",
@@ -276,7 +310,7 @@ public static class AppUpdateService
                 MessageBoxImage.Information);
             if (result == MessageBoxResult.Yes)
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(htmlUrl)
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(latest.ReleasePageUrl)
                 {
                     UseShellExecute = true,
                 });

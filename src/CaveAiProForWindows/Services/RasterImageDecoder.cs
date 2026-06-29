@@ -22,6 +22,21 @@ public static class RasterImageDecoder
         if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath))
             return null;
 
+        try
+        {
+            var length = new FileInfo(fullPath).Length;
+            if (length > BackupFileSizeLimits.MaxRasterDecodeFileBytes)
+            {
+                Debug.WriteLine(
+                    $"[RasterImageDecoder] skip oversized raster ({length:N0} bytes): {fullPath}");
+                return null;
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
         if (TryWpfBitmap(fullPath) is { } wpf)
             return wpf;
 

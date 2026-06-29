@@ -17,7 +17,7 @@ public sealed class FirebaseWebClientConfig
     public string ProjectId { get; init; } = FirebaseProjectConfig.DefaultProjectId;
 
     [JsonPropertyName("storageBucket")]
-    public string StorageBucket { get; init; } = $"{FirebaseProjectConfig.DefaultProjectId}.appspot.com";
+    public string StorageBucket { get; init; } = $"{FirebaseProjectConfig.DefaultProjectId}.firebasestorage.app";
 
     public bool IsUsable =>
         !string.IsNullOrWhiteSpace(ApiKey)
@@ -46,8 +46,8 @@ public sealed class FirebaseProjectConfig
 
     public string ProjectId { get; init; } = DefaultProjectId;
 
-    /// <summary>GCS bucket backing Firebase Storage (classic: {projectId}.appspot.com).</summary>
-    public string StorageBucket { get; init; } = $"{DefaultProjectId}.appspot.com";
+    /// <summary>Firebase Storage bucket ({projectId}.firebasestorage.app).</summary>
+    public string StorageBucket { get; init; } = $"{DefaultProjectId}.firebasestorage.app";
 
     public string FirestoreDatabaseId { get; init; } = "(default)";
 
@@ -66,7 +66,7 @@ public sealed class FirebaseProjectConfig
         var bucket = FirstNonEmpty(
             Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_STORAGE_BUCKET"),
             embedded?.StorageBucket,
-            $"{projectId}.appspot.com")!;
+            $"{projectId}.firebasestorage.app")!;
         var apiKey = ResolveWebApiKey(
             Environment.GetEnvironmentVariable("CAVEAIPRO_FIREBASE_API_KEY"),
             embedded?.ApiKey,

@@ -32,6 +32,15 @@ public static class SurveyWorkspaceNavigator
         main.Dispatcher.BeginInvoke(() => main.FocusGeoBioTab());
     }
 
+    /// <summary>Jump to SKETCH EDITOR — optional procedural LRUD wall preview from traverse.</summary>
+    public static void OpenSketchEditorForDesign(bool runProceduralAssist = false)
+    {
+        if (_mainWindowRef?.TryGetTarget(out var main) != true || main == null)
+            return;
+
+        main.Dispatcher.BeginInvoke(() => main.OpenSketchEditorForDesign(runProceduralAssist));
+    }
+
     public static bool TryGetMainWindow(out MainWindow? mainWindow)
     {
         mainWindow = null;

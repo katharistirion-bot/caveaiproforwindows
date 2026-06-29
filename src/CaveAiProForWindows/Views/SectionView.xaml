@@ -56,40 +56,50 @@
                         VerticalAlignment="Stretch">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="5">
-                            <TextBlock Text="Drawing mode" FontWeight="SemiBold"
+                            <TextBlock Text="Navigation" FontWeight="SemiBold"
                                        FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                        Foreground="{DynamicResource Cave.Text}"
                                        Margin="0,0,0,8" />
-                            <RadioButton x:Name="EditorToolPan" GroupName="SectionMapEditorTools" Margin="0,0,0,6"
+                            <RadioButton x:Name="EditorToolPan" GroupName="SectionMapEditorTools" Margin="0,0,0,10"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          IsChecked="True"
                                          Content="Pan / zoom" Checked="EditorToolPan_Checked"
                                          Foreground="{DynamicResource Cave.Text}" />
+
+                            <Border Margin="0,0,0,10" Padding="8,6" CornerRadius="4"
+                                    Background="{DynamicResource Cave.BannerTint}"
+                                    BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                    ToolTip="Section vectors are read-only here — edit section cartography in SKETCH EDITOR">
+                                <TextBlock TextWrapping="Wrap"
+                                           FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                           Text="Section view is read-only (pan/zoom and display options). Draw walls, symbols, and ink in the SKETCH EDITOR tab." />
+                            </Border>
+
+                            <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                       Foreground="{DynamicResource Cave.TextMuted}"
+                                       Text="Wheel zoom (cursor) · left/middle-drag pan · toolbar Zoom · double-click map (Pan): reset view." />
+
+                            <Separator Margin="0,0,0,10" Visibility="Collapsed" />
                             <RadioButton x:Name="EditorToolSelect" GroupName="SectionMapEditorTools" Margin="0,0,0,6"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Select" Checked="EditorToolSelect_Checked"
-                                         Foreground="{DynamicResource Cave.Text}" />
+                                         Foreground="{DynamicResource Cave.Text}" Visibility="Collapsed" />
                             <RadioButton x:Name="EditorToolDraw" GroupName="SectionMapEditorTools" Margin="0,0,0,6"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Draw" Checked="EditorToolDraw_Checked"
-                                         Foreground="{DynamicResource Cave.Text}" />
+                                         Foreground="{DynamicResource Cave.Text}" Visibility="Collapsed" />
                             <RadioButton x:Name="EditorToolSymbol" GroupName="SectionMapEditorTools" Margin="0,0,0,6"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Symbol" Checked="EditorToolSymbol_Checked"
-                                         Foreground="{DynamicResource Cave.Text}" />
+                                         Foreground="{DynamicResource Cave.Text}" Visibility="Collapsed" />
                             <RadioButton x:Name="EditorToolErase" GroupName="SectionMapEditorTools" Margin="0,0,0,10"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Erase" Checked="EditorToolErase_Checked"
-                                         Foreground="{DynamicResource Cave.Text}" />
+                                         Foreground="{DynamicResource Cave.Text}" Visibility="Collapsed" />
 
-                            <Separator Margin="0,0,0,10" />
-
-                            <TextBlock Text="Sketch symbols" FontWeight="SemiBold"
-                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                       Foreground="{DynamicResource Cave.Text}"
-                                       Margin="0,0,0,8" />
-
-                            <Border x:Name="SymbolPaletteRoot" IsEnabled="False" Padding="6"
+                            <Border x:Name="SymbolPaletteRoot" Visibility="Collapsed" IsEnabled="False" Padding="6"
                                     BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" CornerRadius="4"
                                     Background="{DynamicResource Cave.CanvasBackdrop}">
                                 <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -112,12 +122,7 @@
                                 </WrapPanel>
                             </Border>
 
-                            <TextBlock Margin="0,4,0,10" TextWrapping="Wrap"
-                                       FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
-                                       Foreground="{DynamicResource Cave.TextMuted}"
-                                       Text="Wheel zoom (cursor) · left/middle-drag pan · toolbar Zoom · Symbol: stamp + click · Draw: drag · double-click map (Pan): reset view." />
-
-                            <Separator Margin="0,0,0,10" />
+                            <Separator Margin="0,0,0,10" Visibility="Collapsed" />
 
                             <TextBlock Text="Map cartography style" FontWeight="SemiBold"
                                        FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
@@ -267,6 +272,6 @@
 
         <TextBlock Grid.Row="2" Margin="12,0,12,8" TextWrapping="Wrap" FontSize="10.5"
                    Foreground="{DynamicResource Cave.TextMuted}" MaxHeight="44" TextTrimming="CharacterEllipsis"
-                   Text="Section — vectorLines viewMode 1 + sectionSketches. Main tabs: SECTION, SECTION NIGHT. Zoom: wheel or toolbar; pan: left or middle drag; double-click (Pan): reset view." />
+                   Text="Section — read-only view of vectorLines (viewMode 1) + sectionSketches. Edit cartography in SKETCH EDITOR. Zoom: wheel or toolbar; pan: left or middle drag; double-click (Pan): reset view." />
     </Grid>
 </UserControl>

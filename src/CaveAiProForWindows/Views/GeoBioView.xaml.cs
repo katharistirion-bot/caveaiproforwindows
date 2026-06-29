@@ -69,10 +69,13 @@ public partial class GeoBioView : UserControl
         GlobalAnalysisBorder.Visibility = Visibility.Collapsed;
         GlobalAnalysisText.Text = "";
         CatalogSummaryText.Text = "";
+        PendingGeoBorder.Visibility = Visibility.Collapsed;
+        PendingRocksList.ItemsSource = null;
 
         var project = Project;
         if (project == null)
         {
+            OfflineHintText.Text = "";
             ShowEmpty(GeologyEmptyBorder, GeologyEmptyText, "Select a cave project.");
             ShowEmpty(BiologyEmptyBorder, BiologyEmptyText, "Select a cave project.");
             ShowCatalogEmpty("Select a cave project.");
@@ -88,6 +91,8 @@ public partial class GeoBioView : UserControl
 
         _allRecords = GeoBioRecordsService.Build(project);
         CatalogSummaryText.Text = FieldCatalogAnalyticsFormatter.BuildSummaryLine(_allRecords);
+        OfflineHintText.Text = CaveAiOfflineBrain.FormatStatusHintPanel(project);
+        RefreshPendingGeoPanel(project);
 
         var (geologyVms, biologyVms) = BuildViewModels(project, _allRecords);
 
@@ -113,6 +118,46 @@ public partial class GeoBioView : UserControl
         }
 
         RefreshCatalogTable();
+    }
+
+    private void RefreshPendingGeoPanel(CaveProjectDocument project)
+    {
+        var pending = ListPendingRockSamples(project);
+        if (pending.Count == 0)
+        {
+            PendingGeoBorder.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PendingGeoTitle.Text = $"{pending.Count} pending geo/bio sample(s) — sync on Android";
+        PendingRocksList.ItemsSource = pending;
+        PendingGeoReminder.Text =
+            "These rocks have photos but no cloud analysis yet. On Android: open GEO/BIO → sync pending samples, then re-export the backup ZIP to this PC.";
+        PendingGeoBorder.Visibility = Visibility.Visible;
+    }
+
+    private static List<string> ListPendingRockSamples(CaveProjectDocument project)
+    {
+        var list = new List<string>();
+        if (project.Rocks is not System.Text.Json.JsonElement { ValueKind: System.Text.Json.JsonValueKind.Array } rocks)
+            return list;
+
+        foreach (var rock in rocks.EnumerateArray())
+        {
+            var imageUri = rock.TryGetProperty("imageUri", out var img) ? img.GetString() : null;
+            var isAnalyzed = rock.TryGetProperty("isAnalyzed", out var analyzed) &&
+                             analyzed.ValueKind == System.Text.Json.JsonValueKind.True;
+            if (string.IsNullOrWhiteSpace(imageUri) || isAnalyzed)
+                continue;
+
+            var label = rock.TryGetProperty("label", out var lbl) ? lbl.GetString()
+                : rock.TryGetProperty("name", out var nm) ? nm.GetString()
+                : rock.TryGetProperty("station", out var st) ? st.GetString()
+                : null;
+            list.Add(string.IsNullOrWhiteSpace(label) ? "(unnamed sample)" : label.Trim());
+        }
+
+        return list;
     }
 
     private void RefreshCatalogTable()

@@ -186,7 +186,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
 
     private void MainViewModel_SurveyDataChanged(object? sender, EventArgs e) => Redraw();
 
-    private MapCanvasEditorTool GetCurrentEditorTool() => _currentTool;
+    private MapCanvasEditorTool GetCurrentEditorTool() => MapCanvasEditorTool.PanZoom;
 
     private SketchEditorSymbolKind GetSelectedSketchStamp() => _stampKind;
 
@@ -373,6 +373,7 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
         }
 
         ApplySectionTabFromSettings();
+        _currentTool = MapCanvasEditorTool.PanZoom;
         if (_currentTool == MapCanvasEditorTool.PlaceSymbol)
             EnsureSymbolPaletteHasSelection();
         else if (SymbolPaletteRock != null && SymbolPaletteWater != null && SymbolPaletteSpele != null)
@@ -589,6 +590,10 @@ public partial class SectionView : System.Windows.Controls.UserControl, IMapSurf
 
     /// <inheritdoc />
     public bool TryDeleteSelectedInk() => false;
+
+    public bool TryDuplicateSelectedInk() => false;
+
+    public void FitMapToSurveyBounds() { }
 
     private void ApplyMapZoom(bool zoomIn)
     {

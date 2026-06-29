@@ -5,7 +5,6 @@
 | Asset | In git? | Notes |
 |-------|---------|-------|
 | Firebase Web API key | **Placeholder only** (`REPLACE_AT_BUILD` in `firebase-config.json`) | Inject at build via `tools/inject-firebase-config.ps1` or `CAVEAIPRO_FIREBASE_API_KEY` |
-| Replicate BYOK token | **No** | Windows Credential Manager (`ReplicateApiTokenStore`) |
 | Firebase ID token | **No** | DPAPI file `%LOCALAPPDATA%\CaveAiProForWindows\auth-token.dat` |
 
 **Token storage (DPAPI):** `FirebaseAuthTokenStore` encrypts the JWT with `ProtectedData` (`CurrentUser` scope) and app-specific entropy (`UserScopedDpapiProtector`). Legacy plain `auth-token.json` is migrated on first read and deleted. Limits: same Windows user profile only; not synced across machines; does not replace server-side token expiry/revocation. See **`docs/SECURITY-HARDENING.md`** for ecosystem checklist.

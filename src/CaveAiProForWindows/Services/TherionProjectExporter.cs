@@ -61,10 +61,16 @@ public static class TherionProjectExporter
     {
         var sb = new StringBuilder();
         sb.AppendLine("# Cave AI Pro — minimal Therion compile config");
+        sb.AppendLine("# Scale: 1:500 plan layout (adjust export -layout in Therion for publication)");
+        sb.AppendLine("# Coordinate system: local survey metres from Android traverse (no EPSG transform in this export)");
+        sb.AppendLine("cs local");
+        sb.AppendLine("units metric");
+        sb.AppendLine($"source {surveyId}.th");
         sb.AppendLine($"source {surveyId}-plan.th2");
         if (includeSection)
             sb.AppendLine($"source {surveyId}-section.th2");
-        sb.AppendLine($"export map-plan-{surveyId}.pdf -layout plan -projection plan -output output");
+        sb.AppendLine($"export map-plan-{surveyId}.pdf -layout plan -projection plan -scale 500 -output output");
+        sb.AppendLine($"export map-section-{surveyId}.pdf -layout plan -projection extended -scale 500 -output output");
         return sb.ToString();
     }
 

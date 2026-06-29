@@ -1,4 +1,5 @@
 using System.Windows.Media;
+using CaveAiProForWindows.Services;
 
 namespace CaveAiProForWindows.Services.SketchAssist;
 
@@ -25,10 +26,58 @@ public sealed class DesignLayerInkMetadata
             Source = "designLayer",
             StrokeWidthPx = strokeThicknessDip,
             StrokeColorArgb = SketchStrokeStyleDefaults.DefaultStrokeColorArgb,
-            BrushProfile = SketchStrokeStyleDefaults.DefaultBrushProfile,
+            BrushProfile = SketchWallInkProfiles.Ink,
             LayerIndex = SketchStrokeStyleDefaults.UserLayerIndex,
             LayerZOrder = SketchStrokeStyleDefaults.UserLayerZOrder,
             LayerName = "User ink",
+        };
+
+    public static DesignLayerInkMetadata ForWallStroke(double strokeThicknessDip) =>
+        new()
+        {
+            Source = "designLayer",
+            StrokeWidthPx = strokeThicknessDip,
+            StrokeColorArgb = SketchStrokeStyleDefaults.DefaultStrokeColorArgb,
+            BrushProfile = SketchWallInkProfiles.Wall,
+            LayerIndex = SketchStrokeStyleDefaults.UserLayerIndex,
+            LayerZOrder = SketchStrokeStyleDefaults.UserLayerZOrder,
+            LayerName = "Passage wall",
+        };
+
+    public static DesignLayerInkMetadata ForEstimatedWall(double strokeThicknessDip) =>
+        new()
+        {
+            Source = "designLayer",
+            StrokeWidthPx = strokeThicknessDip,
+            StrokeColorArgb = SketchStrokeStyleDefaults.EstimatedWallStrokeColorArgb,
+            BrushProfile = SketchWallInkProfiles.WallEstimated,
+            LayerIndex = SketchStrokeStyleDefaults.UserLayerIndex,
+            LayerZOrder = SketchStrokeStyleDefaults.UserLayerZOrder,
+            LayerName = "Estimated wall",
+        };
+
+    public static DesignLayerInkMetadata ForFillBoundary(double strokeThicknessDip) =>
+        new()
+        {
+            Source = "designLayer",
+            StrokeWidthPx = strokeThicknessDip,
+            StrokeColorArgb = SketchStrokeStyleDefaults.FillBoundaryStrokeColorArgb,
+            BrushProfile = SketchWallInkProfiles.FillBoundary,
+            LayerIndex = SketchStrokeStyleDefaults.UserLayerIndex,
+            LayerZOrder = SketchStrokeStyleDefaults.UserLayerZOrder,
+            LayerName = "Sand/clay boundary",
+        };
+
+    public static DesignLayerInkMetadata ForWaterStroke(double strokeThicknessDip) =>
+        new()
+        {
+            Source = "designLayer",
+            StrokeWidthPx = strokeThicknessDip,
+            StrokeColorArgb = SketchStrokeStyleDefaults.WaterStrokeColorArgb,
+            BrushProfile = SketchWallInkProfiles.Water,
+            LayerIndex = SketchStrokeStyleDefaults.UserLayerIndex,
+            LayerZOrder = SketchStrokeStyleDefaults.UserLayerZOrder,
+            LayerName = "Water feature",
         };
 
     public static DesignLayerInkMetadata ForProceduralWall() =>
@@ -37,10 +86,22 @@ public sealed class DesignLayerInkMetadata
             Source = "procedural",
             StrokeWidthPx = SketchStrokeStyleDefaults.ProceduralStrokeWidthPx,
             StrokeColorArgb = SketchStrokeStyleDefaults.ProceduralStrokeColorArgb,
-            BrushProfile = SketchStrokeStyleDefaults.ProceduralBrushProfile,
+            BrushProfile = SketchWallInkProfiles.Wall,
             LayerIndex = SketchStrokeStyleDefaults.ProceduralLayerIndex,
             LayerZOrder = SketchStrokeStyleDefaults.ProceduralLayerZOrder,
-            LayerName = "Procedural walls",
+            LayerName = "LRUD walls",
+        };
+
+    public static DesignLayerInkMetadata ForProceduralSplay() =>
+        new()
+        {
+            Source = "procedural",
+            StrokeWidthPx = SketchStrokeStyleDefaults.ProceduralStrokeWidthPx,
+            StrokeColorArgb = SketchStrokeStyleDefaults.EstimatedWallStrokeColorArgb,
+            BrushProfile = SketchWallInkProfiles.WallEstimated,
+            LayerIndex = SketchStrokeStyleDefaults.ProceduralLayerIndex,
+            LayerZOrder = SketchStrokeStyleDefaults.ProceduralLayerZOrder - 1,
+            LayerName = "Splay outline",
         };
 
     public static DesignLayerInkMetadata ForProceduralSymbol() =>

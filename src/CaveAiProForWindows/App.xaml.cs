@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Threading;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.Auth;
+using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows;
@@ -96,6 +97,13 @@ public partial class App : System.Windows.Application
             CloseSplash(splash);
             splash = null;
 
+            if (!LegalTermsLaunchGate.TryEnsureAccepted())
+            {
+                WriteStartupLog("Legal gate: startup aborted — terms not accepted");
+                Shutdown(0);
+                return;
+            }
+
             var main = new MainWindow();
             MainWindow = main;
             ShutdownMode = ShutdownMode.OnMainWindowClose;
@@ -120,6 +128,8 @@ public partial class App : System.Windows.Application
             }
 
             _ = AppUpdateService.CheckForUpdatesOnStartupAsync(main);
+            if (main.DataContext is MainViewModel vmUpdates)
+                _ = vmUpdates.CheckUpdateAvailableBannerAsync();
         }
         catch (Exception ex)
         {
@@ -279,6 +289,7 @@ public partial class App : System.Windows.Application
             }
 
             File.WriteAllText(path, sb.ToString());
+            ClientErrorTelemetryService.Report(title, ex);
         }
         catch
         {

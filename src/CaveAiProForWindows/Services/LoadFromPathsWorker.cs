@@ -99,7 +99,6 @@ public static class LoadFromPathsWorker
             foreach (var p in part)
             {
                 p.LoadedFromFile = fullPath;
-                GenerativeAssetPersistenceService.TryHydrateSessionFromProject(p, fullPath);
             }
             merged.AddRange(part);
             loadedPaths.Add(path);

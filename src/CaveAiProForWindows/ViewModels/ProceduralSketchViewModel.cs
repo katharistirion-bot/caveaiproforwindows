@@ -34,6 +34,8 @@ public partial class ProceduralSketchViewModel : ObservableObject
 
     [ObservableProperty] private bool _includeFieldCatalogPins = true;
 
+    [ObservableProperty] private bool _includeSplayOutlines;
+
     [ObservableProperty] private bool _hasProceduralPreview;
 
     [ObservableProperty]
@@ -62,6 +64,7 @@ public partial class ProceduralSketchViewModel : ObservableObject
             IncludeWallOutlines = IncludeWallOutlines,
             IncludeMapSymbols = IncludeMapSymbols,
             IncludeFieldCatalogPins = IncludeFieldCatalogPins,
+            IncludeSplayOutlines = IncludeSplayOutlines,
         };
 
         if (!ProceduralSketchGenerator.TryGenerate(project, options, out var result))
@@ -75,8 +78,10 @@ public partial class ProceduralSketchViewModel : ObservableObject
         var added = DesignLayerProceduralApplicator.Apply(canvas, layout, result);
         HasProceduralPreview = added > 0;
         StatusMessage = added > 0
-            ? $"Placed {result.Strokes.Count} wall stroke(s) and {result.SymbolStamps.Count} symbol(s) — dashed = procedural preview."
-            : "Nothing was added to the design layer.";
+            ? $"Placed {result.Strokes.Count} LRUD wall stroke(s) and {result.SymbolStamps.Count} symbol(s) — dashed = procedural preview (Accept to keep)."
+            : result.HasContent
+                ? "Nothing new was added — existing design ink or LRUD preview may already be on the layer."
+                : "Nothing was added to the design layer.";
         _host.OnDesignLayerChanged?.Invoke();
     }
 

@@ -101,6 +101,18 @@ public sealed class CaveProjectDocument
     [JsonPropertyName("vehicleParkNotes")]
     public string? VehicleParkNotes { get; set; }
 
+    [JsonPropertyName("returnCarLat")]
+    public string? ReturnCarLat { get; set; }
+
+    [JsonPropertyName("returnCarLon")]
+    public string? ReturnCarLon { get; set; }
+
+    [JsonPropertyName("returnBaseLat")]
+    public string? ReturnBaseLat { get; set; }
+
+    [JsonPropertyName("returnBaseLon")]
+    public string? ReturnBaseLon { get; set; }
+
     [JsonPropertyName("surfaceLidarRaster")]
     public JsonElement SurfaceLidarRaster { get; set; }
 

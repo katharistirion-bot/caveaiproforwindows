@@ -330,4 +330,36 @@ public static class CaveAiOfflineBrain
 
     private static bool ContainsAny(string haystack, params string[] words) =>
         words.Any(w => haystack.Contains(w, StringComparison.Ordinal));
+
+    /// <summary>Short status lines for publication sheet, GEO/BIO header, and Survey QC (no chat UI).</summary>
+    public static IReadOnlyList<string> BuildStatusHints(CaveProjectDocument? project, int maxHints = 3)
+    {
+        if (project == null)
+            return ["Open a CaveAI backup and select a project."];
+
+        var hints = new List<string>();
+        var pendingGeo = CountPendingGeoSamples(project);
+        if (pendingGeo > 0)
+            hints.Add($"{pendingGeo} field sample(s) pending geo/bio — open GEO & BIO tab.");
+
+        var loops = SurveyLoopClosureAdjuster.DetectLoops(project);
+        if (loops.Count > 0)
+        {
+            var worst = loops.OrderByDescending(l => l.MisclosureMeters).First();
+            hints.Add(
+                $"Loop closure: worst {LoopClosureSeverityClassifier.FormatMisclosureLabel(worst.MisclosureMeters)} — Tools → Loop closure assistant.");
+        }
+
+        var next = Answer(project, "what should I do next").Replace("**", "", StringComparison.Ordinal);
+        if (!string.IsNullOrWhiteSpace(next))
+            hints.Add(next);
+
+        if (hints.Count == 0)
+            hints.Add(Answer(project, "summary"));
+
+        return hints.Take(Math.Max(1, maxHints)).ToList();
+    }
+
+    public static string FormatStatusHintPanel(CaveProjectDocument? project) =>
+        string.Join(" · ", BuildStatusHints(project));
 }

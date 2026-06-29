@@ -48,6 +48,9 @@ public static class XRayBackdropMetadataParser
     /// <summary>Try every known shape and return the first valid bbox.</summary>
     public static XRayBackdropMetadata? TryRead(CaveProjectDocument project)
     {
+        if (XRayManualBoundsStore.TryRead(project, out var manual) && manual.IsValid)
+            return manual;
+
         if (project.XrayBackdropImageBounds.ValueKind is JsonValueKind.Object or JsonValueKind.Array &&
             TryReadBounds(project.XrayBackdropImageBounds, "xrayBackdropImageBounds") is { IsValid: true } explicitBbox)
             return explicitBbox;

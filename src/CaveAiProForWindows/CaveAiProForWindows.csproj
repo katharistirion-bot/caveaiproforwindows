@@ -83,6 +83,9 @@
     <Content Include="Assets\Intro\intro.mp4" Condition="Exists('Assets\Intro\intro.mp4')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Assets\surface-map\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Import Project="build\Obfuscation.targets" />

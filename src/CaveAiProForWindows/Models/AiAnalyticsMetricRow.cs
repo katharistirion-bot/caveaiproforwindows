@@ -23,9 +23,9 @@ public sealed class AiAnalyticsMetricRow
 
     /// <summary>True when a single click should highlight this station across Plan / Section / X-Ray.</summary>
     public bool CanSelectStation =>
-        HasAndroidFieldNote &&
         !string.IsNullOrWhiteSpace(Station) &&
-        !string.Equals(Station.Trim(), "—", StringComparison.Ordinal);
+        !string.Equals(Station.Trim(), "—", StringComparison.Ordinal) &&
+        !Metric.StartsWith('—');
 
     public string AlertLabel => AlertLevel switch
     {

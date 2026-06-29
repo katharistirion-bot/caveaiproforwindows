@@ -11,12 +11,23 @@ namespace CaveAiProForWindows.Views;
 public partial class LoopClosureAssistantWindow : Window
 {
     private readonly CaveProjectDocument _project;
+    private readonly bool _canApplyInPlace;
+    private readonly Action<SurveyLoopAdjustmentResult>? _applyInPlace;
     private SurveyLoopAdjustmentResult? _lastPreview;
 
-    public LoopClosureAssistantWindow(CaveProjectDocument project)
+    public bool AdjustmentsApplied { get; private set; }
+
+    public LoopClosureAssistantWindow(
+        CaveProjectDocument project,
+        bool canApplyInPlace = false,
+        Action<SurveyLoopAdjustmentResult>? applyInPlace = null)
     {
         _project = project;
+        _canApplyInPlace = canApplyInPlace;
+        _applyInPlace = applyInPlace;
         InitializeComponent();
+        ApplyInPlaceButton.IsEnabled = canApplyInPlace;
+
         var inv = CultureInfo.InvariantCulture;
         var loops = SurveyLoopClosureAdjuster.DetectLoops(project);
         var closing = Services.SurveyLoopClosureHighlighter.Detect(project);
@@ -63,7 +74,9 @@ public partial class LoopClosureAssistantWindow : Window
         Title = $"Loop closure — {project.Name} ({rows.Count} loop(s))";
         PreviewSummaryText.Text = rows.Count == 0
             ? "No closed loops detected."
-            : "Select a method and click Preview adjustment to see total misclosure before/after.";
+            : canApplyInPlace
+                ? "Select a method and click Preview adjustment. Apply to project saves plan overrides to the open backup."
+                : "Select a method and click Preview adjustment. Save the backup to disk first to enable Apply to project.";
     }
 
     private LoopAdjustmentMethod SelectedMethod =>
@@ -80,7 +93,56 @@ public partial class LoopClosureAssistantWindow : Window
             $"{_lastPreview.TotalMisclosureBefore.ToString("0.###", inv)} m → " +
             $"{_lastPreview.TotalMisclosureAfter.ToString("0.###", inv)} m " +
             $"({_lastPreview.Loops.Count} loop(s)). " +
-            "Raw shots are unchanged — Apply to copy writes plan overrides only.";
+            "Raw shots are unchanged — overrides apply to plan station positions only.";
+    }
+
+    private void ApplyInPlace_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastPreview == null)
+        {
+            MessageBox.Show(this,
+                "Run Preview adjustment first.",
+                Title,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (!_canApplyInPlace || _applyInPlace == null)
+        {
+            MessageBox.Show(this,
+                "Save the project to a writable .json or .zip backup on disk first (Ctrl+S path must exist).",
+                Title,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(this,
+            "Apply loop adjustment to the open project and save?\n\n" +
+            "Raw shot measurements stay unchanged; plan station overrides hold the adjustment.",
+            Title,
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            _applyInPlace(_lastPreview);
+            AdjustmentsApplied = true;
+            MessageBox.Show(this,
+                "Adjustment applied and project saved. Plan station overrides hold the loop closure correction.",
+                Title,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            DialogResult = true;
+            Close();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Apply failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void ApplyCopy_Click(object sender, RoutedEventArgs e)

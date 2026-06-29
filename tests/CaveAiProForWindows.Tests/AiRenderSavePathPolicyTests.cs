@@ -52,34 +52,25 @@ public sealed class AiRenderSavePathPolicyTests
     }
 
     [TestMethod]
-    public void AttachSessionAssets_uses_ai_renders_folder_for_restricted_source()
+    public void AttachSessionAssets_is_no_op_after_generative_removal()
     {
-        var restrictedDir = Path.Combine(
-            Path.GetTempPath(),
-            "caveai-restricted-" + Guid.NewGuid().ToString("N"),
-            "INetCache");
-        Directory.CreateDirectory(restrictedDir);
-        var jsonPath = Path.Combine(restrictedDir, "survey.json");
+        var jsonPath = Path.Combine(Path.GetTempPath(), "caveai-noop-" + Guid.NewGuid().ToString("N"), "survey.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath)!);
         File.WriteAllText(jsonPath, "[]");
-
-        var samplePng = GenerativeAssetPersistenceTests.SamplePngBytes;
 
         try
         {
-            var project = new CaveProjectDocument { Name = "CacheCave", Date = "2026-06-07" };
-            ProjectAiAssetPersistence.AttachSessionAssets(project, jsonPath, samplePng, samplePng);
+            var project = new CaveProjectDocument { Name = "NoAiCave", Date = "2026-06-07" };
+            ProjectAiAssetPersistence.AttachSessionAssets(project, jsonPath, [1, 2, 3], [4, 5, 6]);
 
-            var aiRel = project.ExtensionData![ProjectAiAssetPersistence.AiGeneratedMapLocalPathKey].GetString();
-            Assert.IsNotNull(aiRel);
-            Assert.IsTrue(Path.IsPathRooted(aiRel));
-            Assert.IsTrue(aiRel!.Contains("ai-renders", StringComparison.OrdinalIgnoreCase));
-            Assert.IsTrue(File.Exists(aiRel));
-            Assert.IsFalse(aiRel.Contains("INetCache", StringComparison.OrdinalIgnoreCase));
+            Assert.IsNull(ProjectAiAssetPersistence.TryReadAiMapRelativePath(project));
+            Assert.IsNull(ProjectAiAssetPersistence.TryReadStructureMaskRelativePath(project));
         }
         finally
         {
-            if (Directory.Exists(Path.GetDirectoryName(restrictedDir)!))
-                Directory.Delete(Path.GetDirectoryName(restrictedDir)!, recursive: true);
+            var dir = Path.GetDirectoryName(jsonPath);
+            if (dir != null && Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
         }
     }
 }

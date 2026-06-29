@@ -10,8 +10,8 @@ public static class LegalTexts
 {
     public const string PublisherName = "Georgios Kourentzis";
     public const string ContactEmail = "caveaipro@gmail.com";
-    public const string DocumentVersion = "1.2";
-    public const string LastUpdated = "6 June 2026";
+    public const string DocumentVersion = "1.4";
+    public const string LastUpdated = "25 June 2026";
 
     public const string CopyrightNotice =
         "Copyright © 2026 Georgios Kourentzis. All Rights Reserved.";
@@ -19,7 +19,7 @@ public static class LegalTexts
     public const string TrademarkNotice =
         "CAVE AI PRO™, CaveAI Pro™, the CaveAI Pro name and logo, and related branding are trademarks of Georgios Kourentzis. " +
         "Unauthorized use, imitation, or registration of confusingly similar names or logos is prohibited. " +
-        "Third-party names (Microsoft®, Windows®, Survex®, Google Play®, Firebase®, Replicate®, etc.) belong to their respective owners.";
+        "Third-party names (Microsoft®, Windows®, Survex®, Google Play®, Firebase®, etc.) belong to their respective owners.";
 
     public const string PublisherImpressum =
         PublisherName + " (individual developer). Contact: " + ContactEmail + ". " +
@@ -30,7 +30,7 @@ public static class LegalTexts
         LEGAL DISCLAIMER & END USER LICENSE AGREEMENT (EULA) — CAVE AI PRO FOR WINDOWS
         © 2026 Georgios Kourentzis. All Rights Reserved.
 
-        Document version: 1.2 · Last updated: 6 June 2026
+        Document version: 1.4 · Last updated: 25 June 2026
         Publisher / Licensor / Developer: Georgios Kourentzis · caveaipro@gmail.com
 
         IMPORTANT: This document is a legal agreement. If you do not agree, do not install or use the Software.
@@ -38,7 +38,7 @@ public static class LegalTexts
         WARNING: CAVE EXPLORATION AND SUBTERRANEAN SURVEYING ARE INHERENTLY DANGEROUS ACTIVITIES.
         By installing or using "CAVE AI PRO" for Windows (the "Software"), you acknowledge, understand, and explicitly agree to the following terms, to the maximum extent permitted by applicable mandatory law (including EU/EEA consumer protection where it applies).
 
-        1. DEFINITIONS: "Developer" means Georgios Kourentzis. "You" means the individual or entity using the Software. "AI Output" means any result produced by artificial intelligence or machine-learning features inside or invoked by the Software (including optional cloud-backed Replicate ControlNet map rendering when you are signed in with an entitled CaveAI Pro account).
+        1. DEFINITIONS: "Developer" means Georgios Kourentzis. "You" means the individual or entity using the Software. "AI Output" means any result produced by artificial intelligence or machine-learning features inside or invoked by the Software.
 
         2. ELIGIBILITY: You represent that you are legally competent to enter into this agreement and, if you use the Software in hazardous environments, that you are appropriately trained or under qualified supervision. The Software is not intended for children under 16.
 
@@ -62,15 +62,17 @@ public static class LegalTexts
 
         12. PROHIBITED CONDUCT: You may not reverse engineer, decompile, or disassemble the Software except where mandatory law allows; circumvent technical measures; remove legal notices; use the Software to violate law; redistribute the Software outside authorised channels; or use the Developer’s name or marks in a misleading way.
 
-        13. DESKTOP COMPANION (FREE): The Windows edition is distributed as a free companion to CaveAI Pro (Android). It is not sold through Google Play. Optional network features (Public Library WebView, Push to Cloud, update checks, optional cloud generative AI map rendering) operate only when you initiate them and where an active subscription or trial applies.
+        13. DESKTOP COMPANION: The Windows edition is a survey workstation companion to CaveAI Pro (Android). It is not sold through Google Play. Optional network features (Public Library, Push to Cloud, Reference Catalog, collaboration, update checks) operate only when you initiate them and where an active subscription or trial applies. Field recording and live BLE survey instruments are Android-only; Windows imports and processes backups you export from mobile.
 
-        13A. CLOUD GENERATIVE AI: Optional AI map rendering (Sketch Editor → AI Render) sends your structure mask and prompt to CaveAI cloud services via Firebase. You must sign in with the same Google account as CaveAI Pro on Android and hold an active subscription or trial. Survey files are not uploaded as part of AI rendering unless you separately choose Push to Cloud or Public Library.
+        13A. PUSH TO CLOUD / PUBLIC LIBRARY: If you publish survey data or images to Firebase or the Public Library, you are solely responsible for lawfulness, accuracy, rights, permissions, and safety of published content. Do not publish confidential or safety-sensitive information without authority and consent.
 
-        13B. PUSH TO CLOUD / PUBLIC LIBRARY: If you publish survey data or images to Firebase or the Public Library, you are solely responsible for lawfulness, accuracy, rights, permissions, and safety of published content. Do not publish confidential or safety-sensitive information without authority and consent.
+        13B. ON-DEVICE AI ASSISTANT: The docked Cave AI panel on Windows answers from imported survey context on your PC only. It does not upload your project files for cloud generative map rendering (that feature is not available on Windows). Optional cloud features elsewhere in the ecosystem (web/Android) remain governed by their respective terms.
 
-        13C. LOCAL DATA & DIAGNOSTICS: Survey files you open remain on your PC unless you export or publish them. Error logs may be stored locally under %LOCALAPPDATA%\CaveAiProForWindows\ for troubleshooting only.
+        13C. PROTECTED CAVE DATA (FCRPA & LOCAL LAWS): By using this application, you agree that you will not upload, share, or distribute any private, restricted, or federally protected cave data (including but not limited to data protected under the U.S. Federal Cave Resources Protection Act - FCRPA, or local archaeological and environmental laws worldwide). You acknowledge that you retain full and exclusive legal responsibility for any data you import or share through this platform.
 
-        14. THIRD-PARTY SERVICES: The Software may interoperate with Microsoft Windows, WebView2, Firebase, Google sign-in (via embedded web), GitHub (updates), Replicate (cloud generative AI backend), and map or export formats under their respective terms.
+        13D. LOCAL DATA & DIAGNOSTICS: Survey files you open remain on your PC unless you export or publish them. Error logs may be stored locally under %LOCALAPPDATA%\CaveAiProForWindows\ for troubleshooting. When you are signed in, anonymised crash and non-fatal error reports (stack trace preview, app version, OS build — not survey project content) may be transmitted to CaveAI Firebase for reliability; you can export a local diagnostic bundle from Help at any time.
+
+        14. THIRD-PARTY SERVICES: The Software may interoperate with Microsoft Windows, WebView2, Firebase, Google sign-in (via embedded web), GitHub (updates), and map or export formats under their respective terms.
 
         15. TERMINATION: This licence terminates automatically if you breach these terms. Upon termination you must stop using and delete all copies. Surviving sections include disclaimers, liability limits, indemnity, IP, and governing law.
 
@@ -92,9 +94,9 @@ public static class LegalTexts
         Data controller: Georgios Kourentzis · caveaipro@gmail.com
 
         • Local-first: survey JSON/ZIP files you open stay on your PC unless you export or use Push to Cloud.
-        • Cloud generative AI: requires Google sign-in and an active CaveAI Pro subscription or trial; structure masks and prompts are sent to CaveAI cloud services for rendering only when you run AI Render.
+        • On-device Cave AI: answers from imported survey context on your PC; no cloud generative map rendering on Windows.
         • Push to Cloud / Public Library: uses your Google/Firebase session in WebView2; you control what is uploaded.
-        • Diagnostics: startup.log and last-error.txt may be written locally under %LOCALAPPDATA%\CaveAiProForWindows\.
+        • Diagnostics: startup.log and last-error.txt locally; when signed in, anonymised error reports may be sent to Firebase (no survey file content).
         • Updates: optional check against GitHub Releases (Velopack); no personal survey content is sent.
         • GDPR rights: contact caveaipro@gmail.com · Hellenic DPA: www.dpa.gr
 
@@ -106,9 +108,9 @@ public static class LegalTexts
         Data controller: Georgios Kourentzis · caveaipro@gmail.com
 
         • Local-first: survey JSON/ZIP files you open stay on your PC unless you export or use Push to Cloud.
-        • Cloud generative AI: requires Google sign-in and an active CaveAI Pro subscription or trial; structure masks and prompts are sent to CaveAI cloud services for rendering only when you run AI Render.
+        • On-device Cave AI: answers from imported survey context on your PC; no cloud generative map rendering on Windows.
         • Push to Cloud / Public Library: uses your Google/Firebase session in WebView2; you control what is uploaded.
-        • Diagnostics: startup.log and last-error.txt may be written locally under %LOCALAPPDATA%\CaveAiProForWindows\.
+        • Diagnostics: startup.log and last-error.txt locally; when signed in, anonymised error reports may be sent to Firebase (no survey file content).
         • Updates: delivered automatically through the Microsoft Store; no personal survey content is sent.
         • GDPR rights: contact caveaipro@gmail.com · Hellenic DPA: www.dpa.gr
 

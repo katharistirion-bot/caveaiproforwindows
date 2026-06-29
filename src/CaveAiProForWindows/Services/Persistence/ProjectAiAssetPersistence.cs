@@ -3,7 +3,6 @@ using System.IO.Compression;
 using System.Text.Json;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
-using CaveAiProForWindows.Services.GenerativeMap;
 
 namespace CaveAiProForWindows.Services.Persistence;
 
@@ -52,58 +51,17 @@ public static class ProjectAiAssetPersistence
     private static string StageKey(CaveProjectDocument project) =>
         $"{project.Name}|{project.Date}|{project.Shots?.Count ?? 0}";
 
-    /// <summary>
-    /// Saves PNG bytes under <c>export_assets/windows/{cave}/</c> next to the source file and updates extension fields.
-    /// </summary>
+    /// <summary>Legacy hook — generative AI render removed; no new AI assets are written.</summary>
     public static void AttachSessionAssets(
         CaveProjectDocument project,
         string sourceFilePath,
         byte[]? aiCartographyPng,
         byte[]? structureMaskPng)
     {
-        ArgumentNullException.ThrowIfNull(project);
-        if (string.IsNullOrWhiteSpace(sourceFilePath))
-            return;
-
-        var writeBesideSource = AiRenderSavePathPolicy.CanWriteBesideSourceFile(sourceFilePath);
-        var baseDir = writeBesideSource
-            ? Path.GetDirectoryName(Path.GetFullPath(sourceFilePath))
-            : AiRenderSavePathPolicy.GetProjectWorkingAssetDirectory(project, sourceFilePath);
-        if (string.IsNullOrEmpty(baseDir))
-            return;
-
-        var caveFolder = SanitizeFolderName(project.Name);
-        var assetRoot = writeBesideSource
-            ? Path.Combine(baseDir, "export_assets", "windows", caveFolder)
-            : baseDir;
-        Directory.CreateDirectory(assetRoot);
-
-        project.ExtensionData ??= new Dictionary<string, JsonElement>();
-
-        if (aiCartographyPng is { Length: > 0 })
-        {
-            const string fileName = "ai_cartography.png";
-            var diskPath = Path.Combine(assetRoot, fileName);
-            File.WriteAllBytes(diskPath, aiCartographyPng);
-            var rel = writeBesideSource
-                ? ToForwardSlash(Path.Combine("export_assets", "windows", caveFolder, fileName))
-                : ToForwardSlash(diskPath);
-            WritePathMetadata(project, AiGeneratedMapLocalPathKey, LegacyAiCartographyUriKey, rel);
-        }
-
-        if (structureMaskPng is { Length: > 0 })
-        {
-            const string fileName = "structure_mask.png";
-            var diskPath = Path.Combine(assetRoot, fileName);
-            File.WriteAllBytes(diskPath, structureMaskPng);
-            var rel = writeBesideSource
-                ? ToForwardSlash(Path.Combine("export_assets", "windows", caveFolder, fileName))
-                : ToForwardSlash(diskPath);
-            WritePathMetadata(project, AiStructureMaskLocalPathKey, LegacyStructureMaskUriKey, rel);
-        }
-
-        StageBytesForZipEmbed(project, aiCartographyPng, structureMaskPng);
-        DesignLayerMapObjectsSerializer.TouchWindowsEditMetadata(project);
+        _ = project;
+        _ = sourceFilePath;
+        _ = aiCartographyPng;
+        _ = structureMaskPng;
     }
 
     public static string? TryReadAiMapRelativePath(CaveProjectDocument project) =>
@@ -200,9 +158,8 @@ public static class ProjectAiAssetPersistence
         string zipPath,
         (byte[]? Ai, byte[]? Mask) staged)
     {
-        var session = GenerativeMapSessionCache.TryGet(project);
-        var ai = staged.Ai ?? session?.PngBytes;
-        var mask = staged.Mask ?? session?.StructureMaskPng;
+        var ai = staged.Ai;
+        var mask = staged.Mask;
 
         if (ai is not { Length: > 0 })
         {

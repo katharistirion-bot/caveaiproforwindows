@@ -27,6 +27,11 @@ public sealed record PlanCanvasDrawOptions(
     bool ShowCoordinateGrid = false,
     bool ShowSymbolLegend = false,
     bool ShowWallHatching = false,
+    /// <summary>
+    /// When false (Sketch Editor), <c>mapObjects</c> / sketch-layer ink is omitted from the base survey canvas so it
+    /// is not drawn twice alongside the editable design layer.
+    /// </summary>
+    bool ShowPersistedSketchInk = true,
     CartographicRenderPreset RenderPreset = CartographicRenderPreset.Field,
     CaveMappingExportMetadata? ExportMetadata = null)
 {
@@ -53,12 +58,13 @@ public sealed record PlanCanvasDrawOptions(
         bool showCoordinateGrid = false,
         bool showSymbolLegend = false,
         bool showWallHatching = false,
+        bool showPersistedSketchInk = true,
         CartographicRenderPreset renderPreset = CartographicRenderPreset.Field,
         CaveMappingExportMetadata? exportMetadata = null) =>
         new(stationNames, overlay, SurveyCanvasKind.Plan, visualization, showStationZDepth, cartographicIntensity,
             pickHighlight, showLegSurveyDetails, showStationEnvironment, showDepthSpanAnnotations, showBracketMarkers,
             showLoopClosureHighlights, showLrudQcHighlights, showCoordinateGrid, showSymbolLegend, showWallHatching,
-            renderPreset, exportMetadata);
+            showPersistedSketchInk, renderPreset, exportMetadata);
 
     public static PlanCanvasDrawOptions ForSection(
         bool stationNames,
@@ -75,10 +81,11 @@ public sealed record PlanCanvasDrawOptions(
         bool showCoordinateGrid = false,
         bool showSymbolLegend = false,
         bool showWallHatching = false,
+        bool showPersistedSketchInk = true,
         CartographicRenderPreset renderPreset = CartographicRenderPreset.Field,
         CaveMappingExportMetadata? exportMetadata = null) =>
         new(stationNames, overlay, SurveyCanvasKind.Section, visualization, ShowStationZDepth: false,
             cartographicIntensity, pickHighlight, showLegSurveyDetails, showStationEnvironment,
             showDepthSpanAnnotations, showBracketMarkers, showLoopClosureHighlights, showLrudQcHighlights,
-            showCoordinateGrid, showSymbolLegend, showWallHatching, renderPreset, exportMetadata);
+            showCoordinateGrid, showSymbolLegend, showWallHatching, showPersistedSketchInk, renderPreset, exportMetadata);
 }

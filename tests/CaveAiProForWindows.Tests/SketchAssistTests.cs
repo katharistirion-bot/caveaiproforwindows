@@ -162,4 +162,72 @@ public sealed class SketchAssistTests
     }
 
     private static void RunSta(Action action) => SketchAssistTestsRunSta.Run(action);
+
+    [TestMethod]
+    public void SketchStationSnapHelper_snaps_to_nearest_station_within_radius()
+    {
+        var scene = new PlanScene
+        {
+            MinX = 0,
+            MaxX = 10,
+            MinY = 0,
+            MaxY = 10,
+            Stations = new Dictionary<string, SurveyStationGeometry.StationPlanCoords>(StringComparer.Ordinal)
+            {
+                ["A"] = new("A", 0, 0, 0),
+                ["B"] = new("B", 10, 0, 0),
+            },
+        };
+        var layout = new PlanCanvasSurveyLayout(0, 10, 0, 10, 50, 50, 5);
+        var stationA = layout.WorldToCanvas(0, 0);
+
+        var near = new Point(stationA.X + 4, stationA.Y + 3);
+        var snapped = SketchStationSnapHelper.TrySnap(near, scene, layout, maxRadiusDip: 10);
+        Assert.AreEqual(stationA.X, snapped.X, 1e-3);
+        Assert.AreEqual(stationA.Y, snapped.Y, 1e-3);
+    }
+
+    [TestMethod]
+    public void SketchMapViewFitter_computes_scale_and_pan_for_bounds()
+    {
+        var scene = new PlanScene
+        {
+            MinX = 0,
+            MaxX = 100,
+            MinY = 0,
+            MaxY = 50,
+            Stations = new Dictionary<string, SurveyStationGeometry.StationPlanCoords>(StringComparer.Ordinal),
+        };
+        var layout = new PlanCanvasSurveyLayout(0, 100, 0, 50, 50, 50, 1);
+
+        var ok = SketchMapViewFitter.TryComputeFitTransform(
+            scene, layout, mapWidth: 800, mapHeight: 600, viewportWidth: 400, viewportHeight: 300,
+            out var scale, out var panX, out var panY, out _, out _);
+
+        Assert.IsTrue(ok);
+        Assert.IsTrue(scale > MapZoomInteractions.MinScale);
+        Assert.IsFalse(double.IsNaN(panX));
+        Assert.IsFalse(double.IsNaN(panY));
+    }
+
+    [TestMethod]
+    public void DesignLayerInkDuplicator_clones_polyline_with_offset()
+    {
+        RunSta(() =>
+        {
+            var poly = new Polyline
+            {
+                Stroke = Brushes.Black,
+                StrokeThickness = 2,
+                Points = new PointCollection { new(10, 20), new(30, 40) },
+                Tag = DesignLayerInkMetadata.ForUserStroke(2),
+            };
+
+            var clone = DesignLayerInkDuplicator.TryDuplicate(poly, offsetDip: 8);
+            Assert.IsNotNull(clone);
+            Assert.IsInstanceOfType(clone, typeof(Polyline));
+            var copy = (Polyline)clone!;
+            Assert.AreEqual(18, copy.Points[0].X, 1e-3);
+        });
+    }
 }

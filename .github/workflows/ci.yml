@@ -21,9 +21,18 @@ jobs:
       - name: Test
         run: dotnet test tests/CaveAiProForWindows.Tests/CaveAiProForWindows.Tests.csproj -c Debug --no-restore --verbosity minimal
 
+      - name: Build and test (Microsoft Store configuration)
+        run: |
+          dotnet build src/CaveAiProForWindows/CaveAiProForWindows.csproj -c Debug /p:DefineConstants=STORE_DISTRIBUTION
+          dotnet test tests/CaveAiProForWindows.Tests/CaveAiProForWindows.Tests.csproj -c Debug /p:DefineConstants=STORE_DISTRIBUTION --verbosity minimal
+
       - name: Security audit
         shell: pwsh
         run: ./tools/security-audit.ps1
+
+      - name: Verify Firestore rules stub (do not deploy from Windows repo)
+        shell: pwsh
+        run: ./tools/verify-firestore-rules-stub.ps1
 
   release-build-publish:
     runs-on: windows-latest

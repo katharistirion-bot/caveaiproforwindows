@@ -177,8 +177,8 @@
                                 <Separator Margin="0,0,0,4" />
                             </StackPanel>
 
-                            <StackPanel x:Name="PlanDrawingToolsSection">
-                            <TextBlock Text="Drawing mode" FontWeight="SemiBold"
+                            <StackPanel x:Name="PlanNavigationToolsSection">
+                            <TextBlock Text="Navigation" FontWeight="SemiBold"
                                        FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                        Foreground="{DynamicResource Cave.Text}"
                                        Margin="0,0,0,8" />
@@ -186,57 +186,28 @@
                                          IsChecked="True"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                          Content="Pan / zoom" Checked="EditorToolPan_Checked"
+                                         ToolTip="Pan and zoom the survey plan (Ctrl+1)"
                                          Foreground="{DynamicResource Cave.Text}" />
-                            <RadioButton x:Name="EditorToolSelect" GroupName="PlanMapEditorTools" Margin="0,0,0,6"
+                            <RadioButton x:Name="EditorToolSelect" GroupName="PlanMapEditorTools" Margin="0,0,0,10"
                                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                         Content="Select" Checked="EditorToolSelect_Checked"
-                                         Foreground="{DynamicResource Cave.Text}" />
-                            <RadioButton x:Name="EditorToolDraw" GroupName="PlanMapEditorTools" Margin="0,0,0,6"
-                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                         Content="Draw" Checked="EditorToolDraw_Checked"
-                                         Foreground="{DynamicResource Cave.Text}" />
-                            <RadioButton x:Name="EditorToolSymbol" GroupName="PlanMapEditorTools" Margin="0,0,0,6"
-                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                         Content="Symbol" Checked="EditorToolSymbol_Checked"
-                                         Foreground="{DynamicResource Cave.Text}" />
-                            <RadioButton x:Name="EditorToolErase" GroupName="PlanMapEditorTools" Margin="0,0,0,10"
-                                         FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                         Content="Erase" Checked="EditorToolErase_Checked"
+                                         Content="Select station / leg" Checked="EditorToolSelect_Checked"
+                                         ToolTip="Pick a traverse station or leg for QC details (Ctrl+2)"
                                          Foreground="{DynamicResource Cave.Text}" />
 
-                            <Separator Margin="0,0,0,10" />
-
-                            <TextBlock Text="Sketch symbols" FontWeight="SemiBold"
-                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                       Foreground="{DynamicResource Cave.Text}"
-                                       Margin="0,0,0,8" />
-
-                            <Border x:Name="SymbolPaletteRoot" IsEnabled="False" Padding="6"
-                                    BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" CornerRadius="4"
-                                    Background="{DynamicResource Cave.CanvasBackdrop}">
-                                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <ToggleButton x:Name="SymbolPaletteRock" Width="44" Height="40" Margin="0,0,6,6"
-                                                  ToolTip="Rock / block" Padding="4" Background="Transparent"
-                                                  BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                                  Checked="SymbolPalette_Checked"
-                                                  Content="{DynamicResource SketchGlyphRock}" />
-                                    <ToggleButton x:Name="SymbolPaletteWater" Width="44" Height="40" Margin="0,0,6,6"
-                                                  ToolTip="Water / pool" Padding="4" Background="Transparent"
-                                                  BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                                  Checked="SymbolPalette_Checked"
-                                                  Content="{DynamicResource SketchGlyphWater}" />
-                                    <ToggleButton x:Name="SymbolPaletteSpele" Width="44" Height="40" Margin="0,0,0,6"
-                                                  ToolTip="Stalactite / speleothem" Padding="4" Background="Transparent"
-                                                  BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                                  Checked="SymbolPalette_Checked"
-                                                  Content="{DynamicResource SketchGlyphSpele}" />
-                                </WrapPanel>
+                            <Border Margin="0,0,0,10" Padding="8,6" CornerRadius="4"
+                                    Background="{DynamicResource Cave.BannerTint}"
+                                    BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                                    ToolTip="Open the SKETCH EDITOR tab to draw walls, place symbols, and run procedural assist">
+                                <TextBlock TextWrapping="Wrap"
+                                           FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
+                                           Foreground="{DynamicResource Cave.TextMuted}"
+                                           Text="Plan design (walls, symbols, ink) is edited in the SKETCH EDITOR tab. Sketch overlay on this map is read-only." />
                             </Border>
 
-                            <TextBlock Margin="0,8,0,10" TextWrapping="Wrap"
+                            <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"
                                        FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                        Foreground="{DynamicResource Cave.TextMuted}"
-                                       Text="Select mode: click a station marker (or traverse leg); click empty map to collapse this panel · Esc restores overview · Ctrl+1 Pan · 2 Select · 3 Draw · 4 Symbol · 0 reset · +/− zoom. Wheel zoom (cursor) · left/middle-drag pan · double-click map: reset view." />
+                                       Text="Select: click a station or traverse leg · Esc clears selection · Ctrl+1 Pan · Ctrl+2 Select · Ctrl+0 reset view · +/− zoom · wheel zoom (cursor) · left/middle-drag pan · double-click map: reset view." />
                             </StackPanel>
 
                             <Separator x:Name="PlanCartographySeparator" Margin="0,0,0,10" />
@@ -375,30 +346,6 @@
 
                             </StackPanel>
 
-                            <StackPanel x:Name="PlanAiUnderlaySection">
-                            <TextBlock Text="AI render underlay" FontWeight="SemiBold"
-                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                       Foreground="{DynamicResource Cave.Text}"
-                                       Margin="0,8,0,8" />
-                            <CheckBox x:Name="PlanAiUnderlayCheck" Margin="0,0,0,8"
-                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
-                                      IsChecked="True" Content="Show AI render on Plan"
-                                      ToolTip="Generative map from Sketch Editor as a raster underlay beneath vectors"
-                                      Checked="PlanAiUnderlay_Changed" Unchecked="PlanAiUnderlay_Changed"
-                                      Foreground="{DynamicResource Cave.Text}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
-                                        ToolTip="Blend opacity for the generative AI map underlay">
-                                <TextBlock Text="Opacity" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
-                                           Foreground="{DynamicResource Cave.TextMuted}" />
-                                <Slider x:Name="PlanAiUnderlayOpacitySlider"
-                                        Width="120"
-                                        Minimum="0.15"
-                                        Maximum="0.95"
-                                        Value="0.52"
-                                        ValueChanged="PlanAiUnderlayOpacitySlider_ValueChanged" />
-                            </StackPanel>
-                            </StackPanel>
-
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
@@ -489,6 +436,7 @@
                                 <Canvas x:Name="DesignLayer" Width="960" Height="640" ClipToBounds="True"
                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                         Background="Transparent"
+                                        ToolTip="Navigation and QC only — edit plan design in SKETCH EDITOR"
                                         MouseLeftButtonDown="DesignLayer_MouseLeftButtonDown"
                                         MouseMove="DesignLayer_MouseMove"
                                         MouseLeftButtonUp="DesignLayer_MouseLeftButtonUp"
@@ -627,6 +575,6 @@
         <TextBlock x:Name="PlanViewFooterHint" Grid.Row="2" Margin="12,0,12,8" TextWrapping="Wrap"
                    FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                    Foreground="{DynamicResource Cave.TextMuted}" MaxHeight="44" TextTrimming="CharacterEllipsis"
-                   Text="Plan — survey metres (CaveAI Pro reduction). Main window tabs: PLAN, 3D MODEL, LONG PROFILE, X-RAY, PLAN 2-TONE. Zoom: wheel (toward cursor) or toolbar. Pan: left or middle drag. Double-click map (Pan mode): reset view." />
+                   Text="Plan — survey metres (CaveAI Pro reduction). View and QC only; edit walls and symbols in SKETCH EDITOR. Zoom: wheel (toward cursor) or toolbar. Pan: left or middle drag. Double-click map (Pan mode): reset view." />
     </Grid>
 </UserControl>

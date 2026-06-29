@@ -4,14 +4,13 @@ using System.Windows;
 using System.Windows.Controls;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
-using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.Services.SketchAssist;
 
 namespace CaveAiProForWindows.ViewModels;
 
 /// <summary>
-/// Serializes Sketch Editor session ink (design layer) and AI render assets onto
+/// Serializes Sketch Editor session ink (design layer) onto
 /// <see cref="CaveProjectDocument"/> for save-back to Android-compatible JSON.
 /// Also owns undo/redo history for design-layer edits.
 /// </summary>
@@ -77,9 +76,7 @@ public partial class SketchEditorViewModel : ObservableObject
         EditStateChanged?.Invoke();
     }
 
-    /// <summary>
-    /// Writes design-layer strokes/symbols to <c>mapObjects</c> and persists AI PNG + structure mask beside the source file.
-    /// </summary>
+    /// <summary>Writes design-layer strokes/symbols to <c>mapObjects</c> on the project document.</summary>
     public bool TryPersistSessionToProject(CaveProjectDocument? projectOverride = null)
     {
         var project = projectOverride ?? _host.GetProject();
@@ -88,37 +85,7 @@ public partial class SketchEditorViewModel : ObservableObject
 
         var layout = _host.GetSurveyLayout();
         var designLayer = _host.GetDesignLayer();
-        if (!DesignLayerMapObjectsSerializer.TryApplyDesignLayerToProject(project, designLayer, layout))
-            return false;
-
-        var sourcePath = _host.GetPrimarySourcePath();
-        if (string.IsNullOrWhiteSpace(sourcePath))
-            return true;
-
-        var aiPng = GenerativeMapSessionCache.TryGet(project)?.PngBytes;
-        var maskPng = _host.CaptureStructureMask();
-        ProjectAiAssetPersistence.AttachSessionAssets(project, sourcePath, aiPng, maskPng);
-        return true;
-    }
-
-    /// <summary>Saves AI render + structure mask PNGs without rewriting mapObjects (called after generative render).</summary>
-    public bool TryPersistAiAssetsOnly(CaveProjectDocument? projectOverride = null)
-    {
-        var project = projectOverride ?? _host.GetProject();
-        if (project == null)
-            return false;
-
-        var sourcePath = _host.GetPrimarySourcePath();
-        if (string.IsNullOrWhiteSpace(sourcePath))
-            return false;
-
-        var aiPng = GenerativeMapSessionCache.TryGet(project)?.PngBytes;
-        var maskPng = GenerativeMapSessionCache.TryGet(project)?.StructureMaskPng ?? _host.CaptureStructureMask();
-        if (aiPng is not { Length: > 0 } && maskPng is not { Length: > 0 })
-            return false;
-
-        ProjectAiAssetPersistence.AttachSessionAssets(project, sourcePath, aiPng, maskPng);
-        return true;
+        return DesignLayerMapObjectsSerializer.TryApplyDesignLayerToProject(project, designLayer, layout);
     }
 
     /// <summary>Preview JSON array length without mutating the project (for diagnostics).</summary>

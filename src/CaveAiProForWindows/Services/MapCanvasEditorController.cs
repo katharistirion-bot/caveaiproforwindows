@@ -18,6 +18,11 @@ public sealed class MapCanvasEditorController
     private readonly TranslateTransform _pan;
     private readonly Func<MapCanvasEditorTool> _getTool;
     private readonly Func<SketchEditorSymbolKind> _getStampSymbol;
+    private readonly Func<bool> _getSnapToStations;
+    private readonly Func<Point, Point>? _snapPoint;
+    private readonly Func<double> _getStrokeWidth;
+    private readonly Func<bool> _getDashedStrokes;
+    private readonly Func<string> _getWallProfile;
 
     private bool _isPanning;
     private MouseButton _panButton;
@@ -26,6 +31,7 @@ public sealed class MapCanvasEditorController
     private double _panStartY;
 
     private Polyline? _activeDraw;
+    private Polyline? _activeLine;
     private Ellipse? _selectMarker;
     private Rectangle? _inkSelectionFrame;
     private UIElement? _selectedInk;
@@ -48,13 +54,23 @@ public sealed class MapCanvasEditorController
         ScrollViewer scrollHost,
         TranslateTransform pan,
         Func<MapCanvasEditorTool> getTool,
-        Func<SketchEditorSymbolKind> getStampSymbol)
+        Func<SketchEditorSymbolKind> getStampSymbol,
+        Func<bool>? getSnapToStations = null,
+        Func<Point, Point>? snapPoint = null,
+        Func<double>? getStrokeWidth = null,
+        Func<bool>? getDashedStrokes = null,
+        Func<string>? getWallProfile = null)
     {
         _designCanvas = designCanvas;
         _scrollHost = scrollHost;
         _pan = pan;
         _getTool = getTool;
         _getStampSymbol = getStampSymbol;
+        _getSnapToStations = getSnapToStations ?? (() => false);
+        _snapPoint = snapPoint;
+        _getStrokeWidth = getStrokeWidth ?? (() => SketchStrokeStyleDefaults.DefaultStrokeWidthPx);
+        _getDashedStrokes = getDashedStrokes ?? (() => false);
+        _getWallProfile = getWallProfile ?? (() => SketchWallInkProfiles.Wall);
     }
 
     /// <summary>Middle-button pan — wire from <see cref="UIElement.MouseDown"/> (fires before <see cref="UIElement.MouseLeftButtonDown"/>).</summary>
@@ -82,7 +98,7 @@ public sealed class MapCanvasEditorController
             return;
         }
 
-        var pt = e.GetPosition(_designCanvas);
+        var pt = MaybeSnap(e.GetPosition(_designCanvas));
 
         switch (tool)
         {
@@ -102,17 +118,18 @@ public sealed class MapCanvasEditorController
                 break;
             case MapCanvasEditorTool.DrawFreehand:
                 ClearInkSelection();
-                _activeDraw = new Polyline
-                {
-                    Stroke = Brushes.Black,
-                    StrokeThickness = SketchStrokeStyleDefaults.DefaultStrokeWidthPx,
-                    StrokeLineJoin = PenLineJoin.Round,
-                    StrokeStartLineCap = PenLineCap.Round,
-                    StrokeEndLineCap = PenLineCap.Round,
-                    Tag = DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx),
-                };
+                _activeDraw = CreateUserStrokePolyline();
                 _activeDraw.Points.Add(pt);
                 _designCanvas.Children.Add(_activeDraw);
+                _designCanvas.CaptureMouse();
+                e.Handled = true;
+                break;
+            case MapCanvasEditorTool.DrawLine:
+                ClearInkSelection();
+                _activeLine = CreateUserStrokePolyline();
+                _activeLine.Points.Add(pt);
+                _activeLine.Points.Add(pt);
+                _designCanvas.Children.Add(_activeLine);
                 _designCanvas.CaptureMouse();
                 e.Handled = true;
                 break;
@@ -148,10 +165,30 @@ public sealed class MapCanvasEditorController
             return;
         }
 
+        if (_activeLine != null && e.LeftButton == MouseButtonState.Pressed)
+        {
+            var pt = MaybeSnap(e.GetPosition(_designCanvas));
+            if (_activeLine.Points.Count >= 2)
+                _activeLine.Points[1] = pt;
+            else
+                _activeLine.Points.Add(pt);
+            return;
+        }
+
         if (_activeDraw == null || e.LeftButton != MouseButtonState.Pressed)
             return;
-        var pt = e.GetPosition(_designCanvas);
-        _activeDraw.Points.Add(pt);
+        var drawPt = MaybeSnap(e.GetPosition(_designCanvas));
+        var pts = _activeDraw.Points;
+        if (pts.Count > 0)
+        {
+            var last = pts[^1];
+            var dx = drawPt.X - last.X;
+            var dy = drawPt.Y - last.Y;
+            if (dx * dx + dy * dy < 4)
+                return;
+        }
+
+        _activeDraw.Points.Add(drawPt);
     }
 
     /// <summary>Ends left-drag pan, freehand stroke, or erase drag.</summary>
@@ -182,6 +219,28 @@ public sealed class MapCanvasEditorController
             }
 
             _activeDraw = null;
+        }
+
+        if (_activeLine != null && e.LeftButton == MouseButtonState.Released)
+        {
+            _designCanvas.ReleaseMouseCapture();
+            if (_activeLine.Points.Count >= 2)
+            {
+                var a = _activeLine.Points[0];
+                var b = _activeLine.Points[^1];
+                var len = Math.Sqrt((b.X - a.X) * (b.X - a.X) + (b.Y - a.Y) * (b.Y - a.Y));
+                if (len >= 2)
+                {
+                    InkAdded?.Invoke(_activeLine);
+                    DesignLayerModified?.Invoke();
+                }
+                else
+                    _designCanvas.Children.Remove(_activeLine);
+            }
+            else
+                _designCanvas.Children.Remove(_activeLine);
+
+            _activeLine = null;
         }
     }
 
@@ -216,6 +275,43 @@ public sealed class MapCanvasEditorController
 
     public bool DeleteSelectedInk() =>
         _selectedInk != null && RemoveInkElement(_selectedInk);
+
+    public bool TryDuplicateSelectedInk(double offsetDip = DesignLayerInkDuplicator.DefaultOffsetDip)
+    {
+        if (_selectedInk == null)
+            return false;
+
+        var clone = DesignLayerInkDuplicator.TryDuplicate(_selectedInk, offsetDip);
+        if (clone == null)
+            return false;
+
+        _designCanvas.Children.Add(clone);
+        InkAdded?.Invoke(clone);
+        DesignLayerModified?.Invoke();
+        SelectInk(clone);
+        return true;
+    }
+
+    /// <summary>Removes all editable user ink (keeps selection chrome and Android imports).</summary>
+    public int ClearAllUserInk()
+    {
+        var removed = 0;
+        for (var i = _designCanvas.Children.Count - 1; i >= 0; i--)
+        {
+            var child = _designCanvas.Children[i];
+            if (!DesignLayerInkHitTest.IsEditableInk(child))
+                continue;
+            if (ReferenceEquals(_selectedInk, child))
+                ClearInkSelection();
+            _designCanvas.Children.RemoveAt(i);
+            InkRemoved?.Invoke(child, i);
+            removed++;
+        }
+
+        if (removed > 0)
+            DesignLayerModified?.Invoke();
+        return removed;
+    }
 
     public bool RemoveInkElement(UIElement element)
     {
@@ -255,6 +351,7 @@ public sealed class MapCanvasEditorController
         _inkSelectionFrame = null;
         _selectedInk = null;
         _activeDraw = null;
+        _activeLine = null;
         _isPanning = false;
         _isErasing = false;
         _lastErasedInk = null;
@@ -330,8 +427,30 @@ public sealed class MapCanvasEditorController
         if (!_isPanning)
             return;
         _isPanning = false;
-        if (_designCanvas.IsMouseCaptured && _activeDraw == null && !_isErasing)
+        if (_designCanvas.IsMouseCaptured && _activeDraw == null && _activeLine == null && !_isErasing)
             _designCanvas.ReleaseMouseCapture();
+    }
+
+    private Point MaybeSnap(Point canvasPoint)
+    {
+        if (!_getSnapToStations() || _snapPoint == null)
+            return canvasPoint;
+        return _snapPoint(canvasPoint);
+    }
+
+    private Polyline CreateUserStrokePolyline()
+    {
+        var width = Math.Clamp(_getStrokeWidth(), 0.5, 8);
+        var meta = SketchWallInkStyle.CreateUserStrokeMetadata(width, _getWallProfile(), _getDashedStrokes());
+        var poly = new Polyline();
+        SketchWallInkStyle.ApplyToPolyline(poly, meta);
+        if (_getDashedStrokes()
+            && string.Equals(meta.BrushProfile, SketchWallInkProfiles.Ink, StringComparison.OrdinalIgnoreCase))
+        {
+            poly.StrokeDashArray = new DoubleCollection { width * 2, width * 1.5 };
+        }
+
+        return poly;
     }
 
     private void EnsureSelectMarker()
@@ -349,6 +468,32 @@ public sealed class MapCanvasEditorController
             Visibility = Visibility.Collapsed,
         };
         _designCanvas.Children.Add(_selectMarker);
+    }
+
+    /// <summary>Selects the topmost editable ink; returns how many editable items exist on the layer.</summary>
+    public int TrySelectTopmostInk(out int totalEditable)
+    {
+        totalEditable = 0;
+        UIElement? top = null;
+        var topIndex = -1;
+        for (var i = 0; i < _designCanvas.Children.Count; i++)
+        {
+            var child = _designCanvas.Children[i];
+            if (!DesignLayerInkHitTest.IsEditableInk(child))
+                continue;
+            totalEditable++;
+            top = child;
+            topIndex = i;
+        }
+
+        if (top == null)
+        {
+            ClearInkSelection();
+            return 0;
+        }
+
+        SelectInk(top);
+        return topIndex;
     }
 
     private void StampSketchSymbol(Point anchorCenter)

@@ -12,13 +12,16 @@ namespace CaveAiProForWindows.Views;
 public partial class PublicationSheetWindow : Window
 {
     private readonly CaveProjectDocument _project;
+    private readonly Action<CaveProjectDocument>? _persistBeforeRebuild;
     private byte[]? _lastPng;
 
-    public PublicationSheetWindow(CaveProjectDocument project)
+    public PublicationSheetWindow(CaveProjectDocument project, Action<CaveProjectDocument>? persistBeforeRebuild = null)
     {
         _project = project ?? throw new ArgumentNullException(nameof(project));
+        _persistBeforeRebuild = persistBeforeRebuild;
         InitializeComponent();
         Title = $"Publication sheet — {CaveProjectDisplayNames.GetDisplayName(project)}";
+        OfflineHintText.Text = CaveAiOfflineBrain.FormatStatusHintPanel(project);
         RebuildPreview();
     }
 
@@ -48,6 +51,9 @@ public partial class PublicationSheetWindow : Window
 
         try
         {
+            _persistBeforeRebuild?.Invoke(_project);
+            OfflineHintText.Text = CaveAiOfflineBrain.FormatStatusHintPanel(_project);
+
             var previewOptions = CurrentOptions().WithQuality(MapExportQuality.Standard);
             var result = PublicationSheetComposer.TryCompose(_project, previewOptions);
             if (!result.IsSuccess)
@@ -58,7 +64,7 @@ public partial class PublicationSheetWindow : Window
 
             _lastPng = result.PngBytes;
             PreviewImage.Source = LoadPreviewImage(result.PngBytes!);
-            StatusText.Text = "Preview ready. Use Print quality before final export for highest resolution.";
+            StatusText.Text = "Preview ready. Refresh pulls latest sketch/vector data from the project. Use Print quality before final export.";
         }
         catch (Exception ex)
         {
@@ -80,6 +86,7 @@ public partial class PublicationSheetWindow : Window
 
     private byte[]? BuildExportPng()
     {
+        _persistBeforeRebuild?.Invoke(_project);
         var result = PublicationSheetComposer.TryCompose(_project, CurrentOptions());
         if (!result.IsSuccess)
         {

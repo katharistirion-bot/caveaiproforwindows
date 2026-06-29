@@ -67,6 +67,8 @@
                                MaxWidth="320"
                                Text="Separate publication layout — existing map tabs and exports are unchanged." />
                 </WrapPanel>
+                <TextBlock x:Name="OfflineHintText" DockPanel.Dock="Bottom" Margin="0,8,0,0"
+                           TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" />
             </DockPanel>
         </Border>
         <Border Background="#FFF5F5F5" Margin="8">

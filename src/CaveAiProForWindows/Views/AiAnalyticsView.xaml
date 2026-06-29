@@ -6,6 +6,25 @@
              VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <Style x:Key="HealthCard" TargetType="Border">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="MinWidth" Value="108" />
+            <Setter Property="Background" Value="{DynamicResource Cave.CanvasBackdrop}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Cave.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style x:Key="HealthCardLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Cave.TextMuted}" />
+        </Style>
+        <Style x:Key="HealthCardValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource Cave.Text}" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
         <Style x:Key="AiResultsCellText" TargetType="TextBlock">
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Padding" Value="4,2" />
@@ -27,138 +46,90 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="InsightRow" TargetType="Border">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource Cave.CanvasBackdrop}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Cave.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
     </UserControl.Resources>
     <Grid x:Name="RootInteractionGrid" Margin="0">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="300" MinWidth="260" />
+            <ColumnDefinition Width="280" MinWidth="240" />
             <ColumnDefinition Width="8" />
-            <ColumnDefinition Width="*" MinWidth="280" />
+            <ColumnDefinition Width="*" MinWidth="360" />
         </Grid.ColumnDefinitions>
 
-        <!-- Left: control panel -->
+        <!-- Left: sync + actions -->
         <Border Grid.Column="0" Padding="14,16" CornerRadius="10" Margin="10,10,0,10"
                 Background="{DynamicResource Cave.Surface}"
                 BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
             <DockPanel x:Name="AiAnalyticsPanel" LastChildFill="True">
-                <TextBlock DockPanel.Dock="Top" Text="AI workspace" FontSize="16" FontWeight="SemiBold"
+                <TextBlock DockPanel.Dock="Top" Text="Survey intelligence" FontSize="16" FontWeight="SemiBold"
                            Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,4" />
-                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="11.5" Margin="0,0,0,14"
+                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="11.5" Margin="0,0,0,12"
                            Foreground="{DynamicResource Cave.TextMuted}"
-                           Text="Select an offline analysis engine, then run. Results fuse local geometry with Android field notes (survey notes, airflow, water, leads, geological markers) from the loaded backup." />
-
-                <TextBlock DockPanel.Dock="Top" Text="Analysis model" FontWeight="SemiBold" FontSize="12.5"
-                           Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
-                <ListBox x:Name="ModelListBox" DockPanel.Dock="Top" Margin="0,0,0,16"
-                         BorderThickness="0" Background="Transparent"
-                         SelectionMode="Single"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.Resources>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Padding" Value="10,10" />
-                            <Setter Property="Margin" Value="0,0,0,8" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="Background" Value="{DynamicResource Cave.CanvasBackdrop}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource Cave.Border}" />
-                            <Setter Property="BorderThickness" Value="1" />
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                BorderThickness="{TemplateBinding BorderThickness}"
-                                                CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                            <ContentPresenter />
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Cave.ListItemSelected}" />
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Cave.Accent}" />
-                                            </Trigger>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Cave.ListItemHover}" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ListBox.Resources>
-                    <ListBoxItem Tag="Qc" IsSelected="True">
-                        <StackPanel>
-                            <TextBlock Text="QC Anomaly Detection" FontWeight="SemiBold" FontSize="13"
-                                       Foreground="{DynamicResource Cave.Text}" />
-                            <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5"
-                                       Foreground="{DynamicResource Cave.TextMuted}"
-                                       Text="Local statistics: standard deviation, variance thresholds, traverse loop closure." />
-                        </StackPanel>
-                    </ListBoxItem>
-                    <ListBoxItem Tag="Volume">
-                        <StackPanel>
-                            <TextBlock Text="Volumetric AI Estimation" FontWeight="SemiBold" FontSize="13"
-                                       Foreground="{DynamicResource Cave.Text}" />
-                            <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5"
-                                       Foreground="{DynamicResource Cave.TextMuted}"
-                                       Text="Local 3D geometry: LRUD cross-section polygons, hulls, and void integration." />
-                        </StackPanel>
-                    </ListBoxItem>
-                    <ListBoxItem Tag="Lead">
-                        <StackPanel>
-                            <TextBlock Text="Lead Prediction" FontWeight="SemiBold" FontSize="13"
-                                       Foreground="{DynamicResource Cave.Text}" />
-                            <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5"
-                                       Foreground="{DynamicResource Cave.TextMuted}"
-                                       Text="Local vectors: extrapolation from open-ended stations on the traverse graph." />
-                        </StackPanel>
-                    </ListBoxItem>
-                </ListBox>
+                           Text="Offline dashboard: project health, Android sync, backup diff, batch QC, and rule-based insights. No cloud AI." />
 
                 <TextBlock DockPanel.Dock="Top" Text="Desktop Sync" FontWeight="SemiBold" FontSize="12.5"
                            Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
                 <TextBlock DockPanel.Dock="Top" Text="{Binding SyncFolderDisplay}" TextWrapping="Wrap"
                            FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding LatestBackupSummary}" TextWrapping="Wrap"
+                           FontSize="11" Foreground="{DynamicResource Cave.TextSubdued}" Margin="0,0,0,4" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding SyncHubInventoryLine}" TextWrapping="Wrap"
+                           FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
                 <TextBlock DockPanel.Dock="Top" Text="{Binding ImportStatusDisplay}" TextWrapping="Wrap"
                            FontSize="11.5" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,8" />
 
-                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,8"
-                           Foreground="{DynamicResource Cave.TextMuted}"
-                           Text="Place caveai_database_v1.json, android_export.json, and CaveAI_Backup_*.zip in Downloads/CaveAI (or pick a folder). With auto-sync on, JSON updates refresh AI Analytics; with auto-reload on, new ZIP backups reopen the full survey." />
-
                 <Button DockPanel.Dock="Top" Content="Import Android Project…" Padding="12,8" Margin="0,0,0,6"
                         FontSize="12.5" FontWeight="SemiBold"
-                        Command="{Binding ImportAndroidProjectCommand}"
-                        ToolTip="Choose the synchronized folder containing caveai_database_v1.json and android_export.json" />
+                        Command="{Binding ImportAndroidProjectCommand}" />
 
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
                     <Button Content="Sync now" Padding="10,7" Margin="0,0,6,0" FontSize="12"
-                            Command="{Binding SyncNowCommand}"
-                            ToolTip="Reload caveai_database_v1.json + android_export.json from the sync folder" />
+                            Command="{Binding SyncNowCommand}" />
                     <Button Content="Import JSON…" Padding="10,7" FontSize="12"
-                            Command="{Binding ImportAndroidExportCommand}"
-                            ToolTip="Pick a single JSON file manually" />
+                            Command="{Binding ImportAndroidExportCommand}" />
                 </StackPanel>
 
                 <CheckBox DockPanel.Dock="Top" Content="Auto-sync when Android files change"
                           IsChecked="{Binding AutoSyncEnabled}" Margin="0,0,0,6"
                           Foreground="{DynamicResource Cave.TextSubdued}" FontSize="12" />
-
-                <CheckBox DockPanel.Dock="Top" Content="Auto-run analysis after sync"
+                <CheckBox DockPanel.Dock="Top" Content="Auto-refresh dashboard after sync"
                           IsChecked="{Binding AutoRunAnalysisOnSync}" Margin="0,0,0,6"
                           Foreground="{DynamicResource Cave.TextSubdued}" FontSize="12" />
-
-                <CheckBox DockPanel.Dock="Top" Content="Auto-run analysis when project loads"
+                <CheckBox DockPanel.Dock="Top" Content="Auto-refresh when project loads"
                           IsChecked="{Binding AutoRunAnalysisOnProjectLoad}" Margin="0,0,0,6"
                           Foreground="{DynamicResource Cave.TextSubdued}" FontSize="12" />
-
                 <CheckBox DockPanel.Dock="Top"
-                          Content="Auto-reload CaveAI_Backup_*.zip (full survey sync)"
-                          IsChecked="{Binding AutoReloadBackupZip}" Margin="0,0,0,14"
-                          ToolTip="When Android exports a new backup ZIP to the sync folder, reload the entire survey in the main window"
+                          Content="Auto-reload CaveAI_Backup_*.zip (main window)"
+                          IsChecked="{Binding AutoReloadBackupZip}" Margin="0,0,0,12"
                           Foreground="{DynamicResource Cave.TextSubdued}" FontSize="12" />
 
-                <Button DockPanel.Dock="Top" Content="Run diagnostic pipeline"
-                        Style="{StaticResource Cave.AccentButton}" Padding="14,10" Margin="0,0,0,10"
+                <Button DockPanel.Dock="Top" Content="Refresh dashboard"
+                        Style="{StaticResource Cave.AccentButton}" Padding="14,10" Margin="0,0,0,8"
                         FontSize="13" FontWeight="SemiBold"
-                        Command="{Binding RunAnalysisCommand}" />
+                        Command="{Binding RefreshDashboardCommand}" />
+
+                <Button DockPanel.Dock="Top" Content="Open Sketch Editor (QC passed)"
+                        Padding="12,8" Margin="0,0,0,8" FontSize="12"
+                        Command="{Binding OpenSketchEditorCommand}"
+                        IsEnabled="{Binding SketchEditorReady}" />
+
+                <Button DockPanel.Dock="Top" Content="Loop closure assistant…"
+                        Padding="12,8" Margin="0,0,0,8" FontSize="12"
+                        Command="{Binding OpenLoopClosureAssistantCommand}"
+                        ToolTip="Open loop closure assistant for the active project (requires detected loops)" />
+
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button Content="Export report…" Padding="10,7" Margin="0,0,6,0" FontSize="12"
+                            Command="{Binding ExportExpeditionReportCommand}" />
+                    <Button Content="Export CSV…" Padding="10,7" FontSize="12"
+                            Command="{Binding ExportResultsCsvCommand}" />
+                </StackPanel>
 
                 <ProgressBar DockPanel.Dock="Top" Height="6" Margin="0,0,0,8"
                              IsIndeterminate="True"
@@ -169,13 +140,13 @@
                 <TextBlock DockPanel.Dock="Top" Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12"
                            Foreground="{DynamicResource Cave.TextSubdued}" Margin="0,0,0,8" />
 
-                <Border DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="0,16,0,0"
+                <Border DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="0,12,0,0"
                         Padding="10,8" CornerRadius="6"
                         Background="{DynamicResource Cave.BannerTint}" BorderBrush="{DynamicResource Cave.Border}"
                         BorderThickness="1">
                     <TextBlock TextWrapping="Wrap" FontSize="11"
                                Foreground="{DynamicResource Cave.TextMuted}"
-                               Text="All metrics are computed locally from the loaded project; nothing is sent over the network." />
+                               Text="All metrics computed locally. Android JSON + backup ZIP in the sync folder update this dashboard automatically." />
                 </Border>
             </DockPanel>
         </Border>
@@ -183,65 +154,213 @@
         <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch"
                       Style="{StaticResource Cave.GridSplitterVertical}" />
 
-        <!-- Right: results -->
-        <Border Grid.Column="2" Margin="0,10,10,10" Padding="0" CornerRadius="10"
-                Background="{DynamicResource Cave.Surface}"
-                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
-            <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="16,14,16,8">
-                    <TextBlock Text="Results" FontSize="15" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Cave.Text}" VerticalAlignment="Center" />
-                    <Button Content="Export CSV…" Padding="10,6" Margin="12,0,0,0" FontSize="12"
-                            Command="{Binding DataContext.ExportResultsCsvCommand, ElementName=AiAnalyticsPanel}"
-                            ToolTip="Save the Results grid as UTF-8 CSV for spreadsheets or GIS" />
-                </StackPanel>
-                <TextBlock DockPanel.Dock="Top" Text="Click a row with an Android field note to highlight that station on Plan, Section, and X-Ray."
-                           FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Margin="16,0,16,6" />
-                <TextBlock DockPanel.Dock="Top" Text="{Binding DataContext.ResultsSummary, ElementName=AiAnalyticsPanel}"
-                           TextWrapping="Wrap" FontSize="12"
-                           Foreground="{DynamicResource Cave.TextMuted}" Margin="16,0,16,8" />
-                <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource Cave.Border}" Margin="16,0,16,0" />
-                <DataGrid x:Name="ResultsDataGrid"
-                          ItemsSource="{Binding DataContext.ResultRows, ElementName=AiAnalyticsPanel}"
-                          RowStyle="{StaticResource AiResultsDataGridRow}"
-                          Margin="12,10,16,16"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          CanUserResizeRows="False"
-                          EnableRowVirtualization="True"
-                          VirtualizingPanel.IsVirtualizing="True"
-                          VirtualizingPanel.VirtualizationMode="Recycling"
-                          ScrollViewer.CanContentScroll="True"
-                          SelectionChanged="ResultsDataGrid_SelectionChanged"
-                          HeadersVisibility="Column"
-                          GridLinesVisibility="Horizontal"
-                          SelectionMode="Single"
-                          SelectionUnit="FullRow"
-                          Background="{DynamicResource Cave.Surface}"
-                          Foreground="{DynamicResource Cave.Text}"
-                          BorderThickness="0"
-                          RowBackground="{DynamicResource Cave.DataGridRow}"
-                          AlternatingRowBackground="{DynamicResource Cave.DataGridRowAlt}"
-                          VerticalAlignment="Stretch"
-                          MinHeight="160">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Station" Binding="{Binding Station}" Width="90"
-                                            MinWidth="72" ElementStyle="{StaticResource AiResultsCellText}" />
-                        <DataGridTextColumn Header="Android" Binding="{Binding AndroidContext}" Width="1.4*"
-                                            MinWidth="140" ElementStyle="{StaticResource AiResultsCellText}" />
-                        <DataGridTextColumn Header="Geometry" Binding="{Binding GeometryContext}" Width="1.2*"
-                                            MinWidth="120" ElementStyle="{StaticResource AiResultsCellText}" />
-                        <DataGridTextColumn Header="Finding" Binding="{Binding Metric}" Width="*"
-                                            MinWidth="140" ElementStyle="{StaticResource AiResultsCellText}" />
-                        <DataGridTextColumn Header="Detail" Binding="{Binding Value}" Width="1.2*"
-                                            MinWidth="120" ElementStyle="{StaticResource AiResultsCellText}" />
-                        <DataGridTextColumn Header="Alert" Binding="{Binding AlertLabel}" Width="88"
-                                            MinWidth="72" ElementStyle="{StaticResource AiResultsAlertCellText}" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </DockPanel>
-        </Border>
+        <!-- Right: dashboard -->
+        <ScrollViewer Grid.Column="2" Margin="0,10,10,10" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <!-- Health cards -->
+                <Border Padding="14,12" CornerRadius="10" Margin="0,0,0,10"
+                        Background="{DynamicResource Cave.Surface}"
+                        BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="Project health" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
+                        <TextBlock Text="{Binding DataContext.Health.HealthSummary, ElementName=AiAnalyticsPanel}"
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,10" />
+                        <WrapPanel DataContext="{Binding DataContext.Health, ElementName=AiAnalyticsPanel}">
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Stations" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding StationCount}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Traverse legs" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding TraverseLegCount}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Max depth (m)" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding MaxDepthM, StringFormat={}{0:0.#}}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Traverse (m)" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding TraverseLengthM, StringFormat={}{0:0.#}}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Longest branch" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding LongestBranchM, StringFormat={}{0:0.#} m}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Loops" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding LoopCount}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Worst misclosure" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding WorstLoopMisclosureM, StringFormat={}{0:0.##} m}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Missing LRUD" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding MissingLrudLegCount}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="QC warnings" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding QcWarningCount}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HealthCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Anomalies" Style="{StaticResource HealthCardLabel}" />
+                                    <TextBlock Text="{Binding AnomalyCount}" Style="{StaticResource HealthCardValue}" />
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Insights -->
+                    <Border Grid.Column="0" Padding="14,12" CornerRadius="10"
+                            Background="{DynamicResource Cave.Surface}"
+                            BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Top" Text="Offline insights" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
+                            <ItemsControl DockPanel.Dock="Top"
+                                          ItemsSource="{Binding DataContext.InsightRows, ElementName=AiAnalyticsPanel}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource InsightRow}">
+                                            <StackPanel>
+                                                <TextBlock FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Cave.Accent}"
+                                                           Text="{Binding Category}" />
+                                                <TextBlock Text="{Binding Message}" TextWrapping="Wrap"
+                                                           FontSize="12" Margin="0,3,0,0"
+                                                           Foreground="{DynamicResource Cave.Text}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Backup diff -->
+                    <Border Grid.Column="2" Padding="14,12" CornerRadius="10"
+                            Background="{DynamicResource Cave.Surface}"
+                            BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="Backup comparison" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
+                            <TextBlock Text="{Binding DataContext.BackupDiffSummary, ElementName=AiAnalyticsPanel}"
+                                       TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{DynamicResource Cave.Text}" />
+                            <TextBlock Text="{Binding DataContext.BackupDiffDetail, ElementName=AiAnalyticsPanel}"
+                                       TextWrapping="Wrap" FontSize="11.5" Margin="0,8,0,0"
+                                       Foreground="{DynamicResource Cave.TextMuted}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Batch QC -->
+                <Border Padding="14,12" CornerRadius="10" Margin="0,0,0,10"
+                        Background="{DynamicResource Cave.Surface}"
+                        BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+                    <DockPanel LastChildFill="True" MinHeight="120">
+                        <TextBlock DockPanel.Dock="Top" Text="Batch QC — sync folder backups" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
+                        <DataGrid DockPanel.Dock="Top" MaxHeight="180"
+                                  ItemsSource="{Binding DataContext.BatchQcRows, ElementName=AiAnalyticsPanel}"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  CanUserAddRows="False" CanUserDeleteRows="False"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  Background="{DynamicResource Cave.Surface}"
+                                  Foreground="{DynamicResource Cave.Text}"
+                                  BorderThickness="0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Project" Binding="{Binding ProjectName}" Width="*" MinWidth="100" />
+                                <DataGridTextColumn Header="File" Binding="{Binding SourceFile}" Width="1.2*" MinWidth="120" />
+                                <DataGridTextColumn Header="Shots" Binding="{Binding Shots}" Width="60" />
+                                <DataGridTextColumn Header="Anom." Binding="{Binding Anomalies}" Width="52" />
+                                <DataGridTextColumn Header="Loops" Binding="{Binding Loops}" Width="52" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="80" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <!-- Findings grid -->
+                <Border Padding="0" CornerRadius="10"
+                        Background="{DynamicResource Cave.Surface}"
+                        BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+                    <DockPanel LastChildFill="True" MinHeight="200">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="16,14,16,6">
+                            <TextBlock Text="Priority findings" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Cave.Text}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock DockPanel.Dock="Top"
+                                   Text="Click a row with a station name to highlight it on Plan, Section, and X-Ray."
+                                   FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Margin="16,0,16,6" />
+                        <TextBlock DockPanel.Dock="Top"
+                                   Text="{Binding DataContext.ResultsSummary, ElementName=AiAnalyticsPanel}"
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource Cave.TextMuted}" Margin="16,0,16,8" />
+                        <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource Cave.Border}" Margin="16,0,16,0" />
+                        <DataGrid x:Name="ResultsDataGrid"
+                                  ItemsSource="{Binding DataContext.ResultRows, ElementName=AiAnalyticsPanel}"
+                                  RowStyle="{StaticResource AiResultsDataGridRow}"
+                                  Margin="12,10,16,16"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  MaxHeight="320"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionChanged="ResultsDataGrid_SelectionChanged"
+                                  Background="{DynamicResource Cave.Surface}"
+                                  Foreground="{DynamicResource Cave.Text}"
+                                  BorderThickness="0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Station" Binding="{Binding Station}" Width="80"
+                                                    ElementStyle="{StaticResource AiResultsCellText}" />
+                                <DataGridTextColumn Header="Android" Binding="{Binding AndroidContext}" Width="1.3*"
+                                                    ElementStyle="{StaticResource AiResultsCellText}" />
+                                <DataGridTextColumn Header="Geometry" Binding="{Binding GeometryContext}" Width="1.1*"
+                                                    ElementStyle="{StaticResource AiResultsCellText}" />
+                                <DataGridTextColumn Header="Finding" Binding="{Binding Metric}" Width="*"
+                                                    ElementStyle="{StaticResource AiResultsCellText}" />
+                                <DataGridTextColumn Header="Detail" Binding="{Binding Value}" Width="1.1*"
+                                                    ElementStyle="{StaticResource AiResultsCellText}" />
+                                <DataGridTextColumn Header="Alert" Binding="{Binding AlertLabel}" Width="80"
+                                                    ElementStyle="{StaticResource AiResultsAlertCellText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

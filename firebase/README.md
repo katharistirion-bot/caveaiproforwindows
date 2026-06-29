@@ -1,5 +1,7 @@
 # Replicate proxy (Firebase Cloud Functions)
 
+> **Windows desktop (this repo):** Cloud AI / Replicate inference is **not used**. The PC app does not call `replicateGenerativeMap`. This folder documents legacy Android/backend infrastructure only.
+
 Secure middleman between CaveAI Pro Windows and the Replicate API. The Windows app calls a **Firebase Callable** function with its Firebase Auth ID token; the function verifies entitlement in Firestore and forwards the prediction using a server-side Replicate API key.
 
 ## Firestore schema (subscription check)

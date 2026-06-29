@@ -88,6 +88,40 @@ public sealed class FirebaseRestClient : IDisposable
         };
     }
 
+    /// <summary>Creates a document in a collection with a server-generated id.</summary>
+    public async Task CreateDocumentAsync(
+        FirebaseIdToken token,
+        string collectionId,
+        IReadOnlyDictionary<string, object> fields,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        if (string.IsNullOrWhiteSpace(collectionId))
+            throw new ArgumentException("Collection id is required.", nameof(collectionId));
+        if (fields.Count == 0)
+            throw new ArgumentException("At least one field is required.", nameof(fields));
+
+        var normalized = collectionId.Trim().Trim('/');
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{normalized}";
+
+        var body = new FirestoreDocumentPatch { Fields = new Dictionary<string, object>(fields) };
+        var json = JsonSerializer.Serialize(body, JsonOptions);
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        var respBody = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new FirebaseRestException(
+                $"Firestore CREATE failed ({(int)resp.StatusCode}): {Truncate(respBody)}",
+                resp.StatusCode,
+                respBody);
+    }
+
     /// <summary>
     /// PATCH an existing Firestore document (partial update with field mask).
     /// </summary>
@@ -159,6 +193,8 @@ public sealed class FirebaseRestClient : IDisposable
             pairs.Add(new("referenceCatalogCountry", metadata.ReferenceCatalogCountry.Trim()));
         if (!string.IsNullOrWhiteSpace(metadata.CaveNameSearchKey))
             pairs.Add(new("caveNameSearchKey", metadata.CaveNameSearchKey.Trim()));
+        if (metadata.GalleryPhotoUrls is { Count: > 0 } gallery)
+            pairs.Add(new("galleryPhotoUrls", gallery));
 
         var fields = FirestoreFieldBuilder.BuildFields(pairs);
         var docPath = $"published_caves/{metadata.PublishedCaveDocId.Trim()}";
@@ -273,6 +309,141 @@ public sealed class FirebaseRestClient : IDisposable
         }
 
         return ids.Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
+    }
+
+    /// <summary>Lists owner survey cloud projects ordered by <c>updatedAtMs</c> desc.</summary>
+    public async Task<IReadOnlyList<Services.SurveyCloud.SurveyCloudProjectMeta>> QuerySurveyCloudProjectsAsync(
+        FirebaseIdToken token,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        var uid = token.Subject?.Trim();
+        if (string.IsNullOrWhiteSpace(uid))
+            throw new InvalidOperationException("Firebase token missing uid (sub).");
+
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents:runQuery";
+
+        var body = new Dictionary<string, object>
+        {
+            ["structuredQuery"] = new Dictionary<string, object>
+            {
+                ["from"] = new object[] { new Dictionary<string, object> { ["collectionId"] = "survey_projects" } },
+                ["where"] = new Dictionary<string, object>
+                {
+                    ["fieldFilter"] = new Dictionary<string, object>
+                    {
+                        ["field"] = new Dictionary<string, object> { ["fieldPath"] = "ownerUid" },
+                        ["op"] = "EQUAL",
+                        ["value"] = new Dictionary<string, object> { ["stringValue"] = uid },
+                    },
+                },
+                ["orderBy"] = new object[]
+                {
+                    new Dictionary<string, object>
+                    {
+                        ["field"] = new Dictionary<string, object> { ["fieldPath"] = "updatedAtMs" },
+                        ["direction"] = "DESCENDING",
+                    },
+                },
+                ["limit"] = 100,
+            },
+        };
+
+        var json = JsonSerializer.Serialize(body, JsonOptions);
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        var respBody = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new FirebaseRestException(
+                $"Firestore runQuery failed ({(int)resp.StatusCode}): {Truncate(respBody)}",
+                resp.StatusCode,
+                respBody);
+
+        using var doc = JsonDocument.Parse(respBody);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var results = new List<Services.SurveyCloud.SurveyCloudProjectMeta>();
+        foreach (var row in doc.RootElement.EnumerateArray())
+        {
+            if (!row.TryGetProperty("document", out var document))
+                continue;
+            if (!document.TryGetProperty("fields", out var fields))
+                continue;
+            var projectId = ReadFirestoreString(fields, "projectId");
+            if (string.IsNullOrWhiteSpace(projectId) && document.TryGetProperty("name", out var nameEl))
+                projectId = nameEl.GetString()?.Split('/').LastOrDefault();
+            if (string.IsNullOrWhiteSpace(projectId))
+                continue;
+            var storagePath = ReadFirestoreString(fields, "projectJsonStoragePath")
+                ?? $"survey_projects/{uid}/{projectId}/project.json";
+            results.Add(new Services.SurveyCloud.SurveyCloudProjectMeta
+            {
+                ProjectId = projectId.Trim(),
+                CaveName = ReadFirestoreString(fields, "caveName") ?? "Survey",
+                UpdatedAtMs = ReadFirestoreLong(fields, "updatedAtMs"),
+                ShotCount = (int)ReadFirestoreLong(fields, "shotCount"),
+                ProjectJsonStoragePath = storagePath.Trim(),
+                PlatformOrigin = ReadFirestoreString(fields, "platformOrigin") ?? "android",
+            });
+        }
+
+        return results;
+    }
+
+    /// <summary>Downloads a Storage object using the Firebase ID token (owner rules).</summary>
+    public async Task<byte[]> DownloadStorageObjectBytesAsync(
+        FirebaseIdToken token,
+        string storageObjectPath,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        if (string.IsNullOrWhiteSpace(storageObjectPath))
+            throw new ArgumentException("Storage object path is required.", nameof(storageObjectPath));
+
+        var normalizedPath = storageObjectPath.Trim().TrimStart('/');
+        var nameParam = Uri.EscapeDataString(normalizedPath);
+        var url =
+            $"https://firebasestorage.googleapis.com/v0/b/{Uri.EscapeDataString(_config.StorageBucket)}/o/{nameParam}?alt=media";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new FirebaseRestException(
+                $"Storage download failed ({(int)resp.StatusCode}): {Truncate(body)}",
+                resp.StatusCode,
+                body);
+        }
+
+        return await resp.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string? ReadFirestoreString(JsonElement fields, string name)
+    {
+        if (!fields.TryGetProperty(name, out var el) || !el.TryGetProperty("stringValue", out var s))
+            return null;
+        return s.GetString();
+    }
+
+    private static long ReadFirestoreLong(JsonElement fields, string name)
+    {
+        if (!fields.TryGetProperty(name, out var el))
+            return 0L;
+        if (el.TryGetProperty("integerValue", out var i) && long.TryParse(i.GetString(), out var parsed))
+            return parsed;
+        if (el.TryGetProperty("doubleValue", out var d))
+            return (long)d.GetDouble();
+        return 0L;
     }
 
     private static PublishedCaveDocument ParsePublishedCaveDocument(string json)

@@ -23,4 +23,10 @@ public interface IMapSurfaceShortcuts
 
     /// <summary>Delete selected sketch ink or survey selection (Sketch Editor ink when selected).</summary>
     bool TryDeleteSelectedInk();
+
+    /// <summary>Duplicate selected sketch ink (Sketch Editor only).</summary>
+    bool TryDuplicateSelectedInk();
+
+    /// <summary>Zoom/pan to frame survey bounds (Sketch Editor only).</summary>
+    void FitMapToSurveyBounds();
 }

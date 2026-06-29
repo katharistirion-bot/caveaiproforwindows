@@ -18,47 +18,32 @@ public static class FieldTripPdfExportService
         const float margin = 48;
         var canvas = document.BeginPage(pageW, pageH);
 
-        using var titlePaint = new SKPaint
-        {
-            Color = SKColors.Black,
-            TextSize = 20,
-            IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold),
-        };
-        using var bodyPaint = new SKPaint
-        {
-            Color = SKColors.Black,
-            TextSize = 11,
-            IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Segoe UI"),
-        };
-        using var mutedPaint = new SKPaint
-        {
-            Color = new SKColor(80, 80, 80),
-            TextSize = 10,
-            IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Segoe UI"),
-        };
+        using var titleFont = new SKFont(SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold), 20);
+        using var bodyFont = new SKFont(SKTypeface.FromFamilyName("Segoe UI"), 11);
+        using var mutedFont = new SKFont(SKTypeface.FromFamilyName("Segoe UI"), 10);
+        using var titlePaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
+        using var bodyPaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
+        using var mutedPaint = new SKPaint { Color = new SKColor(80, 80, 80), IsAntialias = true };
 
         var y = margin;
-        canvas.DrawText(trip.Name, margin, y, titlePaint);
+        canvas.DrawText(trip.Name, margin, y, SKTextAlign.Left, titleFont, titlePaint);
         y += 28;
 
-        canvas.DrawText($"Generated {DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}", margin, y, mutedPaint);
+        canvas.DrawText($"Generated {DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}", margin, y, SKTextAlign.Left, mutedFont, mutedPaint);
         y += 22;
 
         if (!string.IsNullOrWhiteSpace(trip.Notes))
         {
             foreach (var line in Wrap(trip.Notes, 90))
             {
-                canvas.DrawText(line, margin, y, bodyPaint);
+                canvas.DrawText(line, margin, y, SKTextAlign.Left, bodyFont, bodyPaint);
                 y += 16;
             }
 
             y += 8;
         }
 
-        canvas.DrawText($"Stops ({trip.Stops.Count})", margin, y, titlePaint);
+        canvas.DrawText($"Stops ({trip.Stops.Count})", margin, y, SKTextAlign.Left, titleFont, titlePaint);
         y += 24;
 
         var idx = 1;
@@ -72,7 +57,7 @@ public static class FieldTripPdfExportService
             }
 
             var header = $"{idx}. {stop.Name}";
-            canvas.DrawText(header, margin, y, bodyPaint);
+            canvas.DrawText(header, margin, y, SKTextAlign.Left, bodyFont, bodyPaint);
             y += 16;
 
             var details = new StringBuilder();
@@ -85,7 +70,7 @@ public static class FieldTripPdfExportService
 
             if (details.Length > 0)
             {
-                canvas.DrawText(details.ToString(), margin + 12, y, mutedPaint);
+                canvas.DrawText(details.ToString(), margin + 12, y, SKTextAlign.Left, mutedFont, mutedPaint);
                 y += 14;
             }
 
@@ -93,7 +78,7 @@ public static class FieldTripPdfExportService
             {
                 foreach (var line in Wrap(stop.Notes, 85))
                 {
-                    canvas.DrawText(line, margin + 12, y, mutedPaint);
+                    canvas.DrawText(line, margin + 12, y, SKTextAlign.Left, mutedFont, mutedPaint);
                     y += 14;
                 }
             }

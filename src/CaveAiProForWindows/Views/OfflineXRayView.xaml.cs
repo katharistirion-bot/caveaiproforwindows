@@ -10,7 +10,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
-using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.ReferenceCatalog;
 using Microsoft.Win32;
 
@@ -18,7 +17,7 @@ namespace CaveAiProForWindows.Views;
 
 /// <summary>
 /// Geo-calibrated X-Ray map: Android satellite raster + traverse overlay in WGS-84 space,
-/// with GIS-style zoom/pan, selectable stations, and optional AI render layer.
+/// with GIS-style zoom/pan and selectable stations.
 /// </summary>
 public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
 {
@@ -41,11 +40,14 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
     private Point _panStart;
     private double _panStartX;
     private double _panStartY;
-    private bool _showAiOverlay = true;
     private bool _showReferencePins = true;
-    private double _aiOverlayOpacity = 0.52;
     private bool _applyingSettings;
     private bool _referencePinsHandlersWired;
+    private bool _calibrationMode;
+    private XRayBackdropMetadata? _workingBounds;
+    private CalibrationCorner? _draggingCorner;
+
+    private enum CalibrationCorner { Nw, Ne, Se, Sw }
 
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
         nameof(Project),
@@ -83,8 +85,6 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         set => SetValue(MapInventoryProperty, value);
     }
 
-    private bool _aiOverlayHandlersWired;
-
     public OfflineXRayView()
     {
         InitializeComponent();
@@ -95,9 +95,7 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         var settings = AppUiSettingsStore.LoadOrDefault();
-        _showAiOverlay = settings.GenerativeMap.ShowAiRenderOnCanvas;
         _showReferencePins = settings.ShowReferencePinsOnXRay;
-        _aiOverlayOpacity = Math.Clamp(settings.GenerativeMap.XRayAiOverlayOpacity, 0.15, 0.95);
 
         _applyingSettings = true;
         try
@@ -109,17 +107,6 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
                 ReferencePinsCheck.Unchecked += ReferencePinsCheck_Changed;
                 _referencePinsHandlersWired = true;
             }
-
-            if (AiOverlayCheck != null && !_aiOverlayHandlersWired)
-            {
-                AiOverlayCheck.IsChecked = _showAiOverlay;
-                AiOverlayCheck.Checked += AiOverlayCheck_Changed;
-                AiOverlayCheck.Unchecked += AiOverlayCheck_Changed;
-                _aiOverlayHandlersWired = true;
-            }
-
-            if (AiOverlayOpacitySlider != null)
-                AiOverlayOpacitySlider.Value = _aiOverlayOpacity;
         }
         finally
         {
@@ -128,7 +115,6 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
 
         SurveyStationSelectionHub.StationSelected += OnExternalStationSelected;
         SurveyStationSelectionHub.SelectionCleared += OnExternalSelectionCleared;
-        GenerativeMapSessionCache.SessionChanged += OnGenerativeMapSessionChanged;
         Refresh();
     }
 
@@ -141,16 +127,8 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
             _referencePinsHandlersWired = false;
         }
 
-        if (AiOverlayCheck != null && _aiOverlayHandlersWired)
-        {
-            AiOverlayCheck.Checked -= AiOverlayCheck_Changed;
-            AiOverlayCheck.Unchecked -= AiOverlayCheck_Changed;
-            _aiOverlayHandlersWired = false;
-        }
-
         SurveyStationSelectionHub.StationSelected -= OnExternalStationSelected;
         SurveyStationSelectionHub.SelectionCleared -= OnExternalSelectionCleared;
-        GenerativeMapSessionCache.SessionChanged -= OnGenerativeMapSessionChanged;
     }
 
     private void OnExternalSelectionCleared(object? sender, SurveyStationSelectionEventArgs e)
@@ -158,13 +136,6 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         if (string.Equals(e.Source, "XRay", StringComparison.OrdinalIgnoreCase))
             return;
         ClearStationSelection(notifyHub: false);
-    }
-
-    private void OnGenerativeMapSessionChanged(object? sender, GenerativeMapSessionChangedEventArgs e)
-    {
-        if (Project == null || !ReferenceEquals(e.Project, Project))
-            return;
-        Dispatcher.BeginInvoke(() => ApplyAiOverlay());
     }
 
     private static void OnInputChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -223,7 +194,6 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         BackgroundRaster.Source = null;
         TraverseLayer.Children.Clear();
         ReferencePinsLayer.Children.Clear();
-        AiOverlayCanvas.Children.Clear();
         _stationDots.Clear();
         PlaceholderBorder.Visibility = Visibility.Collapsed;
         PlaceholderText.Text = "";
@@ -252,7 +222,7 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
             return;
         }
 
-        _backdropMetadata = XRayBackdropMetadataParser.TryRead(project);
+        _backdropMetadata = ResolveActiveBackdropMetadata(project);
         _coords = SurveyStationGeometry.CalculatePlanCoordinates(project);
         _stationGps = SurveyStationGpsCatalog.Build(project);
 
@@ -268,10 +238,15 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
 
         UpdateAlignmentFooter();
         ApplyReferencePinsOverlay();
-        ApplyAiOverlay();
+        RebuildCalibrationOverlay();
         FitMapToViewport();
         Dispatcher.BeginInvoke(() => ApplyDeferredXRayViewFromSettings());
     }
+
+    private XRayBackdropMetadata? ResolveActiveBackdropMetadata(CaveProjectDocument project) =>
+        _calibrationMode && _workingBounds is { IsValid: true } wb
+            ? wb
+            : XRayBackdropMetadataParser.TryRead(project);
 
     private void ConfigureMapCanvasSize()
     {
@@ -284,10 +259,10 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         MapCanvas.Height = h;
         MapZoomRoot.Width = w;
         MapZoomRoot.Height = h;
-        AiOverlayCanvas.Width = w;
-        AiOverlayCanvas.Height = h;
         ReferencePinsLayer.Width = w;
         ReferencePinsLayer.Height = h;
+        CalibrationLayer.Width = w;
+        CalibrationLayer.Height = h;
         TraverseLayer.Width = w;
         TraverseLayer.Height = h;
 
@@ -583,61 +558,6 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         ApplyReferencePinsOverlay();
     }
 
-    private void ApplyAiOverlay()
-    {
-        if (AiOverlayCanvas == null)
-            return;
-
-        AiOverlayCanvas.Children.Clear();
-        if (!_showAiOverlay || Project == null || _overlayLayout is not PlanCanvasSurveyLayout layout)
-            return;
-
-        var entry = GenerativeMapSessionCache.TryGet(Project);
-        if (entry?.PngBytes == null || entry.PngBytes.Length == 0)
-            return;
-
-        BitmapSource? bmp;
-        try
-        {
-            using var ms = new MemoryStream(entry.PngBytes);
-            var decoder = BitmapDecoder.Create(ms, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-            bmp = decoder.Frames.Count > 0 ? decoder.Frames[0] : null;
-        }
-        catch
-        {
-            return;
-        }
-
-        if (bmp == null)
-            return;
-
-        GenerativeMapOverlayPresenter.Apply(AiOverlayCanvas, layout, bmp, visible: true, opacity: _aiOverlayOpacity);
-    }
-
-    private void AiOverlayCheck_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_applyingSettings || AiOverlayCanvas == null)
-            return;
-
-        _showAiOverlay = AiOverlayCheck?.IsChecked == true;
-        var all = AppUiSettingsStore.LoadOrDefault();
-        all.GenerativeMap.ShowAiRenderOnCanvas = _showAiOverlay;
-        AppUiSettingsStore.Save(all);
-        ApplyAiOverlay();
-    }
-
-    private void AiOverlayOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (_applyingSettings || AiOverlayOpacitySlider == null)
-            return;
-
-        _aiOverlayOpacity = Math.Clamp(AiOverlayOpacitySlider.Value, 0.15, 0.95);
-        var all = AppUiSettingsStore.LoadOrDefault();
-        all.GenerativeMap.XRayAiOverlayOpacity = _aiOverlayOpacity;
-        AppUiSettingsStore.Save(all);
-        ApplyAiOverlay();
-    }
-
     private void HostScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (ZoomScale == null || ZoomPan == null || MapZoomRoot == null)
@@ -693,6 +613,10 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
 
     /// <inheritdoc />
     public bool TryDeleteSelectedInk() => false;
+
+    public bool TryDuplicateSelectedInk() => false;
+
+    public void FitMapToSurveyBounds() => FitMapToViewport();
 
     private void ResetView_Click(object sender, RoutedEventArgs e) => ResetMapViewInternal();
 
@@ -782,6 +706,14 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
 
     private void MapCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (_calibrationMode && e.OriginalSource is Ellipse { Tag: CalibrationCorner corner })
+        {
+            _draggingCorner = corner;
+            MapCanvas.CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
         if (e.OriginalSource is Ellipse)
             return;
         if (e.ClickCount == 2)
@@ -793,6 +725,9 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
 
         if (e.OriginalSource is Canvas or Image)
             ClearStationSelection(notifyHub: true);
+
+        if (_calibrationMode)
+            return;
 
         BeginPan(e.GetPosition(MapHostGrid), captureLeft: true);
     }
@@ -814,6 +749,33 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
     {
         UpdateCursorGeo(e.GetPosition(MapCanvas));
 
+        if (_draggingCorner is { } corner && _workingBounds is { IsValid: true } bounds)
+        {
+            var pt = e.GetPosition(MapCanvas);
+            if (TryCanvasPointToGeo(pt, out var lat, out var lon))
+            {
+                _workingBounds = corner switch
+                {
+                    CalibrationCorner.Nw => bounds with { MaxLat = lat, MinLon = lon },
+                    CalibrationCorner.Ne => bounds with { MaxLat = lat, MaxLon = lon },
+                    CalibrationCorner.Se => bounds with { MinLat = lat, MaxLon = lon },
+                    CalibrationCorner.Sw => bounds with { MinLat = lat, MinLon = lon },
+                    _ => bounds,
+                };
+                if (_workingBounds.IsValid)
+                {
+                    _backdropMetadata = _workingBounds;
+                    RebuildLayoutAndOverlay();
+                    RedrawTraverseOverlay();
+                    RebuildCalibrationOverlay();
+                    UpdateAlignmentFooter();
+                }
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         if (!_isPanning && !_isMiddlePanning || ZoomPan == null)
             return;
 
@@ -830,7 +792,19 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         e.Handled = true;
     }
 
-    private void MapCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => EndPan();
+    private void MapCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_draggingCorner != null)
+        {
+            CommitCalibrationBounds();
+            _draggingCorner = null;
+            MapCanvas.ReleaseMouseCapture();
+            e.Handled = true;
+            return;
+        }
+
+        EndPan();
+    }
 
     private void EndPan()
     {
@@ -998,6 +972,176 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         }
 
         return null;
+    }
+
+    private void CalibrateBounds_Click(object sender, RoutedEventArgs e)
+    {
+        var project = Project;
+        if (project == null)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Select a project first.", "X-Ray calibration",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (XRayManualCalibrationWindow.TryShowDialog(Window.GetWindow(this), project))
+        {
+            _calibrationMode = false;
+            _workingBounds = null;
+            if (DragCornersButton != null)
+                DragCornersButton.Content = "Drag corners";
+            Refresh();
+            PromptSaveProjectAfterCalibration();
+        }
+    }
+
+    private void ToggleCornerCalibration_Click(object sender, RoutedEventArgs e)
+    {
+        var project = Project;
+        if (project == null || _background == null)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Load a satellite backdrop first.", "X-Ray calibration",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        _calibrationMode = !_calibrationMode;
+        if (DragCornersButton != null)
+            DragCornersButton.Content = _calibrationMode ? "Done dragging" : "Drag corners";
+
+        if (_calibrationMode)
+        {
+            _workingBounds = SeedCalibrationBounds(project);
+            _backdropMetadata = _workingBounds;
+            RebuildLayoutAndOverlay();
+            RedrawTraverseOverlay();
+            UpdateAlignmentFooter();
+            RebuildCalibrationOverlay();
+        }
+        else
+        {
+            CommitCalibrationBounds();
+            CalibrationLayer.Children.Clear();
+        }
+    }
+
+    private XRayBackdropMetadata SeedCalibrationBounds(CaveProjectDocument project)
+    {
+        if (_workingBounds is { IsValid: true } existing)
+            return existing;
+        if (XRayManualBoundsStore.TryRead(project, out var manual) && manual.IsValid)
+            return manual;
+        if (XRayBackdropMetadataParser.TryRead(project) is { IsValid: true } parsed)
+            return parsed;
+        if (project.Lat is double la && project.Lon is double lo)
+        {
+            const double span = 0.002;
+            return new XRayBackdropMetadata(la - span, la + span, lo - span, lo + span, XRayManualBoundsStore.ExtensionKey);
+        }
+
+        return new XRayBackdropMetadata(0, 1, 0, 1, XRayManualBoundsStore.ExtensionKey);
+    }
+
+    private void RebuildCalibrationOverlay()
+    {
+        CalibrationLayer.Children.Clear();
+        if (!_calibrationMode || _workingBounds is not { IsValid: true } bounds || MapCanvas.Width <= 0)
+            return;
+
+        var w = MapCanvas.Width;
+        var h = MapCanvas.Height;
+        var corners = new (CalibrationCorner Id, double X, double Y, string Label)[]
+        {
+            (CalibrationCorner.Nw, 0, 0, "NW"),
+            (CalibrationCorner.Ne, w, 0, "NE"),
+            (CalibrationCorner.Se, w, h, "SE"),
+            (CalibrationCorner.Sw, 0, h, "SW"),
+        };
+
+        foreach (var (id, x, y, label) in corners)
+        {
+            var handle = CreateCalibrationHandle(id, label);
+            Canvas.SetLeft(handle, x - handle.Width * 0.5);
+            Canvas.SetTop(handle, y - handle.Height * 0.5);
+            Panel.SetZIndex(handle, 40);
+            CalibrationLayer.Children.Add(handle);
+        }
+
+        var outline = new System.Windows.Shapes.Rectangle
+        {
+            Width = w,
+            Height = h,
+            Stroke = new SolidColorBrush(Color.FromArgb(200, 255, 200, 64)),
+            StrokeThickness = 2,
+            StrokeDashArray = [6, 4],
+            IsHitTestVisible = false,
+        };
+        Panel.SetZIndex(outline, 35);
+        CalibrationLayer.Children.Add(outline);
+    }
+
+    private static Ellipse CreateCalibrationHandle(CalibrationCorner corner, string label)
+    {
+        var dot = new Ellipse
+        {
+            Width = 16,
+            Height = 16,
+            Fill = new SolidColorBrush(Color.FromRgb(255, 210, 64)),
+            Stroke = Brushes.White,
+            StrokeThickness = 2,
+            Cursor = Cursors.SizeAll,
+            Tag = corner,
+            ToolTip = $"Drag {label} corner — sets WGS-84 bounds",
+        };
+        return dot;
+    }
+
+    private bool TryCanvasPointToGeo(Point canvasPt, out double lat, out double lon)
+    {
+        lat = 0;
+        lon = 0;
+        if (_workingBounds is not { IsValid: true } bounds)
+            return false;
+
+        var w = MapCanvas.Width;
+        var h = MapCanvas.Height;
+        if (w <= 0 || h <= 0)
+            return false;
+
+        var tX = Math.Clamp(canvasPt.X / w, 0, 1);
+        var tY = Math.Clamp(canvasPt.Y / h, 0, 1);
+        lon = bounds.MinLon + tX * bounds.SpanLonDeg;
+        lat = bounds.MaxLat - tY * bounds.SpanLatDeg;
+        return true;
+    }
+
+    private void CommitCalibrationBounds()
+    {
+        var project = Project;
+        if (project == null || _workingBounds is not { IsValid: true } bounds)
+            return;
+
+        XRayManualBoundsStore.Save(project, bounds);
+        _backdropMetadata = bounds;
+        UpdateAlignmentFooter();
+        PromptSaveProjectAfterCalibration();
+    }
+
+    private void PromptSaveProjectAfterCalibration()
+    {
+        var owner = Window.GetWindow(this);
+        if (owner?.DataContext is not ViewModels.MainViewModel vm)
+            return;
+
+        if (MessageBox.Show(
+                owner,
+                "Geo bounds updated in project memory. Save project now to write extensionData to disk?",
+                "X-Ray calibration",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        vm.SaveProjectCommand.Execute(null);
     }
 
     private void ExportGeoMap_Click(object sender, RoutedEventArgs e)

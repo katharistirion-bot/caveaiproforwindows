@@ -16,11 +16,14 @@
                     <ComboBoxItem Content="Weighted least squares" />
                 </ComboBox>
                 <Button Content="Preview adjustment" Padding="12,5" Margin="0,0,8,0" Click="Preview_Click" />
+                <Button x:Name="ApplyInPlaceButton" Content="Apply to _project" Padding="12,5" Margin="0,0,8,0"
+                        Click="ApplyInPlace_Click"
+                        ToolTip="Apply plan station overrides to the open project and save (requires writable backup on disk)" />
                 <Button Content="Apply to copy…" Padding="12,5" Click="ApplyCopy_Click" />
             </StackPanel>
         </StackPanel>
         <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,10"
-                   Text="Detected closed traverse loops with misclosure. Preview is non-destructive; Apply to copy saves a new ZIP with plan station overrides (raw shots unchanged)." />
+                   Text="Detected closed traverse loops with misclosure. Preview is non-destructive. Apply to project writes plan station overrides into the open backup (Ctrl+S) — raw shots unchanged. Apply to copy saves a new ZIP instead." />
         <DataGrid x:Name="LoopGrid" AutoGenerateColumns="False" IsReadOnly="True"
                   Background="{DynamicResource Cave.Surface}" BorderBrush="{DynamicResource Cave.Border}">
             <DataGrid.Columns>

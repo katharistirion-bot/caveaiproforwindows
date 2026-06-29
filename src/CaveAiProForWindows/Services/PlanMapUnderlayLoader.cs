@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Media.Imaging;
 using CaveAiProForWindows.Models;
-using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.Persistence;
 
 namespace CaveAiProForWindows.Services;
@@ -446,86 +445,6 @@ public static class PlanMapUnderlayLoader
         var t = uriOrPath.Trim();
         var q = t.IndexOf('?', StringComparison.Ordinal);
         return q >= 0 ? t[..q] : t;
-    }
-
-    /// <summary>
-    /// Appends the generative AI map as the top raster underlay when enabled. Skips duplicate disk paths already loaded.
-    /// </summary>
-    public static IReadOnlyList<PlanRasterUnderlay> WithGenerativeUnderlay(
-        CaveProjectDocument? project,
-        string? zipPath,
-        IReadOnlyList<PlanRasterUnderlay> baseLayers,
-        bool showGenerative,
-        double opacity)
-    {
-        if (project == null || !showGenerative)
-            return baseLayers;
-
-        BitmapSource? bitmap = null;
-        var resolvedPath = "(generative session)";
-
-        var session = GenerativeMapSessionCache.TryGet(project);
-        if (session?.Bitmap != null)
-        {
-            bitmap = session.Bitmap;
-        }
-        else
-        {
-            var aiPath = ProjectAiAssetPersistence.TryReadAiMapRelativePath(project);
-            if (!string.IsNullOrWhiteSpace(aiPath))
-            {
-                var src = project.LoadedFromFile ?? zipPath;
-                if (!string.IsNullOrWhiteSpace(src))
-                {
-                    var bytes = ProjectAiAssetPersistence.TryLoadAssetBytes(src, aiPath);
-                    if (bytes is { Length: > 0 })
-                    {
-                        try
-                        {
-                            using var ms = new MemoryStream(bytes);
-                            var decoder = BitmapDecoder.Create(ms, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-                            if (decoder.Frames.Count > 0)
-                                bitmap = decoder.Frames[0];
-                            resolvedPath = aiPath;
-                        }
-                        catch
-                        {
-                            // ignore decode failure
-                        }
-                    }
-                }
-            }
-        }
-
-        if (bitmap == null)
-            return baseLayers;
-
-        // Drop persisted AI cartography from base list to avoid double-draw.
-        var filtered = baseLayers
-            .Where(u =>
-                !string.Equals(u.Category, "generativeMap", StringComparison.OrdinalIgnoreCase) &&
-                !IsGenerativeAssetPath(u.ResolvedPath))
-            .ToList();
-
-        filtered.Add(new PlanRasterUnderlay
-        {
-            Bitmap = bitmap,
-            Category = "generativeMap",
-            ResolvedPath = resolvedPath,
-            OpacityOverride = Math.Clamp(opacity, 0.12, 0.95),
-        });
-
-        return filtered;
-    }
-
-    private static bool IsGenerativeAssetPath(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return false;
-        var norm = path.Replace('\\', '/');
-        return norm.Contains("/ai_cartography.png", StringComparison.OrdinalIgnoreCase) ||
-               norm.Contains("export_assets/windows/", StringComparison.OrdinalIgnoreCase) &&
-               norm.EndsWith(".png", StringComparison.OrdinalIgnoreCase);
     }
 
 }

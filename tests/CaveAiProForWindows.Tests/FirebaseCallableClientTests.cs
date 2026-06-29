@@ -2,7 +2,6 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using CaveAiProForWindows.Services.CloudPublish;
-using CaveAiProForWindows.Services.GenerativeMap;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CaveAiProForWindows.Tests;
@@ -10,16 +9,6 @@ namespace CaveAiProForWindows.Tests;
 [TestClass]
 public sealed class FirebaseCallableClientTests
 {
-    [TestMethod]
-    public void ReplicateProxyPredictionResult_deserializes_outputUrl()
-    {
-        const string json = """{"predictionId":"abc","status":"succeeded","outputUrl":"https://example.com/out.png"}""";
-        var result = JsonSerializer.Deserialize<ReplicateProxyPredictionResult>(json);
-        Assert.IsNotNull(result);
-        Assert.AreEqual("abc", result!.PredictionId);
-        Assert.AreEqual("https://example.com/out.png", result.OutputUrl);
-    }
-
     [TestMethod]
     public async Task FirebaseCallableClient_maps_callable_error_to_exception()
     {
@@ -33,7 +22,7 @@ public sealed class FirebaseCallableClientTests
         });
 
         var client = new FirebaseCallableClient(
-            ReplicateCallableProxyClient.FunctionName,
+            "testCallable",
             http: new HttpClient(handler));
 
         var token = new FirebaseIdToken
@@ -48,12 +37,6 @@ public sealed class FirebaseCallableClientTests
             client.InvokeAsync<JsonElement>(token, new { modelVersion = "x", input = new { } }));
 
         Assert.IsTrue(ex.IsPermissionDenied);
-    }
-
-    [TestMethod]
-    public void GenerativeAiAccessGate_cloud_mode_does_not_require_byok_token()
-    {
-        Assert.IsTrue(GenerativeAiAccessGate.IsCloudProxyMode || GenerativeAiAccessGate.UseDirectByok);
     }
 
     private sealed class StubHandler : HttpMessageHandler

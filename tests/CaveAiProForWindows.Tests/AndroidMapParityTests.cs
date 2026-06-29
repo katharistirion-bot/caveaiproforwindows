@@ -178,7 +178,7 @@ public sealed class AndroidMapParityTests
     [TestMethod]
     public void AndroidSketchSymbolKindMapper_resolves_uis_slugs_and_pool_water()
     {
-        Assert.AreEqual(SketchEditorSymbolKind.StalactiteSpeleothem,
+        Assert.AreEqual(SketchEditorSymbolKind.Helictite,
             AndroidSketchSymbolKindMapper.Resolve("helictite", null, null));
         Assert.AreEqual(SketchEditorSymbolKind.WaterPool,
             AndroidSketchSymbolKindMapper.Resolve("pool_water", null, null));

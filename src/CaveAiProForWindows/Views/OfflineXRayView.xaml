@@ -27,29 +27,9 @@
                 <CheckBox x:Name="ReferencePinsCheck"
                           Content="Reference pins"
                           VerticalAlignment="Center"
-                          Margin="0,0,8,0"
+                          Margin="0,0,12,0"
                           ToolTip="Show nearby reference catalog caves from cached index (bbox around survey, max 50)"
                           Foreground="{DynamicResource Cave.TextSubdued}" />
-                <CheckBox x:Name="AiOverlayCheck"
-                          Content="AI render overlay"
-                          VerticalAlignment="Center"
-                          Margin="0,0,8,0"
-                          ToolTip="Toggle generative map render (from Sketch Editor) as a transparent layer"
-                          Foreground="{DynamicResource Cave.TextSubdued}" />
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0"
-                            ToolTip="Blend opacity for the generative AI map on the geo-calibrated canvas">
-                    <TextBlock Text="Opacity" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
-                               Foreground="{DynamicResource Cave.TextMuted}" />
-                    <Slider x:Name="AiOverlayOpacitySlider"
-                            Width="88"
-                            Minimum="0.15"
-                            Maximum="0.95"
-                            Value="0.52"
-                            TickFrequency="0.1"
-                            IsSnapToTickEnabled="False"
-                            VerticalAlignment="Center"
-                            ValueChanged="AiOverlayOpacitySlider_ValueChanged" />
-                </StackPanel>
                 <Button Content="Zoom out" Padding="10,6" Margin="0,0,6,0" Click="ZoomOut_Click"
                         ToolTip="Zoom out (mouse wheel toward cursor)" />
                 <Button Content="Zoom in" Padding="10,6" Margin="0,0,6,0" Click="ZoomIn_Click"
@@ -61,6 +41,10 @@
                         ToolTip="Open print preview (ISO A4/A3/A2, landscape or portrait)" />
                 <Button Content="Export geo PNG…" Padding="10,6" Margin="0,0,6,0" Click="ExportGeoMap_Click"
                         ToolTip="Save satellite raster with .pgw world file for QGIS (requires bounding box metadata)" />
+                <Button x:Name="DragCornersButton" Content="Drag corners" Padding="10,6" Margin="0,0,6,0" Click="ToggleCornerCalibration_Click"
+                        ToolTip="Drag the four image corners to set WGS-84 bounds (saved to extensionData xrayManualBoundsLatLon)" />
+                <Button Content="Calibrate bounds…" Padding="10,6" Margin="0,0,6,0" Click="CalibrateBounds_Click"
+                        ToolTip="Set manual WGS-84 corners via lat/lon dialog when Android metadata is missing" />
                 <Button Content="Reset" Padding="10,6" Click="ResetView_Click"
                         ToolTip="Reset zoom/pan (double-click map)" />
             </StackPanel>
@@ -102,7 +86,7 @@
                                    RenderOptions.BitmapScalingMode="HighQuality"
                                    IsHitTestVisible="False" />
                             <Canvas x:Name="ReferencePinsLayer" IsHitTestVisible="False" />
-                            <Canvas x:Name="AiOverlayCanvas" IsHitTestVisible="False" />
+                            <Canvas x:Name="CalibrationLayer" IsHitTestVisible="True" />
                             <Canvas x:Name="TraverseLayer" IsHitTestVisible="True" />
                         </Canvas>
                     </Grid>

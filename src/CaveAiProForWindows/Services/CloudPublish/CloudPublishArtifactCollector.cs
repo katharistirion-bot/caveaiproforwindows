@@ -1,16 +1,16 @@
 using CaveAiProForWindows.Models;
-using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows.Services.CloudPublish;
 
-/// <summary>Assembles publish artifacts from the active project (sketch editor when available, else session cache).</summary>
+/// <summary>Assembles publish artifacts from the active project (sketch editor when available).</summary>
 public static class CloudPublishArtifactCollector
 {
     public static CloudPublishArtifactCapture Collect(
         CaveProjectDocument project,
         Func<CloudPublishArtifactCapture?>? trySketchCapture = null,
-        Action<CaveProjectDocument>? persistBeforeCapture = null)
+        Action<CaveProjectDocument>? persistBeforeCapture = null,
+        string? zipPath = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         persistBeforeCapture?.Invoke(project);
@@ -19,13 +19,10 @@ public static class CloudPublishArtifactCollector
         if (sketch != null)
             return sketch;
 
-        var session = GenerativeMapSessionCache.TryGet(project);
-        var surveyJson = CloudPublishService.SerializeProjectJsonUtf8(project);
         return new CloudPublishArtifactCapture
         {
-            AiMapPng = session?.PngBytes,
-            StructureMaskPng = session?.StructureMaskPng,
-            SurveyJsonUtf8 = surveyJson,
+            SurveyJsonUtf8 = CloudPublishService.SerializeProjectJsonUtf8(project),
+            PendingGalleryPhotos = CloudPublishPhotoCollector.CollectFromZip(zipPath, project),
         };
     }
 }

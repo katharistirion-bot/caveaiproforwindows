@@ -32,11 +32,12 @@ Optional sideload ZIP + MSI:
 
 Copy into Partner Center -> **Properties** -> **Description** (or per-language release notes):
 
-- Docked Cave AI assistant panel (on-device Q&A)
-- Similar caves in Reference Catalog
-- Per-cave favorites with My favorites filter (signed-in)
-- Offline trip narrative in Cave AI; optional cloud enhance
-- Reference catalog and offline brain stability fixes
+- Sketch Editor: dedicated cave plan design after survey import (symbols, wall styles, LRUD assist, export)
+- Survey Intelligence dashboard: offline QC, loop closure, backup compare, Android sync status
+- Plan and Section tabs are view-only; all drawing lives in Sketch Editor
+- Design-from-survey workflow after ZIP/JSON import; improved public library search
+- Removed cloud AI features (Generative Map, Replicate) for a fully offline-first workstation
+- Stability, performance, and export improvements (Therion, field trip PDF, cloud publish photos)
 
 See also `docs/STORE_UPLOAD_CHECKLIST.md`.
 

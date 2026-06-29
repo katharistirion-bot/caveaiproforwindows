@@ -16,11 +16,11 @@ using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.CloudPublish;
-using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.Services.Localization;
 using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.Services.ReferenceCatalog;
+using CaveAiProForWindows.Services.SurveyCloud;
 using CaveAiProForWindows.Views;
 using Wpf = System.Windows;
 
@@ -104,7 +104,15 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private bool _storeReviewBannerVisible = MicrosoftTestMode.IsActive;
 
+    [ObservableProperty] private bool _updateAvailableBannerVisible;
+
+    [ObservableProperty] private string _updateAvailableBannerMessage = "";
+
+    private string _pendingReleasePageUrl = "";
+
     [ObservableProperty] private int _collaborationUnreadCount;
+
+    [ObservableProperty] private string _footerContextLine = "";
 
     [ObservableProperty] private bool _showLoadProgress;
 
@@ -137,6 +145,9 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Set by <see cref="MainWindow"/> — captures survey JSON and AI assets before cloud upload.</summary>
     public Func<CloudPublishArtifactCapture?>? CaptureCloudPublishArtifacts { get; set; }
 
+    /// <summary>Set by <see cref="MainWindow"/> — opens Sketch Editor design mode from survey traverse.</summary>
+    public Action<bool>? NavigateToDesignFromSurvey { get; set; }
+
     public ObservableCollection<MapAssetRow> MapAssetRows { get; } = new();
 
     /// <summary>Rows from optional Android <c>map_inventory.json</c> inside an open ZIP.</summary>
@@ -164,15 +175,22 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Absolute paths of map files added via File → Open standalone map(s) or drag-drop; merged into the Maps tab.</summary>
     private readonly List<string> _standaloneMapPaths = new();
     private CancellationTokenSource? _cloudPublishCts;
+    private string? _cloudAssetCacheDir;
 
     /// <summary>When a single .zip backup is open, embedded map paths resolve against this file (Plan/Section underlay).</summary>
     public string? ActiveZipPath => _zipPath;
+
+    /// <summary>Local folder for Survey Cloud map assets (e.g. surface_lidar) when opened via File → Open from cloud.</summary>
+    public string? CloudAssetCacheDir => _cloudAssetCacheDir;
 
     /// <summary>
     /// ZIP used to extract <c>maps/</c> / <c>export_assets/</c> for Plan/Section and Maps tab actions — includes sibling backup next to an exported JSON, or the first zip when multiple paths were opened.
     /// </summary>
     public string? ActiveZipPathForMaps =>
         _zipPath ?? _auxiliaryZipForMaps ?? ZipMapSiblingResolver.TryResolve(SelectedProject?.LoadedFromFile, SelectedProject);
+
+    /// <summary>Active project for Surface tab (entrance lat/lon + surfaceLidarRaster).</summary>
+    public CaveProjectDocument? SurfaceMapProject => SelectedProject;
 
     public string SummaryText =>
         SelectedProject == null
@@ -307,6 +325,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedProjectSiteTypeLabel));
         OnPropertyChanged(nameof(SelectedProjectSiteTypeToken));
         OnPropertyChanged(nameof(HasSelectedProjectForSiteType));
+        OnPropertyChanged(nameof(SurfaceMapProject));
         StatusMessage = value == null
             ? "No project selected."
             : FormatSelectedProjectStatus(value);
@@ -711,6 +730,8 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenFile()
     {
+        _cloudAssetCacheDir = null;
+        OnPropertyChanged(nameof(CloudAssetCacheDir));
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
             Title = CaveAiBackupFileDialogFilters.OpenBackupTitle,
@@ -719,6 +740,72 @@ public partial class MainViewModel : ObservableObject
         };
         if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true) return;
         LoadFromPaths(dlg.FileNames);
+    }
+
+    [RelayCommand]
+    private async Task OpenSurveyProjectFromCloud()
+    {
+        if (MicrosoftTestMode.IsActive)
+        {
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                "Survey Cloud is disabled in Microsoft certification test mode.",
+                "Survey Cloud",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
+            return;
+        }
+
+        var owner = GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow;
+        try
+        {
+            var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+            if (token == null)
+            {
+                await DesktopAuthWindow.AcquireTokenAsync(owner, CloudPublishWebViewHost.TokenCache).ConfigureAwait(true);
+                token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+            }
+
+            if (token == null)
+            {
+                Wpf.MessageBox.Show(
+                    owner,
+                    "Sign in with the same Google account you use in CaveAI Pro on Android to open private cloud surveys.",
+                    "Survey Cloud",
+                    Wpf.MessageBoxButton.OK,
+                    Wpf.MessageBoxImage.Information);
+                return;
+            }
+
+            var meta = await SurveyCloudProjectPickerWindow.TryPickAsync(owner, token).ConfigureAwait(true);
+            if (meta == null)
+                return;
+
+            StatusMessage = $"Downloading “{meta.CaveName}” from Survey Cloud…";
+            var jsonBytes = await SurveyCloudProjectService.DownloadProjectJsonBytesAsync(token, meta).ConfigureAwait(true);
+            var jsonPath = await SurveyCloudProjectService.DownloadProjectJsonToTempFileAsync(token, meta).ConfigureAwait(true);
+
+            var cacheDir = Path.Combine(
+                Path.GetTempPath(),
+                "CaveAiProForWindows",
+                "SurveyCloud",
+                meta.ProjectId,
+                "assets");
+            Directory.CreateDirectory(cacheDir);
+            await SurveyCloudProjectService.TryDownloadSurfaceLidarFromProjectJsonAsync(
+                token, meta, jsonBytes, cacheDir).ConfigureAwait(true);
+
+            _cloudAssetCacheDir = cacheDir;
+            OnPropertyChanged(nameof(CloudAssetCacheDir));
+
+            LoadFromPaths(new[] { jsonPath });
+            StatusMessage = $"Opened cloud survey “{meta.CaveName}”. Surface LiDAR assets load on the Surface tab when present.";
+        }
+        catch (Exception ex)
+        {
+            UserErrorReporter.ShowWarning(owner, ex.Message, "Survey Cloud");
+            StatusMessage = "Survey Cloud open failed.";
+        }
     }
 
     [RelayCommand]
@@ -1356,115 +1443,9 @@ public partial class MainViewModel : ObservableObject
         SelectedProject != null &&
         HasSourceOnDisk() &&
         _sourceFileCount == 1 &&
-        AiRenderSaveService.CanAutoSaveBesideSource(_primarySourcePath) &&
+        AiRenderSavePathPolicy.CanWriteBesideSourceFile(_primarySourcePath) &&
         (Path.GetExtension(_primarySourcePath!).Equals(".json", StringComparison.OrdinalIgnoreCase) ||
          Path.GetExtension(_primarySourcePath!).Equals(".zip", StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>
-    /// After a successful AI render, writes PNG assets + metadata and auto-saves the open .json/.zip
-    /// (only when a single source file is loaded). Prompts for export when the source is read-only
-    /// or in a Windows cache folder (e.g. INetCache).
-    /// </summary>
-    public bool TryAutoPersistGenerativeRender(
-        CaveProjectDocument project,
-        byte[] aiMapPng,
-        byte[]? structureMaskPng)
-    {
-        if (string.IsNullOrEmpty(_primarySourcePath) || _sourceFileCount != 1)
-            return false;
-        if (!File.Exists(_primarySourcePath))
-            return false;
-
-        var ext = Path.GetExtension(_primarySourcePath);
-        if (!ext.Equals(".json", StringComparison.OrdinalIgnoreCase) &&
-            !ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        var saveRequest = new AiRenderSaveService.SaveAfterRenderRequest
-        {
-            Project = project,
-            PrimarySourcePath = _primarySourcePath,
-            AllProjectsInSource = Projects.ToList(),
-            AiMapPng = aiMapPng,
-            StructureMaskPng = structureMaskPng,
-            BeforeSerialize = p =>
-            {
-                if (ReferenceEquals(p, project))
-                    PersistProjectBeforeSave?.Invoke(p);
-            },
-        };
-
-        try
-        {
-            if (AiRenderSaveService.CanAutoSaveBesideSource(_primarySourcePath))
-            {
-                if (!AiRenderSaveService.TryAutoSaveAfterRender(saveRequest))
-                    return false;
-
-                StatusMessage =
-                    $"AI render saved — map + structure mask written to {Path.GetFileName(_primarySourcePath)}.";
-                return true;
-            }
-
-            if (!PromptExportGenerativeRender(saveRequest))
-                return false;
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            UserErrorReporter.ShowWarning(
-                Wpf.Application.Current.MainWindow,
-                ex.Message,
-                "Save AI render");
-            return false;
-        }
-    }
-
-    private bool PromptExportGenerativeRender(AiRenderSaveService.SaveAfterRenderRequest request)
-    {
-        var ext = Path.GetExtension(request.PrimarySourcePath);
-        var filter = ext.Equals(".json", StringComparison.OrdinalIgnoreCase)
-            ? "CaveAI JSON|*.json"
-            : "CaveAI ZIP backup|*.zip";
-
-        var dlg = new SaveFileDialog
-        {
-            Title = "Save AI render — choose export location",
-            Filter = filter,
-            FileName = AiRenderSaveService.SuggestExportFileName(request.Project, request.PrimarySourcePath),
-            InitialDirectory = AiRenderSavePathPolicy.GetDefaultExportInitialDirectory(),
-        };
-
-        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
-        {
-            StatusMessage =
-                "AI render kept in this session — export cancelled (source file is in a read-only or Windows cache folder).";
-            return false;
-        }
-
-        AiRenderSaveService.TryExportAfterRender(new AiRenderSaveService.ExportAfterRenderRequest
-        {
-            Project = request.Project,
-            PrimarySourcePath = request.PrimarySourcePath,
-            AllProjectsInSource = request.AllProjectsInSource,
-            AiMapPng = request.AiMapPng,
-            StructureMaskPng = request.StructureMaskPng,
-            BeforeSerialize = request.BeforeSerialize,
-            DestinationPath = dlg.FileName,
-        });
-
-        RecentPathsStore.Push(dlg.FileName);
-        StatusMessage =
-            $"AI render exported — map + structure mask saved to {dlg.FileName}";
-        Wpf.MessageBox.Show(
-            Wpf.Application.Current.MainWindow,
-            $"AI render and survey metadata saved to:\n{dlg.FileName}",
-            "Save AI render",
-            Wpf.MessageBoxButton.OK,
-            Wpf.MessageBoxImage.Information);
-        return true;
-    }
 
     [RelayCommand(CanExecute = nameof(CanSaveProject))]
     private void SaveProject()
@@ -1881,100 +1862,8 @@ public partial class MainViewModel : ObservableObject
     private bool CanRepublishBatch() =>
         LegalTermsGateOpen() && !IsCloudPublishing && Projects.Any(HasRepublishableAiAssets);
 
-    private static bool HasRepublishableAiAssets(CaveProjectDocument? p)
-    {
-        if (p == null)
-            return false;
-        if (GenerativeMapSessionCache.TryGet(p)?.PngBytes is { Length: > 0 })
-            return true;
-        return !string.IsNullOrWhiteSpace(ProjectAiAssetPersistence.TryReadAiMapRelativePath(p));
-    }
-
-    [RelayCommand(CanExecute = nameof(CanBatchAiRender))]
-    private async Task BatchAiRenderAsync()
-    {
-        if (_batchAiCts != null)
-            return;
-
-        if (TryNotifyCloudBlockedInTestMode("Batch AI render"))
-            return;
-
-        if (!GenerativeAiAccessGate.EnsureConfigured(Wpf.Application.Current.MainWindow, out var gateErr))
-        {
-            StatusMessage = gateErr ?? "Cloud AI access required.";
-            return;
-        }
-
-        var eligible = Projects.Where(p => BatchAiRenderService.TryBuildStructureMask(p) is { Length: > 0 }).ToList();
-        if (eligible.Count == 0)
-        {
-            Wpf.MessageBox.Show(
-                Wpf.Application.Current.MainWindow,
-                "No loaded projects have traverse data for a structure mask.",
-                "Batch AI render",
-                Wpf.MessageBoxButton.OK,
-                Wpf.MessageBoxImage.Information);
-            return;
-        }
-
-        var settings = AppUiSettingsStore.LoadOrDefault().GenerativeMap;
-        _batchAiCts = new CancellationTokenSource();
-        var ct = _batchAiCts.Token;
-        try
-        {
-            IsCloudPublishing = true;
-            ShowCloudPublishProgress = true;
-            CloudPublishIndeterminate = false;
-            CloudPublishProgressValue = 0;
-
-            var service = new BatchAiRenderService();
-            var progress = new Progress<(int Index, int Total, string Message)>(u =>
-            {
-                CloudPublishStatusMessage = u.Message;
-                CloudPublishProgressValue = u.Total > 0 ? 100.0 * u.Index / u.Total : 0;
-                StatusMessage = u.Message;
-            });
-
-            var results = await service.RenderAllAsync(
-                eligible,
-                settings.DefaultPrompt,
-                GenerativeMapPromptPresets.TryGet(settings.SelectedPromptPresetId)?.NegativePrompt ?? "",
-                settings.GuidanceScale,
-                progress,
-                (project, ai, mask) =>
-                {
-                    TryAutoPersistGenerativeRender(project, ai, mask);
-                    return true;
-                },
-                ct).ConfigureAwait(true);
-
-            var ok = results.Count(r => r.Success);
-            var fail = results.Count - ok;
-            StatusMessage = fail == 0
-                ? $"Batch AI render complete — {ok} project(s)."
-                : $"Batch AI render — {ok} OK, {fail} failed.";
-            SnackbarService.Show(Wpf.Application.Current.MainWindow, StatusMessage);
-        }
-        catch (OperationCanceledException)
-        {
-            StatusMessage = "Batch AI render cancelled.";
-        }
-        finally
-        {
-            _batchAiCts?.Dispose();
-            _batchAiCts = null;
-            IsCloudPublishing = false;
-            ShowCloudPublishProgress = false;
-            RepublishToCloudCommand.NotifyCanExecuteChanged();
-            RepublishAllWithAiCommand.NotifyCanExecuteChanged();
-            BatchAiRenderCommand.NotifyCanExecuteChanged();
-        }
-    }
-
-    private CancellationTokenSource? _batchAiCts;
-
-    private bool CanBatchAiRender() =>
-        LegalTermsGateOpen() && !IsCloudPublishing && Projects.Count > 0;
+    private static bool HasRepublishableAiAssets(CaveProjectDocument? p) =>
+        p != null && !string.IsNullOrWhiteSpace(ProjectAiAssetPersistence.TryReadAiMapRelativePath(p));
 
     [RelayCommand(CanExecute = nameof(LegalTermsGateOpen))]
     private async Task DownloadPublicLibraryBackupAsync()
@@ -2201,6 +2090,16 @@ public partial class MainViewModel : ObservableObject
         if (optionsWindow.ShowDialog() != true || optionsWindow.Result == null)
             return;
 
+        var confirm = Wpf.MessageBox.Show(
+            owner,
+            "Survex export includes a provisional *fix coordinate anchor and default conventions.\n\n" +
+            "Verify stations, units (metres / degrees), declination, and the fix before merging with production surveys or surface loops.",
+            "CAVE AI PRO — Verify Survex export",
+            Wpf.MessageBoxButton.OKCancel,
+            Wpf.MessageBoxImage.Warning);
+        if (confirm != Wpf.MessageBoxResult.OK)
+            return;
+
         var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
@@ -2351,6 +2250,65 @@ public partial class MainViewModel : ObservableObject
             AccountBannerVisible = true;
         }
     }
+
+    /// <summary>Status bar: Android sync folder, subscription, last backup age.</summary>
+    public void RefreshFooterStatus()
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        var syncFolder = AndroidSurveySyncService.ResolveSyncFolder(
+            settings.AndroidSync.SyncFolderPath,
+            string.IsNullOrWhiteSpace(_primarySourcePath) ? null : Path.GetDirectoryName(_primarySourcePath));
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(syncFolder))
+        {
+            var label = syncFolder;
+            if (label.Length > 48)
+                label = "…" + label[^45..];
+            parts.Add($"Sync: {label}");
+        }
+        else
+        {
+            parts.Add("Sync: not configured");
+        }
+
+        var zip = AndroidSurveySyncService.TryFindLatestBackupZip(syncFolder);
+        if (zip != null)
+            parts.Add(FormatFooterBackupAge(DateTime.UtcNow - File.GetLastWriteTimeUtc(zip)));
+
+        var entitlement = AccountSessionState.LastEntitlement;
+        if (entitlement?.IsEntitled == true)
+            parts.Add(AccountStatusFormatter.FormatAccessSummary(entitlement));
+        else if (!string.IsNullOrWhiteSpace(FirebaseAuthSession.CurrentAccountEmail))
+            parts.Add("Signed in");
+        else
+            parts.Add("Not signed in");
+
+        FooterContextLine = string.Join(" · ", parts);
+    }
+
+    private static string FormatFooterBackupAge(TimeSpan age)
+    {
+        if (age.TotalMinutes < 2)
+            return "Backup: just now";
+        if (age.TotalHours < 1)
+            return $"Backup: {(int)age.TotalMinutes}m ago";
+        if (age.TotalDays < 1)
+            return $"Backup: {(int)age.TotalHours}h ago";
+        return $"Backup: {(int)age.TotalDays}d ago";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedProjectForDesign))]
+    private void OpenDesignFromSurvey()
+    {
+        if (SelectedProject == null)
+            return;
+
+        NavigateToDesignFromSurvey?.Invoke(false);
+        StatusMessage = AppStrings.DesignFromSurveyStatus;
+    }
+
+    private bool HasSelectedProjectForDesign() => SelectedProject != null;
 
     [RelayCommand]
     private void DismissAccountBanner()
@@ -3044,4 +3002,36 @@ public partial class MainViewModel : ObservableObject
             /* best-effort — offline or cache miss */
         }
     }
+
+    /// <summary>Non-Velopack installs (MSI / portable): dismissible banner when GitHub has a newer build.</summary>
+    public async Task CheckUpdateAvailableBannerAsync()
+    {
+#if DEBUG
+        return;
+#else
+        if (DistributionChannel.UpdatesHandledByStore || AppUpdateService.IsVelopackInstalled())
+            return;
+
+        var remote = await AppUpdateService.TryFetchRemoteVersionAsync().ConfigureAwait(true);
+        if (remote == null)
+            return;
+
+        _pendingReleasePageUrl = remote.ReleasePageUrl;
+        UpdateAvailableBannerMessage =
+            AppStrings.UpdateAvailableBannerMessage(remote.Version, AppMetadata.InformationalVersion);
+        UpdateAvailableBannerVisible = true;
+#endif
+    }
+
+    [RelayCommand]
+    private void OpenPendingReleasePage()
+    {
+        var url = string.IsNullOrWhiteSpace(_pendingReleasePageUrl)
+            ? AppUpdateService.GitHubRepoUrl + "/releases"
+            : _pendingReleasePageUrl;
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    }
+
+    [RelayCommand]
+    private void DismissUpdateAvailableBanner() => UpdateAvailableBannerVisible = false;
 }

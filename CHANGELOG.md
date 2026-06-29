@@ -33,6 +33,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Post sign-in setup wizard matches new onboarding visual language
 - Account banner shows trial days remaining prominently
 
+## [1.5.4] - 2026-06-21
+
+### Added
+
+- **Blocking legal disclaimer on first launch** (parity with Android and web): modal EULA gate before main window; re-prompts when document version changes
+- **FCRPA / protected cave data clause** (section 13C) in Windows EULA — aligned with Android and web legal text
+
+### Changed
+
+- LEGAL & SETTINGS tab: document version metadata synced to `LegalTexts.DocumentVersion` (1.3); accept checkbox uses "I Agree and Accept" wording
+
 ## [1.5.3] - 2026-06-20
 
 ### Added
@@ -54,10 +65,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Reference survey handoff: catalog **Map with Cave AI Pro** opens browser survey URL; Windows can link/resume projects via `referenceCatalogLink` metadata
 - Cross-platform contract doc (`docs/cross-platform-contract.md`) for catalog URLs, share links, and publish fields
 - Cloud Publish passes `referenceCatalogId` / `referenceCatalogCountry` when project is linked to a reference pin
+- **Client error telemetry**: anonymised crash/error reports to Firestore `desktop_client_telemetry` when signed in
+- **MSI / portable update banner** when GitHub has a newer build
+- **Survex export verification** dialog before saving `.svx`
+- **Raster decode size limit** (128 MiB per map file)
+- Tests: `ClientErrorTelemetryTests`, `LoadFromPathsWorkerTests`
+- `docs/LOCALIZATION.md`
 
 ### Changed
 
 - Reference catalog detail: copy share link and survey-start URL aligned with web/Android `?action=survey` contract
+- **Legal texts v1.4**: removed cloud AI Render; documents on-device Cave AI and optional error telemetry
+- **MainViewModel**: update banner, footer status (`RefreshFooterStatus`), design-from-survey command; removed cloud AI Render / GenerativeMap code paths
+- **README** / **MICROSOFT-STORE.md** updated for v1.5.4 workstation scope
+
+### Fixed
+
+- Privacy summary (Store channel) no longer references removed AI Render feature
 
 ## [1.5.0] - 2026-06-15
 

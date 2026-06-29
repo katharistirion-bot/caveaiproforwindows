@@ -15,7 +15,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
-using CaveAiProForWindows.Services.GenerativeMap;
 using CaveAiProForWindows.Services.ReferenceCatalog;
 using CaveAiProForWindows.ViewModels;
 
@@ -171,16 +170,12 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
     private MapCanvasEditorController? _mapEditor;
     private MapCanvasEditorTool _currentTool = MapCanvasEditorTool.PanZoom;
-    private SketchEditorSymbolKind _stampKind = SketchEditorSymbolKind.RockBlock;
     private MainViewModel? _wiredMainVm;
-    private CaveProjectDocument? _designLayerProjectScope;
     private PlanScene? _interactivePlanScene;
     private PlanCanvasSurveyLayout _surveyHitLayout;
     private bool _surveyHitLayoutReady;
     private bool _applyingSettings;
-    private bool _showPlanAiUnderlay = true;
     private bool _showReferencePins = true;
-    private double _planAiOverlayOpacity = 0.52;
     private SurveyMapPickHighlight? _surveyPickHighlight;
     private CaveViewport3DFlyThrough? _flyThrough;
     private CaveViewport3DFlyThroughRecorder? _flyThroughRecorder;
@@ -209,6 +204,13 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         DataContextChanged += PlanView_DataContextChanged;
+        IsVisibleChanged += PlanView_IsVisibleChanged;
+    }
+
+    private void PlanView_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true && IsLoaded)
+            Redraw();
     }
 
     private void PlanView_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e) =>
@@ -227,53 +229,19 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
     private MapCanvasEditorTool GetCurrentEditorTool() => _currentTool;
 
-    private SketchEditorSymbolKind GetSelectedSketchStamp() => _stampKind;
+    private static MapCanvasEditorTool NormalizeNavigationTool(MapCanvasEditorTool tool) =>
+        tool == MapCanvasEditorTool.Select ? MapCanvasEditorTool.Select : MapCanvasEditorTool.PanZoom;
 
-    private void SyncSymbolPaletteEnabled()
-    {
-        if (SymbolPaletteRoot != null)
-            SymbolPaletteRoot.IsEnabled = _currentTool == MapCanvasEditorTool.PlaceSymbol;
-    }
-
-    private void EnsureSymbolPaletteHasSelection()
-    {
-        if (SymbolPaletteRock is { IsChecked: true })
-            return;
-        if (SymbolPaletteWater is { IsChecked: true })
-            return;
-        if (SymbolPaletteSpele is { IsChecked: true })
-            return;
-        if (SymbolPaletteRock != null)
-            SymbolPaletteRock.IsChecked = true;
-    }
-
-    private void SymbolPalette_Checked(object sender, RoutedEventArgs e)
-    {
-        if (sender is not ToggleButton { IsChecked: true } t)
-            return;
-        _stampKind = t switch
-        {
-            _ when ReferenceEquals(t, SymbolPaletteRock) => SketchEditorSymbolKind.RockBlock,
-            _ when ReferenceEquals(t, SymbolPaletteWater) => SketchEditorSymbolKind.WaterPool,
-            _ => SketchEditorSymbolKind.StalactiteSpeleothem,
-        };
-        foreach (ToggleButton sibling in new ToggleButton?[]
-                 {
-                     SymbolPaletteRock, SymbolPaletteWater, SymbolPaletteSpele,
-                 }.OfType<ToggleButton>())
-        {
-            if (!ReferenceEquals(sibling, t))
-                sibling.IsChecked = false;
-        }
-
-        PersistPlanTab();
-    }
+    private static bool IsPlanDesignTool(MapCanvasEditorTool tool) =>
+        tool is MapCanvasEditorTool.DrawFreehand
+            or MapCanvasEditorTool.PlaceSymbol
+            or MapCanvasEditorTool.Erase
+            or MapCanvasEditorTool.DrawLine;
 
     private void EditorToolPan_Checked(object sender, RoutedEventArgs e)
     {
         if (sender is System.Windows.Controls.RadioButton { IsChecked: true })
             _currentTool = MapCanvasEditorTool.PanZoom;
-        SyncSymbolPaletteEnabled();
         PersistPlanTab();
     }
 
@@ -281,35 +249,6 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     {
         if (sender is System.Windows.Controls.RadioButton { IsChecked: true })
             _currentTool = MapCanvasEditorTool.Select;
-        SyncSymbolPaletteEnabled();
-        PersistPlanTab();
-    }
-
-    private void EditorToolDraw_Checked(object sender, RoutedEventArgs e)
-    {
-        if (sender is System.Windows.Controls.RadioButton { IsChecked: true })
-            _currentTool = MapCanvasEditorTool.DrawFreehand;
-        SyncSymbolPaletteEnabled();
-        PersistPlanTab();
-    }
-
-    private void EditorToolSymbol_Checked(object sender, RoutedEventArgs e)
-    {
-        if (sender is System.Windows.Controls.RadioButton { IsChecked: true })
-        {
-            _currentTool = MapCanvasEditorTool.PlaceSymbol;
-            EnsureSymbolPaletteHasSelection();
-        }
-
-        SyncSymbolPaletteEnabled();
-        PersistPlanTab();
-    }
-
-    private void EditorToolErase_Checked(object sender, RoutedEventArgs e)
-    {
-        if (sender is System.Windows.Controls.RadioButton { IsChecked: true })
-            _currentTool = MapCanvasEditorTool.Erase;
-        SyncSymbolPaletteEnabled();
         PersistPlanTab();
     }
 
@@ -319,7 +258,11 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         if (DesignLayer != null && HostScroll != null && ZoomPan != null)
         {
             _mapEditor = new MapCanvasEditorController(
-                DesignLayer, HostScroll, ZoomPan, GetCurrentEditorTool, GetSelectedSketchStamp);
+                DesignLayer,
+                HostScroll,
+                ZoomPan,
+                GetCurrentEditorTool,
+                () => SketchEditorSymbolKind.RockBlock);
         }
 
         if (ZoomScale != null)
@@ -328,14 +271,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             ZoomPan.Changed += MapTransform_Changed;
 
         ApplyPlanTabFromSettings();
-        ApplyGenerativePlanSettings();
-        GenerativeMapSessionCache.SessionChanged += OnGenerativeSessionChanged;
         UpdateCartographySidebarVisibility();
-        if (_currentTool == MapCanvasEditorTool.PlaceSymbol)
-            EnsureSymbolPaletteHasSelection();
-        else if (SymbolPaletteRock != null && SymbolPaletteWater != null && SymbolPaletteSpele != null)
-            SymbolPaletteRock.IsChecked = true;
-        SyncSymbolPaletteEnabled();
 
         WireMainViewModel(DataContext as MainViewModel);
         SurveyStationSelectionHub.StationSelected += OnExternalStationSelected;
@@ -353,7 +289,6 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         PersistPlanTab();
-        GenerativeMapSessionCache.SessionChanged -= OnGenerativeSessionChanged;
         SurveyStationSelectionHub.StationSelected -= OnExternalStationSelected;
         SurveyStationSelectionHub.SelectionCleared -= OnExternalSelectionCleared;
         SurveyCanvasTheme.Changed -= OnSurveyCanvasThemeChanged;
@@ -499,18 +434,6 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
     private void OnSurveyCanvasThemeChanged() =>
         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Redraw));
-
-    private void MaybeResetDesignLayerForProjectChange()
-    {
-        if (DesignLayer == null)
-            return;
-        if (ReferenceEquals(Project, _designLayerProjectScope))
-            return;
-        _designLayerProjectScope = Project;
-        DesignLayer.Children.Clear();
-        _mapEditor?.OnDesignLayerCleared();
-        InvalidateSurveyPickState(true);
-    }
 
     private void InvalidateSurveyPickState(bool clearDetails)
     {
@@ -782,7 +705,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         {
             var s = AppUiSettingsStore.LoadOrDefault().Plan;
             if (Enum.TryParse(s.Tool, out MapCanvasEditorTool t))
-                _currentTool = t;
+                _currentTool = NormalizeNavigationTool(t);
             else
                 _currentTool = MapCanvasEditorTool.PanZoom;
 
@@ -840,15 +763,10 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             if (ReferencePinsCheck != null)
                 ReferencePinsCheck.IsChecked = _showReferencePins;
 
-            if (EditorToolPan != null && EditorToolSelect != null && EditorToolDraw != null &&
-                EditorToolSymbol != null)
+            if (EditorToolPan != null && EditorToolSelect != null)
             {
                 EditorToolPan.IsChecked = _currentTool == MapCanvasEditorTool.PanZoom;
                 EditorToolSelect.IsChecked = _currentTool == MapCanvasEditorTool.Select;
-                EditorToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
-                EditorToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
-                if (EditorToolErase != null)
-                    EditorToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
             }
         }
         finally
@@ -869,69 +787,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         ZoomPan.Y = s.PanY;
     }
 
-    private void ApplyGenerativePlanSettings()
-    {
-        _applyingSettings = true;
-        try
-        {
-            var gm = AppUiSettingsStore.LoadOrDefault().GenerativeMap;
-            _showPlanAiUnderlay = gm.ShowAiRenderOnCanvas;
-            _planAiOverlayOpacity = Math.Clamp(gm.PlanAiOverlayOpacity, 0.15, 0.95);
-            if (PlanAiUnderlayCheck != null)
-                PlanAiUnderlayCheck.IsChecked = _showPlanAiUnderlay;
-            if (PlanAiUnderlayOpacitySlider != null)
-                PlanAiUnderlayOpacitySlider.Value = _planAiOverlayOpacity;
-        }
-        finally
-        {
-            _applyingSettings = false;
-        }
-    }
-
-    private void PersistGenerativePlanSettings()
-    {
-        if (_applyingSettings)
-            return;
-        var all = AppUiSettingsStore.LoadOrDefault();
-        all.GenerativeMap.ShowAiRenderOnCanvas = _showPlanAiUnderlay;
-        all.GenerativeMap.PlanAiOverlayOpacity = _planAiOverlayOpacity;
-        AppUiSettingsStore.Save(all);
-    }
-
     private IReadOnlyList<PlanRasterUnderlay> LoadPlanUnderlays(CaveProjectDocument project) =>
-        PlanMapUnderlayLoader.WithGenerativeUnderlay(
-            project,
-            ZipPath,
-            PlanMapUnderlayLoader.TryLoadRasterUnderlays(project, ZipPath, MapRows, MapInventory),
-            _showPlanAiUnderlay,
-            _planAiOverlayOpacity);
-
-    private void OnGenerativeSessionChanged(object? sender, GenerativeMapSessionChangedEventArgs e)
-    {
-        if (Project == null || !ReferenceEquals(e.Project, Project))
-            return;
-        if (!IsLoaded || VisualizationMode == SurveyVisualizationMode.Pseudo3D)
-            return;
-        Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(Redraw));
-    }
-
-    private void PlanAiUnderlay_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_applyingSettings)
-            return;
-        _showPlanAiUnderlay = PlanAiUnderlayCheck?.IsChecked == true;
-        PersistGenerativePlanSettings();
-        Redraw();
-    }
-
-    private void PlanAiUnderlayOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (_applyingSettings || PlanAiUnderlayOpacitySlider == null)
-            return;
-        _planAiOverlayOpacity = Math.Clamp(PlanAiUnderlayOpacitySlider.Value, 0.15, 0.95);
-        PersistGenerativePlanSettings();
-        Redraw();
-    }
+        PlanMapUnderlayLoader.TryLoadRasterUnderlays(project, ZipPath, MapRows, MapInventory);
 
     private void ApplyReferencePinsOverlay()
     {
@@ -990,7 +847,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         if (_applyingSettings)
             return;
         var all = AppUiSettingsStore.LoadOrDefault();
-        all.Plan.Tool = _currentTool.ToString();
+        all.Plan.Tool = NormalizeNavigationTool(_currentTool).ToString();
         all.Plan.StationNames = StationNamesCheck?.IsChecked == true;
         all.Plan.StationZ = StationZDepthCheck?.IsChecked == true;
         all.Plan.LegSurveyDetails = LegSurveyDetailsCheck?.IsChecked != false;
@@ -1184,7 +1041,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 return;
             }
 
-            MaybeResetDesignLayerForProjectChange();
+            DesignLayer?.Children.Clear();
+            _mapEditor?.OnDesignLayerCleared();
             SurveyCanvas.Children.Clear();
             ReferencePinsLayer?.Children.Clear();
             StaleSurveyHitLayoutOnly();
@@ -1315,6 +1173,10 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
     /// <inheritdoc />
     public bool TryDeleteSelectedInk() => false;
+
+    public bool TryDuplicateSelectedInk() => false;
+
+    public void FitMapToSurveyBounds() { }
 
     private void ApplyMapZoom(bool zoomIn)
     {
@@ -1788,14 +1650,12 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         var show3dLabels = Viewport3DShowLabelsCheck?.IsChecked == true;
         var planOnly = is3d ? Visibility.Collapsed : Visibility.Visible;
 
-        if (PlanDrawingToolsSection != null)
-            PlanDrawingToolsSection.Visibility = planOnly;
+        if (PlanNavigationToolsSection != null)
+            PlanNavigationToolsSection.Visibility = planOnly;
         if (PlanCartographySeparator != null)
             PlanCartographySeparator.Visibility = planOnly;
         if (PlanCartographySection != null)
             PlanCartographySection.Visibility = planOnly;
-        if (PlanAiUnderlaySection != null)
-            PlanAiUnderlaySection.Visibility = planOnly;
         if (PlanMapToolbarPanel != null)
             PlanMapToolbarPanel.Visibility = planOnly;
 
@@ -1859,7 +1719,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         {
             PlanViewFooterHint.Text = is3d
                 ? "3D MODEL — drag to orbit the cave, mouse wheel to zoom, click a station label to select. Sidebar: 3D tools (labels, fly-through, export OBJ/glTF)."
-                : "Plan — survey metres (CaveAI Pro reduction). Main window tabs: PLAN, 3D MODEL, LONG PROFILE, X-RAY, PLAN 2-TONE. Zoom: wheel (toward cursor) or toolbar. Pan: left or middle drag. Double-click map (Pan mode): reset view.";
+                : "Plan — survey metres (CaveAI Pro reduction). View and QC only; edit walls and symbols in SKETCH EDITOR. Zoom: wheel (toward cursor) or toolbar. Pan: left or middle drag. Double-click map (Pan mode): reset view.";
         }
     }
 
@@ -2357,6 +2217,10 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
 
     public void ApplyMapEditorTool(MapCanvasEditorTool tool)
     {
+        if (IsPlanDesignTool(tool))
+            return;
+
+        tool = NormalizeNavigationTool(tool);
         _applyingSettings = true;
         try
         {
@@ -2365,21 +2229,12 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 EditorToolPan.IsChecked = _currentTool == MapCanvasEditorTool.PanZoom;
             if (EditorToolSelect != null)
                 EditorToolSelect.IsChecked = _currentTool == MapCanvasEditorTool.Select;
-            if (EditorToolDraw != null)
-                EditorToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
-            if (EditorToolSymbol != null)
-                EditorToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
-            if (EditorToolErase != null)
-                EditorToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
         }
         finally
         {
             _applyingSettings = false;
         }
 
-        if (_currentTool == MapCanvasEditorTool.PlaceSymbol)
-            EnsureSymbolPaletteHasSelection();
-        SyncSymbolPaletteEnabled();
         PersistPlanTab();
     }
 
@@ -2531,11 +2386,6 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         var quality = SelectedMapExportQuality();
         var underlays = LoadPlanUnderlays(p);
         var designOverlay = ResolveDesignLayerForExport?.Invoke();
-        if (designOverlay == null && DesignLayer is { Children.Count: > 0 } localLayer &&
-            SurveyCanvas is { Width: > 0, Height: > 0 })
-        {
-            designOverlay = new PlanDesignLayerExportContext(localLayer, SurveyCanvas.Width, SurveyCanvas.Height);
-        }
 
         return PlanMapRasterExporter.TryCapturePlanPngHighRes(
             p,

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CaveAI Pro - Surface map</title>
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" href="surface-map.css" />
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="map-busy" class="map-busy hidden" role="status" aria-live="polite">
+      <span id="map-busy-text">Loading...</span>
+    </div>
+    <div id="empty-state" class="empty-state hidden" role="status">
+      <p id="empty-state-title" class="empty-state__title">No entrance coordinates</p>
+      <p id="empty-state-hint" class="empty-state__hint">
+        Set the survey entrance (A1) in CaveAI Pro on Android or in project settings on Windows.
+      </p>
+    </div>
+    <div id="hud" class="hidden">
+      <span id="hud-coords">-</span>
+    </div>
+    <div id="elevation-panel" class="elevation-panel hidden" aria-label="Elevation profile along survey corridor">
+      <div class="elevation-panel__head">Elevation along corridor (Terrarium DEM)</div>
+      <canvas id="elevation-chart" width="640" height="120" aria-hidden="true"></canvas>
+      <p id="elevation-status" class="elevation-panel__status"></p>
+    </div>
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="surface-map.js"></script>
+  </body>
+</html>

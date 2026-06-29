@@ -5,7 +5,7 @@ using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows.Views;
 
-/// <summary>Offline AI analytics dashboard: local algorithms on <see cref="CaveProjectDocument"/>.</summary>
+/// <summary>Offline survey intelligence dashboard on <see cref="CaveProjectDocument"/>.</summary>
 public partial class AiAnalyticsView : UserControl
 {
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
@@ -26,21 +26,12 @@ public partial class AiAnalyticsView : UserControl
     {
         InitializeComponent();
         Loaded += OnLoaded;
-        Unloaded += OnUnloaded;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         EnsureViewModel();
         _viewModel?.OnViewLoaded();
-        if (ModelListBox != null)
-            ModelListBox.SelectionChanged += ModelListBox_SelectionChanged;
-    }
-
-    private void OnUnloaded(object sender, RoutedEventArgs e)
-    {
-        if (ModelListBox != null)
-            ModelListBox.SelectionChanged -= ModelListBox_SelectionChanged;
     }
 
     private void EnsureViewModel()
@@ -51,7 +42,6 @@ public partial class AiAnalyticsView : UserControl
         _viewModel = new AiAnalyticsViewModel();
         AiAnalyticsPanel.DataContext = _viewModel;
         _viewModel.SetProject(Project);
-        _viewModel.SetSelectedToolTag(GetSelectedToolTag() ?? "Qc");
     }
 
     private static void OnProjectPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -60,18 +50,6 @@ public partial class AiAnalyticsView : UserControl
             return;
         v.EnsureViewModel();
         v._viewModel?.SetProject(v.Project);
-    }
-
-    private void ModelListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        _viewModel?.SetSelectedToolTag(GetSelectedToolTag() ?? "Qc");
-    }
-
-    private string? GetSelectedToolTag()
-    {
-        if (ModelListBox?.SelectedItem is ListBoxItem li && li.Tag is string s)
-            return s;
-        return (ModelListBox?.SelectedItem as ListBoxItem)?.Tag as string;
     }
 
     private void ResultsDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)

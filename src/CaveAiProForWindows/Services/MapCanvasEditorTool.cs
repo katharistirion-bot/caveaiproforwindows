@@ -12,6 +12,9 @@ public enum MapCanvasEditorTool
     /// <summary>Left-drag freehand polyline on the design layer.</summary>
     DrawFreehand,
 
+    /// <summary>Left-drag straight segment (passage wall / guide line).</summary>
+    DrawLine,
+
     /// <summary>Left-click to drop a simple cave-symbol marker.</summary>
     PlaceSymbol,
 

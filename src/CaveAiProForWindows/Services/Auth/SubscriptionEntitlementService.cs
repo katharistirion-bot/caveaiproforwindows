@@ -35,7 +35,10 @@ public sealed class SubscriptionEntitlementService
 
         var doc = await TryFetchEntitlementAsync(token, cancellationToken).ConfigureAwait(false);
         if (doc == null)
-            return Deny("No subscription profile found for this account.");
+            return Deny(
+                "No subscription profile found for this account. " +
+                "Use the same Google account as CaveAI Pro on Android, ensure Play subscription or trial is active, " +
+                "and open the Android app once if you rely on the 30-day install grace.");
 
         InstallGraceRecord? installGrace = null;
         if (string.Equals(doc.EntitlementSource, "INSTALL_GRACE", StringComparison.Ordinal))

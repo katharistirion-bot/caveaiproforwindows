@@ -16,6 +16,12 @@ public sealed class CloudPublishArtifactCapture
     public byte[]? StructureMaskPng { get; init; }
 
     public required byte[] SurveyJsonUtf8 { get; init; }
+
+    /// <summary>Photos to upload during publish (from backup ZIP).</summary>
+    public IReadOnlyList<CloudPublishPhotoCollector.GalleryPhoto>? PendingGalleryPhotos { get; init; }
+
+    /// <summary>Uploaded gallery photo HTTPS URLs (Android Public Library parity).</summary>
+    public IReadOnlyList<string>? GalleryPhotoUrls { get; init; }
 }
 
 /// <summary>Host callbacks supplied by <see cref="SketchEditorView"/>.</summary>

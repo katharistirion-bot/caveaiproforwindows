@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using CaveAiProForWindows.Models;
 
 namespace CaveAiProForWindows.Services.FieldTrip;
@@ -11,6 +13,9 @@ public static class FieldTripShareCodec
 {
     public const string SiteOrigin = "https://www.caveaipro.com";
     private const int InlineJsonMaxLength = 1800;
+    private const string FirestoreProjectId = "caveaipro-5950e";
+    private const string FirestoreShareCollection = "field_trip_shares";
+    private static readonly Regex CloudTripIdRegex = new(@"^ft_[a-zA-Z0-9_-]+$", RegexOptions.CultureInvariant);
 
     public static FieldTripSharePayloadV1 BuildPayload(IReadOnlyList<FieldTripStop> stops) =>
         new()
@@ -30,6 +35,116 @@ public static class FieldTripShareCodec
         }
 
         return $"{baseUrl}/map?view=fieldtrip";
+    }
+
+    public static async Task<string> BuildShareUrlAsync(IReadOnlyList<FieldTripStop> stops, string? origin = null, CancellationToken ct = default)
+    {
+        var baseUrl = (origin ?? SiteOrigin).TrimEnd('/');
+        var json = JsonSerializer.Serialize(BuildPayload(stops));
+        if (json.Length <= InlineJsonMaxLength)
+        {
+            var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            return $"{baseUrl}/map?view=fieldtrip#trip={encoded}";
+        }
+
+        var tripId = await SaveCloudPayloadAsync(stops, ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(tripId))
+            return $"{baseUrl}/map?view=fieldtrip&tripId={Uri.EscapeDataString(tripId)}";
+
+        return $"{baseUrl}/map?view=fieldtrip";
+    }
+
+    public static string? ExtractTripIdFromUrl(string? urlOrText)
+    {
+        if (string.IsNullOrWhiteSpace(urlOrText))
+            return null;
+        if (!Uri.TryCreate(urlOrText.Trim(), UriKind.Absolute, out var uri))
+            return null;
+        foreach (var part in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!part.StartsWith("tripId=", StringComparison.Ordinal))
+                continue;
+            var tripId = Uri.UnescapeDataString(part["tripId=".Length..]).Trim();
+            return IsCloudTripId(tripId) ? tripId : null;
+        }
+        return null;
+    }
+
+    public static async Task<FieldTripSharePayloadV1?> TryParseFromUrlAsync(string? urlOrText, CancellationToken ct = default)
+    {
+        var inline = TryParseFromUrl(urlOrText);
+        if (inline != null)
+            return inline;
+
+        var tripId = ExtractTripIdFromUrl(urlOrText);
+        if (string.IsNullOrWhiteSpace(tripId))
+            return null;
+
+        return await FetchCloudPayloadAsync(tripId, ct).ConfigureAwait(false);
+    }
+
+    private static bool IsCloudTripId(string? id) =>
+        !string.IsNullOrWhiteSpace(id) && CloudTripIdRegex.IsMatch(id.Trim());
+
+    private static async Task<FieldTripSharePayloadV1?> FetchCloudPayloadAsync(string tripId, CancellationToken ct)
+    {
+        var id = tripId.Trim();
+        if (!IsCloudTripId(id))
+            return null;
+
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(FirestoreProjectId)}/databases/(default)/documents/{FirestoreShareCollection}/{Uri.EscapeDataString(id)}";
+
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        using var resp = await client.GetAsync(url, ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            return null;
+
+        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("fields", out var fields))
+                return null;
+            if (!fields.TryGetProperty("payloadJson", out var payloadField))
+                return null;
+            if (!payloadField.TryGetProperty("stringValue", out var stringValue))
+                return null;
+            var json = stringValue.GetString();
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+            var payload = JsonSerializer.Deserialize<FieldTripSharePayloadV1>(json);
+            return payload is { Stops.Count: > 0 } ? payload : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string?> SaveCloudPayloadAsync(IReadOnlyList<FieldTripStop> stops, CancellationToken ct)
+    {
+        var json = JsonSerializer.Serialize(BuildPayload(stops));
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        var id = $"ft_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds():x}_{Guid.NewGuid():N}"[..24];
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(FirestoreProjectId)}/databases/(default)/documents/{FirestoreShareCollection}?documentId={Uri.EscapeDataString(id)}";
+
+        var firestoreBody = new
+        {
+            fields = new Dictionary<string, object>
+            {
+                ["payloadJson"] = new { stringValue = json },
+                ["createdAtMs"] = new { integerValue = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() },
+            },
+        };
+
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        using var content = new StringContent(JsonSerializer.Serialize(firestoreBody), Encoding.UTF8, "application/json");
+        using var resp = await client.PostAsync(url, content, ct).ConfigureAwait(false);
+        return resp.IsSuccessStatusCode ? id : null;
     }
 
     public static FieldTripSharePayloadV1? TryParseFromUrl(string? urlOrText)

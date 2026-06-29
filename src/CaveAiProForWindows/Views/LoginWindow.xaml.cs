@@ -310,6 +310,7 @@ public partial class LoginWindow : Window
             return;
         _completed = true;
         HideAccessDenied();
+        CollaborationDeviceTokenRegistrar.TryRegisterAfterSignIn();
         DialogResult = true;
         Close();
     }

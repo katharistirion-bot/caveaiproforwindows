@@ -18,12 +18,16 @@ public static class AndroidSketchSymbolKindMapper
             ["rock"] = SketchEditorSymbolKind.RockBlock,
             ["rock_block"] = SketchEditorSymbolKind.RockBlock,
             ["boulder"] = SketchEditorSymbolKind.RockBlock,
-            ["breakdown"] = SketchEditorSymbolKind.RockBlock,
-            ["debris"] = SketchEditorSymbolKind.RockBlock,
+            ["breakdown"] = SketchEditorSymbolKind.BreakdownPile,
+            ["boulder_pile"] = SketchEditorSymbolKind.BreakdownPile,
+            ["debris"] = SketchEditorSymbolKind.BreakdownPile,
+            ["choke"] = SketchEditorSymbolKind.Choke,
+            ["constriction"] = SketchEditorSymbolKind.Choke,
             ["stal"] = SketchEditorSymbolKind.StalactiteSpeleothem,
             ["stalactite"] = SketchEditorSymbolKind.StalactiteSpeleothem,
             ["speleothem"] = SketchEditorSymbolKind.StalactiteSpeleothem,
-            ["column"] = SketchEditorSymbolKind.StalactiteSpeleothem,
+            ["column"] = SketchEditorSymbolKind.ColumnPillar,
+            ["pillar"] = SketchEditorSymbolKind.ColumnPillar,
             ["flowstone"] = SketchEditorSymbolKind.FlowstoneCurtain,
             ["flow_stone"] = SketchEditorSymbolKind.FlowstoneCurtain,
             ["curtain"] = SketchEditorSymbolKind.FlowstoneCurtain,
@@ -39,12 +43,20 @@ public static class AndroidSketchSymbolKindMapper
             ["ladder"] = SketchEditorSymbolKind.FixedAid,
             ["fixed_aid"] = SketchEditorSymbolKind.FixedAid,
             ["fixedaid"] = SketchEditorSymbolKind.FixedAid,
-            ["helictite"] = SketchEditorSymbolKind.StalactiteSpeleothem,
+            ["helictite"] = SketchEditorSymbolKind.Helictite,
             ["rimstone"] = SketchEditorSymbolKind.StalactiteSpeleothem,
             ["gour"] = SketchEditorSymbolKind.StalactiteSpeleothem,
             ["soda_straw"] = SketchEditorSymbolKind.StalactiteSpeleothem,
             ["sodastraw"] = SketchEditorSymbolKind.StalactiteSpeleothem,
             ["pool_water"] = SketchEditorSymbolKind.WaterPool,
+            ["aven"] = SketchEditorSymbolKind.AvenShaftUp,
+            ["stream"] = SketchEditorSymbolKind.SubterraneanStream,
+            ["mud"] = SketchEditorSymbolKind.MudDeposit,
+            ["bones"] = SketchEditorSymbolKind.ArchaeologyBones,
+            ["guano"] = SketchEditorSymbolKind.BatGuano,
+            ["archaeology"] = SketchEditorSymbolKind.ArchaeologyBones,
+            ["crack"] = SketchEditorSymbolKind.CrackFissure,
+            ["fissure"] = SketchEditorSymbolKind.CrackFissure,
         };
 
     /// <inheritdoc cref="Resolve(string?, string?, string?)"/>
@@ -122,17 +134,79 @@ public static class AndroidSketchSymbolKindMapper
             return true;
         }
 
+        if (s.Contains("choke", StringComparison.Ordinal) || s.Contains("constriction", StringComparison.Ordinal) ||
+            s.Contains("squeeze", StringComparison.Ordinal))
+        {
+            kind = SketchEditorSymbolKind.Choke;
+            return true;
+        }
+
+        if (s.Contains("breakdown", StringComparison.Ordinal) || s.Contains("boulder pile", StringComparison.Ordinal) ||
+            (s.Contains("boulder", StringComparison.Ordinal) && s.Contains("pile", StringComparison.Ordinal)))
+        {
+            kind = SketchEditorSymbolKind.BreakdownPile;
+            return true;
+        }
+
+        if (s.Contains("pillar", StringComparison.Ordinal) ||
+            (s.Contains("column", StringComparison.Ordinal) && !s.Contains("flow", StringComparison.Ordinal)))
+        {
+            kind = SketchEditorSymbolKind.ColumnPillar;
+            return true;
+        }
+
+        if (s.Contains("helictite", StringComparison.Ordinal) || s.Contains("eccentric", StringComparison.Ordinal))
+        {
+            kind = SketchEditorSymbolKind.Helictite;
+            return true;
+        }
+
+        if (s.Contains("aven", StringComparison.Ordinal) || s.Contains("upward shaft", StringComparison.Ordinal))
+        {
+            kind = SketchEditorSymbolKind.AvenShaftUp;
+            return true;
+        }
+
+        if (s.Contains("stream", StringComparison.Ordinal) || s.Contains("river", StringComparison.Ordinal))
+        {
+            kind = SketchEditorSymbolKind.SubterraneanStream;
+            return true;
+        }
+
+        if (s.Contains("guano", StringComparison.Ordinal) || s.Contains("bat", StringComparison.Ordinal))
+        {
+            kind = SketchEditorSymbolKind.BatGuano;
+            return true;
+        }
+
+        if (s.Contains("archae", StringComparison.Ordinal) || s.Contains("bone", StringComparison.Ordinal))
+        {
+            kind = SketchEditorSymbolKind.ArchaeologyBones;
+            return true;
+        }
+
+        if (s.Contains("crack", StringComparison.Ordinal) || s.Contains("fissure", StringComparison.Ordinal))
+        {
+            kind = SketchEditorSymbolKind.CrackFissure;
+            return true;
+        }
+
+        if (s.Contains("mud", StringComparison.Ordinal) && !s.Contains("sand", StringComparison.Ordinal))
+        {
+            kind = SketchEditorSymbolKind.MudDeposit;
+            return true;
+        }
+
         if (s.Contains("rock", StringComparison.Ordinal) || s.Contains("block", StringComparison.Ordinal) ||
-            s.Contains("boulder", StringComparison.Ordinal) || s.Contains("breakdown", StringComparison.Ordinal) ||
-            s.Contains("debris", StringComparison.Ordinal) || s.Contains("choke", StringComparison.Ordinal))
+            s.Contains("debris", StringComparison.Ordinal))
         {
             kind = SketchEditorSymbolKind.RockBlock;
             return true;
         }
 
         if (s.Contains("stal", StringComparison.Ordinal) || s.Contains("speleo", StringComparison.Ordinal) ||
-            s.Contains("column", StringComparison.Ordinal) || s.Contains("formation", StringComparison.Ordinal) ||
-            s.Contains("soda", StringComparison.Ordinal) || s.Contains("helictite", StringComparison.Ordinal))
+            s.Contains("formation", StringComparison.Ordinal) ||
+            s.Contains("soda", StringComparison.Ordinal))
         {
             kind = SketchEditorSymbolKind.StalactiteSpeleothem;
             return true;

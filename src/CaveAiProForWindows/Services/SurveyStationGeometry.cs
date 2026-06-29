@@ -825,6 +825,14 @@ public static class SurveyStationGeometry
         /// <summary>Android stroke colour packed as 0xAARRGGBB when present.</summary>
         int? StrokeColorArgb = null);
 
+    /// <summary>User-authored sketch ink persisted in <c>mapObjects</c> / <c>sketchLayer</c> (not LRUD-derived).</summary>
+    public static bool IsPersistedSketchWallType(string type) =>
+        type is "sketch" or "sketchLayer" or "section";
+
+    /// <summary>Passage outline derived from traverse LRUD (safe to offer as procedural assist seed).</summary>
+    public static bool IsLrudDerivedWallType(string type) =>
+        type is "lrudPlanRibbon" or "lrudPlan" or "lrudProfile" or "lrud3dEdge" or "lrud3dFace";
+
     /// <summary>
     /// Android plan / section map symbol / stamp (survey metres). <see cref="Scale"/> is a dimensionless multiplier from
     /// the handset; <see cref="ScaleSurveyMetres"/> optional explicit width in metres for desktop fidelity.

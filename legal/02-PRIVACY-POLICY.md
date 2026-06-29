@@ -10,14 +10,14 @@
 
 ## 1. Summary
 
-**CAVE AI PRO for Windows** is a **free companion** for **CaveAI Pro (Android)**. It runs on **Microsoft Windows** 10/11 (x64); it is **not** on Google Play. By default it processes **local files you choose** (JSON/ZIP backups). Optional features may connect to the internet (Public Library WebView, Push to Cloud, update checks, optional Replicate BYOK).
+**CAVE AI PRO for Windows** is a **free companion** for **CaveAI Pro (Android)**. It runs on **Microsoft Windows** 10/11 (x64); it is **not** on Google Play. By default it processes **local files you choose** (JSON/ZIP backups). Optional features may connect to the internet (Public Library WebView, Push to Cloud, update checks). Cloud AI / Replicate inference is **not available** on the Windows desktop app.
 
 ## 2. Data processed by the app
 
 | Category | Description | Legal basis (GDPR examples) |
 |----------|-------------|----------------------------|
 | Project files (JSON, ZIP) | Cave survey data you open locally | Contract / legitimate interest (Art. 6(1)(b)/(f)) |
-| Replicate API token (optional) | Stored in Windows Credential Manager if you enable AI Render | Consent / contract (Art. 6(1)(a)/(b)) — **not** uploaded with survey backups |
+| Replicate API token (optional) | **Not used on Windows desktop** (removed) | n/a |
 | Push to Cloud / Firebase | Data you choose to publish via authenticated WebView2 session | Consent / contract |
 | Error logs | `%LOCALAPPDATA%\CaveAiProForWindows\last-error.txt`, `startup.log` — **local only** | Legitimate interest (support) |
 | Updates | Version check against GitHub Releases (Velopack) — no survey content | Legitimate interest |
@@ -27,7 +27,7 @@
 We **do not sell** personal data. Third parties receive data **only when you use optional online features**:
 
 - **Google / Firebase** — sign-in and cloud publish (your action).  
-- **Replicate** — only if you supply a token and run AI Render (your action).  
+- **Replicate** — not used on the Windows desktop companion (Android cloud geo/bio only).
 - **GitHub** — update metadata (version strings).
 
 ## 4. Retention

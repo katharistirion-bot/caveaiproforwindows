@@ -50,7 +50,16 @@
                              ToolTip="Paste community doc id, map?cave= URL, field trip share URL, or reference share URL" />
                     <Button Content="Add community stop" Padding="10,5" Click="AddCommunityStop_Click" />
                 </StackPanel>
-                <ListBox x:Name="StopsList" DisplayMemberPath="Name" />
+                <ListBox x:Name="StopsList" DisplayMemberPath="Name" SelectionChanged="StopsList_SelectionChanged" />
+                <Border Margin="0,10,0,0" Padding="8" CornerRadius="6" MinHeight="140"
+                        BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                        Background="{DynamicResource Cave.CanvasBackdrop}">
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Top" Text="Stops map preview (WGS-84)" FontWeight="SemiBold"
+                                   FontSize="11.5" Margin="0,0,0,6" Foreground="{DynamicResource Cave.TextMuted}" />
+                        <Canvas x:Name="StopsMapPreview" MinHeight="100" Background="#FF0D1218" />
+                    </DockPanel>
+                </Border>
             </DockPanel>
         </Grid>
     </DockPanel>
