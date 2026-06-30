@@ -58,7 +58,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Reference catalog share URL fallback via country shard loader
 - Offline brain greetings and trip/expedition report routing
 
-## [Unreleased]
+## [1.5.5] - 2026-06-30
 
 ### Added
 
@@ -70,7 +70,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Field Trip Planner** map loading overlay, 20s watchdog, clearer WebView2 error fallback
 - **MSI** optional “Launch CAVE AI PRO” checkbox on install finish dialog
 - **`docs/WINDOWS_SMOKE_TEST.md`** — manual QA checklist for Windows releases
-- Tests: `SurfaceMapLayerPrefsSyncTests`
+- **`tools/sync-surface-map-from-website.ps1`** — copy bundled surface-map from website repo
+- Tests: `SurfaceMapLayerPrefsSyncTests`, `PublishedCaveSyncPayload` allow-list tests
 
 ### Changed
 
@@ -78,9 +79,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Status chip** click opens sign-in or LEGAL & SETTINGS when action is needed
 - **Preferences** path validation and browse-folder defaults; missing folders highlighted
 - **Dark theme** implicit `TextBox` / `ComboBox` styles in `Theme.xaml`
+- **Surface map** bundled JS/CSS synced from caveaipro.com (corridor jitter, X-ray fixes)
 
 ### Fixed
 
+- **Cloud publish Firestore PATCH** — owner sync now uses rule-safe keys only (`PublishedCaveSyncPayload`); gallery → `imageUrls`, AI map → `cartographyImageUrls`, survey → `surveyJsonUrl`, timestamp → `lastSyncedAtMs`
+- **Project unload before open** — prevents stale workspace when opening a new backup while another project is loaded
 - Explore map open no longer overwrites persisted viewport URL before navigation
 - Field trip map placeholder stays visible during slow WebView2 init
 

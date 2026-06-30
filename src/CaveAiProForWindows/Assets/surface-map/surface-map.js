@@ -21,10 +21,6 @@
   const LIDAR_MAX_TEXTURE_PX = 4096;
   const RESIZE_DEBOUNCE_MS = 200;
   const ELEVATION_DEBOUNCE_MS = 800;
-  const ELEVATION_TIMEOUT_MS = 15000;
-  const ELEVATION_MIN_M = -500;
-  const ELEVATION_MAX_M = 9000;
-  const MIN_USEFUL_MAP_ZOOM = 4;
   const MAP_TILE_CACHE_SIZE = 80;
   const DEM_TILE_CACHE_MAX = 48;
 
@@ -127,70 +123,12 @@
     }
     panel.classList.remove('hidden');
     const name = project && project.name ? String(project.name) : 'This project';
-    if (title) title.textContent = `${name}: entrance location not set yet`;
+    if (title) title.textContent = `${name}: no entrance coordinates`;
     const customHint = project && project.emptyStateHint;
     if (hint) {
-      const provisional = project && project.surveyCorridorProvisional;
       hint.textContent = customHint ||
-        (provisional
-          ? 'Survey corridor is shown at a preview location (Athens area). Set the real entrance to align the map. What to do: (1) In CaveAI Pro on Android, open Entrance & Surface Tracking and lock entrance A1, or set lat/lon in the project JSON. (2) Reload this map.'
-          : 'The map needs entrance coordinates before it can align to the real world. What to do: (1) Lock entrance A1 in CaveAI Pro on Android (Entrance & Surface Tracking) or set lat/lon in the project JSON. (2) Reload this map.');
+        'Lock the survey entrance (A1) in CaveAI Pro on Android (Entrance & Surface Tracking) or set lat/lon in Windows project settings, then reload this map.';
     }
-  }
-
-  function isValidWgs84(lon, lat) {
-    return isFinite(lon) && isFinite(lat) &&
-      lat >= -85 && lat <= 85 && lon >= -180 && lon <= 180;
-  }
-
-  function isPlausibleElevationM(e) {
-    return e != null && isFinite(e) && e >= ELEVATION_MIN_M && e <= ELEVATION_MAX_M;
-  }
-
-  function sanitizeElevationM(e) {
-    if (e == null || !isFinite(e)) return null;
-    // Terrarium tops out near +32k; values beyond ±20k are almost always wrong-tile / wrong-encoding reads.
-    if (e < -20000 || e > 20000) return null;
-    if (!isPlausibleElevationM(e)) return null;
-    return e;
-  }
-
-  function elevationZoomForCoords(coords) {
-    if (!coords || coords.length === 0) return 12;
-    let minLat = 90;
-    let maxLat = -90;
-    let minLon = 180;
-    let maxLon = -180;
-    coords.forEach((c) => {
-      if (!isValidWgs84(c.lon, c.lat)) return;
-      minLat = Math.min(minLat, c.lat);
-      maxLat = Math.max(maxLat, c.lat);
-      minLon = Math.min(minLon, c.lon);
-      maxLon = Math.max(maxLon, c.lon);
-    });
-    const spanDeg = Math.max(maxLat - minLat, maxLon - minLon);
-    const spanM = spanDeg * 111320;
-    if (spanM < 80) return 14;
-    if (spanM < 250) return 13;
-    if (spanM < 800) return 12;
-    if (spanM < 2500) return 11;
-    return 10;
-  }
-
-  function withTimeout(promise, ms, label) {
-    return Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(label || 'timeout')), ms);
-      }),
-    ]);
-  }
-
-  function jumpToDefaultPreview() {
-    if (!map) return;
-    suppressPersist = true;
-    map.jumpTo({ center: defaultCenter(), zoom: defaultZoom() });
-    map.once('moveend', () => { suppressPersist = false; });
   }
 
 
@@ -360,11 +298,6 @@
       bindMapResize();
       scheduleMapResize();
       setTimeout(scheduleMapResize, 300);
-      if (!hasEntrance()) {
-        const pts = collectSurveyExtentPoints();
-        if (pts.length >= 2) fitSurvey();
-        else jumpToDefaultPreview();
-      }
       maybeWarnHeavyLayers();
       postHost({ type: 'ready' });
     });
@@ -791,7 +724,7 @@
       const onLidarError = (ev) => {
         if (ev && ev.sourceId === 'lidar-raster') {
           map.off('error', onLidarError);
-          postHost({ type: 'status', message: 'LiDAR overlay could not load — survey map still works without it' });
+          postHost({ type: 'status', message: 'LiDAR image failed to load' });
         }
       };
       map.on('error', onLidarError);
@@ -821,19 +754,7 @@
       map.once('moveend', releasePersist);
       return;
     }
-    const pts = collectSurveyExtentPoints();
-    if (pts.length >= 2) {
-      fitSurvey();
-      releasePersist();
-      return;
-    }
-    if (pts.length === 1) {
-      map.jumpTo({ center: pts[0], zoom: 16 });
-      map.once('moveend', releasePersist);
-      return;
-    }
-    jumpToDefaultPreview();
-    map.once('moveend', releasePersist);
+    releasePersist();
   }
 
   function collectSurveyExtentPoints() {
@@ -864,12 +785,12 @@
     if (!map) return;
     const pts = collectSurveyExtentPoints();
     if (pts.length === 0) {
-      jumpToDefaultPreview();
+      fitEntrance();
       return;
     }
     if (pts.length === 1) {
       suppressPersist = true;
-      map.jumpTo({ center: pts[0], zoom: Math.max(MIN_USEFUL_MAP_ZOOM, 16) });
+      map.jumpTo({ center: pts[0], zoom: 16 });
       map.once('moveend', () => { suppressPersist = false; });
       return;
     }
@@ -879,12 +800,7 @@
     );
     suppressPersist = true;
     map.fitBounds(bounds, { padding: 48, maxZoom: 17, duration: 0 });
-    map.once('moveend', () => {
-      suppressPersist = false;
-      if (map.getZoom() < MIN_USEFUL_MAP_ZOOM) {
-        map.setZoom(MIN_USEFUL_MAP_ZOOM);
-      }
-    });
+    map.once('moveend', () => { suppressPersist = false; });
   }
 
   function ensureMeasureLayers() {
@@ -1165,21 +1081,12 @@
       if (mapStateNearEnough(lastPersistedMapState, payload)) return;
       lastPersistedMapState = payload;
       postHost({ type: 'mapState', payload });
-      postHost({
-        type: 'mapViewport',
-        zoom: payload.zoom,
-        bearing: payload.bearing,
-        pitch: payload.pitch,
-      });
     }, 400);
   }
 
   function buildStatusMessage() {
     if (!hasEntrance()) {
-      if (project && project.surveyCorridorProvisional) {
-        return 'No entrance GPS — survey corridor preview (Athens anchor)';
-      }
-      return 'No entrance coordinates — set A1 in the app';
+      return 'No entrance coordinates ? set A1 in the app';
     }
     const parts = ['Entrance pin'];
     if (project.returnCar) parts.push('vehicle park');
@@ -1250,12 +1157,7 @@
         fitEntrance();
       }
     } else {
-      const pts = collectSurveyExtentPoints();
-      if (pts.length >= 2) {
-        fitSurvey();
-      } else {
-        jumpToDefaultPreview();
-      }
+      fitEntrance();
     }
 
     scheduleElevationProfile();
@@ -1356,11 +1258,7 @@
       if (!Array.isArray(coords) || coords.length < 2) return;
       coords.forEach((c) => {
         if (Array.isArray(c) && c.length >= 2 && isFinite(c[0]) && isFinite(c[1])) {
-          const lon = c[0];
-          const lat = c[1];
-          if (isValidWgs84(lon, lat)) {
-            out.push({ lon, lat });
-          }
+          out.push({ lon: c[0], lat: c[1] });
         }
       });
     });
@@ -1466,7 +1364,7 @@
     return points.map((pt) => {
       const { px, py } = lonLatToPixel(pt.lon, pt.lat, tile);
       const data = ctx.getImageData(px, py, 1, 1).data;
-      return sanitizeElevationM(terrariumDecode(data[0], data[1], data[2]));
+      return terrariumDecode(data[0], data[1], data[2]);
     });
   }
 
@@ -1505,15 +1403,15 @@
     ctx.fillStyle = '#010409';
     ctx.fillRect(0, 0, w, h);
 
-    const valid = elevationsM.map(sanitizeElevationM).filter((e) => e != null);
+    const valid = elevationsM.filter((e) => e != null && isFinite(e));
     const maxD = distancesM[distancesM.length - 1] || 0;
     if (maxD < 10) {
       if (status) status.textContent = 'No corridor length along path (need at least 10 m).';
-      return null;
+      return;
     }
     if (valid.length < 2) {
-      if (status) status.textContent = 'Could not sample elevation (invalid coords, offline, or DEM unavailable).';
-      return null;
+      if (status) status.textContent = 'Could not sample elevation (check internet).';
+      return;
     }
 
     const minE = Math.min.apply(null, valid);
@@ -1534,8 +1432,8 @@
     ctx.beginPath();
     let started = false;
     for (let i = 0; i < elevationsM.length; i++) {
-      const e = sanitizeElevationM(elevationsM[i]);
-      if (e == null) continue;
+      const e = elevationsM[i];
+      if (e == null || !isFinite(e)) continue;
       const x = 8 + ((distancesM[i] / maxD) * (w - 16));
       const y = h - 12 - ((e - e0) / (e1 - e0)) * (h - 24);
       if (!started) {
@@ -1549,9 +1447,8 @@
 
     if (status) {
       status.textContent =
-        `Distance ${(maxD / 1000).toFixed(2)} km · elevation ${minE.toFixed(0)}–${maxE.toFixed(0)} m`;
+        `Distance ${(maxD / 1000).toFixed(2)} km ? elevation ${minE.toFixed(0)}?${maxE.toFixed(0)} m`;
     }
-    return { validCount: valid.length, minE, maxE, maxD };
   }
 
   function hideElevationPanel() {
@@ -1590,38 +1487,17 @@
     setMapBusy(true, 'Sampling elevation…');
     try {
       const samples = resampleLine(coords, sampleCount);
-      const zoom = elevationZoomForCoords(samples);
-      const elevations = await withTimeout(
-        sampleElevationsBatch(samples, zoom),
-        ELEVATION_TIMEOUT_MS,
-        'elevation sampling timeout'
-      );
+      const zoom = Math.min(12, Math.max(8, Math.round(map ? map.getZoom() : 12)));
+      const elevations = await sampleElevationsBatch(samples, zoom);
       if (runId !== elevationRunId || mapMoving) return;
-      const sanitized = elevations.map(sanitizeElevationM);
       const distances = [0];
       for (let i = 1; i < samples.length; i += 1) {
         distances.push(distances[i - 1] + haversineM(samples[i - 1].lon, samples[i - 1].lat, samples[i].lon, samples[i].lat));
       }
-      const chartMeta = drawElevationChart(distances, sanitized);
-      const valid = sanitized.filter((x) => x != null);
-      const maxD = distances[distances.length - 1] || 0;
-      const statusText = chartMeta && chartMeta.validCount >= 2
-        ? `Distance ${(maxD / 1000).toFixed(2)} km · elevation ${chartMeta.minE.toFixed(0)}–${chartMeta.maxE.toFixed(0)} m`
-        : 'Could not sample elevation (invalid coords, offline, or DEM unavailable).';
-      postHost({
-        type: 'elevationProfile',
-        ready: valid.length >= 2,
-        distancesM: distances,
-        elevationsM: sanitized.map((e) => (e == null ? null : e)),
-        statusText,
-      });
+      drawElevationChart(distances, elevations);
+      postHost({ type: 'elevationProfile', ready: elevations.filter((x) => x != null).length >= 2 });
     } catch {
       hideElevationPanel();
-      postHost({
-        type: 'elevationProfile',
-        ready: false,
-        statusText: 'Elevation profile unavailable. Check internet, entrance coordinates, and that the corridor is long enough.',
-      });
     } finally {
       elevationBusy = false;
       setMapBusy(false);
@@ -1641,8 +1517,6 @@
         fitEntrance();
         break;
       case 'fitSurvey':
-      case 'fitCorridor':
-      case 'fitSurveyExtent':
         fitSurvey();
         break;
       case 'measure':

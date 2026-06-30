@@ -20,7 +20,7 @@ public sealed class CloudPublishIntegrationTests
         var handler = new RecordingHttpHandler();
         handler.Enqueue(HttpStatusCode.OK, """{"name":"users/uid123/desktop_publishes/s1/cave/ai_map.png","bucket":"b.appspot.com","downloadTokens":"tok1"}""");
         handler.Enqueue(HttpStatusCode.OK, """{"name":"users/uid123/desktop_publishes/s1/cave/data.json","bucket":"b.appspot.com","downloadTokens":"tok2"}""");
-        handler.Enqueue(HttpStatusCode.OK, """{"fields":{"caveName":{"stringValue":"Demo Cave"}}}""");
+        handler.Enqueue(HttpStatusCode.OK, """{"fields":{"caveName":{"stringValue":"Demo Cave"},"description":{"stringValue":"Existing"},"depth":{"doubleValue":5},"length":{"doubleValue":10},"imageUrls":{"arrayValue":{"values":[]}},"cartographyImageUrls":{"arrayValue":{"values":[]}}}}""");
         handler.Enqueue(HttpStatusCode.OK, "{}");
 
         var cache = new FirebaseAuthTokenCache();
@@ -45,6 +45,11 @@ public sealed class CloudPublishIntegrationTests
         Assert.AreEqual("GET", handler.Requests[2].Method);
         StringAssert.Contains(handler.Requests[3].Uri, "published_caves/caveDoc1");
         Assert.AreEqual("PATCH", handler.Requests[3].Method);
+        var patchBody = await handler.Requests[3].ReadBodyAsync();
+        StringAssert.Contains(patchBody, "lastSyncedAtMs");
+        StringAssert.Contains(patchBody, "surveyJsonUrl");
+        Assert.IsFalse(patchBody.Contains("updatedAtMs", StringComparison.Ordinal));
+        Assert.IsFalse(patchBody.Contains("galleryPhotoUrls", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -65,7 +70,16 @@ public sealed class CloudPublishIntegrationTests
     {
         private readonly Queue<(HttpStatusCode Code, string Body)> _responses = new();
 
-        public List<(string Method, string Uri)> Requests { get; } = [];
+        public List<RecordedRequest> Requests { get; } = [];
+
+        public sealed class RecordedRequest
+        {
+            public required string Method { get; init; }
+
+            public required string Uri { get; init; }
+
+            public required Func<Task<string>> ReadBodyAsync { get; init; }
+        }
 
         public void Enqueue(HttpStatusCode code, string body) => _responses.Enqueue((code, body));
 
@@ -73,7 +87,15 @@ public sealed class CloudPublishIntegrationTests
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            Requests.Add((request.Method.Method, request.RequestUri?.ToString() ?? ""));
+            var bodyCopy = "";
+            if (request.Content != null)
+                bodyCopy = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            Requests.Add(new RecordedRequest
+            {
+                Method = request.Method.Method,
+                Uri = request.RequestUri?.ToString() ?? "",
+                ReadBodyAsync = () => Task.FromResult(bodyCopy),
+            });
             var (code, body) = _responses.Count > 0 ? _responses.Dequeue() : (HttpStatusCode.InternalServerError, "no mock");
             return await Task.FromResult(new HttpResponseMessage(code)
             {

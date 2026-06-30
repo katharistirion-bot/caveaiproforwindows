@@ -89,6 +89,31 @@ public sealed class CloudPublishTests
     }
 
     [TestMethod]
+    public void PublishedCaveSyncPayload_patch_keys_are_subset_of_firestore_allow_list()
+    {
+        var pairs = PublishedCaveSyncPayload.BuildOwnerSyncUpdatePairs(new PublishedCaveSyncPayload.OwnerSyncInput
+        {
+            CaveName = "Demo Cave",
+            Description = "Survey sync from Windows.",
+            Depth = 12.5,
+            Length = 84.2,
+            MergedImageUrls = ["https://example.com/gallery.jpg"],
+            MergedCartographyImageUrls = ["https://example.com/ai_map.png"],
+            SurveyJsonUrl = "https://example.com/data.json",
+            LastSyncedAtMs = 1_700_000_000_000,
+        });
+
+        PublishedCaveSyncPayload.AssertKeysSubsetAllowed(pairs.Select(p => p.Key));
+        CollectionAssert.IsSubsetOf(
+            pairs.Select(p => p.Key).ToList(),
+            PublishedCaveSyncPayload.SyncUpdateAllowedKeys.ToList());
+        Assert.IsFalse(pairs.Any(p => p.Key is "updatedAtMs" or "sourceClient" or "galleryPhotoUrls" or "structureMaskUrl"));
+        Assert.IsTrue(pairs.Any(p => p.Key == "lastSyncedAtMs"));
+        Assert.IsTrue(pairs.Any(p => p.Key == "imageUrls"));
+        Assert.IsTrue(pairs.Any(p => p.Key == "surveyJsonUrl"));
+    }
+
+    [TestMethod]
     public void CloudPublishRetryStore_enqueue_and_remove_round_trip()
     {
         CloudPublishRetryStore.Clear();
