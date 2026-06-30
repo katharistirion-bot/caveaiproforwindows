@@ -17,7 +17,29 @@ public sealed class SurfaceMapCorridorGeometryTests
                 new ShotRecord { FromStation = "A", ToStation = "B", Azimuth = 0, Clino = 0, Distance = 10 },
             ],
         };
-        Assert.IsNull(SurfaceMapCorridorGeometry.TryBuildCorridor(p));
+        var result = SurfaceMapCorridorGeometry.TryBuildCorridorDetailed(p);
+        Assert.IsNotNull(result.Corridor, "Traverse legs without entrance should still produce a preview corridor.");
+        Assert.IsTrue(result.IsProvisional);
+        Assert.AreEqual(2, result.Corridor!.Features[0].Geometry.Coordinates.Count);
+    }
+
+    [TestMethod]
+    public void TryBuildCorridor_preview_anchors_at_athens_default()
+    {
+        var p = new CaveProjectDocument
+        {
+            Shots =
+            [
+                new ShotRecord { FromStation = "A", ToStation = "B", Azimuth = 0, Clino = 0, Distance = 50 },
+            ],
+        };
+
+        var result = SurfaceMapCorridorGeometry.TryBuildCorridorDetailed(p);
+        Assert.IsNotNull(result.Corridor);
+        Assert.IsTrue(result.IsProvisional);
+        var start = result.Corridor!.Features[0].Geometry.Coordinates[0];
+        Assert.AreEqual(SurfaceMapCorridorGeometry.DefaultPreviewAnchorLon, start[0], 1e-6);
+        Assert.AreEqual(SurfaceMapCorridorGeometry.DefaultPreviewAnchorLat, start[1], 1e-6);
     }
 
     [TestMethod]

@@ -174,9 +174,14 @@
 
         <TextBlock Grid.Row="5" x:Name="CoordsText" Margin="0,6,0,0" FontSize="11"
                    Foreground="{DynamicResource Cave.TextMuted}" Text="No project loaded." />
-        <TextBlock Grid.Row="5" x:Name="EntranceHintText" Margin="0,24,0,0" FontSize="11"
-                   Foreground="{DynamicResource Cave.TextMuted}" TextWrapping="Wrap" Visibility="Collapsed"
-                   Text="Set entrance lat/lon in project settings to center the map on the cave." />
+        <StackPanel Grid.Row="5" x:Name="EntranceHintPanel" Margin="0,24,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="EntranceHintText" FontSize="11"
+                       Foreground="{DynamicResource Cave.TextMuted}" TextWrapping="Wrap"
+                       Text="Set entrance lat/lon in the project JSON to center the map on the cave." />
+            <Button Content="Fit corridor / Greece preview" Padding="8,4" Margin="0,6,0,0"
+                    HorizontalAlignment="Left" Click="PreviewGreeceMap_Click"
+                    ToolTip="Center the map on the survey corridor preview (or Athens area when corridor is missing)" />
+        </StackPanel>
 
         <Border Grid.Row="6" x:Name="ElevationPanel" Margin="0,8,0,0" Padding="8,6" CornerRadius="4"
                 BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"

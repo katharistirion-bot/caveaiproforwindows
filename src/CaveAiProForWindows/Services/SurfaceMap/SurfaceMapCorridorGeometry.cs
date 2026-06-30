@@ -11,6 +11,14 @@ public static class SurfaceMapCorridorGeometry
     /// <summary>WGS84 equatorial radius — same as Android surface map geodesic steps.</summary>
     private const double EarthRadiusM = 6378137.0;
 
+    /// <summary>Preview anchor when entrance GPS is missing (Athens — keeps OSM tiles meaningful for Greek surveys).</summary>
+    public const double DefaultPreviewAnchorLat = 37.9838;
+    public const double DefaultPreviewAnchorLon = 23.7275;
+
+    public sealed record CorridorBuildResult(
+        GeoJsonFeatureCollection? Corridor,
+        bool IsProvisional);
+
     public sealed record LatLonPoint(double Lat, double Lon);
 
     public sealed class GeoJsonFeatureCollection
@@ -32,20 +40,41 @@ public static class SurfaceMapCorridorGeometry
         public List<double[]> Coordinates { get; init; } = new();
     }
 
-    /// <summary>Build corridor GeoJSON or null when entrance coords or traverse legs are unavailable.</summary>
-    public static GeoJsonFeatureCollection? TryBuildCorridor(CaveProjectDocument? project)
+    /// <summary>Build corridor GeoJSON or null when traverse legs are unavailable.</summary>
+    public static GeoJsonFeatureCollection? TryBuildCorridor(CaveProjectDocument? project) =>
+        TryBuildCorridorDetailed(project).Corridor;
+
+    /// <summary>
+    /// Builds corridor GeoJSON from traverse legs. Without entrance GPS, anchors the shape at
+    /// <see cref="DefaultPreviewAnchorLat"/> / <see cref="DefaultPreviewAnchorLon"/> for map preview.
+    /// </summary>
+    public static CorridorBuildResult TryBuildCorridorDetailed(CaveProjectDocument? project)
     {
-        if (project == null || !TryReadEntrance(project, out var entLat, out var entLon))
-            return null;
+        if (project == null)
+            return new CorridorBuildResult(null, false);
+
+        var provisional = false;
+        double entLat;
+        double entLon;
+        if (TryReadEntrance(project, out entLat, out entLon))
+        {
+            /* georeferenced entrance */
+        }
+        else
+        {
+            entLat = DefaultPreviewAnchorLat;
+            entLon = DefaultPreviewAnchorLon;
+            provisional = true;
+        }
 
         var traverseLegs = project.Shots.Where(s => s.IsTraverseLeg).ToList();
         if (traverseLegs.Count == 0)
-            return null;
+            return new CorridorBuildResult(null, false);
 
         var declination = project.SurveyCalibrationProfile?.MagneticDeclinationAppliedDeg ?? 0f;
         var stationGps = BuildStationCoordsGps(project.Shots, entLat, entLon, declination);
         if (stationGps.Count == 0)
-            return null;
+            return new CorridorBuildResult(null, false);
 
         var chains = SplitTraverseStationChains(traverseLegs);
         var features = new List<GeoJsonLineFeature>();
@@ -67,7 +96,10 @@ public static class SurfaceMapCorridorGeometry
             });
         }
 
-        return features.Count == 0 ? null : new GeoJsonFeatureCollection { Features = features };
+        if (features.Count == 0)
+            return new CorridorBuildResult(null, false);
+
+        return new CorridorBuildResult(new GeoJsonFeatureCollection { Features = features }, provisional);
     }
 
     internal static bool TryReadEntrance(CaveProjectDocument project, out double lat, out double lon)

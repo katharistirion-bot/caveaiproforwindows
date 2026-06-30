@@ -319,7 +319,13 @@ public partial class SurfaceMapView : UserControl
                         {
                             _fitSurveyOnReady = true;
                             var sv = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
-                            if (!(sv.Zoom > 0 && Math.Abs(sv.CenterLat) > 1e-6))
+                            var hasEntrance = Project?.Lat is { } ela && Project.Lon is { } elo
+                                && ela is > -90 and < 90 && elo is > -180 and < 180
+                                && !(Math.Abs(ela) < 1e-12 && Math.Abs(elo) < 1e-12);
+                            var needsFit = !hasEntrance
+                                || sv.Zoom < 4
+                                || (Math.Abs(sv.CenterLat) < 1e-6 && Math.Abs(sv.CenterLon) < 1e-6);
+                            if (needsFit)
                                 SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitSurvey"}""");
                         }
                         break;
@@ -528,6 +534,8 @@ public partial class SurfaceMapView : UserControl
         if (!root.TryGetProperty("ready", out var readyEl) || !readyEl.GetBoolean())
         {
             ElevationPanel.Visibility = Visibility.Collapsed;
+            if (root.TryGetProperty("statusText", out var failStatus))
+                ElevationStatusText.Text = failStatus.GetString() ?? "Elevation unavailable";
             return;
         }
 
@@ -541,10 +549,14 @@ public partial class SurfaceMapView : UserControl
         var distances = distEl.EnumerateArray().Select(e => e.GetDouble()).ToList();
         var elevations = elevEl.EnumerateArray()
             .Select(e => e.ValueKind == JsonValueKind.Null ? double.NaN : e.GetDouble())
+            .Select(SanitizeElevationM)
             .ToList();
-        if (distances.Count < 2 || elevations.Count < 2)
+        if (distances.Count < 2 || elevations.Count(e => e is { } v && !double.IsNaN(v)) < 2)
         {
             ElevationPanel.Visibility = Visibility.Collapsed;
+            ElevationStatusText.Text = root.TryGetProperty("statusText", out var st)
+                ? st.GetString() ?? "Elevation unavailable"
+                : "Elevation unavailable";
             return;
         }
 
@@ -555,7 +567,7 @@ public partial class SurfaceMapView : UserControl
             ElevationStatusText.Text = statusEl.GetString() ?? "—";
         else
         {
-            var valid = elevations.Where(e => !double.IsNaN(e) && !double.IsInfinity(e)).ToList();
+            var valid = elevations.Where(e => e is { } v && !double.IsNaN(v)).Select(e => e!.Value).ToList();
             if (valid.Count >= 2)
             {
                 var maxD = distances[^1];
@@ -565,7 +577,18 @@ public partial class SurfaceMapView : UserControl
         }
     }
 
-    private void DrawElevationChart(IReadOnlyList<double> distancesM, IReadOnlyList<double> elevationsM)
+    private static double? SanitizeElevationM(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+            return null;
+        if (value is < -20000 or > 20000)
+            return null;
+        if (value is < -500 or > 9000)
+            return null;
+        return value;
+    }
+
+    private void DrawElevationChart(IReadOnlyList<double> distancesM, IReadOnlyList<double?> elevationsM)
     {
         ElevationChartCanvas.Children.Clear();
         var w = Math.Max(200, ElevationChartCanvas.ActualWidth > 0 ? ElevationChartCanvas.ActualWidth : 640);
@@ -576,7 +599,11 @@ public partial class SurfaceMapView : UserControl
         if (maxD < 10)
             return;
 
-        var validElev = elevationsM.Where(e => !double.IsNaN(e) && !double.IsInfinity(e)).ToList();
+        var validElev = elevationsM
+            .Select(e => e is double d ? SanitizeElevationM(d) : null)
+            .Where(e => e.HasValue)
+            .Select(e => e!.Value)
+            .ToList();
         if (validElev.Count < 2)
             return;
 
@@ -603,11 +630,10 @@ public partial class SurfaceMapView : UserControl
         var started = false;
         for (var i = 0; i < elevationsM.Count; i++)
         {
-            var ev = elevationsM[i];
-            if (double.IsNaN(ev) || double.IsInfinity(ev))
+            if (elevationsM[i] is not { } evv)
                 continue;
             var x = 8 + (distancesM[i] / maxD) * (w - 16);
-            var y = h - 12 - ((ev - e0) / (e1 - e0)) * (h - 24);
+            var y = h - 12 - ((evv - e0) / (e1 - e0)) * (h - 24);
             if (!started)
             {
                 polyline.Points.Add(new Point(x, y));
@@ -668,6 +694,7 @@ public partial class SurfaceMapView : UserControl
         {
             CoordsText.Text = $"{p.Name}: entrance {lat:F5}°, {lon:F5}°";
             EntranceHintText.Visibility = Visibility.Collapsed;
+            EntranceHintPanel.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -675,9 +702,13 @@ public partial class SurfaceMapView : UserControl
             ? "No project loaded — open a backup with lat/lon on the active project."
             : $"{p.Name}: no entrance coordinates in project JSON.";
         EntranceHintText.Visibility = p == null ? Visibility.Collapsed : Visibility.Visible;
+        EntranceHintPanel.Visibility = p == null ? Visibility.Collapsed : Visibility.Visible;
         EntranceHintText.Text =
-            "Set entrance lat/lon in project settings (or lock A1 GPS on Android), then reload the surface map.";
+            "Set entrance lat/lon in the project JSON (Android: lock A1 under Entrance & Surface Tracking), then reload the surface map.";
     }
+
+    private void PreviewGreeceMap_Click(object sender, RoutedEventArgs e) =>
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitSurvey"}""");
 
     private void UpdateDeclinationBadge()
     {

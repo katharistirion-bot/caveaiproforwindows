@@ -48,6 +48,18 @@ public static class SurfaceMapProjectBridge
         if (lidar == null && project.SurfaceLidarRaster.ValueKind is JsonValueKind.Object)
             lidarHint = DescribeSurfaceLidarAvailability(project);
 
+        var corridor = SurfaceMapCorridorGeometry.TryBuildCorridorDetailed(project);
+        var hasEntrance = project.Lat is { } la && la is > -90 and < 90 &&
+                          project.Lon is { } lo && lo is > -180 and < 180 &&
+                          !(Math.Abs(la) < 1e-12 && Math.Abs(lo) < 1e-12);
+        string? emptyHint = null;
+        if (!hasEntrance)
+        {
+            emptyHint = corridor.Corridor != null
+                ? "No entrance GPS — corridor is a preview near Athens. Lock A1 in CaveAI Pro (Android → Entrance & Surface Tracking) or set lat/lon in the project JSON, then reload."
+                : "Set entrance lat/lon in the project JSON (or lock A1 GPS on Android), then reload the surface map.";
+        }
+
         return new SurfaceMapProjectPayload
         {
             Name = project.Name ?? "",
@@ -56,12 +68,11 @@ public static class SurfaceMapProjectBridge
             DeclinationDeg = declination,
             ReturnCar = TryReadReturnPin(project.ReturnCarLat, project.ReturnCarLon),
             ReturnBase = TryReadReturnPin(project.ReturnBaseLat, project.ReturnBaseLon),
-            EmptyStateHint = project.Lat is null or > 90 or < -90 || project.Lon is null or > 180 or < -180
-                ? "Set entrance lat/lon in project settings (or sync from Android), then reload the surface map."
-                : null,
+            EmptyStateHint = emptyHint,
             SurfaceLidarRaster = lidar,
             LidarStatusHint = lidarHint,
-            SurveyCorridor = SurfaceMapCorridorGeometry.TryBuildCorridor(project),
+            SurveyCorridor = corridor.Corridor,
+            SurveyCorridorProvisional = corridor.IsProvisional ? true : null,
             MapState = ToMapStateDto(mapState),
         };
     }
@@ -309,6 +320,8 @@ public sealed class SurfaceMapProjectPayload
     public SurfaceMapLidarRasterDto? SurfaceLidarRaster { get; init; }
     public string? LidarStatusHint { get; init; }
     public SurfaceMapCorridorGeometry.GeoJsonFeatureCollection? SurveyCorridor { get; init; }
+    /// <summary>True when corridor was anchored at the default preview location (no entrance GPS).</summary>
+    public bool? SurveyCorridorProvisional { get; init; }
     public SurfaceMapPinDto? ReturnCar { get; init; }
     public SurfaceMapPinDto? ReturnBase { get; init; }
     public string? EmptyStateHint { get; init; }
