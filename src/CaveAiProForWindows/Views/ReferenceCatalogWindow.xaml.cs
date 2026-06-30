@@ -870,33 +870,10 @@ public partial class ReferenceCatalogWindow : Window
 
             var depthM = c.Count == 1 ? c.Members[0].DepthM : null;
 
-            var ellipse = new Ellipse
+            var diamond = ReferenceCatalogMapDepthColors.CreateClusterPin(c.Count, depthM, x, y);
+            diamond.Tag = c;
 
-            {
-
-                Width = c.Count > 1 ? 14 : 10,
-
-                Height = c.Count > 1 ? 14 : 10,
-
-                Fill = c.Count > 1
-
-                    ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0xFF, 0xFF))
-
-                    : ReferenceCatalogMapDepthColors.ReferenceFillBrush(depthM),
-
-                Stroke = Brushes.White,
-
-                StrokeThickness = 1,
-
-                Tag = c,
-
-            };
-
-            Canvas.SetLeft(ellipse, x - ellipse.Width / 2);
-
-            Canvas.SetTop(ellipse, y - ellipse.Height / 2);
-
-            MapCanvas.Children.Add(ellipse);
+            MapCanvas.Children.Add(diamond);
 
         }
 

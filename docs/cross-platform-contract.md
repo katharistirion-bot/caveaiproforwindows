@@ -259,6 +259,14 @@ Posted via WebView2 `PostWebMessageAsJson` when the active project changes.
 | `mapState` | Camera/layer persistence (`payload` mirrors `mapState` above) |
 | `status` | Human-readable status line (`message`) |
 
+### Explore layer toggle sync (Windows)
+
+| Surface | Behaviour |
+|---------|-----------|
+| **Public Library Explore map** (WebView) | On close, full viewport URL (including layer query params) is saved to `AppUiSettingsModel.exploreMapPersistedState.lastViewportUrl`. Next open restores layers via URL — no live sync with Surface tab. |
+| **Surface map tab** (WPF checkboxes) | WPF → JS: `type: "layers"` on toggle. JS → WPF: `mapState` persists to disk and refreshes checkboxes via `SyncLayerCheckboxesFromSettings`. |
+| **Cross-tab** | Explore web layers and Surface WPF toggles are **not** bidirectionally synced (by design — different hosts). |
+
 Host may send `type: "layers"` (`hillshadeEnabled`, `terrain3dEnabled`, `corridorOverlayEnabled`) or `type: "fitEntrance"`.
 
 ### Survey corridor geometry (Phase 2)

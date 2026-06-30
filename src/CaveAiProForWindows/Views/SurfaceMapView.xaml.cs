@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.SurfaceMap;
@@ -313,6 +314,9 @@ public partial class SurfaceMapView : UserControl
                         else
                             _pngExportTcs?.TrySetResult(null);
                         break;
+                    case "elevationProfile":
+                        ApplyElevationProfile(root);
+                        break;
                 }
             });
         }
@@ -357,6 +361,126 @@ public partial class SurfaceMapView : UserControl
             s.Pitch = p;
 
         AppUiSettingsStore.Save(all);
+
+        if (!_applyingSettings)
+            SyncLayerCheckboxesFromSettings(s);
+    }
+
+    private void SyncLayerCheckboxesFromSettings(SurfaceMapPersistedState s)
+    {
+        _applyingSettings = true;
+        try
+        {
+            HillshadeCheck.IsChecked = s.HillshadeEnabled;
+            Terrain3dCheck.IsChecked = s.Terrain3dEnabled;
+            CorridorCheck.IsChecked = s.CorridorOverlayEnabled;
+            CopernicusCheck.IsChecked = s.CopernicusDsmEnabled;
+            LidarCheck.IsChecked = s.LidarOverlayEnabled;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+    }
+
+    private void ApplyElevationProfile(JsonElement root)
+    {
+        if (!root.TryGetProperty("ready", out var readyEl) || !readyEl.GetBoolean())
+        {
+            ElevationPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (!root.TryGetProperty("distancesM", out var distEl) ||
+            !root.TryGetProperty("elevationsM", out var elevEl))
+        {
+            ElevationPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var distances = distEl.EnumerateArray().Select(e => e.GetDouble()).ToList();
+        var elevations = elevEl.EnumerateArray()
+            .Select(e => e.ValueKind == JsonValueKind.Null ? double.NaN : e.GetDouble())
+            .ToList();
+        if (distances.Count < 2 || elevations.Count < 2)
+        {
+            ElevationPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        ElevationPanel.Visibility = Visibility.Visible;
+        DrawElevationChart(distances, elevations);
+
+        if (root.TryGetProperty("statusText", out var statusEl))
+            ElevationStatusText.Text = statusEl.GetString() ?? "—";
+        else
+        {
+            var valid = elevations.Where(e => !double.IsNaN(e) && !double.IsInfinity(e)).ToList();
+            if (valid.Count >= 2)
+            {
+                var maxD = distances[^1];
+                ElevationStatusText.Text =
+                    $"Distance {(maxD / 1000).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)} km · elevation {valid.Min():F0}–{valid.Max():F0} m";
+            }
+        }
+    }
+
+    private void DrawElevationChart(IReadOnlyList<double> distancesM, IReadOnlyList<double> elevationsM)
+    {
+        ElevationChartCanvas.Children.Clear();
+        var w = Math.Max(200, ElevationChartCanvas.ActualWidth > 0 ? ElevationChartCanvas.ActualWidth : 640);
+        var h = ElevationChartCanvas.Height;
+        ElevationChartCanvas.Width = w;
+
+        var maxD = distancesM[^1];
+        if (maxD < 10)
+            return;
+
+        var validElev = elevationsM.Where(e => !double.IsNaN(e) && !double.IsInfinity(e)).ToList();
+        if (validElev.Count < 2)
+            return;
+
+        var minE = validElev.Min();
+        var maxE = validElev.Max();
+        var padE = Math.Max(5, (maxE - minE) * 0.1);
+        var e0 = minE - padE;
+        var e1 = maxE + padE;
+
+        ElevationChartCanvas.Children.Add(new System.Windows.Shapes.Line
+        {
+            X1 = 8, Y1 = h - 12, X2 = w - 8, Y2 = h - 12,
+            Stroke = new SolidColorBrush(Color.FromRgb(0x30, 0x36, 0x3d)),
+            StrokeThickness = 1,
+            IsHitTestVisible = false,
+        });
+
+        var polyline = new System.Windows.Shapes.Polyline
+        {
+            Stroke = new SolidColorBrush(Color.FromRgb(0x00, 0xd4, 0xaa)),
+            StrokeThickness = 2,
+            IsHitTestVisible = false,
+        };
+        var started = false;
+        for (var i = 0; i < elevationsM.Count; i++)
+        {
+            var e = elevationsM[i];
+            if (double.IsNaN(e) || double.IsInfinity(e))
+                continue;
+            var x = 8 + (distancesM[i] / maxD) * (w - 16);
+            var y = h - 12 - ((e - e0) / (e1 - e0)) * (h - 24);
+            if (!started)
+            {
+                polyline.Points.Add(new Point(x, y));
+                started = true;
+            }
+            else
+            {
+                polyline.Points.Add(new Point(x, y));
+            }
+        }
+
+        if (polyline.Points.Count >= 2)
+            ElevationChartCanvas.Children.Add(polyline);
     }
 
     private void QueueProjectPush()

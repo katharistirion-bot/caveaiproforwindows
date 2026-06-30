@@ -85,4 +85,16 @@ public sealed class CloudPublishTests
         var bytes = Encoding.UTF8.GetBytes(json);
         return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
+
+    [TestMethod]
+    public void CloudPublishRetryStore_enqueue_and_remove_round_trip()
+    {
+        CloudPublishRetryStore.Clear();
+        CloudPublishRetryStore.Enqueue("Demo Cave", @"C:\temp\demo.zip", "Network timeout");
+        var all = CloudPublishRetryStore.LoadAll();
+        Assert.AreEqual(1, all.Count);
+        Assert.AreEqual("Demo Cave", all[0].ProjectName);
+        CloudPublishRetryStore.Remove("Demo Cave");
+        Assert.AreEqual(0, CloudPublishRetryStore.LoadAll().Count);
+    }
 }

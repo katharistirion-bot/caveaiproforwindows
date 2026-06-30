@@ -111,6 +111,7 @@ public partial class MainWindow : Window
             StartCollaborationNotifications(vm);
             ApplyPlanViewLocalization();
             ApplyReferencePinsSettingUi();
+            ApplySurveyTabGroup(SurveyTabGroup.Survey);
             AndroidDesktopSyncHub.SyncSettingsChanged += OnAndroidSyncSettingsChanged;
             AndroidDesktopSyncHub.CollaborationProjectChanged += OnCollaborationProjectChanged;
             AndroidDesktopSyncHub.SyncFilesChanged += OnAndroidSyncFilesChanged;
@@ -1019,5 +1020,71 @@ public partial class MainWindow : Window
         {
             /* offline — keep last known entitlement */
         }
+    }
+
+    private enum SurveyTabGroup { Survey, Library, Publish, Settings }
+
+    private void TabGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender == TabGroupSurvey)
+            ApplySurveyTabGroup(SurveyTabGroup.Survey);
+        else if (sender == TabGroupLibrary)
+            ApplySurveyTabGroup(SurveyTabGroup.Library);
+        else if (sender == TabGroupPublish)
+            ApplySurveyTabGroup(SurveyTabGroup.Publish);
+        else if (sender == TabGroupSettings)
+            ApplySurveyTabGroup(SurveyTabGroup.Settings);
+    }
+
+    private void ApplySurveyTabGroup(SurveyTabGroup group)
+    {
+        TabGroupSurvey.IsChecked = group == SurveyTabGroup.Survey;
+        TabGroupLibrary.IsChecked = group == SurveyTabGroup.Library;
+        TabGroupPublish.IsChecked = group == SurveyTabGroup.Publish;
+        TabGroupSettings.IsChecked = group == SurveyTabGroup.Settings;
+
+        var surveyTabs = new HashSet<TabItem>();
+        foreach (var item in MainSurveyTabControl.Items.OfType<TabItem>())
+        {
+            if (item == IntegrityTabItem || item.Header?.ToString() == "SURVEY QC")
+                continue;
+            if (item == LegalSettingsTabItem)
+                continue;
+            surveyTabs.Add(item);
+        }
+
+        var libraryTabs = new HashSet<TabItem> { IntegrityTabItem };
+        foreach (var item in MainSurveyTabControl.Items.OfType<TabItem>())
+        {
+            if (item.Header?.ToString() == "SURVEY QC")
+                libraryTabs.Add(item);
+        }
+
+        foreach (var item in MainSurveyTabControl.Items.OfType<TabItem>())
+        {
+            item.Visibility = group switch
+            {
+                SurveyTabGroup.Survey => surveyTabs.Contains(item) ? Visibility.Visible : Visibility.Collapsed,
+                SurveyTabGroup.Library => libraryTabs.Contains(item) ? Visibility.Visible : Visibility.Collapsed,
+                SurveyTabGroup.Publish => Visibility.Collapsed,
+                SurveyTabGroup.Settings => item == LegalSettingsTabItem ? Visibility.Visible : Visibility.Collapsed,
+                _ => Visibility.Visible,
+            };
+        }
+
+        if (group == SurveyTabGroup.Publish)
+        {
+            SnackbarService.Show(this,
+                "Cloud publish: Tools → Push to Cloud, or Ctrl+K → Push to Cloud.",
+                durationMs: 5000);
+            TabGroupSurvey.IsChecked = true;
+            ApplySurveyTabGroup(SurveyTabGroup.Survey);
+            return;
+        }
+
+        var visible = MainSurveyTabControl.Items.OfType<TabItem>()
+            .FirstOrDefault(t => t.Visibility == Visibility.Visible);
+        if (visible != null && MainSurveyTabControl.SelectedItem is TabItem sel && sel.Visibility != Visibility.Visible)
+            MainSurveyTabControl.SelectedItem = visible;
     }
 }

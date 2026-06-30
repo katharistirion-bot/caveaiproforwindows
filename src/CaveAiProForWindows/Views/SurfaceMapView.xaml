@@ -9,6 +9,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Vertical">
@@ -122,5 +123,17 @@
                    TextWrapping="Wrap"
                    Visibility="Collapsed"
                    Text="Set entrance lat/lon in project settings to center the map on the cave." />
+
+        <Border Grid.Row="4" x:Name="ElevationPanel" Margin="0,8,0,0" Padding="8,6" CornerRadius="4"
+                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
+                Background="{DynamicResource Cave.Surface}" Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock Text="Elevation along survey corridor (Terrarium DEM)" FontWeight="SemiBold"
+                           FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
+                <Canvas x:Name="ElevationChartCanvas" Height="100" Background="#FF0D1117" />
+                <TextBlock x:Name="ElevationStatusText" FontSize="11" Margin="0,4,0,0"
+                           Foreground="{DynamicResource Cave.TextMuted}" Text="—" />
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

@@ -21,7 +21,7 @@ Updated: 2026-06-30 · **Prepare only** — no automated Store upload.
 
 ## Pre-submission checklist
 
-- [ ] `dotnet test` in repo root (367 tests)
+- [ ] `dotnet test` in repo root (372+ tests)
 - [ ] Build unsigned MSIX: `tools/package-store-msix.ps1`
 - [ ] Partner Center → Apps → CAVE AI PRO → Packages → upload new `.msix`
 - [ ] Store listing screenshots + privacy policy URL: `https://www.caveaipro.com/privacy`

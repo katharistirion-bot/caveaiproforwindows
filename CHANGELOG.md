@@ -62,6 +62,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Field Trip Planner** MapLibre mini preview (WebView2 + OSM) replacing flat canvas schematic
+- **Surface map** WPF elevation profile panel wired from `elevationProfile` bridge message
+- **Main window tab groups**: Survey | Library | Publish | Settings (filters visible tabs; internal tab names unchanged)
+- **Command palette** (`Ctrl+K`): categories, fuzzy scoring, 16 commands including retry publish
+- **Compare backups** overlay diff mode (semi-transparent A+B on plan canvas)
+- **Cloud publish retry queue** (`cloud-publish-retry-queue.json`) — retry failed uploads without full re-publish
+- **Reference catalog** map pins use diamond markers (web/Android parity)
+- **Surface PNG export** legend strip (entrance, corridor, LiDAR extent)
+- `MainViewModel.CloudCommands` partial — cloud retry queue slice
+- Tests: `CloudPublishRetryStoreTests`, `CompareBackupPlanPreviewTests`, `PlanExportGoldenTests`
 - Reference survey handoff: catalog **Map with Cave AI Pro** opens browser survey URL; Windows can link/resume projects via `referenceCatalogLink` metadata
 - Cross-platform contract doc (`docs/cross-platform-contract.md`) for catalog URLs, share links, and publish fields
 - Cloud Publish passes `referenceCatalogId` / `referenceCatalogCountry` when project is linked to a reference pin
@@ -74,6 +84,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Explore layer sync documented in `docs/cross-platform-contract.md`; Surface map JS→WPF checkbox sync on `mapState`
 - Reference catalog detail: copy share link and survey-start URL aligned with web/Android `?action=survey` contract
 - **Legal texts v1.4**: removed cloud AI Render; documents on-device Cave AI and optional error telemetry
 - **MainViewModel**: update banner, footer status (`RefreshFooterStatus`), design-from-survey command; removed cloud AI Render / GenerativeMap code paths

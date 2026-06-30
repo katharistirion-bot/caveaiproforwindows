@@ -119,3 +119,20 @@ public static class FieldTripExportService
     private static string EscapeXml(string? text) =>
         System.Security.SecurityElement.Escape(text ?? "") ?? "";
 }
+
+public static class FieldTripMapBridge
+{
+    public const string VirtualHost = "caveai-fieldtrip.local";
+    public static string EntryUri => $"https://{VirtualHost}/index.html";
+
+    public static string BuildStopsMessageJson(IReadOnlyList<FieldTripStop> stops) =>
+        System.Text.Json.JsonSerializer.Serialize(new
+        {
+            type = "stops",
+            payload = new
+            {
+                stops = stops.Where(s => s.Lat != 0 || s.Lon != 0)
+                    .Select(s => new { name = s.Name, lat = s.Lat, lon = s.Lon }).ToList(),
+            },
+        });
+}

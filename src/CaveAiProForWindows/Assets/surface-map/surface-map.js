@@ -820,7 +820,33 @@
       return;
     }
     try {
-      const dataUrl = map.getCanvas().toDataURL('image/png');
+      const mapCanvas = map.getCanvas();
+      const legendH = 52;
+      const out = document.createElement('canvas');
+      out.width = mapCanvas.width;
+      out.height = mapCanvas.height + legendH;
+      const ctx = out.getContext('2d');
+      ctx.fillStyle = '#0d1117';
+      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.drawImage(mapCanvas, 0, 0);
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = 'bold 11px system-ui,sans-serif';
+      ctx.fillText('Surface map export', 10, mapCanvas.height + 16);
+      ctx.font = '10px system-ui,sans-serif';
+      const items = [
+        { color: '#ff6b35', label: 'Entrance' },
+        { color: '#50a0ff', label: 'Survey corridor' },
+        { color: '#c084fc', label: 'LiDAR extent' },
+      ];
+      let lx = 10;
+      items.forEach((it) => {
+        ctx.fillStyle = it.color;
+        ctx.fillRect(lx, mapCanvas.height + 26, 10, 10);
+        ctx.fillStyle = '#8b949e';
+        ctx.fillText(it.label, lx + 14, mapCanvas.height + 35);
+        lx += ctx.measureText(it.label).width + 36;
+      });
+      const dataUrl = out.toDataURL('image/png');
       postHost({ type: 'exportPngResult', dataUrl });
     } catch (err) {
       postHost({ type: 'exportPngResult', error: String(err && err.message ? err.message : err) });
@@ -1096,7 +1122,25 @@
         distances.push(distances[i - 1] + haversineM(samples[i - 1].lon, samples[i - 1].lat, samples[i].lon, samples[i].lat));
       }
       drawElevationChart(distances, elevations);
-      postHost({ type: 'elevationProfile', ready: elevations.filter((x) => x != null).length >= 2 });
+      const valid = elevations.filter((x) => x != null && isFinite(x));
+      const minE = valid.length ? Math.min.apply(null, valid) : 0;
+      const maxE = valid.length ? Math.max.apply(null, valid) : 0;
+      const maxD = distances[distances.length - 1] || 0;
+      const statusText = valid.length >= 2
+        ? `Distance ${(maxD / 1000).toFixed(2)} km · elevation ${minE.toFixed(0)}–${maxE.toFixed(0)} m`
+        : '';
+      if (window.chrome && window.chrome.webview) {
+        hideElevationPanel();
+        postHost({
+          type: 'elevationProfile',
+          ready: valid.length >= 2,
+          distancesM: distances,
+          elevationsM: elevations,
+          statusText,
+        });
+      } else {
+        postHost({ type: 'elevationProfile', ready: valid.length >= 2 });
+      }
     } catch {
       hideElevationPanel();
     } finally {

@@ -106,6 +106,8 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private bool _updateAvailableBannerVisible;
 
+    [ObservableProperty] private int _cloudPublishRetryCount;
+
     [ObservableProperty] private string _updateAvailableBannerMessage = "";
 
     private string _pendingReleasePageUrl = "";
@@ -396,6 +398,7 @@ public partial class MainViewModel : ObservableObject
         ExportAllProjectsToFolderCommand.NotifyCanExecuteChanged();
         CloseWorkspaceCommand.NotifyCanExecuteChanged();
         NotifyLegalGateCommands();
+        RefreshCloudPublishRetryCount();
     }
 
     private void HookProjectListViewFilter(ObservableCollection<CaveProjectDocument> list)
@@ -3015,10 +3018,14 @@ public partial class MainViewModel : ObservableObject
             {
                 CloudPublishProgressValue = 100;
                 SnackbarService.Show(owner, $"Published to Cave Library — {metadata.PublishedCaveDocId}");
+                if (SelectedProject != null)
+                    ClearCloudPublishRetry(SelectedProject.Name);
             }
             else if (!string.IsNullOrWhiteSpace(lastError))
             {
                 SnackbarService.Show(owner, lastError, durationMs: 6000);
+                if (SelectedProject != null)
+                    RecordCloudPublishFailure(SelectedProject.Name, PrimarySourceFilePath, lastError);
             }
         }
         finally
@@ -3103,4 +3110,45 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void DismissUpdateAvailableBanner() => UpdateAvailableBannerVisible = false;
+
+    public void RefreshCloudPublishRetryCount() =>
+        CloudPublishRetryCount = CloudPublishRetryStore.LoadAll().Count;
+
+    [RelayCommand(CanExecute = nameof(CanRetryCloudPublish))]
+    private async Task RetryCloudPublishAsync()
+    {
+        var pending = CloudPublishRetryStore.LoadAll();
+        if (pending.Count == 0) return;
+        var entry = pending[0];
+        var project = Projects.FirstOrDefault(p =>
+            string.Equals(p.Name, entry.ProjectName, StringComparison.OrdinalIgnoreCase));
+        if (project == null)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow,
+                $"Project \"{entry.ProjectName}\" is not open. Open the backup first, then retry.",
+                "Cloud publish retry", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information);
+            return;
+        }
+        SelectedProject = project;
+        await PublishToCloudAsync().ConfigureAwait(true);
+        RefreshCloudPublishRetryCount();
+    }
+
+    private bool CanRetryCloudPublish() =>
+        LegalTermsGateOpen() && !IsCloudPublishing && CloudPublishRetryCount > 0 && SelectedProject != null;
+
+    private void RecordCloudPublishFailure(string? projectName, string? backupPath, string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(projectName)) return;
+        CloudPublishRetryStore.Enqueue(projectName, backupPath, errorMessage);
+        RefreshCloudPublishRetryCount();
+        RetryCloudPublishCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ClearCloudPublishRetry(string projectName)
+    {
+        CloudPublishRetryStore.Remove(projectName);
+        RefreshCloudPublishRetryCount();
+        RetryCloudPublishCommand.NotifyCanExecuteChanged();
+    }
 }

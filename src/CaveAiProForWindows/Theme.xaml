@@ -117,6 +117,19 @@
         </Style.Triggers>
     </Style>
 
+    <Style x:Key="Cave.TabGroupToggle" TargetType="ToggleButton" BasedOn="{StaticResource Cave.ButtonBase}">
+        <Setter Property="Background" Value="{DynamicResource Cave.Surface}" />
+        <Setter Property="Foreground" Value="{DynamicResource Cave.TextSubdued}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Cave.Border}" />
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Cave.Accent}" />
+                <Setter Property="Foreground" Value="{DynamicResource Cave.AccentButtonForeground}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Cave.AccentPressed}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <Style TargetType="Menu">
         <Setter Property="Background" Value="{DynamicResource Cave.Surface}" />
         <Setter Property="Foreground" Value="{DynamicResource Cave.Text}" />

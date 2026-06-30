@@ -48,3 +48,15 @@ signtool verify /pa /v CaveAiProForWindows.exe
 ```
 
 Or: file Properties → Digital Signatures tab.
+
+## Installer shortcuts and protocol (verification)
+
+After `tools/package-release.ps1`:
+
+| Channel | Desktop shortcut | Start Menu | `caveaipro://` | `.json` / `.zip` FTA |
+|---------|------------------|------------|----------------|----------------------|
+| Velopack Setup | `--shortcutLocations StartMenu,Desktop` | Yes | Yes (app registration) | Yes (app registration) |
+| WiX MSI | `Package.wxs` `Shortcut` elements | Yes | `Protocol` element | `ProgId` / extension tables |
+| Store MSIX | `store/Package.appxmanifest` | Store-managed | `uap:Protocol` | `uap:FileTypeAssociation` |
+
+Smoke-test on a clean VM: install → open sample `.zip` → follow `caveaipro://explore?...` link from browser.
