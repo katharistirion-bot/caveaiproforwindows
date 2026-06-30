@@ -158,6 +158,9 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Set by <see cref="MainWindow"/> — selects the SURFACE map tab.</summary>
     public Action? NavigateToSurfaceTab { get; set; }
 
+    /// <summary>Set by <see cref="MainWindow"/> — resets Plan/Section/X-ray/Surface/sketch surfaces when the workspace is cleared or replaced.</summary>
+    public Action? ResetSurveyViewSurfaces { get; set; }
+
     public ObservableCollection<MapAssetRow> MapAssetRows { get; } = new();
 
     /// <summary>Rows from optional Android <c>map_inventory.json</c> inside an open ZIP.</summary>
@@ -553,6 +556,35 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanCloseWorkspace))]
     private void CloseWorkspace()
     {
+        if (!CanCloseWorkspace())
+            return;
+
+        ClearWorkspaceDataCore();
+        WindowTitle = "CAVE AI PRO — Survey workstation";
+        StatusMessage =
+            "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
+        NotifyWorkspaceCommandStateChanged();
+    }
+
+    private bool HasLoadedWorkspaceContent() =>
+        Projects.Count > 0 ||
+        _knownCaveMaster.Count > 0 ||
+        _standaloneMapPaths.Count > 0 ||
+        !string.IsNullOrEmpty(_zipPath) ||
+        !string.IsNullOrEmpty(_primarySourcePath) ||
+        MapInventoryRows.Count > 0;
+
+    /// <summary>Auto-unload before opening a different backup so the previous session cannot leak into the new project.</summary>
+    private void UnloadWorkspaceBeforeNewLoad()
+    {
+        if (!HasLoadedWorkspaceContent())
+            return;
+
+        ClearWorkspaceDataCore();
+    }
+
+    private void ClearWorkspaceDataCore()
+    {
         _loadCts?.Cancel();
 
         CaveMapsMarkerPathResolver.ClearCache();
@@ -563,6 +595,9 @@ public partial class MainViewModel : ObservableObject
         _sourceFileCount = 0;
         _integrityReport = null;
         _lastExtractRoot = null;
+        _cloudAssetCacheDir = null;
+        _loadedSurveyFingerprint = null;
+        OnPropertyChanged(nameof(CloudAssetCacheDir));
 
         _knownCaveMaster.Clear();
         _standaloneMapPaths.Clear();
@@ -581,17 +616,30 @@ public partial class MainViewModel : ObservableObject
 
         RefreshMapAssets(new List<CaveProjectDocument>());
 
+        ShotsView.Clear();
+        StationQcRows.Clear();
+        SurveyQcIssueRows.Clear();
+        ReferenceLinkSummary = "";
+
         SourcePathDisplay = "";
-        WindowTitle = "CAVE AI PRO — Survey workstation";
         ShowSchemaNote = false;
         SchemaNoteText = "";
-        StatusMessage =
-            "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
 
         ApplyIntegrityUi();
         RefreshArchivePanel();
         OnPropertyChanged(nameof(ActiveZipPath));
         OnPropertyChanged(nameof(ActiveZipPathForMaps));
+
+        WorkspaceSessionReset.ClearSurfaceMapViewport();
+        WorkspaceSessionReset.ClearTransientSurveyUiState();
+        ResetSurveyViewSurfaces?.Invoke();
+        SurveyDataChanged?.Invoke(this, EventArgs.Empty);
+
+        NotifyWorkspaceCommandStateChanged();
+    }
+
+    private void NotifyWorkspaceCommandStateChanged()
+    {
         ExtractPhotosCommand.NotifyCanExecuteChanged();
         ExtractFullArchiveCommand.NotifyCanExecuteChanged();
         OpenLastExtractedFolderCommand.NotifyCanExecuteChanged();
@@ -1085,6 +1133,7 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Loads one or more JSON/ZIP files and merges all projects (heavy work runs off the UI thread).</summary>
     public void LoadFromPaths(IReadOnlyList<string> paths)
     {
+        UnloadWorkspaceBeforeNewLoad();
         _loadCts?.Cancel();
         _loadCts?.Dispose();
         _loadCts = new CancellationTokenSource();

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.SurfaceMap;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -73,4 +74,48 @@ public sealed class SurfaceMapProjectBridgeTests
         Assert.IsNull(payload.SurfaceLidarRaster);
         Assert.AreEqual("LiDAR image failed to load", payload.LidarStatusHint);
     }
+
+    [TestMethod]
+    public void BuildPayload_null_project_has_no_survey_overlays()
+    {
+        var payload = SurfaceMapProjectBridge.BuildPayload(null, null, WorkspaceSessionReset.FreshSurfaceMapState());
+        Assert.IsNull(payload.SurveyCorridor);
+        Assert.IsNull(payload.Lat);
+        Assert.IsNull(payload.Lon);
+        Assert.IsNull(payload.SurfaceLidarRaster);
+    }
+
+    [TestMethod]
+    public void UnloadThenLoadProjectB_doesNotRetainProjectA_corridor()
+    {
+        var projectA = BuildProjectWithEntrance("Cave A", 40.12, 22.45);
+        var projectB = BuildProjectWithEntrance("Cave B", 38.02, 23.72);
+
+        var corridorA = SurfaceMapCorridorGeometry.TryBuildCorridor(projectA);
+        var payloadB = SurfaceMapProjectBridge.BuildPayload(
+            projectB,
+            null,
+            WorkspaceSessionReset.FreshSurfaceMapState());
+
+        Assert.IsNotNull(corridorA);
+        Assert.IsNotNull(payloadB.SurveyCorridor);
+
+        var startA = corridorA!.Features[0].Geometry.Coordinates[0];
+        var startB = payloadB.SurveyCorridor!.Features[0].Geometry.Coordinates[0];
+        Assert.AreNotEqual(startA[0], startB[0], 1e-4);
+        Assert.AreNotEqual(startA[1], startB[1], 1e-4);
+    }
+
+    private static CaveProjectDocument BuildProjectWithEntrance(string name, double lat, double lon) =>
+        new()
+        {
+            Name = name,
+            Lat = lat,
+            Lon = lon,
+            Shots =
+            [
+                new ShotRecord { FromStation = "A1", ToStation = "A2", Azimuth = 0, Clino = 0, Distance = 25 },
+                new ShotRecord { FromStation = "A2", ToStation = "A3", Azimuth = 90, Clino = 0, Distance = 30 },
+            ],
+        };
 }

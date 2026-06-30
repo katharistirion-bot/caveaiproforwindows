@@ -234,8 +234,8 @@ public partial class SurfaceMapView : UserControl
             {
                 if (!args.IsSuccess)
                 {
-                    PlaceholderText.Text = "Surface map failed to load.";
-                    StatusText.Text = "Navigation error";
+                    PlaceholderText.Text = UserFacingErrors.SurfaceMapNavigationFailed();
+                    StatusText.Text = "Map did not load";
                     OfflineBanner.Visibility = Visibility.Visible;
                     LoadingOverlay.Visibility = Visibility.Collapsed;
                 }
@@ -247,10 +247,10 @@ public partial class SurfaceMapView : UserControl
             StatusText.Text = "Loading map…";
             LoadingText.Text = "Loading map tiles…";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            PlaceholderText.Text = "WebView2 could not start. Install Microsoft Edge WebView2 Runtime.";
-            StatusText.Text = ex.Message;
+            PlaceholderText.Text = UserFacingErrors.SurfaceMapWebViewFailed();
+            StatusText.Text = "WebView2 unavailable";
             LoadingOverlay.Visibility = Visibility.Collapsed;
         }
     }
@@ -679,11 +679,47 @@ public partial class SurfaceMapView : UserControl
             settings.LidarOpacity = (float)LidarOpacitySlider.Value;
         }
 
+        var mapState = _pendingProject == null
+            ? WorkspaceSessionReset.FreshSurfaceMapState()
+            : settings;
+
         var json = SurfaceMapProjectBridge.BuildProjectMessageJson(
             _pendingProject,
             _pendingZipPath,
-            settings,
+            mapState,
             cloudAssetCacheDir: _cloudAssetCacheDir);
+        core.PostWebMessageAsJson(json);
+    }
+
+    /// <summary>Clears WebView overlays and host UI when the workspace is unloaded or replaced.</summary>
+    public void ResetForProjectUnload()
+    {
+        _pendingProject = null;
+        _pendingZipPath = null;
+        _cloudAssetCacheDir = null;
+        _fitSurveyOnReady = false;
+        _measureActive = false;
+        if (MeasureToggle != null)
+            MeasureToggle.IsChecked = false;
+        if (MeasureText != null)
+            MeasureText.Visibility = Visibility.Collapsed;
+        if (ElevationChartCanvas != null)
+            ElevationChartCanvas.Children.Clear();
+        UpdateCoordsLine();
+        UpdateDeclinationBadge();
+        PushEmptyProjectToMap();
+    }
+
+    private void PushEmptyProjectToMap()
+    {
+        var core = SurfaceWebView?.CoreWebView2;
+        if (core == null || !_mapReady)
+            return;
+
+        var json = SurfaceMapProjectBridge.BuildProjectMessageJson(
+            null,
+            null,
+            WorkspaceSessionReset.FreshSurfaceMapState());
         core.PostWebMessageAsJson(json);
     }
 

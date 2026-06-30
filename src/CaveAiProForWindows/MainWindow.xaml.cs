@@ -84,6 +84,7 @@ public partial class MainWindow : Window
             vm.CaptureCloudPublishArtifacts = () => SketchEditorControl.TryCaptureCloudPublishArtifacts();
             vm.NavigateToDesignFromSurvey = runProceduralAssist => OpenSketchEditorForDesign(runProceduralAssist);
             vm.NavigateToSurfaceTab = SelectSurfaceTab;
+            vm.ResetSurveyViewSurfaces = ResetSurveyViewSurfacesForProjectUnload;
             IntroVideoWindow.ShowIfFirstRun(this);
             WelcomeOnboardingWindow.ShowIfFirstRun(this);
             PostSignInWizardWindow.ShowIfNeeded(this);
@@ -1006,6 +1007,25 @@ public partial class MainWindow : Window
             MainSurveyTabControl.SelectedItem = SketchEditorTabItem;
 
         SketchEditorControl.BeginDesignFromSurvey(runProceduralAssist);
+    }
+
+    private void ResetSurveyViewSurfacesForProjectUnload()
+    {
+        _surfaceMapView?.ResetForProjectUnload();
+
+        SketchEditorControl.ResetForProjectUnload();
+
+        foreach (var plan in FindVisualChildren<PlanView>(this))
+        {
+            plan.ResetMapView();
+            plan.ClearMapSelectionAndRedraw();
+        }
+
+        foreach (var section in FindVisualChildren<SectionView>(this))
+            section.ResetMapView();
+
+        _xRayView?.ResetMapView();
+        _xRayView?.ClearMapSelectionAndRedraw();
     }
 
     public void ApplyPlanViewLocalization()

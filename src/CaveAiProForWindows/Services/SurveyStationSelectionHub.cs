@@ -24,6 +24,9 @@ public static class SurveyStationSelectionHub
             new SurveyStationSelectionEventArgs("", source, requestZoom: false));
     }
 
+    /// <summary>Clears cross-tab station highlight when the workspace is unloaded or replaced.</summary>
+    public static void ClearAll() => ClearSelection("WorkspaceReset");
+
     public static void JumpTo(string stationName, string source) =>
         Select(stationName, source, requestZoom: true);
 }
