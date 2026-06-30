@@ -162,14 +162,14 @@ public static class CloudPublishWorkflow
             });
             return null;
         }
-        catch (TimeoutException ex)
+        catch (TimeoutException)
         {
-            ReportError(request.Progress, ex.Message, showAuthHint: true);
+            ReportError(request.Progress, UserFacingErrors.SignInTimedOut(), showAuthHint: true);
             return null;
         }
         catch (Exception ex)
         {
-            ReportError(request.Progress, ex.Message);
+            ReportError(request.Progress, UserFacingErrors.CloudPublishFailed(ex.Message));
             return null;
         }
     }

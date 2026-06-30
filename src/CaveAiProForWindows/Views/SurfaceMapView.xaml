@@ -128,7 +128,7 @@
                 <Border x:Name="OfflineBanner" Background="#CC1A2332" Padding="12,10"
                         VerticalAlignment="Top" HorizontalAlignment="Stretch" Visibility="Collapsed">
                     <StackPanel>
-                        <TextBlock Text="Offline or tile fetch failed — cached tiles may still display."
+                        <TextBlock Text="Some map tiles could not download — cached tiles may still show. Check your connection or use Open in browser."
                                    Foreground="#FFE2E8F0" FontWeight="SemiBold" TextWrapping="Wrap" />
                         <Button Content="Open in browser" Padding="10,6" Margin="0,8,0,0"
                                 HorizontalAlignment="Left" Click="OpenSurfaceMapInBrowser_Click" />

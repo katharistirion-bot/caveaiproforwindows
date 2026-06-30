@@ -203,14 +203,14 @@ public partial class CloudPublishViewModel : ObservableObject
         if (update.HasError)
         {
             HasError = true;
-            ErrorMessage = update.ErrorMessage ?? "Publish failed.";
+            ErrorMessage = update.ErrorMessage ?? UserFacingErrors.CloudPublishFailed();
         }
     }
 
     private void SetError(string message)
     {
         HasError = true;
-        ErrorMessage = message;
+        ErrorMessage = UserFacingErrors.CloudPublishFailed(message);
         StatusMessage = "Publish failed.";
     }
 }

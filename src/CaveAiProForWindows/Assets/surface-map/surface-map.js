@@ -127,14 +127,14 @@
     }
     panel.classList.remove('hidden');
     const name = project && project.name ? String(project.name) : 'This project';
-    if (title) title.textContent = `${name}: no entrance coordinates`;
+    if (title) title.textContent = `${name}: entrance location not set yet`;
     const customHint = project && project.emptyStateHint;
     if (hint) {
       const provisional = project && project.surveyCorridorProvisional;
       hint.textContent = customHint ||
         (provisional
-          ? 'Survey corridor is shown at a preview location (Athens area). Lock entrance A1 in CaveAI Pro on Android (Entrance & Surface Tracking) or set lat/lon in the project JSON, then reload.'
-          : 'Lock the survey entrance (A1) in CaveAI Pro on Android (Entrance & Surface Tracking) or set lat/lon in Windows project JSON, then reload this map.');
+          ? 'Survey corridor is shown at a preview location (Athens area). Set the real entrance to align the map. What to do: (1) In CaveAI Pro on Android, open Entrance & Surface Tracking and lock entrance A1, or set lat/lon in the project JSON. (2) Reload this map.'
+          : 'The map needs entrance coordinates before it can align to the real world. What to do: (1) Lock entrance A1 in CaveAI Pro on Android (Entrance & Surface Tracking) or set lat/lon in the project JSON. (2) Reload this map.');
     }
   }
 
@@ -791,7 +791,7 @@
       const onLidarError = (ev) => {
         if (ev && ev.sourceId === 'lidar-raster') {
           map.off('error', onLidarError);
-          postHost({ type: 'status', message: 'LiDAR image failed to load' });
+          postHost({ type: 'status', message: 'LiDAR overlay could not load — survey map still works without it' });
         }
       };
       map.on('error', onLidarError);
@@ -1620,7 +1620,7 @@
       postHost({
         type: 'elevationProfile',
         ready: false,
-        statusText: 'Elevation sampling failed or timed out.',
+        statusText: 'Elevation profile unavailable. Check internet, entrance coordinates, and that the corridor is long enough.',
       });
     } finally {
       elevationBusy = false;

@@ -87,8 +87,8 @@ public partial class App : System.Windows.Application
             {
                 WriteStartupLog("App lock: timed out waiting for sign-in/subscription");
                 splash?.ShowError(
-                    "Sign-in timed out",
-                    "Could not complete Google sign-in and subscription verification in time. Please try again.");
+                    "Sign-in needs a moment longer",
+                    UserFacingErrors.SignInTimedOut());
                 await Task.Delay(3500).ConfigureAwait(true);
                 Shutdown(0);
                 return;
@@ -142,14 +142,14 @@ public partial class App : System.Windows.Application
         {
             WriteFatalLog("MainWindow startup failed", ex);
             Debug.WriteLine("[Startup] FAILED: " + ex);
-            splash?.ShowError("Startup failed", ex.Message);
+            splash?.ShowError("Could not start", UserFacingErrors.StartupFailed(ex));
             try
             {
                 if (splash == null)
                 {
                     System.Windows.MessageBox.Show(
                         FormatUserFacingError(ex),
-                        "CAVE AI PRO — startup failed",
+                        "CAVE AI PRO — could not start",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
                 }
@@ -288,17 +288,7 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private static string FormatUserFacingError(Exception ex)
-    {
-        var path = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CaveAiProForWindows",
-            "last-error.txt");
-        return
-            "The application could not start.\r\n\r\n" +
-            "Details were saved to:\r\n" + path + "\r\n\r\n" +
-            "Summary:\r\n" + ex.Message;
-    }
+    private static string FormatUserFacingError(Exception ex) => UserFacingErrors.StartupFailed(ex);
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
