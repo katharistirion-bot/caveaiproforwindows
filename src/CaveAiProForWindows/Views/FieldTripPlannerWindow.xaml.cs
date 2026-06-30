@@ -17,15 +17,18 @@ public partial class FieldTripPlannerWindow : Window
     private static FieldTripPlannerWindow? _active;
     private bool _mapReady;
     private bool _webViewInitialized;
+    private System.Windows.Threading.DispatcherTimer? _mapLoadTimer;
 
     public FieldTripPlannerWindow()
     {
         InitializeComponent();
         Loaded += async (_, _) =>
         {
+            StartMapLoadWatchdog();
             await EnsureMapWebViewAsync().ConfigureAwait(true);
             ReloadStore();
         };
+        Closed += (_, _) => _mapLoadTimer?.Stop();
     }
 
     public static void Show(Window? owner)
@@ -109,7 +112,7 @@ public partial class FieldTripPlannerWindow : Window
                         _mapReady = true;
                         Dispatcher.Invoke(() =>
                         {
-                            StopsMapPlaceholder.Visibility = Visibility.Collapsed;
+                            HideMapLoadingOverlay();
                             PushStopsToMap();
                         });
                     }
@@ -123,7 +126,7 @@ public partial class FieldTripPlannerWindow : Window
             var assetsFolder = Path.Combine(AppContext.BaseDirectory, "Assets", "field-trip-map");
             if (!Directory.Exists(assetsFolder))
             {
-                StopsMapPlaceholder.Text = "Field trip map assets not found.";
+                ShowMapError("Field trip map assets not found.");
                 return;
             }
 
@@ -135,16 +138,42 @@ public partial class FieldTripPlannerWindow : Window
             core.NavigationCompleted += (_, args) =>
             {
                 if (!args.IsSuccess)
-                    StopsMapPlaceholder.Text = "Map failed to load (check WebView2 / internet).";
+                    ShowMapError("Map failed to load — check WebView2 runtime and internet connection.");
             };
 
             core.Navigate(FieldTripMapBridge.EntryUri);
             _webViewInitialized = true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            StopsMapPlaceholder.Text = "WebView2 unavailable — install Edge WebView2 Runtime.";
+            ShowMapError("WebView2 unavailable — install Microsoft Edge WebView2 Runtime.\n" + ex.Message);
         }
+    }
+
+    private void StartMapLoadWatchdog()
+    {
+        _mapLoadTimer?.Stop();
+        _mapLoadTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+        _mapLoadTimer.Tick += (_, _) =>
+        {
+            _mapLoadTimer.Stop();
+            if (!_mapReady)
+                ShowMapError("Map is taking longer than usual — check your connection or try again later.");
+        };
+        _mapLoadTimer.Start();
+    }
+
+    private void HideMapLoadingOverlay()
+    {
+        _mapLoadTimer?.Stop();
+        StopsMapLoadingOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowMapError(string message)
+    {
+        _mapLoadTimer?.Stop();
+        StopsMapLoadingOverlay.Visibility = Visibility.Visible;
+        StopsMapPlaceholder.Text = message;
     }
 
     private void ReloadStore()
@@ -184,12 +213,15 @@ public partial class FieldTripPlannerWindow : Window
         var stops = _selectedTrip?.Stops ?? [];
         if (stops.Count == 0 || stops.All(s => s.Lat == 0 && s.Lon == 0))
         {
-            StopsMapPlaceholder.Text = "Add stops with coordinates to see a preview.";
-            StopsMapPlaceholder.Visibility = Visibility.Visible;
+            if (_mapReady)
+            {
+                StopsMapLoadingOverlay.Visibility = Visibility.Visible;
+                StopsMapPlaceholder.Text = "Add stops with coordinates to see a preview.";
+            }
         }
-        else
+        else if (_mapReady)
         {
-            StopsMapPlaceholder.Visibility = Visibility.Collapsed;
+            HideMapLoadingOverlay();
         }
 
         StopsMapWebView.CoreWebView2.PostWebMessageAsJson(

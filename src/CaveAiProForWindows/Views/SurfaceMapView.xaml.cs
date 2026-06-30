@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -18,11 +20,14 @@ public partial class SurfaceMapView : UserControl
     private bool _webViewInitialized;
     private bool _mapReady;
     private bool _applyingSettings;
+    private bool _fitSurveyOnReady;
+    private bool _measureActive;
     private CaveProjectDocument? _pendingProject;
     private string? _pendingZipPath;
     private string? _cloudAssetCacheDir;
     private SurfaceMapTileCacheService? _tileCache;
     private TaskCompletionSource<string?>? _pngExportTcs;
+    private TaskCompletionSource<JsonElement>? _exportPackageTcs;
 
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
         nameof(Project),
@@ -77,6 +82,7 @@ public partial class SurfaceMapView : UserControl
     {
         ApplyPersistedUiSettings();
         UpdateTileCacheSizeLabel();
+        UpdateDeclinationBadge();
         await EnsureWebViewAsync().ConfigureAwait(true);
         UpdateCoordsLine();
         QueueProjectPush();
@@ -100,6 +106,11 @@ public partial class SurfaceMapView : UserControl
             LidarCheck.IsChecked = s.LidarOverlayEnabled;
             CopernicusCheck.IsChecked = s.CopernicusDsmEnabled;
             OfflineCacheCheck.IsChecked = s.OfflineTileCacheEnabled;
+            EntrancePinCheck.IsChecked = s.EntrancePinEnabled;
+            VehiclePinsCheck.IsChecked = s.VehiclePinsEnabled;
+            LidarOpacitySlider.Value = s.LidarOpacity;
+            LidarOpacityLabel.Text = $"{(int)Math.Round(s.LidarOpacity * 100)}%";
+
             HillshadeCheck.Checked += LayerToggle_Changed;
             HillshadeCheck.Unchecked += LayerToggle_Changed;
             Terrain3dCheck.Checked += LayerToggle_Changed;
@@ -110,8 +121,14 @@ public partial class SurfaceMapView : UserControl
             LidarCheck.Unchecked += LayerToggle_Changed;
             CopernicusCheck.Checked += LayerToggle_Changed;
             CopernicusCheck.Unchecked += LayerToggle_Changed;
+            EntrancePinCheck.Checked += LayerToggle_Changed;
+            EntrancePinCheck.Unchecked += LayerToggle_Changed;
+            VehiclePinsCheck.Checked += LayerToggle_Changed;
+            VehiclePinsCheck.Unchecked += LayerToggle_Changed;
             OfflineCacheCheck.Checked += OfflineCacheToggle_Changed;
             OfflineCacheCheck.Unchecked += OfflineCacheToggle_Changed;
+            PerformanceToggle.Checked += PerformanceToggle_Changed;
+            PerformanceToggle.Unchecked += PerformanceToggle_Changed;
         }
         finally
         {
@@ -126,6 +143,9 @@ public partial class SurfaceMapView : UserControl
 
         try
         {
+            LoadingOverlay.Visibility = Visibility.Visible;
+            LoadingText.Text = "Starting WebView2…";
+
             var userDataFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "CaveAiProForWindows",
@@ -149,6 +169,7 @@ public partial class SurfaceMapView : UserControl
             {
                 PlaceholderText.Text = "Surface map assets not found (Assets/surface-map).";
                 StatusText.Text = "Assets missing";
+                LoadingOverlay.Visibility = Visibility.Collapsed;
                 return;
             }
 
@@ -216,6 +237,7 @@ public partial class SurfaceMapView : UserControl
                     PlaceholderText.Text = "Surface map failed to load.";
                     StatusText.Text = "Navigation error";
                     OfflineBanner.Visibility = Visibility.Visible;
+                    LoadingOverlay.Visibility = Visibility.Collapsed;
                 }
             };
 
@@ -223,11 +245,13 @@ public partial class SurfaceMapView : UserControl
             PlaceholderText.Visibility = Visibility.Collapsed;
             _webViewInitialized = true;
             StatusText.Text = "Loading map…";
+            LoadingText.Text = "Loading map tiles…";
         }
         catch (Exception ex)
         {
             PlaceholderText.Text = "WebView2 could not start. Install Microsoft Edge WebView2 Runtime.";
             StatusText.Text = ex.Message;
+            LoadingOverlay.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -286,9 +310,29 @@ public partial class SurfaceMapView : UserControl
                 {
                     case "ready":
                         _mapReady = true;
+                        LoadingOverlay.Visibility = Visibility.Collapsed;
                         StatusText.Text = "Map ready";
                         PlaceholderText.Visibility = Visibility.Collapsed;
+                        UpdateDeclinationBadge();
                         FlushPendingProject();
+                        if (!_fitSurveyOnReady)
+                        {
+                            _fitSurveyOnReady = true;
+                            var sv = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
+                            if (!(sv.Zoom > 0 && Math.Abs(sv.CenterLat) > 1e-6))
+                                SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitSurvey"}""");
+                        }
+                        break;
+                    case "mapViewport":
+                        if (root.TryGetProperty("zoom", out var zEl) && zEl.TryGetDouble(out var zv))
+                            ZoomText.Text = $"Zoom {zv:F1}";
+                        break;
+                    case "cursorCoords":
+                        if (root.TryGetProperty("lat", out var cla) && cla.TryGetDouble(out var clat) &&
+                            root.TryGetProperty("lon", out var clo) && clo.TryGetDouble(out var clon))
+                            CursorText.Text = $"Cursor: {clat:F5}°, {clon:F5}°";
+                        else
+                            CursorText.Text = "Cursor: —";
                         break;
                     case "mapState":
                         PersistMapState(root);
@@ -313,6 +357,56 @@ public partial class SurfaceMapView : UserControl
                             _pngExportTcs?.TrySetException(new InvalidOperationException(errEl.GetString() ?? "Export failed"));
                         else
                             _pngExportTcs?.TrySetResult(null);
+                        break;
+                    case "exportPackageResult":
+                        _exportPackageTcs?.TrySetResult(root);
+                        break;
+                    case "measureResult":
+                        if (root.TryGetProperty("label", out var ml) && !string.IsNullOrWhiteSpace(ml.GetString()))
+                        {
+                            MeasureText.Text = "Measure: " + ml.GetString();
+                            MeasureText.Visibility = Visibility.Visible;
+                        }
+                        else
+                        {
+                            MeasureText.Visibility = Visibility.Collapsed;
+                        }
+                        break;
+                    case "coordsCopy":
+                        if (root.TryGetProperty("text", out var ct))
+                        {
+                            try
+                            {
+                                Clipboard.SetText(ct.GetString() ?? "");
+                                StatusText.Text = "Coordinates copied";
+                            }
+                            catch
+                            {
+                                /* ignore */
+                            }
+                        }
+                        break;
+                    case "pinPlaced":
+                        if (Project != null &&
+                            root.TryGetProperty("kind", out var pk) &&
+                            root.TryGetProperty("lat", out var pla) && pla.TryGetDouble(out var plat) &&
+                            root.TryGetProperty("lon", out var plo) && plo.TryGetDouble(out var plon))
+                        {
+                            var ls = plat.ToString("F6", CultureInfo.InvariantCulture);
+                            var los = plon.ToString("F6", CultureInfo.InvariantCulture);
+                            if (string.Equals(pk.GetString(), "vehicle", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Project.ReturnCarLat = ls;
+                                Project.ReturnCarLon = los;
+                            }
+                            else if (string.Equals(pk.GetString(), "base", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Project.ReturnBaseLat = ls;
+                                Project.ReturnBaseLon = los;
+                            }
+                            QueueProjectPush();
+                            StatusText.Text = "Pin updated";
+                        }
                         break;
                     case "elevationProfile":
                         ApplyElevationProfile(root);
@@ -354,7 +448,10 @@ public partial class SurfaceMapView : UserControl
         if (payload.TryGetProperty("centerLat", out var clat) && clat.TryGetDouble(out var lat))
             s.CenterLat = lat;
         if (payload.TryGetProperty("zoom", out var zoom) && zoom.TryGetDouble(out var z))
+        {
             s.Zoom = z;
+            ZoomText.Text = $"Zoom {z:F1}";
+        }
         if (payload.TryGetProperty("bearing", out var br) && br.TryGetDouble(out var b))
             s.Bearing = b;
         if (payload.TryGetProperty("pitch", out var pi) && pi.TryGetDouble(out var p))
@@ -376,11 +473,54 @@ public partial class SurfaceMapView : UserControl
             CorridorCheck.IsChecked = s.CorridorOverlayEnabled;
             CopernicusCheck.IsChecked = s.CopernicusDsmEnabled;
             LidarCheck.IsChecked = s.LidarOverlayEnabled;
+            EntrancePinCheck.IsChecked = s.EntrancePinEnabled;
+            VehiclePinsCheck.IsChecked = s.VehiclePinsEnabled;
+            LidarOpacitySlider.Value = s.LidarOpacity;
+            LidarOpacityLabel.Text = $"{(int)Math.Round(s.LidarOpacity * 100)}%";
         }
         finally
         {
             _applyingSettings = false;
         }
+    }
+
+    public void ReloadLayersFromSettings()
+    {
+        SyncLayerCheckboxesFromSettings(AppUiSettingsStore.LoadOrDefault().SurfaceMap);
+        PushLayerStateToMap();
+    }
+
+    private void PushLayerStateToMap()
+    {
+        if (!_mapReady)
+            return;
+
+        var s = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
+        var msg = JsonSerializer.Serialize(new
+        {
+            type = "layers",
+            payload = new
+            {
+                performanceMode = PerformanceToggle.IsChecked == true,
+                hillshadeEnabled = s.HillshadeEnabled,
+                terrain3dEnabled = s.Terrain3dEnabled,
+                corridorOverlayEnabled = s.CorridorOverlayEnabled,
+                copernicusDsmEnabled = s.CopernicusDsmEnabled,
+                lidarOverlayEnabled = s.LidarOverlayEnabled,
+                lidarOpacity = s.LidarOpacity,
+                entrancePinEnabled = s.EntrancePinEnabled,
+                vehiclePinsEnabled = s.VehiclePinsEnabled,
+            },
+        });
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson(msg);
+    }
+
+    private void ElevationCollapseToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var expanded = ElevationCollapseToggle.IsChecked == true;
+        ElevationPanelBody.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        ElevationCollapseToggle.Content = expanded ? "▾" : "▸";
+        ElevationCollapseToggle.ToolTip = expanded ? "Collapse elevation profile" : "Expand elevation profile";
     }
 
     private void ApplyElevationProfile(JsonElement root)
@@ -420,7 +560,7 @@ public partial class SurfaceMapView : UserControl
             {
                 var maxD = distances[^1];
                 ElevationStatusText.Text =
-                    $"Distance {(maxD / 1000).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)} km · elevation {valid.Min():F0}–{valid.Max():F0} m";
+                    $"Distance {(maxD / 1000).ToString("F2", CultureInfo.InvariantCulture)} km · elevation {valid.Min():F0}–{valid.Max():F0} m";
             }
         }
     }
@@ -463,11 +603,11 @@ public partial class SurfaceMapView : UserControl
         var started = false;
         for (var i = 0; i < elevationsM.Count; i++)
         {
-            var e = elevationsM[i];
-            if (double.IsNaN(e) || double.IsInfinity(e))
+            var ev = elevationsM[i];
+            if (double.IsNaN(ev) || double.IsInfinity(ev))
                 continue;
             var x = 8 + (distancesM[i] / maxD) * (w - 16);
-            var y = h - 12 - ((e - e0) / (e1 - e0)) * (h - 24);
+            var y = h - 12 - ((ev - e0) / (e1 - e0)) * (h - 24);
             if (!started)
             {
                 polyline.Points.Add(new Point(x, y));
@@ -489,6 +629,7 @@ public partial class SurfaceMapView : UserControl
         _pendingZipPath = ZipPath;
         _cloudAssetCacheDir = CloudAssetCacheDir;
         UpdateCoordsLine();
+        UpdateDeclinationBadge();
         if (_mapReady)
             FlushPendingProject();
     }
@@ -507,6 +648,9 @@ public partial class SurfaceMapView : UserControl
             settings.CorridorOverlayEnabled = CorridorCheck.IsChecked == true;
             settings.CopernicusDsmEnabled = CopernicusCheck.IsChecked == true;
             settings.LidarOverlayEnabled = LidarCheck.IsChecked == true;
+            settings.EntrancePinEnabled = EntrancePinCheck.IsChecked == true;
+            settings.VehiclePinsEnabled = VehiclePinsCheck.IsChecked == true;
+            settings.LidarOpacity = (float)LidarOpacitySlider.Value;
         }
 
         var json = SurfaceMapProjectBridge.BuildProjectMessageJson(
@@ -535,6 +679,20 @@ public partial class SurfaceMapView : UserControl
             "Set entrance lat/lon in project settings (or lock A1 GPS on Android), then reload the surface map.";
     }
 
+    private void UpdateDeclinationBadge()
+    {
+        var decl = Project?.SurveyCalibrationProfile?.MagneticDeclinationAppliedDeg;
+        if (decl is { } d && Math.Abs(d) > 0.01f)
+        {
+            DeclinationBadge.Visibility = Visibility.Visible;
+            DeclinationText.Text = $"Mag. decl. {Math.Abs(d):F1}° {(d >= 0 ? "E" : "W")}";
+        }
+        else
+        {
+            DeclinationBadge.Visibility = Visibility.Collapsed;
+        }
+    }
+
     private void OfflineCacheToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (_applyingSettings) return;
@@ -556,25 +714,152 @@ public partial class SurfaceMapView : UserControl
         all.SurfaceMap.CorridorOverlayEnabled = CorridorCheck.IsChecked == true;
         all.SurfaceMap.CopernicusDsmEnabled = CopernicusCheck.IsChecked == true;
         all.SurfaceMap.LidarOverlayEnabled = LidarCheck.IsChecked == true;
+        all.SurfaceMap.EntrancePinEnabled = EntrancePinCheck.IsChecked == true;
+        all.SurfaceMap.VehiclePinsEnabled = VehiclePinsCheck.IsChecked == true;
+        all.SurfaceMap.LidarOpacity = (float)LidarOpacitySlider.Value;
         AppUiSettingsStore.Save(all);
+        PushLayerStateToMap();
+    }
 
+    private void PerformanceToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_applyingSettings) return;
+        PushLayerStateToMap();
+    }
+
+    private void LidarOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_applyingSettings || LidarOpacityLabel == null) return;
+        LidarOpacityLabel.Text = $"{(int)Math.Round(e.NewValue * 100)}%";
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.SurfaceMap.LidarOpacity = (float)e.NewValue;
+        AppUiSettingsStore.Save(all);
         if (_mapReady)
         {
-            var msg = JsonSerializer.Serialize(new
+            SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
-                type = "layers",
-                payload = new
-                {
-                    hillshadeEnabled = all.SurfaceMap.HillshadeEnabled,
-                    terrain3dEnabled = all.SurfaceMap.Terrain3dEnabled,
-                    corridorOverlayEnabled = all.SurfaceMap.CorridorOverlayEnabled,
-                    copernicusDsmEnabled = all.SurfaceMap.CopernicusDsmEnabled,
-                    lidarOverlayEnabled = all.SurfaceMap.LidarOverlayEnabled,
-                },
-            });
-            SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson(msg);
+                type = "lidarOpacity",
+                payload = new { opacity = e.NewValue },
+            }));
         }
     }
+
+    private void MeasureToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _measureActive = MeasureToggle.IsChecked == true;
+        if (_mapReady)
+        {
+            SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            {
+                type = "measure",
+                payload = new { active = _measureActive },
+            }));
+        }
+        if (!_measureActive)
+            MeasureText.Visibility = Visibility.Collapsed;
+    }
+
+    private void CopyCoords_Click(object sender, RoutedEventArgs e)
+    {
+        if (CopyCoordsButton.ContextMenu == null) return;
+        CopyCoordsButton.ContextMenu.PlacementTarget = CopyCoordsButton;
+        CopyCoordsButton.ContextMenu.IsOpen = true;
+    }
+
+    private void CopyCoordsMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.Tag is string src && _mapReady)
+        {
+            SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            {
+                type = "getCoords",
+                payload = new { source = src },
+            }));
+        }
+    }
+
+    private void Directions_Click(object sender, RoutedEventArgs e)
+    {
+        if (DirectionsButton.ContextMenu == null) return;
+        DirectionsButton.ContextMenu.PlacementTarget = DirectionsButton;
+        DirectionsButton.ContextMenu.IsOpen = true;
+    }
+
+    private void DirectionsGoogle_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project?.Lat is { } lat && Project.Lon is { } lon)
+        {
+            var url = $"https://www.google.com/maps/dir/?api=1&destination={lat.ToString("F6", CultureInfo.InvariantCulture)},{lon.ToString("F6", CultureInfo.InvariantCulture)}&travelmode=driving";
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+    }
+
+    private void DirectionsOsm_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project?.Lat is { } lat && Project.Lon is { } lon)
+        {
+            var url = $"https://www.openstreetmap.org/directions?to={lat.ToString("F6", CultureInfo.InvariantCulture)}%2C{lon.ToString("F6", CultureInfo.InvariantCulture)}";
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+    }
+
+    private async void ExportPackage_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_mapReady || SurfaceWebView?.CoreWebView2 == null) return;
+
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = "ZIP|*.zip",
+            FileName = $"{Project?.Name ?? "surface"}_handoff.zip",
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        _exportPackageTcs = new TaskCompletionSource<JsonElement>();
+        SurfaceWebView.CoreWebView2.PostWebMessageAsJson("""{"type":"exportPackage"}""");
+        try
+        {
+            var root = await _exportPackageTcs.Task.ConfigureAwait(true);
+            var url = root.GetProperty("dataUrl").GetString()!;
+            var png = Convert.FromBase64String(url["data:image/png;base64,".Length..]);
+            var geo = root.TryGetProperty("geoJson", out var g) ? g.GetRawText() : "{}";
+            var gpx = root.TryGetProperty("gpx", out var gx) ? gx.GetString() ?? "" : "";
+            var td = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(td);
+            await File.WriteAllBytesAsync(Path.Combine(td, "surface.png"), png);
+            await File.WriteAllTextAsync(Path.Combine(td, "corridor.geojson"), geo);
+            await File.WriteAllTextAsync(Path.Combine(td, "track.gpx"), gpx);
+            if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
+            ZipFile.CreateFromDirectory(td, dlg.FileName);
+            Directory.Delete(td, true);
+            StatusText.Text = "Package exported";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Export failed: " + ex.Message;
+        }
+        finally
+        {
+            _exportPackageTcs = null;
+        }
+    }
+
+    private void FitSurvey_Click(object sender, RoutedEventArgs e) =>
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitSurvey"}""");
+
+    private void LayersToggle_Click(object sender, RoutedEventArgs e) =>
+        LayersPanel.Visibility = LayersToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+
+    private void SetVehicleGps_Click(object sender, RoutedEventArgs e) =>
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPickGps","payload":{"kind":"vehicle"}}""");
+
+    private void PickVehicleMap_Click(object sender, RoutedEventArgs e) =>
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPick","payload":{"kind":"vehicle"}}""");
+
+    private void SetBaseGps_Click(object sender, RoutedEventArgs e) =>
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPickGps","payload":{"kind":"base"}}""");
+
+    private void PickBaseMap_Click(object sender, RoutedEventArgs e) =>
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPick","payload":{"kind":"base"}}""");
 
     private async void ExportPng_Click(object sender, RoutedEventArgs e)
     {
@@ -615,14 +900,15 @@ public partial class SurfaceMapView : UserControl
         }
     }
 
-    private void FitEntrance_Click(object sender, RoutedEventArgs e)
-    {
+    private void FitEntrance_Click(object sender, RoutedEventArgs e) =>
         SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitEntrance"}""");
-    }
 
     private async void ReloadMap_Click(object sender, RoutedEventArgs e)
     {
         _mapReady = false;
+        _fitSurveyOnReady = false;
+        LoadingOverlay.Visibility = Visibility.Visible;
+        LoadingText.Text = "Reloading map…";
         StatusText.Text = "Reloading…";
         OfflineBanner.Visibility = Visibility.Collapsed;
         if (SurfaceWebView?.CoreWebView2 != null)

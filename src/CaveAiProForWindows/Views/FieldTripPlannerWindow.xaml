@@ -60,9 +60,16 @@
                                    FontSize="11.5" Margin="0,0,0,6" Foreground="{DynamicResource Cave.TextMuted}" />
                         <Grid MinHeight="120">
                             <wv2:WebView2 x:Name="StopsMapWebView" />
-                            <TextBlock x:Name="StopsMapPlaceholder" Text="Initializing map…"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource Cave.TextMuted}" FontSize="11" />
+                            <Border x:Name="StopsMapLoadingOverlay" Background="#CC0D1117" Padding="16"
+                                    Visibility="Visible">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <ProgressBar IsIndeterminate="True" Width="160" Height="4" Margin="0,0,0,10" />
+                                    <TextBlock x:Name="StopsMapPlaceholder" Text="Initializing map…"
+                                               HorizontalAlignment="Center"
+                                               Foreground="{DynamicResource Cave.TextMuted}" FontSize="11"
+                                               TextWrapping="Wrap" TextAlignment="Center" MaxWidth="280" />
+                                </StackPanel>
+                            </Border>
                         </Grid>
                     </DockPanel>
                 </Border>

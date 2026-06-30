@@ -176,11 +176,19 @@
         <Setter Property="Background" Value="{DynamicResource Cave.Surface}" />
         <Setter Property="Foreground" Value="{DynamicResource Cave.TextSubdued}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Cave.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="MinWidth" Value="88" />
         <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource Cave.Text}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Cave.Accent}" />
+            </Trigger>
             <Trigger Property="IsChecked" Value="True">
                 <Setter Property="Background" Value="{DynamicResource Cave.Accent}" />
                 <Setter Property="Foreground" Value="{DynamicResource Cave.AccentButtonForeground}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource Cave.AccentPressed}" />
+                <Setter Property="FontWeight" Value="Bold" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -329,6 +337,21 @@
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource Cave.Text}" />
         <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style TargetType="TextBox">
+        <Setter Property="Background" Value="{DynamicResource Cave.Surface}" />
+        <Setter Property="Foreground" Value="{DynamicResource Cave.Text}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Cave.Border}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource Cave.Text}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource Cave.Accent}" />
+        <Setter Property="SelectionTextBrush" Value="{DynamicResource Cave.AccentButtonForeground}" />
+    </Style>
+
+    <Style TargetType="ComboBox">
+        <Setter Property="Background" Value="{DynamicResource Cave.Surface}" />
+        <Setter Property="Foreground" Value="{DynamicResource Cave.Text}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Cave.Border}" />
     </Style>
 
     <Style TargetType="StatusBar">

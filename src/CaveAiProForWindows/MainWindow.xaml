@@ -216,9 +216,10 @@
             <Separator />
             <StatusBarItem>
                 <TextBlock Text="{Binding AuthStatusChip}" TextTrimming="CharacterEllipsis" MaxWidth="320"
-                           FontWeight="SemiBold"
+                           FontWeight="SemiBold" Cursor="Hand"
                            Foreground="{DynamicResource Cave.AccentBrush}"
-                           ToolTip="Sign-in, subscription, and legal acceptance status" />
+                           ToolTip="Click: open sign-in or LEGAL &amp; SETTINGS when action is needed"
+                           MouseLeftButtonUp="AuthStatusChip_Click" />
             </StatusBarItem>
             <Separator />
             <StatusBarItem>
@@ -444,15 +445,19 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
-                            <ToggleButton x:Name="TabGroupSurvey" Content="Survey" Padding="12,5" Margin="0,0,4,0"
-                                          IsChecked="True" Click="TabGroup_Click" Style="{StaticResource Cave.TabGroupToggle}" />
-                            <ToggleButton x:Name="TabGroupLibrary" Content="Library" Padding="12,5" Margin="0,0,4,0"
-                                          Click="TabGroup_Click" Style="{StaticResource Cave.TabGroupToggle}" />
-                            <ToggleButton x:Name="TabGroupPublish" Content="Publish" Padding="12,5" Margin="0,0,4,0"
-                                          Click="TabGroup_Click" Style="{StaticResource Cave.TabGroupToggle}" />
-                            <ToggleButton x:Name="TabGroupSettings" Content="Settings" Padding="12,5"
-                                          Click="TabGroup_Click" Style="{StaticResource Cave.TabGroupToggle}" />
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                            <ToggleButton x:Name="TabGroupSurvey" Content="Survey" Padding="14,6" Margin="0,0,6,0"
+                                          IsChecked="True" Click="TabGroup_Click" Style="{StaticResource Cave.TabGroupToggle}"
+                                          ToolTip="Plan, section, 3D, maps, and survey tools" />
+                            <ToggleButton x:Name="TabGroupLibrary" Content="Library" Padding="14,6" Margin="0,0,6,0"
+                                          Click="TabGroup_Click" Style="{StaticResource Cave.TabGroupToggle}"
+                                          ToolTip="Integrity checks and survey QC" />
+                            <ToggleButton x:Name="TabGroupPublish" Content="Publish" Padding="14,6" Margin="0,0,6,0"
+                                          Click="TabGroup_Click" Style="{StaticResource Cave.TabGroupToggle}"
+                                          ToolTip="Cloud publish shortcuts (Ctrl+K → Push to Cloud)" />
+                            <ToggleButton x:Name="TabGroupSettings" Content="Settings" Padding="14,6"
+                                          Click="TabGroup_Click" Style="{StaticResource Cave.TabGroupToggle}"
+                                          ToolTip="Legal acceptance, preferences, and about" />
                         </StackPanel>
                         <TabControl Grid.Row="1" x:Name="MainSurveyTabControl"
                                     Background="{DynamicResource Cave.Surface}" BorderBrush="{DynamicResource Cave.Border}"

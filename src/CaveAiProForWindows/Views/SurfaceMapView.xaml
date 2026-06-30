@@ -7,132 +7,200 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Vertical">
-            <TextBlock Text="Surface map"
-                       FontSize="15"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource Cave.Text}" />
-            <TextBlock Text="OSM basemap with optional hillshade / terrain around the project entrance (MapLibre GL JS). Requires internet for tiles."
-                       FontSize="11.5"
-                       Margin="0,4,0,0"
-                       TextWrapping="Wrap"
-                       Foreground="{DynamicResource Cave.TextMuted}" />
-        </StackPanel>
-
-        <DockPanel Grid.Row="1" Margin="0,10,0,8" LastChildFill="False">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                <CheckBox x:Name="HillshadeCheck"
-                          Content="Hillshade"
-                          IsChecked="False"
-                          VerticalAlignment="Center"
-                          Margin="0,0,12,0"
-                          Foreground="{DynamicResource Cave.TextSubdued}"
-                          ToolTip="Wikimedia hillshade overlay (client-side tiles)" />
-                <CheckBox x:Name="Terrain3dCheck"
-                          Content="3D terrain"
-                          VerticalAlignment="Center"
-                          Margin="0,0,12,0"
-                          Foreground="{DynamicResource Cave.TextSubdued}"
-                          ToolTip="MapLibre terrain from Terrarium DEM (client-side tiles)" />
-                <CheckBox x:Name="CorridorCheck"
-                          Content="Survey corridor"
-                          IsChecked="True"
-                          VerticalAlignment="Center"
-                          Margin="0,0,12,0"
-                          Foreground="{DynamicResource Cave.TextSubdued}"
-                          ToolTip="Traverse center line projected to WGS84 from survey legs" />
-                <CheckBox x:Name="LidarCheck"
-                          Content="Surface LiDAR"
-                          IsChecked="False"
-                          VerticalAlignment="Center"
-                          Margin="0,0,12,0"
-                          Foreground="{DynamicResource Cave.TextSubdued}"
-                          ToolTip="Georeferenced surface DSM / LiDAR raster from project JSON" />
-                <CheckBox x:Name="CopernicusCheck"
-                          Content="Copernicus DSM"
-                          VerticalAlignment="Center"
-                          Margin="0,0,12,0"
-                          Foreground="{DynamicResource Cave.TextSubdued}"
-                          ToolTip="Copernicus GLO-30 hillshade from EOX (client-side tiles)" />
-                <CheckBox x:Name="OfflineCacheCheck"
-                          Content="Offline tile cache"
-                          IsChecked="True"
-                          VerticalAlignment="Center"
-                          Margin="0,0,12,0"
-                          Foreground="{DynamicResource Cave.TextSubdued}"
-                          ToolTip="Cache OSM / hillshade / DEM tiles locally (128 MB LRU)" />
-                <TextBlock x:Name="TileCacheSizeText" VerticalAlignment="Center" Margin="0,0,12,0"
-                           FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Text="Cache: —" />
-                <Button Content="Clear cache" Padding="8,6" Margin="0,0,12,0" Click="ClearTileCache_Click"
-                        ToolTip="Delete cached surface map tiles" />
-                <Button Content="Fit entrance" Padding="10,6" Margin="0,0,6,0" Click="FitEntrance_Click"
-                        ToolTip="Center on project entrance coordinates" />
-                <Button Content="Export PNG" Padding="10,6" Margin="0,0,6,0" Click="ExportPng_Click"
-                        ToolTip="Save surface map screenshot" />
-                <Button Content="Reload map" Padding="10,6" Click="ReloadMap_Click"
-                        ToolTip="Reload MapLibre surface map" />
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <Border x:Name="DeclinationBadge" DockPanel.Dock="Right" Padding="8,4" Margin="8,0,0,0"
+                    CornerRadius="4" Background="{DynamicResource Cave.Surface}"
+                    BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" Visibility="Collapsed">
+                <TextBlock x:Name="DeclinationText" FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" />
+            </Border>
+            <StackPanel>
+                <TextBlock Text="Surface &amp; Corridor Map"
+                           FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource Cave.Text}" />
+                <TextBlock Text="Use Surface map to verify entrance, corridor, and terrain before field trip."
+                           FontSize="11.5" Margin="0,4,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource Cave.TextMuted}" />
             </StackPanel>
-            <TextBlock x:Name="StatusText"
-                       VerticalAlignment="Center"
-                       FontSize="11"
-                       Foreground="{DynamicResource Cave.TextMuted}"
-                       Text="—" />
         </DockPanel>
 
-        <Border Grid.Row="2"
-                Background="#0d1117"
-                BorderBrush="{DynamicResource Cave.Border}"
-                BorderThickness="1"
-                CornerRadius="4">
+        <WrapPanel Grid.Row="1" Margin="0,0,0,6">
+            <ToggleButton x:Name="MeasureToggle" Content="Measure" Padding="10,6" Margin="0,0,6,6"
+                          Click="MeasureToggle_Click" ToolTip="Measure distance on map" />
+            <Button x:Name="CopyCoordsButton" Content="Copy coords" Padding="10,6" Margin="0,0,6,6"
+                    Click="CopyCoords_Click">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Entrance" Tag="entrance" Click="CopyCoordsMenu_Click" />
+                        <MenuItem Header="Cursor" Tag="cursor" Click="CopyCoordsMenu_Click" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+            <Button x:Name="DirectionsButton" Content="Directions" Padding="10,6" Margin="0,0,6,6"
+                    Click="Directions_Click">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Google Maps" Click="DirectionsGoogle_Click" />
+                        <MenuItem Header="OpenStreetMap" Click="DirectionsOsm_Click" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+            <Button Content="Fit survey" Padding="10,6" Margin="0,0,6,6" Click="FitSurvey_Click" />
+            <Button Content="Fit entrance" Padding="10,6" Margin="0,0,6,6" Click="FitEntrance_Click" />
+            <Button Content="Export PNG" Padding="10,6" Margin="0,0,6,6" Click="ExportPng_Click"
+                    Style="{StaticResource Cave.AccentButton}" />
+            <Button Content="Export package" Padding="10,6" Margin="0,0,6,6" Click="ExportPackage_Click" />
+            <Button Content="Open in browser" Padding="10,6" Margin="0,0,6,6" Click="OpenSurfaceMapInBrowser_Click" />
+            <Button Content="Reload map" Padding="10,6" Margin="0,0,6,6" Click="ReloadMap_Click" />
+            <ToggleButton x:Name="LayersToggle" Content="Layers" Padding="10,6" Margin="0,0,6,6"
+                          IsChecked="True" Click="LayersToggle_Click" />
+        </WrapPanel>
+
+        <Border Grid.Row="2" x:Name="LayersPanel" Margin="0,0,0,8" Padding="10,8"
+                Background="{DynamicResource Cave.Surface}" BorderBrush="{DynamicResource Cave.Border}"
+                BorderThickness="1" CornerRadius="4">
+            <StackPanel>
+                <TextBlock Text="Performance &amp; cache" FontWeight="SemiBold" FontSize="11"
+                           Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,6" />
+                <WrapPanel Margin="0,0,0,8">
+                    <CheckBox x:Name="PerformanceToggle" Content="Performance mode" Margin="0,0,16,4"
+                              Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <CheckBox x:Name="OfflineCacheCheck" Content="Offline tile cache" IsChecked="True"
+                              Margin="0,0,16,4" Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <TextBlock x:Name="TileCacheSizeText" VerticalAlignment="Center" Margin="0,0,12,4"
+                               FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Text="Cache: —" />
+                    <Button Content="Clear cache" Padding="8,4" Margin="0,0,0,4" Click="ClearTileCache_Click" />
+                </WrapPanel>
+                <TextBlock Text="Layers" FontWeight="SemiBold" FontSize="11"
+                           Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,6" />
+                <WrapPanel Margin="0,0,0,8">
+                    <CheckBox x:Name="HillshadeCheck" Content="Hillshade" Margin="0,0,16,4"
+                              Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <CheckBox x:Name="Terrain3dCheck" Content="3D terrain" Margin="0,0,16,4"
+                              Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <CheckBox x:Name="CopernicusCheck" Content="Copernicus DSM" Margin="0,0,16,4"
+                              Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <CheckBox x:Name="CorridorCheck" Content="Survey corridor" IsChecked="True"
+                              Margin="0,0,16,4" Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <CheckBox x:Name="LidarCheck" Content="Surface LiDAR" Margin="0,0,16,4"
+                              Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <CheckBox x:Name="EntrancePinCheck" Content="Entrance pin" IsChecked="True"
+                              Margin="0,0,16,4" Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <CheckBox x:Name="VehiclePinsCheck" Content="Vehicle / base pins" IsChecked="True"
+                              Margin="0,0,16,4" Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,4">
+                        <TextBlock Text="LiDAR opacity" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Cave.TextSubdued}" Margin="0,0,8,0" />
+                        <Slider x:Name="LidarOpacitySlider" Width="100" Minimum="0.1" Maximum="1" Value="0.55"
+                                VerticalAlignment="Center" ValueChanged="LidarOpacitySlider_ValueChanged" />
+                        <TextBlock x:Name="LidarOpacityLabel" Text="55%" Margin="8,0,0,0" FontSize="11"
+                                   VerticalAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}" />
+                    </StackPanel>
+                </WrapPanel>
+                <TextBlock Text="Field pins" FontWeight="SemiBold" FontSize="11"
+                           Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,6" />
+                <WrapPanel>
+                    <Button Content="Vehicle GPS" Padding="8,4" Margin="0,0,6,0" Click="SetVehicleGps_Click" />
+                    <Button Content="Pick vehicle" Padding="8,4" Margin="0,0,12,0" Click="PickVehicleMap_Click" />
+                    <Button Content="Base GPS" Padding="8,4" Margin="0,0,6,0" Click="SetBaseGps_Click" />
+                    <Button Content="Pick base" Padding="8,4" Click="PickBaseMap_Click" />
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="3" Background="#0d1117" BorderBrush="{DynamicResource Cave.Border}"
+                BorderThickness="1" CornerRadius="4">
             <Grid>
                 <wv2:WebView2 x:Name="SurfaceWebView" />
+                <Border x:Name="LoadingOverlay" Background="#CC0D1117" Visibility="Visible">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="Loading…" FontSize="22" HorizontalAlignment="Center" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource Cave.TextMuted}" />
+                        <TextBlock x:Name="LoadingText" Text="Starting surface map"
+                                   Foreground="{DynamicResource Cave.TextMuted}" FontSize="12" />
+                    </StackPanel>
+                </Border>
                 <Border x:Name="OfflineBanner" Background="#CC1A2332" Padding="12,10"
                         VerticalAlignment="Top" HorizontalAlignment="Stretch" Visibility="Collapsed">
                     <StackPanel>
                         <TextBlock Text="Offline or tile fetch failed — cached tiles may still display."
                                    Foreground="#FFE2E8F0" FontWeight="SemiBold" TextWrapping="Wrap" />
-                        <Button Content="Open surface map in browser" Padding="10,6" Margin="0,8,0,0"
+                        <Button Content="Open in browser" Padding="10,6" Margin="0,8,0,0"
                                 HorizontalAlignment="Left" Click="OpenSurfaceMapInBrowser_Click" />
                     </StackPanel>
                 </Border>
-                <TextBlock x:Name="PlaceholderText"
-                           Text="Initializing WebView2…"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource Cave.TextMuted}"
-                           FontSize="12" />
+                <TextBlock x:Name="PlaceholderText" Text="Initializing WebView2…"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Cave.TextMuted}" FontSize="12" />
+                <Border VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="10" Padding="8,6"
+                        Background="#CC1A2332" CornerRadius="4" BorderBrush="#334155" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="Legend" FontSize="10" FontWeight="SemiBold" Foreground="#E2E8F0" Margin="0,0,0,4" />
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <Border Width="12" Height="3" Background="#00D4AA" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="Corridor" FontSize="10" Foreground="#94A3B8" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <Ellipse Width="8" Height="8" Fill="#F59E0B" Margin="0,0,8,0" />
+                            <TextBlock Text="Entrance" FontSize="10" Foreground="#94A3B8" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <Border Width="12" Height="8" Background="#6366F1" Opacity="0.7" Margin="0,0,6,0" />
+                            <TextBlock Text="LiDAR" FontSize="10" Foreground="#94A3B8" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <Border Width="12" Height="8" Background="#64748B" Margin="0,0,6,0" />
+                            <TextBlock Text="Hillshade" FontSize="10" Foreground="#94A3B8" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="3"
-                   x:Name="CoordsText"
-                   Margin="0,8,0,0"
-                   FontSize="11"
-                   Foreground="{DynamicResource Cave.TextMuted}"
-                   Text="No project loaded." />
-        <TextBlock Grid.Row="3"
-                   x:Name="EntranceHintText"
-                   Margin="0,26,0,0"
-                   FontSize="11"
-                   Foreground="{DynamicResource Cave.TextMuted}"
-                   TextWrapping="Wrap"
-                   Visibility="Collapsed"
+        <DockPanel Grid.Row="4" Margin="0,8,0,0">
+            <TextBlock x:Name="ZoomText" DockPanel.Dock="Right" FontSize="11"
+                       Foreground="{DynamicResource Cave.TextMuted}" Text="Zoom —" Margin="12,0,0,0" />
+            <TextBlock x:Name="MeasureText" DockPanel.Dock="Right" FontSize="11"
+                       Foreground="{DynamicResource Cave.Accent}" Visibility="Collapsed" Margin="12,0,0,0" />
+            <TextBlock x:Name="CursorText" FontSize="11" Foreground="{DynamicResource Cave.TextMuted}"
+                       Text="Cursor: —" Margin="0,0,12,0" />
+            <TextBlock x:Name="StatusText" FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Text="—" />
+        </DockPanel>
+
+        <TextBlock Grid.Row="5" x:Name="CoordsText" Margin="0,6,0,0" FontSize="11"
+                   Foreground="{DynamicResource Cave.TextMuted}" Text="No project loaded." />
+        <TextBlock Grid.Row="5" x:Name="EntranceHintText" Margin="0,24,0,0" FontSize="11"
+                   Foreground="{DynamicResource Cave.TextMuted}" TextWrapping="Wrap" Visibility="Collapsed"
                    Text="Set entrance lat/lon in project settings to center the map on the cave." />
 
-        <Border Grid.Row="4" x:Name="ElevationPanel" Margin="0,8,0,0" Padding="8,6" CornerRadius="4"
+        <Border Grid.Row="6" x:Name="ElevationPanel" Margin="0,8,0,0" Padding="8,6" CornerRadius="4"
                 BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
                 Background="{DynamicResource Cave.Surface}" Visibility="Collapsed">
             <StackPanel>
-                <TextBlock Text="Elevation along survey corridor (Terrarium DEM)" FontWeight="SemiBold"
-                           FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
-                <Canvas x:Name="ElevationChartCanvas" Height="100" Background="#FF0D1117" />
-                <TextBlock x:Name="ElevationStatusText" FontSize="11" Margin="0,4,0,0"
-                           Foreground="{DynamicResource Cave.TextMuted}" Text="—" />
+                <DockPanel Margin="0,0,0,4" LastChildFill="True">
+                    <ToggleButton x:Name="ElevationCollapseToggle"
+                                  DockPanel.Dock="Left"
+                                  Content="▾"
+                                  IsChecked="True"
+                                  Width="22"
+                                  Height="22"
+                                  Padding="0"
+                                  Margin="0,0,6,0"
+                                  Click="ElevationCollapseToggle_Click"
+                                  ToolTip="Collapse elevation profile" />
+                    <TextBlock Text="Elevation along survey corridor (Terrarium DEM)" FontWeight="SemiBold"
+                               FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" VerticalAlignment="Center" />
+                </DockPanel>
+                <StackPanel x:Name="ElevationPanelBody">
+                    <Canvas x:Name="ElevationChartCanvas" Height="100" Background="#FF0D1117" />
+                    <TextBlock x:Name="ElevationStatusText" FontSize="11" Margin="0,4,0,0"
+                               Foreground="{DynamicResource Cave.TextMuted}" Text="—" />
+                </StackPanel>
             </StackPanel>
         </Border>
     </Grid>

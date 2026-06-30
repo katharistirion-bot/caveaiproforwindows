@@ -91,6 +91,21 @@
     <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT"
               Value="You can start CAVE AI PRO from the Start menu or desktop shortcut. After install, right-click a CaveAI .json or backup .zip, then Open with - CAVE AI PRO (or choose it once under Choose another app). Double-click works if you set this app as the default for that file type." />
 
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch CAVE AI PRO" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+
+    <CustomAction Id="LaunchApplication"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="CaveAiProForWindows.exe"
+                  Execute="asyncNoWait"
+                  Impersonate="yes"
+                  Return="asyncNoWait" />
+
+    <InstallUISequence>
+      <Custom Action="LaunchApplication" After="InstallFinalize"
+              Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1" />
+    </InstallUISequence>
+
   </Package>
 
 

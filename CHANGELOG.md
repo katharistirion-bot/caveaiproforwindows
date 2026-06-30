@@ -62,6 +62,30 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Explore ↔ Surface layer sync** — hillshade / Copernicus toggles shared via `layers=` URL query and `SurfaceMapLayerPrefsSync`
+- **`CloudCommandsViewModel`** — publish retry queue + local publish history slice extracted from `MainViewModel`
+- **Command palette** additions: Open project, Surface map tab, Export plan DXF
+- **Compare backups** overlay color legend (File A solid / File B semi-transparent)
+- **Surface map** elevation panel collapse toggle
+- **Field Trip Planner** map loading overlay, 20s watchdog, clearer WebView2 error fallback
+- **MSI** optional “Launch CAVE AI PRO” checkbox on install finish dialog
+- **`docs/WINDOWS_SMOKE_TEST.md`** — manual QA checklist for Windows releases
+- Tests: `SurfaceMapLayerPrefsSyncTests`
+
+### Changed
+
+- **Tab groups** visual polish: spacing, hover/active states, tooltips
+- **Status chip** click opens sign-in or LEGAL & SETTINGS when action is needed
+- **Preferences** path validation and browse-folder defaults; missing folders highlighted
+- **Dark theme** implicit `TextBox` / `ComboBox` styles in `Theme.xaml`
+
+### Fixed
+
+- Explore map open no longer overwrites persisted viewport URL before navigation
+- Field trip map placeholder stays visible during slow WebView2 init
+
+### Previously in this release train
+
 - **Field Trip Planner** MapLibre mini preview (WebView2 + OSM) replacing flat canvas schematic
 - **Surface map** WPF elevation profile panel wired from `elevationProfile` bridge message
 - **Main window tab groups**: Survey | Library | Publish | Settings (filters visible tabs; internal tab names unchanged)

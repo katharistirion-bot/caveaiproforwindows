@@ -95,6 +95,15 @@ public sealed class SurfaceMapPersistedState
     /// <summary>Cache OSM / hillshade / DEM tiles locally for offline use (WebView2 intercept).</summary>
     public bool OfflineTileCacheEnabled { get; set; } = true;
 
+    /// <summary>Show entrance pin on the surface map.</summary>
+    public bool EntrancePinEnabled { get; set; } = true;
+
+    /// <summary>Show vehicle park / trailhead pins when coordinates exist.</summary>
+    public bool VehiclePinsEnabled { get; set; } = true;
+
+    /// <summary>Surface LiDAR raster overlay opacity (0–1).</summary>
+    public float LidarOpacity { get; set; } = 0.55f;
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public double CenterLon { get; set; }
 

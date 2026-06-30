@@ -83,6 +83,7 @@ public partial class MainWindow : Window
             WirePlanViewExportCallbacks(vm);
             vm.CaptureCloudPublishArtifacts = () => SketchEditorControl.TryCaptureCloudPublishArtifacts();
             vm.NavigateToDesignFromSurvey = runProceduralAssist => OpenSketchEditorForDesign(runProceduralAssist);
+            vm.NavigateToSurfaceTab = SelectSurfaceTab;
             IntroVideoWindow.ShowIfFirstRun(this);
             WelcomeOnboardingWindow.ShowIfFirstRun(this);
             PostSignInWizardWindow.ShowIfNeeded(this);
@@ -157,7 +158,10 @@ public partial class MainWindow : Window
         else if (ReferenceEquals(tab, XRayTab))
             EnsureXRayTab();
         else if (ReferenceEquals(tab, SurfaceTab))
+        {
             EnsureSurfaceTab();
+            _surfaceMapView?.ReloadLayersFromSettings();
+        }
     }
 
     private void EnsurePlanTab()
@@ -303,9 +307,9 @@ public partial class MainWindow : Window
     {
         var settings = AppUiSettingsStore.LoadOrDefault();
         if (PreferencesSyncFolderBox != null)
-            PreferencesSyncFolderBox.Text = settings.AndroidSync.SyncFolderPath ?? "(not set)";
+            SetPreferencesPathBox(PreferencesSyncFolderBox, settings.AndroidSync.SyncFolderPath, optional: false);
         if (PreferencesExportFolderBox != null)
-            PreferencesExportFolderBox.Text = settings.DefaultExportFolderPath ?? "(same as backup file)";
+            SetPreferencesPathBox(PreferencesExportFolderBox, settings.DefaultExportFolderPath, optional: true);
         if (PreferencesDarkThemeCheck != null)
             PreferencesDarkThemeCheck.IsChecked = settings.UseDarkTheme;
         if (PreferencesTelemetryCheck != null)
@@ -346,10 +350,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var entries = CloudPublishHistoryStore.LoadAll()
-            .Where(e => string.Equals(e.ProjectName, vm.SelectedProject.Name, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(e => e.PublishedAtUtc)
-            .ToList();
+        var entries = vm.CloudCommands.HistoryForProject(vm.SelectedProject.Name);
         if (entries.Count == 0)
         {
             PreferencesPublishHistoryText.Text = "Publish history: none recorded for this project on this PC.";
@@ -364,28 +365,69 @@ public partial class MainWindow : Window
 
     private void PreferencesBrowseSyncFolder_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenFolderDialog { Title = "Android Desktop Sync folder" };
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        var dlg = new OpenFolderDialog
+        {
+            Title = "Android Desktop Sync folder",
+            FolderName = Directory.Exists(settings.AndroidSync.SyncFolderPath ?? "")
+                ? settings.AndroidSync.SyncFolderPath
+                : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        };
         if (dlg.ShowDialog(this) != true)
             return;
-        var settings = AppUiSettingsStore.LoadOrDefault();
+        if (!Directory.Exists(dlg.FolderName))
+        {
+            MessageBox.Show(this, "The selected folder does not exist.", "Android sync folder",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         settings.AndroidSync.SyncFolderPath = dlg.FolderName;
         AppUiSettingsStore.Save(settings);
         if (PreferencesSyncFolderBox != null)
-            PreferencesSyncFolderBox.Text = dlg.FolderName;
+            SetPreferencesPathBox(PreferencesSyncFolderBox, dlg.FolderName, optional: false);
         if (DataContext is MainViewModel vm)
             vm.RefreshFooterStatus();
     }
 
     private void PreferencesBrowseExportFolder_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenFolderDialog { Title = "Default export folder" };
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        var dlg = new OpenFolderDialog
+        {
+            Title = "Default export folder",
+            FolderName = Directory.Exists(settings.DefaultExportFolderPath ?? "")
+                ? settings.DefaultExportFolderPath
+                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+        };
         if (dlg.ShowDialog(this) != true)
             return;
-        var settings = AppUiSettingsStore.LoadOrDefault();
+        if (!Directory.Exists(dlg.FolderName))
+        {
+            MessageBox.Show(this, "The selected folder does not exist.", "Export folder",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         settings.DefaultExportFolderPath = dlg.FolderName;
         AppUiSettingsStore.Save(settings);
         if (PreferencesExportFolderBox != null)
-            PreferencesExportFolderBox.Text = dlg.FolderName;
+            SetPreferencesPathBox(PreferencesExportFolderBox, dlg.FolderName, optional: true);
+    }
+
+    private static void SetPreferencesPathBox(System.Windows.Controls.TextBox box, string? path, bool optional)
+    {
+        var display = string.IsNullOrWhiteSpace(path)
+            ? optional ? "(same as backup file)" : "(not set)"
+            : path;
+        box.Text = display;
+        var valid = optional && string.IsNullOrWhiteSpace(path) || (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path));
+        box.Foreground = valid
+            ? (System.Windows.Media.Brush)box.FindResource("Cave.Text")
+            : (System.Windows.Media.Brush)box.FindResource("Cave.Accent");
+        box.ToolTip = valid
+            ? display
+            : $"{display} — folder not found on this PC";
     }
 
     private void PreferencesMapQualityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -684,7 +726,6 @@ public partial class MainWindow : Window
         try
         {
             var url = PublicLibraryCatalog.ResolveExploreMapOpenUrl();
-            PublicLibraryCatalog.RememberExploreMapViewportUrl(url);
             PublicLibraryCatalog.ShowInAppWindow(this, url);
         }
         catch (Exception ex)
@@ -754,8 +795,56 @@ public partial class MainWindow : Window
 
     public void SelectLegalSettingsTab()
     {
+        ApplySurveyTabGroup(SurveyTabGroup.Settings);
         if (LegalSettingsTabItem != null)
             LegalSettingsTabItem.IsSelected = true;
+    }
+
+    public void SelectSurfaceTab()
+    {
+        ApplySurveyTabGroup(SurveyTabGroup.Survey);
+        if (SurfaceTab != null)
+            MainSurveyTabControl.SelectedItem = SurfaceTab;
+        EnsureSurfaceTab();
+        _surfaceMapView?.ReloadLayersFromSettings();
+    }
+
+    private async void AuthStatusChip_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+            return;
+
+        var chip = vm.AuthStatusChip ?? "";
+        if (chip.Contains("Legal pending", StringComparison.OrdinalIgnoreCase))
+        {
+            SelectLegalSettingsTab();
+            return;
+        }
+
+        if (chip.Contains("Not signed in", StringComparison.OrdinalIgnoreCase) ||
+            chip.Contains("Subscription required", StringComparison.OrdinalIgnoreCase))
+        {
+            if (MicrosoftTestMode.IsActive)
+            {
+                MessageBox.Show(
+                    this,
+                    MicrosoftTestMode.CloudFeatureBlockedMessage,
+                    "Sign in",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var ok = AppLockBootstrapper.TryEnsureUnlocked();
+            if (!ok)
+            {
+                Application.Current.Shutdown();
+                return;
+            }
+
+            vm.RefreshAccountBannerFromSession();
+            vm.RefreshFooterStatus();
+        }
     }
 
     private void LegalRequiredOverlay_GoToLegal_Click(object sender, RoutedEventArgs e) => SelectLegalSettingsTab();

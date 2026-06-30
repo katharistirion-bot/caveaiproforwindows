@@ -261,6 +261,9 @@ public static class SurfaceMapProjectBridge
         CorridorOverlayEnabled = s.CorridorOverlayEnabled,
         CopernicusDsmEnabled = s.CopernicusDsmEnabled,
         LidarOverlayEnabled = s.LidarOverlayEnabled,
+        LidarOpacity = s.LidarOpacity,
+        EntrancePinEnabled = s.EntrancePinEnabled,
+        VehiclePinsEnabled = s.VehiclePinsEnabled,
         CenterLon = s.CenterLon,
         CenterLat = s.CenterLat,
         Zoom = s.Zoom,
@@ -335,6 +338,9 @@ public sealed class SurfaceMapMapStateDto
     public bool CorridorOverlayEnabled { get; init; } = true;
     public bool CopernicusDsmEnabled { get; init; }
     public bool LidarOverlayEnabled { get; init; } = true;
+    public float LidarOpacity { get; init; } = 0.55f;
+    public bool EntrancePinEnabled { get; init; } = true;
+    public bool VehiclePinsEnabled { get; init; } = true;
     public double CenterLon { get; init; }
     public double CenterLat { get; init; }
     public double Zoom { get; init; } = 14;

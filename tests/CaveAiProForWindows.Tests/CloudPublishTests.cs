@@ -1,5 +1,7 @@
 using System.Text;
+using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.SurfaceMap;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CaveAiProForWindows.Tests;
@@ -96,5 +98,31 @@ public sealed class CloudPublishTests
         Assert.AreEqual("Demo Cave", all[0].ProjectName);
         CloudPublishRetryStore.Remove("Demo Cave");
         Assert.AreEqual(0, CloudPublishRetryStore.LoadAll().Count);
+    }
+
+    [TestMethod]
+    public void SurfaceMapLayerPrefsSync_merge_injects_layers_query()
+    {
+        var url = SurfaceMapLayerPrefsSync.MergeLayerParamsIntoUrl(
+            "https://www.caveaipro.com/map?view=explore&lat=40&lon=22");
+        StringAssert.Contains(url, "layers=");
+        StringAssert.Contains(url, "hillshade");
+        StringAssert.Contains(url, "copernicus");
+    }
+
+    [TestMethod]
+    public void SurfaceMapLayerPrefsSync_sync_from_explore_url()
+    {
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.SurfaceMap.HillshadeEnabled = false;
+        all.SurfaceMap.CopernicusDsmEnabled = false;
+        AppUiSettingsStore.Save(all);
+
+        SurfaceMapLayerPrefsSync.SyncSurfaceMapFromExploreUrl(
+            "https://www.caveaipro.com/map?view=explore&layers=hillshade=1,copernicus=1");
+
+        var loaded = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
+        Assert.IsTrue(loaded.HillshadeEnabled);
+        Assert.IsTrue(loaded.CopernicusDsmEnabled);
     }
 }

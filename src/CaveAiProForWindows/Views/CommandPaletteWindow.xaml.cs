@@ -27,9 +27,11 @@ public partial class CommandPaletteWindow : Window
         void Add(string category, string label, Action action, params string[] keywords) =>
             _all.Add(new CommandPaletteItem(category, label, action, keywords));
 
+        Add("File", "Open project…", () => _vm.OpenFileCommand.Execute(null), "open", "project", "backup", "json", "zip");
         Add("File", "Open backup…", () => _vm.OpenFileCommand.Execute(null), "open", "load", "zip", "json");
         Add("File", "Save project", () => _vm.SaveProjectCommand.Execute(null), "save", "write");
         Add("File", "Close workspace", () => _vm.CloseWorkspaceCommand.Execute(null), "close", "unload");
+        Add("View", "Surface map tab", () => _vm.OpenSurfaceMapTabCommand.Execute(null), "surface", "terrain", "hillshade", "map");
         Add("Library", "Public Library…", () => _vm.OpenPublicLibraryWithPickerCommand.Execute(null), "catalog", "reference");
         Add("Library", "Reference catalog", () => _vm.OpenPublicLibraryCatalogCommand.Execute(null), "caves", "index");
         Add("Library", "Download from Public Library…", () => _vm.DownloadPublicLibraryBackupCommand.Execute(null), "cloud", "backup");
@@ -37,9 +39,10 @@ public partial class CommandPaletteWindow : Window
         Add("Survey", "Compare backups…", () => _vm.CompareBackupsCommand.Execute(null), "diff", "files");
         Add("Survey", "Field trip planner…", () => _vm.OpenFieldTripPlannerCommand.Execute(null), "route", "gpx");
         Add("Cloud", "Push to Cloud", () => _vm.PublishToCloudCommand.Execute(null), "publish", "upload");
-        Add("Cloud", "Retry failed cloud publish", () => _vm.RetryCloudPublishCommand.Execute(null), "retry", "queue");
+        Add("Cloud", "Retry failed cloud publish", () => _vm.CloudCommands.RetryCommand.Execute(null), "retry", "queue");
         Add("Export", "Export plan SVG…", () => _vm.ExportPlanSvgCommand.Execute(null), "svg", "plan");
         Add("Export", "Export Survex…", () => _vm.ExportSurvexCommand.Execute(null), "svx", "survex");
+        Add("Export", "Export plan DXF…", () => _vm.ExportPlanDxfCommand.Execute(null), "dxf", "plan", "cad");
         Add("Help", "Keyboard shortcuts", () => _vm.ShowKeyboardShortcutsCommand.Execute(null), "keys", "hotkeys");
         Add("Help", "About", () => _vm.AboutCommand.Execute(null), "version");
         ApplyFilter();
