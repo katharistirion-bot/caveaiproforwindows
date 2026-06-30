@@ -58,10 +58,48 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Reference catalog share URL fallback via country shard loader
 - Offline brain greetings and trip/expedition report routing
 
-## [Unreleased]
+## [1.5.5] - 2026-06-30
 
 ### Added
 
+- **Explore ↔ Surface layer sync** — hillshade / Copernicus toggles shared via `layers=` URL query and `SurfaceMapLayerPrefsSync`
+- **`CloudCommandsViewModel`** — publish retry queue + local publish history slice extracted from `MainViewModel`
+- **Command palette** additions: Open project, Surface map tab, Export plan DXF
+- **Compare backups** overlay color legend (File A solid / File B semi-transparent)
+- **Surface map** elevation panel collapse toggle
+- **Field Trip Planner** map loading overlay, 20s watchdog, clearer WebView2 error fallback
+- **MSI** optional “Launch CAVE AI PRO” checkbox on install finish dialog
+- **`docs/WINDOWS_SMOKE_TEST.md`** — manual QA checklist for Windows releases
+- **`tools/sync-surface-map-from-website.ps1`** — copy bundled surface-map from website repo
+- Tests: `SurfaceMapLayerPrefsSyncTests`, `PublishedCaveSyncPayload` allow-list tests
+
+### Changed
+
+- **Tab groups** visual polish: spacing, hover/active states, tooltips
+- **Status chip** click opens sign-in or LEGAL & SETTINGS when action is needed
+- **Preferences** path validation and browse-folder defaults; missing folders highlighted
+- **Dark theme** implicit `TextBox` / `ComboBox` styles in `Theme.xaml`
+- **Surface map** bundled JS/CSS synced from caveaipro.com (corridor jitter, X-ray fixes)
+
+### Fixed
+
+- **Cloud publish Firestore PATCH** — owner sync now uses rule-safe keys only (`PublishedCaveSyncPayload`); gallery → `imageUrls`, AI map → `cartographyImageUrls`, survey → `surveyJsonUrl`, timestamp → `lastSyncedAtMs`
+- **Project unload before open** — prevents stale workspace when opening a new backup while another project is loaded
+- Explore map open no longer overwrites persisted viewport URL before navigation
+- Field trip map placeholder stays visible during slow WebView2 init
+
+### Previously in this release train
+
+- **Field Trip Planner** MapLibre mini preview (WebView2 + OSM) replacing flat canvas schematic
+- **Surface map** WPF elevation profile panel wired from `elevationProfile` bridge message
+- **Main window tab groups**: Survey | Library | Publish | Settings (filters visible tabs; internal tab names unchanged)
+- **Command palette** (`Ctrl+K`): categories, fuzzy scoring, 16 commands including retry publish
+- **Compare backups** overlay diff mode (semi-transparent A+B on plan canvas)
+- **Cloud publish retry queue** (`cloud-publish-retry-queue.json`) — retry failed uploads without full re-publish
+- **Reference catalog** map pins use diamond markers (web/Android parity)
+- **Surface PNG export** legend strip (entrance, corridor, LiDAR extent)
+- `MainViewModel.CloudCommands` partial — cloud retry queue slice
+- Tests: `CloudPublishRetryStoreTests`, `CompareBackupPlanPreviewTests`, `PlanExportGoldenTests`
 - Reference survey handoff: catalog **Map with Cave AI Pro** opens browser survey URL; Windows can link/resume projects via `referenceCatalogLink` metadata
 - Cross-platform contract doc (`docs/cross-platform-contract.md`) for catalog URLs, share links, and publish fields
 - Cloud Publish passes `referenceCatalogId` / `referenceCatalogCountry` when project is linked to a reference pin
@@ -74,6 +112,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Explore layer sync documented in `docs/cross-platform-contract.md`; Surface map JS→WPF checkbox sync on `mapState`
 - Reference catalog detail: copy share link and survey-start URL aligned with web/Android `?action=survey` contract
 - **Legal texts v1.4**: removed cloud AI Render; documents on-device Cave AI and optional error telemetry
 - **MainViewModel**: update banner, footer status (`RefreshFooterStatus`), design-from-survey command; removed cloud AI Render / GenerativeMap code paths

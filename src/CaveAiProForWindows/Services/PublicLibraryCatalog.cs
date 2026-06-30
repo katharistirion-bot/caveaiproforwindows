@@ -2,6 +2,7 @@ namespace CaveAiProForWindows.Services;
 
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services.Auth;
+using CaveAiProForWindows.Services.SurfaceMap;
 
 /// <summary>
 /// Public Cave Library (step 2 browse) — same Firebase catalog as Android; web portal for PC browsing.
@@ -52,9 +53,10 @@ public static class PublicLibraryCatalog
     public static string ResolveExploreMapOpenUrl()
     {
         var settings = AppUiSettingsStore.LoadOrDefault().ExploreMap;
-        if (settings.PreferLastViewport && !string.IsNullOrWhiteSpace(settings.LastViewportUrl))
-            return WithEmbed(settings.LastViewportUrl);
-        return WebExploreMapUrlEmbedded;
+        var url = settings.PreferLastViewport && !string.IsNullOrWhiteSpace(settings.LastViewportUrl)
+            ? settings.LastViewportUrl
+            : WebExploreMapUrl;
+        return SurfaceMapLayerPrefsSync.MergeLayerParamsIntoUrl(WithEmbed(url));
     }
 
     /// <summary>Persist Explore map URL (including lat/lon/zoom/layers query) for next Help → Explore map.</summary>
@@ -62,6 +64,7 @@ public static class PublicLibraryCatalog
     {
         if (string.IsNullOrWhiteSpace(url))
             return;
+        SurfaceMapLayerPrefsSync.SyncSurfaceMapFromExploreUrl(url);
         var all = AppUiSettingsStore.LoadOrDefault();
         all.ExploreMap.LastViewportUrl = url.Trim();
         AppUiSettingsStore.Save(all);

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.ViewModels;
@@ -138,6 +139,11 @@ public static class CloudPublishWorkflow
                     request.CancellationToken)
                 .ConfigureAwait(true);
 
+            CloudPublishHistoryStore.Record(
+                project.Name,
+                docId,
+                CaveProjectDisplayNames.GetDisplayName(project));
+
             request.Progress.Report(new CloudPublishProgressUpdate
             {
                 Message = $"Publish complete — updated published_caves/{docId}.",
@@ -156,14 +162,14 @@ public static class CloudPublishWorkflow
             });
             return null;
         }
-        catch (TimeoutException ex)
+        catch (TimeoutException)
         {
-            ReportError(request.Progress, ex.Message, showAuthHint: true);
+            ReportError(request.Progress, UserFacingErrors.SignInTimedOut(), showAuthHint: true);
             return null;
         }
         catch (Exception ex)
         {
-            ReportError(request.Progress, ex.Message);
+            ReportError(request.Progress, UserFacingErrors.CloudPublishFailed(ex.Message));
             return null;
         }
     }
@@ -216,4 +222,54 @@ public static class CloudPublishWorkflow
             IsIndeterminate = false,
         });
     }
+}
+
+public static class CloudPublishRetryStore
+{
+    private static string RetryPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "CaveAiProForWindows", "cloud-publish-retry-queue.json");
+
+    public static IReadOnlyList<CloudPublishRetryEntry> LoadAll()
+    {
+        try
+        {
+            if (!File.Exists(RetryPath)) return [];
+            return System.Text.Json.JsonSerializer.Deserialize<List<CloudPublishRetryEntry>>(File.ReadAllText(RetryPath)) ?? [];
+        }
+        catch { return []; }
+    }
+
+    public static void Enqueue(string projectName, string? backupPath, string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(projectName)) return;
+        var list = LoadAll().ToList();
+        list.RemoveAll(e => string.Equals(e.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
+        list.Insert(0, new CloudPublishRetryEntry { ProjectName = projectName, BackupPath = backupPath, ErrorMessage = errorMessage, FailedAtUtc = DateTime.UtcNow });
+        while (list.Count > 20) list.RemoveAt(list.Count - 1);
+        var dir = Path.GetDirectoryName(RetryPath);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        File.WriteAllText(RetryPath, System.Text.Json.JsonSerializer.Serialize(list, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    public static void Remove(string projectName)
+    {
+        var list = LoadAll().Where(e => !string.Equals(e.ProjectName, projectName, StringComparison.OrdinalIgnoreCase)).ToList();
+        var dir = Path.GetDirectoryName(RetryPath);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        File.WriteAllText(RetryPath, System.Text.Json.JsonSerializer.Serialize(list));
+    }
+
+    public static void Clear()
+    {
+        if (File.Exists(RetryPath)) File.Delete(RetryPath);
+    }
+}
+
+public sealed class CloudPublishRetryEntry
+{
+    public string ProjectName { get; set; } = "";
+    public string? BackupPath { get; set; }
+    public string ErrorMessage { get; set; } = "";
+    public DateTime FailedAtUtc { get; set; }
 }

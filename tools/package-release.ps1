@@ -100,7 +100,10 @@ if (-not $vpkExe) { throw 'Velopack CLI (vpk) not available after dotnet tool in
     -e CaveAiProForWindows.exe `
     -o $vpkWork `
     --packTitle 'CAVE AI PRO' `
-    --packAuthors 'CAVE AI PRO'
+    --packAuthors 'CAVE AI PRO' `
+    --shortcutLocations StartMenu,Desktop `
+    --shortcuts 'Desktop,StartMenu' `
+    --installDir '$LOCALAPPDATA\CaveAiProForWindows'
 
 if ($LASTEXITCODE -ne 0) { throw 'Velopack pack failed.' }
 

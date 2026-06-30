@@ -45,6 +45,21 @@ public sealed class AppUiSettingsModel
     /// <summary>Cinematic intro video shown once after login (<see cref="Views.IntroVideoWindow"/>).</summary>
     public bool HasSeenIntroVideo { get; set; }
 
+    /// <summary>One-time tooltip when user first opens the 3D MODEL tab.</summary>
+    public bool HasSeen3DCompetitiveTooltip { get; set; }
+
+    /// <summary>Send anonymized error reports when signed in (see LEGAL &amp; SETTINGS).</summary>
+    public bool SendAnonymizedErrorReports { get; set; } = true;
+
+    /// <summary>Use dark application theme (<see cref="Services.ThemePaletteSwitcher"/>).</summary>
+    public bool UseDarkTheme { get; set; }
+
+    /// <summary>Default folder for map/image exports (optional).</summary>
+    public string? DefaultExportFolderPath { get; set; }
+
+    /// <summary>Crash-free session counter for diagnostic bundle.</summary>
+    public int CrashFreeSessionCount { get; set; }
+
     /// <summary>UI language code (English only; non-<c>en</c> values are reset on startup).</summary>
     public string UiLanguage { get; set; } = "en";
 
@@ -57,7 +72,7 @@ public sealed class AppUiSettingsModel
 
 public static class AppUiSettingsSchema
 {
-    public const int Current = 8;
+    public const int Current = 9;
 }
 
 /// <summary>Persisted MapLibre surface-map camera and layer toggles.</summary>
@@ -79,6 +94,15 @@ public sealed class SurfaceMapPersistedState
 
     /// <summary>Cache OSM / hillshade / DEM tiles locally for offline use (WebView2 intercept).</summary>
     public bool OfflineTileCacheEnabled { get; set; } = true;
+
+    /// <summary>Show entrance pin on the surface map.</summary>
+    public bool EntrancePinEnabled { get; set; } = true;
+
+    /// <summary>Show vehicle park / trailhead pins when coordinates exist.</summary>
+    public bool VehiclePinsEnabled { get; set; } = true;
+
+    /// <summary>Surface LiDAR raster overlay opacity (0–1).</summary>
+    public float LidarOpacity { get; set; } = 0.55f;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public double CenterLon { get; set; }

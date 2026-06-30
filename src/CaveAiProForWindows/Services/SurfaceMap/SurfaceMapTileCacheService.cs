@@ -34,7 +34,31 @@ public sealed class SurfaceMapTileCacheService : IDisposable
 
     public bool Enabled { get; set; } = true;
 
+    public long CurrentBytes => _currentBytes;
+
+    public long MaxBytes => _maxBytes;
+
     public void AttachEnvironment(CoreWebView2Environment environment) => _environment = environment;
+
+    public void ClearAll()
+    {
+        lock (_sizeLock)
+        {
+            _currentBytes = 0;
+            _lru.Clear();
+        }
+
+        try
+        {
+            if (Directory.Exists(_root))
+                Directory.Delete(_root, recursive: true);
+            Directory.CreateDirectory(_root);
+        }
+        catch
+        {
+            /* ignore */
+        }
+    }
 
     public static bool IsCacheableTileUrl(string uri)
     {
@@ -154,4 +178,13 @@ public sealed class SurfaceMapTileCacheService : IDisposable
     }
 
     public void Dispose() { }
+
+    public static string FormatBytes(long bytes)
+    {
+        if (bytes < 1024)
+            return $"{bytes} B";
+        if (bytes < 1024 * 1024)
+            return $"{bytes / 1024.0:0.#} KB";
+        return $"{bytes / (1024.0 * 1024.0):0.#} MB";
+    }
 }

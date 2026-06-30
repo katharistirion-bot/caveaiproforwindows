@@ -158,10 +158,40 @@ public partial class CompareBackupsWindow : Window
         PreviewTitle.Text = $"Plan preview — {row.ProjectName}";
         _mapA.TryGetValue(row.ProjectName, out var a);
         _mapB.TryGetValue(row.ProjectName, out var b);
-        PreviewA.Source = CompareBackupPlanPreview.TryRenderMiniPlan(a);
-        PreviewB.Source = CompareBackupPlanPreview.TryRenderMiniPlan(b);
+        RefreshPlanPreviews(a, b);
         if (DiffSummaryText != null)
             DiffSummaryText.Text = row.Summary;
+    }
+
+    private void OverlayDiffCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (DiffGrid.SelectedItem is ProjectDiffRow row)
+        {
+            _mapA.TryGetValue(row.ProjectName, out var a);
+            _mapB.TryGetValue(row.ProjectName, out var b);
+            RefreshPlanPreviews(a, b);
+        }
+    }
+
+    private void RefreshPlanPreviews(CaveProjectDocument? a, CaveProjectDocument? b)
+    {
+        var overlay = OverlayDiffCheck?.IsChecked == true;
+        if (overlay)
+        {
+            SideBySidePanel.Visibility = Visibility.Collapsed;
+            OverlayPanel.Visibility = Visibility.Visible;
+            PreviewOverlay.Source = CompareBackupPlanPreview.TryRenderOverlayPlan(a, b);
+            PreviewA.Source = null;
+            PreviewB.Source = null;
+        }
+        else
+        {
+            SideBySidePanel.Visibility = Visibility.Visible;
+            OverlayPanel.Visibility = Visibility.Collapsed;
+            PreviewA.Source = CompareBackupPlanPreview.TryRenderMiniPlan(a);
+            PreviewB.Source = CompareBackupPlanPreview.TryRenderMiniPlan(b);
+            PreviewOverlay.Source = null;
+        }
     }
 
     private void ClearPreviews()
@@ -169,6 +199,7 @@ public partial class CompareBackupsWindow : Window
         PreviewTitle.Text = "Plan preview (select a row)";
         PreviewA.Source = null;
         PreviewB.Source = null;
+        PreviewOverlay.Source = null;
         if (DiffSummaryText != null)
             DiffSummaryText.Text = "";
     }

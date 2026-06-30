@@ -1,5 +1,7 @@
 using System.Text;
+using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.SurfaceMap;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CaveAiProForWindows.Tests;
@@ -84,5 +86,68 @@ public sealed class CloudPublishTests
     {
         var bytes = Encoding.UTF8.GetBytes(json);
         return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    }
+
+    [TestMethod]
+    public void PublishedCaveSyncPayload_patch_keys_are_subset_of_firestore_allow_list()
+    {
+        var pairs = PublishedCaveSyncPayload.BuildOwnerSyncUpdatePairs(new PublishedCaveSyncPayload.OwnerSyncInput
+        {
+            CaveName = "Demo Cave",
+            Description = "Survey sync from Windows.",
+            Depth = 12.5,
+            Length = 84.2,
+            MergedImageUrls = ["https://example.com/gallery.jpg"],
+            MergedCartographyImageUrls = ["https://example.com/ai_map.png"],
+            SurveyJsonUrl = "https://example.com/data.json",
+            LastSyncedAtMs = 1_700_000_000_000,
+        });
+
+        PublishedCaveSyncPayload.AssertKeysSubsetAllowed(pairs.Select(p => p.Key));
+        CollectionAssert.IsSubsetOf(
+            pairs.Select(p => p.Key).ToList(),
+            PublishedCaveSyncPayload.SyncUpdateAllowedKeys.ToList());
+        Assert.IsFalse(pairs.Any(p => p.Key is "updatedAtMs" or "sourceClient" or "galleryPhotoUrls" or "structureMaskUrl"));
+        Assert.IsTrue(pairs.Any(p => p.Key == "lastSyncedAtMs"));
+        Assert.IsTrue(pairs.Any(p => p.Key == "imageUrls"));
+        Assert.IsTrue(pairs.Any(p => p.Key == "surveyJsonUrl"));
+    }
+
+    [TestMethod]
+    public void CloudPublishRetryStore_enqueue_and_remove_round_trip()
+    {
+        CloudPublishRetryStore.Clear();
+        CloudPublishRetryStore.Enqueue("Demo Cave", @"C:\temp\demo.zip", "Network timeout");
+        var all = CloudPublishRetryStore.LoadAll();
+        Assert.AreEqual(1, all.Count);
+        Assert.AreEqual("Demo Cave", all[0].ProjectName);
+        CloudPublishRetryStore.Remove("Demo Cave");
+        Assert.AreEqual(0, CloudPublishRetryStore.LoadAll().Count);
+    }
+
+    [TestMethod]
+    public void SurfaceMapLayerPrefsSync_merge_injects_layers_query()
+    {
+        var url = SurfaceMapLayerPrefsSync.MergeLayerParamsIntoUrl(
+            "https://www.caveaipro.com/map?view=explore&lat=40&lon=22");
+        StringAssert.Contains(url, "layers=");
+        StringAssert.Contains(url, "hillshade");
+        StringAssert.Contains(url, "copernicus");
+    }
+
+    [TestMethod]
+    public void SurfaceMapLayerPrefsSync_sync_from_explore_url()
+    {
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.SurfaceMap.HillshadeEnabled = false;
+        all.SurfaceMap.CopernicusDsmEnabled = false;
+        AppUiSettingsStore.Save(all);
+
+        SurfaceMapLayerPrefsSync.SyncSurfaceMapFromExploreUrl(
+            "https://www.caveaipro.com/map?view=explore&layers=hillshade=1,copernicus=1");
+
+        var loaded = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
+        Assert.IsTrue(loaded.HillshadeEnabled);
+        Assert.IsTrue(loaded.CopernicusDsmEnabled);
     }
 }

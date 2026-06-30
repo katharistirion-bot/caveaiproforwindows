@@ -56,16 +56,36 @@ public sealed class CloudPublishMetadata
     public long UpdatedAtUtcMs { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
-/// <summary>Subset of a Firestore <c>published_caves</c> document for library download.</summary>
+/// <summary>Subset of a Firestore <c>published_caves</c> document for library download and owner sync merge.</summary>
 public sealed class PublishedCaveDocument
 {
     public string DocumentId { get; init; } = "";
 
     public string? CaveName { get; init; }
 
+    public string? Description { get; init; }
+
+    public double Depth { get; init; }
+
+    public double Length { get; init; }
+
+    public IReadOnlyList<string>? ImageUrls { get; init; }
+
     public string? SurveyJsonUrl { get; init; }
 
     public string? SurveyJsonMediaUrl { get; init; }
 
     public IReadOnlyList<string>? CartographyImageUrls { get; init; }
+
+    public string? SurfaceLidarUrl { get; init; }
+
+    public string? SurveyReportSummary { get; init; }
+
+    public string? SurveyReportNarrativeUrl { get; init; }
+
+    public string? EntranceMagneticHintsJson { get; init; }
+
+    public string? EntranceMagneticHintsUrl { get; init; }
+
+    public string? AccessSeasonNote { get; init; }
 }

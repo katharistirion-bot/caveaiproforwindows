@@ -119,6 +119,11 @@
                         Command="{Binding OpenSketchEditorCommand}"
                         IsEnabled="{Binding SketchEditorReady}" />
 
+                <Button DockPanel.Dock="Top" Content="Compare with previous backup…"
+                        Padding="12,8" Margin="0,0,0,8" FontSize="12"
+                        Command="{Binding CompareWithPreviousBackupCommand}"
+                        ToolTip="Open Survey compare with latest vs previous Android backup ZIP" />
+
                 <Button DockPanel.Dock="Top" Content="Loop closure assistant…"
                         Padding="12,8" Margin="0,0,0,8" FontSize="12"
                         Command="{Binding OpenLoopClosureAssistantCommand}"

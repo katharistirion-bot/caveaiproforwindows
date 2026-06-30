@@ -41,6 +41,17 @@
   let lastMapWidth = 0;
   let lastMapHeight = 0;
   let lidarObjectUrls = [];
+  let lastPersistedMapState = null;
+  let suppressPersist = false;
+
+  let measureOn = false;
+  let measurePoints = [];
+  let pinPickKind = null;
+  let entrancePinOn = true;
+  let vehiclePinsOn = true;
+  let lidarOpacity = 0.55;
+  let lastCursor = null;
+  let interactionsBound = false;
 
   function postHost(msg) {
     if (window.chrome && window.chrome.webview) {
@@ -143,6 +154,11 @@
     corridorOn = ms.corridorOverlayEnabled !== false;
     copernicusOn = !!ms.copernicusDsmEnabled;
     lidarOn = ms.lidarOverlayEnabled === true;
+    if (typeof ms.lidarOpacity === 'number' && isFinite(ms.lidarOpacity)) {
+      lidarOpacity = Math.min(1, Math.max(0.05, ms.lidarOpacity));
+    }
+    if (typeof ms.entrancePinEnabled === 'boolean') entrancePinOn = ms.entrancePinEnabled;
+    if (typeof ms.vehiclePinsEnabled === 'boolean') vehiclePinsOn = ms.vehiclePinsEnabled;
   }
 
   function heavyLayersActive() {
@@ -182,6 +198,23 @@
     });
   }
 
+  function mapStateNearEnough(prev, next) {
+    if (!prev || !next) return false;
+    return (
+      Math.abs((prev.centerLon || 0) - (next.centerLon || 0)) < 1e-6
+      && Math.abs((prev.centerLat || 0) - (next.centerLat || 0)) < 1e-6
+      && Math.abs((prev.zoom || 0) - (next.zoom || 0)) < 1e-5
+      && Math.abs((prev.bearing || 0) - (next.bearing || 0)) < 1e-4
+      && Math.abs((prev.pitch || 0) - (next.pitch || 0)) < 1e-4
+      && prev.hillshadeEnabled === next.hillshadeEnabled
+      && prev.terrain3dEnabled === next.terrain3dEnabled
+      && prev.corridorOverlayEnabled === next.corridorOverlayEnabled
+      && prev.copernicusDsmEnabled === next.copernicusDsmEnabled
+      && prev.lidarOverlayEnabled === next.lidarOverlayEnabled
+      && prev.performanceMode === next.performanceMode
+    );
+  }
+
   function scheduleMapResize() {
     if (!map) return;
     clearTimeout(resizeDebounceTimer);
@@ -194,12 +227,19 @@
       if (w === lastMapWidth && h === lastMapHeight) return;
       lastMapWidth = w;
       lastMapHeight = h;
+      suppressPersist = true;
       requestAnimationFrame(() => {
         try {
           map.resize();
-        } catch (_) {
+        } catch {
           /* ignore */
         }
+        map.once('moveend', () => {
+          suppressPersist = false;
+        });
+        setTimeout(() => {
+          suppressPersist = false;
+        }, RESIZE_DEBOUNCE_MS + 50);
       });
     }, RESIZE_DEBOUNCE_MS);
   }
@@ -378,11 +418,28 @@
     return false;
   }
 
+  function formatDistanceM(m) {
+    if (!isFinite(m)) return '—';
+    if (m >= 1000) return (m / 1000).toFixed(2) + ' km';
+    return Math.round(m) + ' m';
+  }
+
+  function declinationNote() {
+    const ent = entranceLonLat();
+    if (!ent) return '';
+    const d = project && project.declinationDeg;
+    if (typeof d === 'number' && isFinite(d)) {
+      return 'Magnetic declination: ' + d.toFixed(1) + '° (survey calibration)';
+    }
+    const rough = 0.3 + 0.08 * ent.lat + 0.05 * Math.sin((ent.lon * Math.PI) / 90);
+    return 'Magnetic declination: ~' + rough.toFixed(1) + '° (approximate — calibrate survey for exact value)';
+  }
+
   function applyEntrancePin() {
     const srcId = 'entrance';
     const layerId = 'entrance-pin';
     const ent = entranceLonLat();
-    if (!ent) {
+    if (!ent || !entrancePinOn) {
       if (map.getLayer('entrance-label')) map.removeLayer('entrance-label');
       if (map.getLayer(layerId)) map.removeLayer(layerId);
       if (map.getSource(srcId)) map.removeSource(srcId);
@@ -430,6 +487,8 @@
       if (map.getLayer(id)) map.removeLayer(id);
     });
     if (map.getSource('vehicle-pins')) map.removeSource('vehicle-pins');
+
+    if (!vehiclePinsOn) return;
 
     const features = [];
     const car = project && project.returnCar;
@@ -657,7 +716,8 @@
       const addLidarSource = (imageUrl) => {
         if (map.getSource('lidar-raster')) return;
         map.addSource('lidar-raster', { type: 'image', url: imageUrl, coordinates: coords });
-        map.addLayer({ id: 'lidar-raster', type: 'raster', source: 'lidar-raster', paint: { 'raster-opacity': lr.opacity != null ? lr.opacity : 0.55 } });
+        const op = lidarOpacity != null ? lidarOpacity : (lr.opacity != null ? lr.opacity : 0.55);
+        map.addLayer({ id: 'lidar-raster', type: 'raster', source: 'lidar-raster', paint: { 'raster-opacity': op } });
       };
       setMapBusy(true, 'Preparing LiDAR overlay…');
       downscaleImageUrl(lr.imageUrl).then((imageUrl) => { setMapBusy(false); addLidarSource(imageUrl); }).catch(() => { setMapBusy(false); addLidarSource(lr.imageUrl); });
@@ -675,51 +735,352 @@
 
   function fitEntrance() {
     if (!map) return;
+    suppressPersist = true;
+    const releasePersist = () => {
+      suppressPersist = false;
+    };
     const ent = entranceLonLat();
     if (ent) {
-      map.flyTo({ center: [ent.lon, ent.lat], zoom: 16, essential: true });
+      map.jumpTo({ center: [ent.lon, ent.lat], zoom: 16 });
+      map.once('moveend', releasePersist);
       return;
     }
     const lr = project && project.surfaceLidarRaster;
     if (lr && isFinite(lr.southWestLat)) {
       map.fitBounds(
         [[lr.southWestLon, lr.southWestLat], [lr.northEastLon, lr.northEastLat]],
-        { padding: 40, maxZoom: 17 }
+        { padding: 40, maxZoom: 17, duration: 0 }
       );
+      map.once('moveend', releasePersist);
+      return;
     }
+    releasePersist();
+  }
+
+  function collectSurveyExtentPoints() {
+    const pts = [];
+    const ent = entranceLonLat();
+    if (ent) pts.push([ent.lon, ent.lat]);
+    const car = project && project.returnCar;
+    const base = project && project.returnBase;
+    if (car && isFinite(car.lat) && isFinite(car.lon)) pts.push([car.lon, car.lat]);
+    if (base && isFinite(base.lat) && isFinite(base.lon)) pts.push([base.lon, base.lat]);
+    const corridor = project && project.surveyCorridor;
+    if (corridor && corridor.type === 'FeatureCollection' && Array.isArray(corridor.features)) {
+      corridor.features.forEach((f) => {
+        if (!f || !f.geometry || f.geometry.type !== 'LineString') return;
+        (f.geometry.coordinates || []).forEach((c) => {
+          if (Array.isArray(c) && c.length >= 2 && isFinite(c[0]) && isFinite(c[1])) pts.push([c[0], c[1]]);
+        });
+      });
+    }
+    const lr = project && project.surfaceLidarRaster;
+    if (lr && isFinite(lr.southWestLat)) {
+      pts.push([lr.southWestLon, lr.southWestLat], [lr.northEastLon, lr.northEastLat]);
+    }
+    return pts;
+  }
+
+  function fitSurvey() {
+    if (!map) return;
+    const pts = collectSurveyExtentPoints();
+    if (pts.length === 0) {
+      fitEntrance();
+      return;
+    }
+    if (pts.length === 1) {
+      suppressPersist = true;
+      map.jumpTo({ center: pts[0], zoom: 16 });
+      map.once('moveend', () => { suppressPersist = false; });
+      return;
+    }
+    const bounds = pts.reduce(
+      (b, p) => b.extend(p),
+      new maplibregl.LngLatBounds(pts[0], pts[0])
+    );
+    suppressPersist = true;
+    map.fitBounds(bounds, { padding: 48, maxZoom: 17, duration: 0 });
+    map.once('moveend', () => { suppressPersist = false; });
+  }
+
+  function ensureMeasureLayers() {
+    if (!map) return;
+    if (!map.getSource('measure')) {
+      map.addSource('measure', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({
+        id: 'measure-line',
+        type: 'line',
+        source: 'measure',
+        filter: ['==', '$type', 'LineString'],
+        paint: { 'line-color': '#f0883e', 'line-width': 3, 'line-dasharray': [2, 1] },
+        layout: { visibility: measureOn ? 'visible' : 'none' },
+      });
+      map.addLayer({
+        id: 'measure-points',
+        type: 'circle',
+        source: 'measure',
+        filter: ['==', '$type', 'Point'],
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#f0883e',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+        layout: { visibility: measureOn ? 'visible' : 'none' },
+      });
+    }
+  }
+
+  function updateMeasureOverlay() {
+    if (!map || !map.getSource('measure')) return;
+    const features = [];
+    if (measurePoints.length >= 1) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [measurePoints[0].lon, measurePoints[0].lat] },
+        properties: {},
+      });
+    }
+    if (measurePoints.length >= 2) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [measurePoints[1].lon, measurePoints[1].lat] },
+        properties: {},
+      });
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [measurePoints[0].lon, measurePoints[0].lat],
+            [measurePoints[1].lon, measurePoints[1].lat],
+          ],
+        },
+        properties: {},
+      });
+    }
+    map.getSource('measure').setData({ type: 'FeatureCollection', features });
+    const vis = measureOn ? 'visible' : 'none';
+    if (map.getLayer('measure-line')) {
+      map.setLayoutProperty('measure-line', 'visibility', vis);
+      map.setLayoutProperty('measure-points', 'visibility', vis);
+    }
+    const readout = document.getElementById('measure-readout');
+    if (measurePoints.length >= 2) {
+      const dist = haversineM(
+        measurePoints[0].lon, measurePoints[0].lat,
+        measurePoints[1].lon, measurePoints[1].lat
+      );
+      const label = formatDistanceM(dist);
+      if (readout) {
+        readout.textContent = 'Distance: ' + label;
+        readout.classList.remove('hidden');
+      }
+      postHost({ type: 'measureResult', metres: dist, label });
+    } else {
+      if (readout) readout.classList.add('hidden');
+      postHost({ type: 'measureResult', metres: null, label: '' });
+    }
+  }
+
+  function setMeasureMode(active) {
+    measureOn = !!active;
+    if (!measureOn) measurePoints = [];
+    if (map) {
+      ensureMeasureLayers();
+      updateMeasureOverlay();
+      map.getCanvas().style.cursor = measureOn || pinPickKind ? 'crosshair' : '';
+    }
+    document.body.classList.toggle('surface-map--measure', measureOn);
+    postHost({ type: 'measureMode', active: measureOn });
+  }
+
+  function setLidarOpacityValue(opacity) {
+    if (!isFinite(opacity)) return;
+    lidarOpacity = Math.min(1, Math.max(0.05, opacity));
+    if (map && map.getLayer('lidar-raster')) {
+      map.setPaintProperty('lidar-raster', 'raster-opacity', lidarOpacity);
+    }
+    schedulePersist();
+  }
+
+  function corridorWaypoint(which) {
+    const coords = collectCorridorCoords();
+    if (coords.length === 0) return null;
+    if (which === 'start') return coords[0];
+    if (which === 'end') return coords[coords.length - 1];
+    return null;
+  }
+
+  function resolveCoordsRequest(source) {
+    if (source === 'entrance') return entranceLonLat();
+    if (source === 'cursor' && lastCursor) return lastCursor;
+    if (source === 'corridor-start' || source === 'corridor-end') {
+      return corridorWaypoint(source === 'corridor-start' ? 'start' : 'end');
+    }
+    return lastCursor || entranceLonLat();
+  }
+
+  function escapeXml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function buildCorridorGpx() {
+    const coords = collectCorridorCoords();
+    const name = project && project.name ? String(project.name) : 'Survey corridor';
+    if (coords.length < 2) {
+      return '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="CaveAI Pro Surface map" xmlns="http://www.topografix.com/GPX/1/1">\n</gpx>\n';
+    }
+    const trkpts = coords.map((c) => {
+      return '      <trkpt lat="' + c.lat.toFixed(6) + '" lon="' + c.lon.toFixed(6) + '"></trkpt>';
+    }).join('\n');
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="CaveAI Pro Surface map" xmlns="http://www.topografix.com/GPX/1/1">\n  <trk>\n    <name>' + escapeXml(name) + ' corridor</name>\n    <trkseg>\n' + trkpts + '\n    </trkseg>\n  </trk>\n</gpx>\n';
+  }
+
+  function buildCorridorGeoJson() {
+    const corridor = project && project.surveyCorridor;
+    if (corridor && corridor.type === 'FeatureCollection') return corridor;
+    const coords = collectCorridorCoords();
+    if (coords.length < 2) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { name: (project && project.name) || 'Survey corridor' },
+        geometry: {
+          type: 'LineString',
+          coordinates: coords.map((c) => [c.lon, c.lat]),
+        },
+      }],
+    };
+  }
+
+  function exportPackage() {
+    if (!map) {
+      postHost({ type: 'exportPackageResult', error: 'Map not ready' });
+      return;
+    }
+    try {
+      const dataUrl = map.getCanvas().toDataURL('image/png');
+      postHost({
+        type: 'exportPackageResult',
+        dataUrl,
+        geoJson: buildCorridorGeoJson(),
+        gpx: buildCorridorGpx(),
+        projectName: project && project.name ? String(project.name) : 'surface-map',
+      });
+    } catch (err) {
+      postHost({ type: 'exportPackageResult', error: String(err && err.message ? err.message : err) });
+    }
+  }
+
+  function placePinFromGps(kind) {
+    if (!navigator.geolocation) {
+      postHost({ type: 'status', message: 'GPS unavailable in this browser context' });
+      return;
+    }
+    setMapBusy(true, 'Reading GPS…');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setMapBusy(false);
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        postHost({ type: 'pinPlaced', kind, lat, lon, source: 'gps' });
+        if (kind === 'vehicle') {
+          project.returnCar = { lat, lon };
+        } else if (kind === 'base') {
+          project.returnBase = { lat, lon };
+        }
+        applyVehiclePins();
+        postHost({ type: 'status', message: (kind === 'vehicle' ? 'Vehicle park' : 'Trailhead') + ' pin set from GPS' });
+      },
+      () => {
+        setMapBusy(false);
+        postHost({ type: 'status', message: 'GPS fix failed — pick on map instead' });
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
+
+  function bindMapInteractions() {
+    if (!map || interactionsBound) return;
+    interactionsBound = true;
+    ensureMeasureLayers();
+
+    map.on('click', (e) => {
+      if (measureOn) {
+        const pt = { lon: e.lngLat.lng, lat: e.lngLat.lat };
+        if (measurePoints.length >= 2) measurePoints = [];
+        measurePoints.push(pt);
+        updateMeasureOverlay();
+        return;
+      }
+      if (pinPickKind) {
+        const kind = pinPickKind;
+        pinPickKind = null;
+        map.getCanvas().style.cursor = measureOn ? 'crosshair' : '';
+        const lat = e.lngLat.lat;
+        const lon = e.lngLat.lng;
+        if (kind === 'vehicle') project.returnCar = { lat, lon };
+        else if (kind === 'base') project.returnBase = { lat, lon };
+        applyVehiclePins();
+        postHost({ type: 'pinPlaced', kind, lat, lon, source: 'map' });
+        postHost({ type: 'status', message: (kind === 'vehicle' ? 'Vehicle park' : 'Trailhead') + ' pin placed — save project to persist' });
+        postHost({ type: 'pinPickMode', active: false, kind: null });
+      }
+    });
   }
 
   function bindHud() {
     const hud = document.getElementById('hud');
     const coords = document.getElementById('hud-coords');
+    const decl = document.getElementById('hud-declination');
     if (!hud || !coords) return;
     hud.classList.remove('hidden');
+    bindMapInteractions();
     map.on('mousemove', (e) => {
-      coords.textContent = e.lngLat.lat.toFixed(5) + '?, ' + e.lngLat.lng.toFixed(5) + '?';
+      lastCursor = { lon: e.lngLat.lng, lat: e.lngLat.lat };
+      coords.textContent = e.lngLat.lat.toFixed(5) + '\u00b0N, ' + e.lngLat.lng.toFixed(5) + '\u00b0E';
+      postHost({ type: 'cursorCoords', lat: e.lngLat.lat, lon: e.lngLat.lng });
+      if (decl && hasEntrance()) decl.textContent = declinationNote();
     });
+    map.on('mouseout', () => {
+      postHost({ type: 'cursorCoords', lat: null, lon: null });
+    });
+    if (decl && hasEntrance()) decl.textContent = declinationNote();
   }
 
   function schedulePersist() {
-    if (!map) return;
+    if (!map || suppressPersist) return;
     clearTimeout(persistTimer);
     persistTimer = setTimeout(() => {
+      if (suppressPersist) return;
       const c = map.getCenter();
-      postHost({
-        type: 'mapState',
-        payload: {
-          hillshadeEnabled: hillshadeOn,
-          terrain3dEnabled: terrain3dOn,
-          corridorOverlayEnabled: corridorOn,
-          copernicusDsmEnabled: copernicusOn,
-          lidarOverlayEnabled: lidarOn,
-          performanceMode,
-          centerLon: c.lng,
-          centerLat: c.lat,
-          zoom: map.getZoom(),
-          bearing: map.getBearing(),
-          pitch: map.getPitch(),
-        },
-      });
+      const payload = {
+        hillshadeEnabled: hillshadeOn,
+        terrain3dEnabled: terrain3dOn,
+        corridorOverlayEnabled: corridorOn,
+        copernicusDsmEnabled: copernicusOn,
+        lidarOverlayEnabled: lidarOn,
+        lidarOpacity,
+        entrancePinEnabled: entrancePinOn,
+        vehiclePinsEnabled: vehiclePinsOn,
+        performanceMode,
+        centerLon: c.lng,
+        centerLat: c.lat,
+        zoom: map.getZoom(),
+        bearing: map.getBearing(),
+        pitch: map.getPitch(),
+      };
+      if (mapStateNearEnough(lastPersistedMapState, payload)) return;
+      lastPersistedMapState = payload;
+      postHost({ type: 'mapState', payload });
     }, 400);
   }
 
@@ -767,7 +1128,34 @@
         Number.isFinite(ms.centerLat) &&
         Number.isFinite(ms.zoom) &&
         ms.zoom > 0;
-      if (!hasSavedView) fitEntrance();
+      if (hasSavedView) {
+        const c = map.getCenter();
+        const payload = {
+          centerLon: c.lng,
+          centerLat: c.lat,
+          zoom: map.getZoom(),
+          bearing: map.getBearing(),
+          pitch: map.getPitch(),
+        };
+        if (
+          Math.abs(payload.centerLon - ms.centerLon) >= 1e-6
+          || Math.abs(payload.centerLat - ms.centerLat) >= 1e-6
+          || Math.abs(payload.zoom - ms.zoom) >= 1e-5
+        ) {
+          suppressPersist = true;
+          map.jumpTo({
+            center: [ms.centerLon, ms.centerLat],
+            zoom: ms.zoom,
+            bearing: ms.bearing || 0,
+            pitch: ms.pitch || 0,
+          });
+          map.once('moveend', () => {
+            suppressPersist = false;
+          });
+        }
+      } else {
+        fitEntrance();
+      }
     } else {
       fitEntrance();
     }
@@ -800,6 +1188,17 @@
       }
       if (payload && typeof payload.lidarOverlayEnabled === 'boolean') {
         lidarOn = payload.lidarOverlayEnabled;
+      }
+      if (payload && typeof payload.lidarOpacity === 'number') {
+        setLidarOpacityValue(payload.lidarOpacity);
+      }
+      if (payload && typeof payload.entrancePinEnabled === 'boolean') {
+        entrancePinOn = payload.entrancePinEnabled;
+        applyEntrancePin();
+      }
+      if (payload && typeof payload.vehiclePinsEnabled === 'boolean') {
+        vehiclePinsOn = payload.vehiclePinsEnabled;
+        applyVehiclePins();
       }
     }
     if (!map) return;
@@ -1117,6 +1516,58 @@
       case 'fitEntrance':
         fitEntrance();
         break;
+      case 'fitSurvey':
+        fitSurvey();
+        break;
+      case 'measure':
+        setMeasureMode(!!(data.payload && data.payload.active));
+        break;
+      case 'exportPackage':
+        exportPackage();
+        break;
+      case 'getCoords': {
+        const source = data.payload && data.payload.source;
+        const pt = resolveCoordsRequest(source);
+        if (pt) {
+          postHost({
+            type: 'coordsCopy',
+            source: source || 'cursor',
+            lat: pt.lat,
+            lon: pt.lon,
+            text: pt.lat.toFixed(6) + ', ' + pt.lon.toFixed(6),
+          });
+        } else {
+          postHost({ type: 'coordsCopy', error: 'No coordinates for ' + (source || 'cursor') });
+        }
+        break;
+      }
+      case 'lidarOpacity':
+        if (data.payload && typeof data.payload.opacity === 'number') {
+          setLidarOpacityValue(data.payload.opacity);
+        }
+        break;
+      case 'pinPick': {
+        const kind = data.payload && data.payload.kind;
+        if (kind === 'vehicle' || kind === 'base') {
+          pinPickKind = kind;
+          measureOn = false;
+          measurePoints = [];
+          updateMeasureOverlay();
+          if (map) map.getCanvas().style.cursor = 'crosshair';
+          postHost({ type: 'pinPickMode', active: true, kind });
+          postHost({ type: 'status', message: 'Click map to set ' + (kind === 'vehicle' ? 'vehicle park' : 'trailhead') + ' pin' });
+        } else {
+          pinPickKind = null;
+          if (map) map.getCanvas().style.cursor = measureOn ? 'crosshair' : '';
+          postHost({ type: 'pinPickMode', active: false, kind: null });
+        }
+        break;
+      }
+      case 'pinPickGps':
+        if (data.payload && (data.payload.kind === 'vehicle' || data.payload.kind === 'base')) {
+          placePinFromGps(data.payload.kind);
+        }
+        break;
       case 'resize':
         scheduleMapResize();
         break;
@@ -1132,7 +1583,7 @@
     window.chrome.webview.addEventListener('message', (ev) => {
       let data = ev.data;
       if (typeof data === 'string') {
-        try { data = JSON.parse(data); } catch (_) { return; }
+        try { data = JSON.parse(data); } catch { return; }
       }
       handleHostMessage(data);
     });
@@ -1142,7 +1593,7 @@
     if (ev.origin !== window.location.origin) return;
     let data = ev.data;
     if (typeof data === 'string') {
-      try { data = JSON.parse(data); } catch (_) { return; }
+      try { data = JSON.parse(data); } catch { return; }
     }
     handleHostMessage(data);
   });

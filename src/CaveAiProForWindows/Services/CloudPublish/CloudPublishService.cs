@@ -175,24 +175,69 @@ public sealed class CloudPublishService
 
         progress?.Report("Updating Firestore published cave…");
         ReferenceSurveyLinkService.TryGetLink(bundle.Project, out var refLink);
-
-        string? publishedCaveName = null;
+        PublishedCaveDocument existing;
         try
         {
-            var existing = await _rest.GetPublishedCaveDocumentAsync(
+            existing = await _rest.GetPublishedCaveDocumentAsync(
                     bundle.PublishedCaveDocId.Trim(),
                     token,
                     cancellationToken)
                 .ConfigureAwait(false);
-            publishedCaveName = existing.CaveName;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Could not read published cave name for search key: {ex.Message}");
+            throw new InvalidOperationException(
+                $"Could not read published cave {bundle.PublishedCaveDocId} for owner sync merge: {ex.Message}",
+                ex);
         }
 
-        if (string.IsNullOrWhiteSpace(publishedCaveName))
-            publishedCaveName = CaveProjectDisplayNames.GetDisplayName(bundle.Project);
+        var caveName = string.IsNullOrWhiteSpace(existing.CaveName)
+            ? CaveProjectDisplayNames.GetDisplayName(bundle.Project)
+            : existing.CaveName.Trim();
+        var health = SurveyIntelligenceEngine.BuildHealth(bundle.Project);
+        var mergedImageUrls = new List<string>(existing.ImageUrls ?? []);
+        foreach (var url in galleryUrls)
+        {
+            if (!mergedImageUrls.Contains(url, StringComparer.Ordinal))
+                mergedImageUrls.Add(url);
+        }
+
+        var mergedCartography = new List<string>(existing.CartographyImageUrls ?? []);
+        if (!string.IsNullOrWhiteSpace(aiUrl) && !mergedCartography.Contains(aiUrl, StringComparer.Ordinal))
+            mergedCartography.Add(aiUrl);
+
+        var overlaySummary = SurveyAnnotationReportFormatter.BuildOverlaySummary(bundle.Project);
+        var surveyReportSummary = existing.SurveyReportSummary;
+        if (!string.IsNullOrWhiteSpace(overlaySummary)
+            && overlaySummary.Length <= PublishedCaveSyncPayload.SurveyReportSummaryMaxChars)
+        {
+            surveyReportSummary = overlaySummary;
+        }
+
+        var syncInput = new PublishedCaveSyncPayload.OwnerSyncInput
+        {
+            CaveName = caveName,
+            Description = existing.Description ?? "",
+            Depth = health.MaxDepthM > 0 ? health.MaxDepthM : existing.Depth,
+            Length = health.TraverseLengthM > 0 ? health.TraverseLengthM : existing.Length,
+            MergedImageUrls = mergedImageUrls,
+            MergedCartographyImageUrls = mergedCartography.Count > 0 ? mergedCartography : null,
+            SurveyJsonUrl = surveyUrl ?? existing.SurveyJsonUrl ?? existing.SurveyJsonMediaUrl,
+            SurfaceLidarUrl = existing.SurfaceLidarUrl,
+            SurveyReportSummary = surveyReportSummary,
+            SurveyReportNarrativeUrl = existing.SurveyReportNarrativeUrl,
+            EntranceMagneticHintsJson = existing.EntranceMagneticHintsJson,
+            EntranceMagneticHintsUrl = existing.EntranceMagneticHintsUrl,
+            AccessSeasonNote = existing.AccessSeasonNote,
+            LastSyncedAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        };
+
+        await _rest.PatchPublishedCaveAsync(
+                token,
+                bundle.PublishedCaveDocId.Trim(),
+                syncInput,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         var metadata = new CloudPublishMetadata
         {
@@ -201,16 +246,14 @@ public sealed class CloudPublishService
             StructureMaskUrl = maskUrl,
             SurveyJsonStoragePath = surveyPath,
             SurveyJsonMediaUrl = surveyUrl,
-            SurveyOverlaySummary = SurveyAnnotationReportFormatter.BuildOverlaySummary(bundle.Project),
+            SurveyOverlaySummary = overlaySummary,
             SurveyArchiveSchemaVersion = bundle.Project.SurveyArchiveSchemaVersion,
             ReferenceCatalogId = refLink?.Id,
             ReferenceCatalogCountry = refLink?.Country,
-            CaveNameSearchKey = PublicLibrarySearchKey.FromCaveName(publishedCaveName),
+            CaveNameSearchKey = PublicLibrarySearchKey.FromCaveName(caveName),
             GalleryPhotoUrls = galleryUrls.Count > 0 ? galleryUrls : null,
-            UpdatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            UpdatedAtUtcMs = syncInput.LastSyncedAtMs,
         };
-
-        await _rest.PatchPublishedCaveAsync(token, metadata, cancellationToken).ConfigureAwait(false);
         progress?.Report("Publish complete.");
         return metadata;
     }

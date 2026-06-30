@@ -108,11 +108,18 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _updateAvailableBannerMessage = "";
 
+    private readonly CloudCommandsViewModel _cloudCommands;
+
+    /// <summary>Cloud publish retry queue and local publish history.</summary>
+    public CloudCommandsViewModel CloudCommands => _cloudCommands;
+
     private string _pendingReleasePageUrl = "";
 
     [ObservableProperty] private int _collaborationUnreadCount;
 
     [ObservableProperty] private string _footerContextLine = "";
+
+    [ObservableProperty] private string _authStatusChip = "";
 
     [ObservableProperty] private bool _showLoadProgress;
 
@@ -147,6 +154,12 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>Set by <see cref="MainWindow"/> — opens Sketch Editor design mode from survey traverse.</summary>
     public Action<bool>? NavigateToDesignFromSurvey { get; set; }
+
+    /// <summary>Set by <see cref="MainWindow"/> — selects the SURFACE map tab.</summary>
+    public Action? NavigateToSurfaceTab { get; set; }
+
+    /// <summary>Set by <see cref="MainWindow"/> — resets Plan/Section/X-ray/Surface/sketch surfaces when the workspace is cleared or replaced.</summary>
+    public Action? ResetSurveyViewSurfaces { get; set; }
 
     public ObservableCollection<MapAssetRow> MapAssetRows { get; } = new();
 
@@ -247,6 +260,7 @@ public partial class MainViewModel : ObservableObject
 
     public MainViewModel()
     {
+        _cloudCommands = new CloudCommandsViewModel(this);
         foreach (var p in RecentPathsStore.Load())
             RecentPaths.Add(p);
         LegalTermsAccepted = LegalTermsAcceptanceStore.Load();
@@ -258,6 +272,8 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnLegalTermsAcceptedChanged(bool value)
     {
+        RefreshAuthStatusChip();
+        _cloudCommands.NotifyPublishStateChanged();
         LegalTermsAcceptanceStore.Save(value);
         if (value)
         {
@@ -295,7 +311,11 @@ public partial class MainViewModel : ObservableObject
         PublishToCloudCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnIsCloudPublishingChanged(bool value) => PublishToCloudCommand.NotifyCanExecuteChanged();
+    partial void OnIsCloudPublishingChanged(bool value)
+    {
+        PublishToCloudCommand.NotifyCanExecuteChanged();
+        _cloudCommands.NotifyPublishStateChanged();
+    }
 
     partial void OnSelectedProjectChanged(CaveProjectDocument? value)
     {
@@ -320,6 +340,7 @@ public partial class MainViewModel : ObservableObject
         SaveProjectCommand.NotifyCanExecuteChanged();
         PrintPreviewCommand.NotifyCanExecuteChanged();
         PublishToCloudCommand.NotifyCanExecuteChanged();
+        _cloudCommands.NotifyPublishStateChanged();
         RefreshReferenceLinkSummary();
         OnPropertyChanged(nameof(SiteIdentityTooltip));
         OnPropertyChanged(nameof(SelectedProjectSiteTypeLabel));
@@ -393,6 +414,7 @@ public partial class MainViewModel : ObservableObject
         ExportAllProjectsToFolderCommand.NotifyCanExecuteChanged();
         CloseWorkspaceCommand.NotifyCanExecuteChanged();
         NotifyLegalGateCommands();
+        _cloudCommands.RefreshRetryCount();
     }
 
     private void HookProjectListViewFilter(ObservableCollection<CaveProjectDocument> list)
@@ -534,6 +556,35 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanCloseWorkspace))]
     private void CloseWorkspace()
     {
+        if (!CanCloseWorkspace())
+            return;
+
+        ClearWorkspaceDataCore();
+        WindowTitle = "CAVE AI PRO — Survey workstation";
+        StatusMessage =
+            "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
+        NotifyWorkspaceCommandStateChanged();
+    }
+
+    private bool HasLoadedWorkspaceContent() =>
+        Projects.Count > 0 ||
+        _knownCaveMaster.Count > 0 ||
+        _standaloneMapPaths.Count > 0 ||
+        !string.IsNullOrEmpty(_zipPath) ||
+        !string.IsNullOrEmpty(_primarySourcePath) ||
+        MapInventoryRows.Count > 0;
+
+    /// <summary>Auto-unload before opening a different backup so the previous session cannot leak into the new project.</summary>
+    private void UnloadWorkspaceBeforeNewLoad()
+    {
+        if (!HasLoadedWorkspaceContent())
+            return;
+
+        ClearWorkspaceDataCore();
+    }
+
+    private void ClearWorkspaceDataCore()
+    {
         _loadCts?.Cancel();
 
         CaveMapsMarkerPathResolver.ClearCache();
@@ -544,6 +595,9 @@ public partial class MainViewModel : ObservableObject
         _sourceFileCount = 0;
         _integrityReport = null;
         _lastExtractRoot = null;
+        _cloudAssetCacheDir = null;
+        _loadedSurveyFingerprint = null;
+        OnPropertyChanged(nameof(CloudAssetCacheDir));
 
         _knownCaveMaster.Clear();
         _standaloneMapPaths.Clear();
@@ -562,17 +616,30 @@ public partial class MainViewModel : ObservableObject
 
         RefreshMapAssets(new List<CaveProjectDocument>());
 
+        ShotsView.Clear();
+        StationQcRows.Clear();
+        SurveyQcIssueRows.Clear();
+        ReferenceLinkSummary = "";
+
         SourcePathDisplay = "";
-        WindowTitle = "CAVE AI PRO — Survey workstation";
         ShowSchemaNote = false;
         SchemaNoteText = "";
-        StatusMessage =
-            "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
 
         ApplyIntegrityUi();
         RefreshArchivePanel();
         OnPropertyChanged(nameof(ActiveZipPath));
         OnPropertyChanged(nameof(ActiveZipPathForMaps));
+
+        WorkspaceSessionReset.ClearSurfaceMapViewport();
+        WorkspaceSessionReset.ClearTransientSurveyUiState();
+        ResetSurveyViewSurfaces?.Invoke();
+        SurveyDataChanged?.Invoke(this, EventArgs.Empty);
+
+        NotifyWorkspaceCommandStateChanged();
+    }
+
+    private void NotifyWorkspaceCommandStateChanged()
+    {
         ExtractPhotosCommand.NotifyCanExecuteChanged();
         ExtractFullArchiveCommand.NotifyCanExecuteChanged();
         OpenLastExtractedFolderCommand.NotifyCanExecuteChanged();
@@ -689,23 +756,61 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenPublicLibraryCatalog()
     {
+        OpenPublicLibraryWithPicker();
+    }
+
+    [RelayCommand]
+    private void OpenPublicLibraryWithPicker()
+    {
         if (TryNotifyCloudBlockedInTestMode("Public Cave Library"))
             return;
 
-        try
+        var owner = Wpf.Application.Current.MainWindow;
+        switch (PublicLibraryEntryPicker.Prompt(owner))
         {
-            PublicLibraryCatalog.ShowNativeReferenceCatalog(Wpf.Application.Current.MainWindow);
-            StatusMessage = $"Reference catalog · {PublicLibraryCatalog.WebOrigin}";
+            case PublicLibraryEntryPicker.Choice.NativeCatalog:
+                try
+                {
+                    PublicLibraryCatalog.ShowNativeReferenceCatalog(owner);
+                    StatusMessage = $"Reference catalog · {PublicLibraryCatalog.WebOrigin}";
+                }
+                catch (Exception ex)
+                {
+                    Wpf.MessageBox.Show(owner, ex.Message, "Public Cave Library", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+                }
+                break;
+            case PublicLibraryEntryPicker.Choice.WebMap:
+                try
+                {
+                    PublicLibraryCatalog.ShowMapInAppWindow(owner);
+                    StatusMessage = "Public Library — web map";
+                }
+                catch (Exception ex)
+                {
+                    Wpf.MessageBox.Show(owner, ex.Message, "Public Cave Library", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+                }
+                break;
+            case PublicLibraryEntryPicker.Choice.ExternalBrowser:
+                try
+                {
+                    PublicLibraryCatalog.OpenMap();
+                }
+                catch (Exception ex)
+                {
+                    Wpf.MessageBox.Show(owner, ex.Message, "Public Cave Library", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+                }
+                break;
         }
-        catch (Exception ex)
-        {
-            Wpf.MessageBox.Show(
-                Wpf.Application.Current.MainWindow,
-                ex.Message,
-                "Public Cave Library",
-                Wpf.MessageBoxButton.OK,
-                Wpf.MessageBoxImage.Warning);
-        }
+    }
+
+    [RelayCommand]
+    private void ShowCommandPalette()
+    {
+        var owner = Wpf.Application.Current.MainWindow;
+        if (owner == null)
+            return;
+        var palette = new CommandPaletteWindow(this) { Owner = owner };
+        palette.ShowDialog();
     }
 
     [RelayCommand]
@@ -1023,11 +1128,12 @@ public partial class MainViewModel : ObservableObject
         LoadFromPath(path);
     }
 
-    private void LoadFromPath(string path) => LoadFromPaths(new[] { path });
+    public void LoadFromPath(string path) => LoadFromPaths(new[] { path });
 
     /// <summary>Loads one or more JSON/ZIP files and merges all projects (heavy work runs off the UI thread).</summary>
     public void LoadFromPaths(IReadOnlyList<string> paths)
     {
+        UnloadWorkspaceBeforeNewLoad();
         _loadCts?.Cancel();
         _loadCts?.Dispose();
         _loadCts = new CancellationTokenSource();
@@ -1904,6 +2010,15 @@ public partial class MainViewModel : ObservableObject
                 progress).ConfigureAwait(true);
             StatusMessage = $"Downloaded {result.CaveName ?? docId} — {result.AssetCount} asset(s).";
             SnackbarService.Show(owner, StatusMessage);
+
+            var openNow = Wpf.MessageBox.Show(
+                owner,
+                $"Saved to {result.OutputPath}\n\nOpen this backup in the workspace now?",
+                "Download complete",
+                Wpf.MessageBoxButton.YesNo,
+                Wpf.MessageBoxImage.Question);
+            if (openNow == Wpf.MessageBoxResult.Yes)
+                LoadFromPath(result.OutputPath);
         }
         catch (Exception ex)
         {
@@ -2285,6 +2400,25 @@ public partial class MainViewModel : ObservableObject
             parts.Add("Not signed in");
 
         FooterContextLine = string.Join(" · ", parts);
+        RefreshAuthStatusChip();
+    }
+
+    private void RefreshAuthStatusChip()
+    {
+        var chips = new List<string>();
+        if (!string.IsNullOrWhiteSpace(FirebaseAuthSession.CurrentAccountEmail))
+            chips.Add("Signed in");
+        else
+            chips.Add("Not signed in");
+
+        var entitlement = AccountSessionState.LastEntitlement;
+        if (entitlement?.IsEntitled == true)
+            chips.Add("Subscription OK");
+        else if (!string.IsNullOrWhiteSpace(FirebaseAuthSession.CurrentAccountEmail))
+            chips.Add("Subscription required");
+
+        chips.Add(LegalTermsAccepted ? "Legal OK" : "Legal pending");
+        AuthStatusChip = string.Join(" · ", chips);
     }
 
     private static string FormatFooterBackupAge(TimeSpan age)
@@ -2946,10 +3080,14 @@ public partial class MainViewModel : ObservableObject
             {
                 CloudPublishProgressValue = 100;
                 SnackbarService.Show(owner, $"Published to Cave Library — {metadata.PublishedCaveDocId}");
+                if (SelectedProject != null)
+                    _cloudCommands.ClearRetry(SelectedProject.Name);
             }
             else if (!string.IsNullOrWhiteSpace(lastError))
             {
                 SnackbarService.Show(owner, lastError, durationMs: 6000);
+                if (SelectedProject != null)
+                    _cloudCommands.RecordFailure(SelectedProject.Name, PrimarySourceFilePath, lastError);
             }
         }
         finally
@@ -3034,4 +3172,9 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void DismissUpdateAvailableBanner() => UpdateAvailableBannerVisible = false;
+
+    internal Task PublishToCloudAsyncInternal() => PublishToCloudAsync();
+
+    [RelayCommand]
+    private void OpenSurfaceMapTab() => NavigateToSurfaceTab?.Invoke();
 }

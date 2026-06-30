@@ -1630,6 +1630,23 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         PersistSketchTab();
     }
 
+    /// <summary>Clears sketch ink, undo history, and map zoom when the workspace is unloaded or replaced.</summary>
+    public void ResetForProjectUnload()
+    {
+        _designLayerProjectScope = null;
+        _designLayerHydrated = false;
+        _cachedUnderlays = null;
+        _interactivePlanScene = null;
+        _surveyHitLayoutReady = false;
+        DesignLayer?.Children.Clear();
+        _editor?.OnDesignLayerCleared();
+        _sketchPersistence?.ClearHistory();
+        InvalidateSurveyPickState(clearDetails: true);
+        ResetMapView();
+        RedrawImmediate();
+        UpdateEditorStatusBar();
+    }
+
     /// <summary>Flushes design-layer strokes/symbols and AI assets onto <paramref name="project"/> before disk save.</summary>
     public bool TryPersistSessionToProject(CaveProjectDocument project) =>
         _sketchPersistence?.TryPersistSessionToProject(project) ?? false;

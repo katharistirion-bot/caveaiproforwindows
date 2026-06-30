@@ -159,45 +159,20 @@ public sealed class FirebaseRestClient : IDisposable
                 body);
     }
 
-    /// <summary>Updates cartography / survey metadata on <c>published_caves/{docId}</c>.</summary>
+    /// <summary>Owner sync PATCH on <c>published_caves/{docId}</c> (publishedCaveOwnerSyncUpdateValid).</summary>
     public async Task PatchPublishedCaveAsync(
         FirebaseIdToken token,
-        CloudPublishMetadata metadata,
+        string publishedCaveDocId,
+        PublishedCaveSyncPayload.OwnerSyncInput syncInput,
         CancellationToken cancellationToken = default)
     {
-        var pairs = new List<KeyValuePair<string, object?>>
-        {
-            new("updatedAtMs", metadata.UpdatedAtUtcMs),
-            new("sourceClient", metadata.SourceClient),
-        };
+        if (string.IsNullOrWhiteSpace(publishedCaveDocId))
+            throw new ArgumentException("Published cave document id is required.", nameof(publishedCaveDocId));
+        ArgumentNullException.ThrowIfNull(syncInput);
 
-        if (metadata.CartographyImageUrls is { Count: > 0 } cartoUrls)
-            pairs.Add(new("cartographyImageUrls", cartoUrls));
-        if (!string.IsNullOrWhiteSpace(metadata.StructureMaskUrl))
-            pairs.Add(new("structureMaskUrl", metadata.StructureMaskUrl));
-        if (!string.IsNullOrWhiteSpace(metadata.SurveyJsonStoragePath))
-            pairs.Add(new("surveyJsonStoragePath", metadata.SurveyJsonStoragePath));
-        if (!string.IsNullOrWhiteSpace(metadata.SurveyJsonMediaUrl))
-        {
-            pairs.Add(new("surveyJsonMediaUrl", metadata.SurveyJsonMediaUrl));
-            // Android Public Library reads surveyJsonUrl for dossier merge.
-            pairs.Add(new("surveyJsonUrl", metadata.SurveyJsonMediaUrl));
-        }
-        if (!string.IsNullOrWhiteSpace(metadata.SurveyArchiveSchemaVersion))
-            pairs.Add(new("surveyArchiveSchemaVersion", metadata.SurveyArchiveSchemaVersion));
-        if (!string.IsNullOrWhiteSpace(metadata.SurveyOverlaySummary))
-            pairs.Add(new("surveyOverlaySummary", metadata.SurveyOverlaySummary));
-        if (!string.IsNullOrWhiteSpace(metadata.ReferenceCatalogId))
-            pairs.Add(new("referenceCatalogId", metadata.ReferenceCatalogId.Trim()));
-        if (!string.IsNullOrWhiteSpace(metadata.ReferenceCatalogCountry))
-            pairs.Add(new("referenceCatalogCountry", metadata.ReferenceCatalogCountry.Trim()));
-        if (!string.IsNullOrWhiteSpace(metadata.CaveNameSearchKey))
-            pairs.Add(new("caveNameSearchKey", metadata.CaveNameSearchKey.Trim()));
-        if (metadata.GalleryPhotoUrls is { Count: > 0 } gallery)
-            pairs.Add(new("galleryPhotoUrls", gallery));
-
+        var pairs = PublishedCaveSyncPayload.BuildOwnerSyncUpdatePairs(syncInput);
         var fields = FirestoreFieldBuilder.BuildFields(pairs);
-        var docPath = $"published_caves/{metadata.PublishedCaveDocId.Trim()}";
+        var docPath = $"published_caves/{publishedCaveDocId.Trim()}";
         await PatchDocumentAsync(token, docPath, fields, cancellationToken).ConfigureAwait(false);
     }
 
@@ -479,15 +454,36 @@ public sealed class FirebaseRestClient : IDisposable
             return list.Count > 0 ? list : null;
         }
 
+        double ReadDouble(string name)
+        {
+            if (!fields.TryGetProperty(name, out var el))
+                return 0;
+            if (el.TryGetProperty("doubleValue", out var d))
+                return d.GetDouble();
+            if (el.TryGetProperty("integerValue", out var i) && long.TryParse(i.GetString(), out var parsed))
+                return parsed;
+            return 0;
+        }
+
         return new PublishedCaveDocument
         {
             DocumentId = doc.RootElement.TryGetProperty("name", out var n)
                 ? n.GetString()?.Split('/').LastOrDefault() ?? ""
                 : "",
+            CaveName = ReadString("caveName"),
+            Description = ReadString("description"),
+            Depth = ReadDouble("depth"),
+            Length = ReadDouble("length"),
+            ImageUrls = ReadStringArray("imageUrls"),
             SurveyJsonUrl = ReadString("surveyJsonUrl"),
             SurveyJsonMediaUrl = ReadString("surveyJsonMediaUrl"),
             CartographyImageUrls = ReadStringArray("cartographyImageUrls"),
-            CaveName = ReadString("caveName"),
+            SurfaceLidarUrl = ReadString("surfaceLidarUrl"),
+            SurveyReportSummary = ReadString("surveyReportSummary"),
+            SurveyReportNarrativeUrl = ReadString("surveyReportNarrativeUrl"),
+            EntranceMagneticHintsJson = ReadString("entranceMagneticHintsJson"),
+            EntranceMagneticHintsUrl = ReadString("entranceMagneticHintsUrl"),
+            AccessSeasonNote = ReadString("accessSeasonNote"),
         };
     }
 

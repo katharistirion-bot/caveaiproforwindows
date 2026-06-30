@@ -69,6 +69,8 @@ jobs:
 
       - name: Publish + smoke test
         shell: pwsh
+        env:
+          CAVEAIPRO_FIREBASE_API_KEY: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY }}
         run: ./tools/smoke-publish.ps1 -SkipTests -NoRestore -LaunchSmokeTest -SmokeSeconds 10
 
       - name: Code sign published exe (optional)
@@ -85,6 +87,7 @@ jobs:
         shell: pwsh
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          CAVEAIPRO_FIREBASE_API_KEY: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY }}
         run: ./tools/package-release.ps1 -Tag $env:TAG
 
       - name: Code sign release installers (optional)

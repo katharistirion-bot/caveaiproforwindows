@@ -11,6 +11,7 @@ using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.Services.Localization;
 using CaveAiProForWindows.Services.Collaboration;
+using CaveAiProForWindows.Services.CloudPublish;
 using CaveAiProForWindows.ViewModels;
 using CaveAiProForWindows.Views;
 
@@ -44,6 +45,7 @@ public partial class MainWindow : Window
         InputBindings.Add(new KeyBinding(vm.SaveProjectCommand, Key.S, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(vm.CloseWorkspaceCommand, Key.W, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(vm.AboutCommand, new KeyGesture(Key.F1)));
+        InputBindings.Add(new KeyBinding(vm.ShowCommandPaletteCommand, Key.K, ModifierKeys.Control));
 
         AllowDrop = true;
         AddHandler(System.Windows.DragDrop.PreviewDragOverEvent, new System.Windows.DragEventHandler(OnPreviewDragOver), handledEventsToo: true);
@@ -52,6 +54,20 @@ public partial class MainWindow : Window
         Loaded += (_, _) =>
         {
             WindowPlacementStore.ApplyTo(this);
+            ShellLayoutStore.ApplyTo(
+                RecentFilesColumn,
+                ProjectsColumn,
+                MainSurveyTabControl,
+                null,
+                name =>
+                {
+                    if (DataContext is MainViewModel vmPick &&
+                        vmPick.Projects.FirstOrDefault(p =>
+                            string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) is { } match)
+                    {
+                        vmPick.SelectedProject = match;
+                    }
+                });
             UiLocalizationService.LoadLanguageFromSettings();
             if (DataContext is MainViewModel vmLoad)
             {
@@ -67,6 +83,8 @@ public partial class MainWindow : Window
             WirePlanViewExportCallbacks(vm);
             vm.CaptureCloudPublishArtifacts = () => SketchEditorControl.TryCaptureCloudPublishArtifacts();
             vm.NavigateToDesignFromSurvey = runProceduralAssist => OpenSketchEditorForDesign(runProceduralAssist);
+            vm.NavigateToSurfaceTab = SelectSurfaceTab;
+            vm.ResetSurveyViewSurfaces = ResetSurveyViewSurfacesForProjectUnload;
             IntroVideoWindow.ShowIfFirstRun(this);
             WelcomeOnboardingWindow.ShowIfFirstRun(this);
             PostSignInWizardWindow.ShowIfNeeded(this);
@@ -75,6 +93,9 @@ public partial class MainWindow : Window
                 vmBanner.RefreshAccountBannerFromSession();
                 vmBanner.RefreshFooterStatus();
             }
+
+            ApplyPreferencesSettingsUi();
+            TryOpenPendingExploreMap();
 
             _entitlementTimer = new System.Windows.Threading.DispatcherTimer
             {
@@ -92,6 +113,7 @@ public partial class MainWindow : Window
             StartCollaborationNotifications(vm);
             ApplyPlanViewLocalization();
             ApplyReferencePinsSettingUi();
+            ApplySurveyTabGroup(SurveyTabGroup.Survey);
             AndroidDesktopSyncHub.SyncSettingsChanged += OnAndroidSyncSettingsChanged;
             AndroidDesktopSyncHub.CollaborationProjectChanged += OnCollaborationProjectChanged;
             AndroidDesktopSyncHub.SyncFilesChanged += OnAndroidSyncFilesChanged;
@@ -109,6 +131,16 @@ public partial class MainWindow : Window
             _collaborationNotifications = null;
             _entitlementTimer?.Stop();
             _entitlementTimer = null;
+            if (DataContext is MainViewModel vmClose)
+            {
+                var layout = ShellLayoutStore.CaptureFrom(
+                    RecentFilesColumn,
+                    ProjectsColumn,
+                    MainSurveyTabControl,
+                    vmClose.SelectedProject?.Name);
+                ShellLayoutStore.Save(layout);
+            }
+
             WindowPlacementStore.SaveFrom(this);
         };
         PreviewKeyDown += OnMainWindowPreviewKeyDown;
@@ -127,7 +159,10 @@ public partial class MainWindow : Window
         else if (ReferenceEquals(tab, XRayTab))
             EnsureXRayTab();
         else if (ReferenceEquals(tab, SurfaceTab))
+        {
             EnsureSurfaceTab();
+            _surfaceMapView?.ReloadLayersFromSettings();
+        }
     }
 
     private void EnsurePlanTab()
@@ -152,6 +187,22 @@ public partial class MainWindow : Window
         Model3DTabHost.Content = _model3DView;
         _model3DTabInitialized = true;
         UiLocalizationService.ApplyToPlanView3DTools(_model3DView);
+        MaybeShowFirstOpen3DTooltip();
+    }
+
+    private void MaybeShowFirstOpen3DTooltip()
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        if (settings.HasSeen3DCompetitiveTooltip)
+            return;
+        settings.HasSeen3DCompetitiveTooltip = true;
+        AppUiSettingsStore.Save(settings);
+        MessageBox.Show(
+            this,
+            "Tip: Use the 3D toolbar preset «Competitive 3D» for a clean labeled overview, then export PNG or open Tools → Publication sheet for print layouts.",
+            "3D MODEL tab",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private void EnsureXRayTab()
@@ -253,6 +304,188 @@ public partial class MainWindow : Window
         AppUiSettingsStore.Save(settings);
     }
 
+    private void ApplyPreferencesSettingsUi()
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        if (PreferencesSyncFolderBox != null)
+            SetPreferencesPathBox(PreferencesSyncFolderBox, settings.AndroidSync.SyncFolderPath, optional: false);
+        if (PreferencesExportFolderBox != null)
+            SetPreferencesPathBox(PreferencesExportFolderBox, settings.DefaultExportFolderPath, optional: true);
+        if (PreferencesDarkThemeCheck != null)
+            PreferencesDarkThemeCheck.IsChecked = settings.UseDarkTheme;
+        if (PreferencesTelemetryCheck != null)
+            PreferencesTelemetryCheck.IsChecked = settings.SendAnonymizedErrorReports;
+        if (PreferencesMapQualityCombo != null)
+        {
+            foreach (ComboBoxItem item in PreferencesMapQualityCombo.Items)
+            {
+                if (item.Tag is string tag &&
+                    string.Equals(tag, settings.MapExportQuality, StringComparison.OrdinalIgnoreCase))
+                {
+                    PreferencesMapQualityCombo.SelectedItem = item;
+                    break;
+                }
+            }
+        }
+
+        RefreshPreferencesLastErrorLine();
+        RefreshPreferencesPublishHistoryLine();
+    }
+
+    private void RefreshPreferencesLastErrorLine()
+    {
+        if (PreferencesLastErrorText == null)
+            return;
+        var summary = ClientErrorTelemetryService.LastErrorSummary;
+        PreferencesLastErrorText.Text = string.IsNullOrWhiteSpace(summary)
+            ? "No recent in-app error recorded this session."
+            : summary;
+    }
+
+    private void RefreshPreferencesPublishHistoryLine()
+    {
+        if (PreferencesPublishHistoryText == null || DataContext is not MainViewModel vm || vm.SelectedProject == null)
+        {
+            if (PreferencesPublishHistoryText != null)
+                PreferencesPublishHistoryText.Text = "Publish history: select a project to see local publish log.";
+            return;
+        }
+
+        var entries = vm.CloudCommands.HistoryForProject(vm.SelectedProject.Name);
+        if (entries.Count == 0)
+        {
+            PreferencesPublishHistoryText.Text = "Publish history: none recorded for this project on this PC.";
+            return;
+        }
+
+        var latest = entries[0];
+        PreferencesPublishHistoryText.Text =
+            $"Publish history: last {latest.PublishedAtUtc:yyyy-MM-dd HH:mm} UTC · doc {latest.PublishedDocId}" +
+            (entries.Count > 1 ? $" (+{entries.Count - 1} earlier)" : "");
+    }
+
+    private void PreferencesBrowseSyncFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        var dlg = new OpenFolderDialog
+        {
+            Title = "Android Desktop Sync folder",
+            FolderName = Directory.Exists(settings.AndroidSync.SyncFolderPath ?? "")
+                ? settings.AndroidSync.SyncFolderPath
+                : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        };
+        if (dlg.ShowDialog(this) != true)
+            return;
+        if (!Directory.Exists(dlg.FolderName))
+        {
+            MessageBox.Show(this, "The selected folder does not exist.", "Android sync folder",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        settings.AndroidSync.SyncFolderPath = dlg.FolderName;
+        AppUiSettingsStore.Save(settings);
+        if (PreferencesSyncFolderBox != null)
+            SetPreferencesPathBox(PreferencesSyncFolderBox, dlg.FolderName, optional: false);
+        if (DataContext is MainViewModel vm)
+            vm.RefreshFooterStatus();
+    }
+
+    private void PreferencesBrowseExportFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        var dlg = new OpenFolderDialog
+        {
+            Title = "Default export folder",
+            FolderName = Directory.Exists(settings.DefaultExportFolderPath ?? "")
+                ? settings.DefaultExportFolderPath
+                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+        };
+        if (dlg.ShowDialog(this) != true)
+            return;
+        if (!Directory.Exists(dlg.FolderName))
+        {
+            MessageBox.Show(this, "The selected folder does not exist.", "Export folder",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        settings.DefaultExportFolderPath = dlg.FolderName;
+        AppUiSettingsStore.Save(settings);
+        if (PreferencesExportFolderBox != null)
+            SetPreferencesPathBox(PreferencesExportFolderBox, dlg.FolderName, optional: true);
+    }
+
+    private static void SetPreferencesPathBox(System.Windows.Controls.TextBox box, string? path, bool optional)
+    {
+        var display = string.IsNullOrWhiteSpace(path)
+            ? optional ? "(same as backup file)" : "(not set)"
+            : path;
+        box.Text = display;
+        var valid = optional && string.IsNullOrWhiteSpace(path) || (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path));
+        box.Foreground = valid
+            ? (System.Windows.Media.Brush)box.FindResource("Cave.Text")
+            : (System.Windows.Media.Brush)box.FindResource("Cave.Accent");
+        box.ToolTip = valid
+            ? display
+            : $"{display} — folder not found on this PC";
+    }
+
+    private void PreferencesMapQualityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PreferencesMapQualityCombo?.SelectedItem is not ComboBoxItem { Tag: string tag })
+            return;
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        settings.MapExportQuality = tag;
+        AppUiSettingsStore.Save(settings);
+    }
+
+    private void PreferencesDarkThemeCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        ThemePaletteSwitcher.SetDarkTheme(PreferencesDarkThemeCheck?.IsChecked == true);
+    }
+
+    private void PreferencesTelemetryCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        settings.SendAnonymizedErrorReports = PreferencesTelemetryCheck?.IsChecked == true;
+        AppUiSettingsStore.Save(settings);
+    }
+
+    private void PreferencesCopyLastError_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        var text = ClientErrorTelemetryService.LastErrorSummary ?? "(no error this session)";
+        text += Environment.NewLine + $"Crash-free sessions: {settings.CrashFreeSessionCount}";
+        text += Environment.NewLine + $"App: {AppMetadata.InformationalVersion}";
+        try
+        {
+            Clipboard.SetText(text);
+            SnackbarService.Show(this, "Copied error summary for support.");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Copy failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void TryOpenPendingExploreMap()
+    {
+        var url = App.PendingExploreMapUrl;
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+        App.PendingExploreMapUrl = null;
+        try
+        {
+            PublicLibraryCatalog.RememberExploreMapViewportUrl(url);
+            PublicLibraryCatalog.ShowInAppWindow(this, url);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Explore map", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)
     {
         while (child != null)
@@ -294,6 +527,14 @@ public partial class MainWindow : Window
 
     private void OnMainWindowPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.K)
+        {
+            if (DataContext is MainViewModel vmPalette && vmPalette.ShowCommandPaletteCommand.CanExecute(null))
+                vmPalette.ShowCommandPaletteCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         if (!IsKeyboardFocusWithinSurveyTabs())
             return;
 
@@ -486,7 +727,6 @@ public partial class MainWindow : Window
         try
         {
             var url = PublicLibraryCatalog.ResolveExploreMapOpenUrl();
-            PublicLibraryCatalog.RememberExploreMapViewportUrl(url);
             PublicLibraryCatalog.ShowInAppWindow(this, url);
         }
         catch (Exception ex)
@@ -556,8 +796,56 @@ public partial class MainWindow : Window
 
     public void SelectLegalSettingsTab()
     {
+        ApplySurveyTabGroup(SurveyTabGroup.Settings);
         if (LegalSettingsTabItem != null)
             LegalSettingsTabItem.IsSelected = true;
+    }
+
+    public void SelectSurfaceTab()
+    {
+        ApplySurveyTabGroup(SurveyTabGroup.Survey);
+        if (SurfaceTab != null)
+            MainSurveyTabControl.SelectedItem = SurfaceTab;
+        EnsureSurfaceTab();
+        _surfaceMapView?.ReloadLayersFromSettings();
+    }
+
+    private async void AuthStatusChip_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+            return;
+
+        var chip = vm.AuthStatusChip ?? "";
+        if (chip.Contains("Legal pending", StringComparison.OrdinalIgnoreCase))
+        {
+            SelectLegalSettingsTab();
+            return;
+        }
+
+        if (chip.Contains("Not signed in", StringComparison.OrdinalIgnoreCase) ||
+            chip.Contains("Subscription required", StringComparison.OrdinalIgnoreCase))
+        {
+            if (MicrosoftTestMode.IsActive)
+            {
+                MessageBox.Show(
+                    this,
+                    MicrosoftTestMode.CloudFeatureBlockedMessage,
+                    "Sign in",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var ok = AppLockBootstrapper.TryEnsureUnlocked();
+            if (!ok)
+            {
+                Application.Current.Shutdown();
+                return;
+            }
+
+            vm.RefreshAccountBannerFromSession();
+            vm.RefreshFooterStatus();
+        }
     }
 
     private void LegalRequiredOverlay_GoToLegal_Click(object sender, RoutedEventArgs e) => SelectLegalSettingsTab();
@@ -721,6 +1009,25 @@ public partial class MainWindow : Window
         SketchEditorControl.BeginDesignFromSurvey(runProceduralAssist);
     }
 
+    private void ResetSurveyViewSurfacesForProjectUnload()
+    {
+        _surfaceMapView?.ResetForProjectUnload();
+
+        SketchEditorControl.ResetForProjectUnload();
+
+        foreach (var plan in FindVisualChildren<PlanView>(this))
+        {
+            plan.ResetMapView();
+            plan.ClearMapSelectionAndRedraw();
+        }
+
+        foreach (var section in FindVisualChildren<SectionView>(this))
+            section.ResetMapView();
+
+        _xRayView?.ResetMapView();
+        _xRayView?.ClearMapSelectionAndRedraw();
+    }
+
     public void ApplyPlanViewLocalization()
     {
         foreach (var plan in FindVisualChildren<PlanView>(this))
@@ -822,5 +1129,71 @@ public partial class MainWindow : Window
         {
             /* offline — keep last known entitlement */
         }
+    }
+
+    private enum SurveyTabGroup { Survey, Library, Publish, Settings }
+
+    private void TabGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender == TabGroupSurvey)
+            ApplySurveyTabGroup(SurveyTabGroup.Survey);
+        else if (sender == TabGroupLibrary)
+            ApplySurveyTabGroup(SurveyTabGroup.Library);
+        else if (sender == TabGroupPublish)
+            ApplySurveyTabGroup(SurveyTabGroup.Publish);
+        else if (sender == TabGroupSettings)
+            ApplySurveyTabGroup(SurveyTabGroup.Settings);
+    }
+
+    private void ApplySurveyTabGroup(SurveyTabGroup group)
+    {
+        TabGroupSurvey.IsChecked = group == SurveyTabGroup.Survey;
+        TabGroupLibrary.IsChecked = group == SurveyTabGroup.Library;
+        TabGroupPublish.IsChecked = group == SurveyTabGroup.Publish;
+        TabGroupSettings.IsChecked = group == SurveyTabGroup.Settings;
+
+        var surveyTabs = new HashSet<TabItem>();
+        foreach (var item in MainSurveyTabControl.Items.OfType<TabItem>())
+        {
+            if (item == IntegrityTabItem || item.Header?.ToString() == "SURVEY QC")
+                continue;
+            if (item == LegalSettingsTabItem)
+                continue;
+            surveyTabs.Add(item);
+        }
+
+        var libraryTabs = new HashSet<TabItem> { IntegrityTabItem };
+        foreach (var item in MainSurveyTabControl.Items.OfType<TabItem>())
+        {
+            if (item.Header?.ToString() == "SURVEY QC")
+                libraryTabs.Add(item);
+        }
+
+        foreach (var item in MainSurveyTabControl.Items.OfType<TabItem>())
+        {
+            item.Visibility = group switch
+            {
+                SurveyTabGroup.Survey => surveyTabs.Contains(item) ? Visibility.Visible : Visibility.Collapsed,
+                SurveyTabGroup.Library => libraryTabs.Contains(item) ? Visibility.Visible : Visibility.Collapsed,
+                SurveyTabGroup.Publish => Visibility.Collapsed,
+                SurveyTabGroup.Settings => item == LegalSettingsTabItem ? Visibility.Visible : Visibility.Collapsed,
+                _ => Visibility.Visible,
+            };
+        }
+
+        if (group == SurveyTabGroup.Publish)
+        {
+            SnackbarService.Show(this,
+                "Cloud publish: Tools → Push to Cloud, or Ctrl+K → Push to Cloud.",
+                durationMs: 5000);
+            TabGroupSurvey.IsChecked = true;
+            ApplySurveyTabGroup(SurveyTabGroup.Survey);
+            return;
+        }
+
+        var visible = MainSurveyTabControl.Items.OfType<TabItem>()
+            .FirstOrDefault(t => t.Visibility == Visibility.Visible);
+        if (visible != null && MainSurveyTabControl.SelectedItem is TabItem sel && sel.Visibility != Visibility.Visible)
+            MainSurveyTabControl.SelectedItem = visible;
     }
 }

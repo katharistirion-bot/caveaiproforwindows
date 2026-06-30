@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Views;
 using Microsoft.Win32;
 
 namespace CaveAiProForWindows.ViewModels;
@@ -237,6 +238,38 @@ public partial class AiAnalyticsViewModel : ObservableObject, IDisposable
     }
 
     private bool CanOpenSketchEditor() => SketchEditorReady && _project != null;
+
+    [RelayCommand(CanExecute = nameof(CanCompareWithPreviousBackup))]
+    private void CompareWithPreviousBackup()
+    {
+        if (_project == null)
+            return;
+        var syncFolder = ResolveSyncFolder();
+        if (string.IsNullOrWhiteSpace(syncFolder) || !Directory.Exists(syncFolder))
+        {
+            StatusMessage = "Configure Desktop Sync folder first.";
+            return;
+        }
+
+        var zips = Directory.EnumerateFiles(syncFolder, "CaveAI_Backup_*.zip", SearchOption.TopDirectoryOnly)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .ToList();
+        if (zips.Count < 2)
+        {
+            StatusMessage = "Need at least two CaveAI_Backup_*.zip files in the sync folder.";
+            return;
+        }
+
+        var latestPath = !string.IsNullOrWhiteSpace(_project.LoadedFromFile) && File.Exists(_project.LoadedFromFile)
+            ? _project.LoadedFromFile
+            : zips[0];
+        var previousPath = zips.FirstOrDefault(z => !string.Equals(z, latestPath, StringComparison.OrdinalIgnoreCase)) ?? zips[1];
+        var owner = Application.Current.MainWindow;
+        SurveyCompareWindow.ShowWithPaths(owner, latestPath, previousPath, _project.Name);
+        StatusMessage = $"Compare: {Path.GetFileName(latestPath)} vs {Path.GetFileName(previousPath)}";
+    }
+
+    private bool CanCompareWithPreviousBackup() => _project != null;
 
     private bool CanExportResults() => ResultRows.Count > 0;
 

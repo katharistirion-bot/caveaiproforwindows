@@ -46,19 +46,41 @@
                 Background="{DynamicResource Cave.Surface}">
             <StackPanel>
                 <TextBlock x:Name="PreviewTitle" Text="Plan preview (select a row)" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <CheckBox x:Name="OverlayDiffCheck" Content="Overlay diff (A solid + B semi-transparent)"
+                          Margin="0,0,0,6" IsChecked="True" Checked="OverlayDiffCheck_Changed" Unchecked="OverlayDiffCheck_Changed" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Border Width="14" Height="14" Margin="0,0,6,0" Background="#FF2563EB" CornerRadius="2"
+                            ToolTip="File A — solid plan vectors" />
+                    <TextBlock Text="File A (solid)" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                    <Border Width="14" Height="14" Margin="0,0,6,0" Background="#802563EB" CornerRadius="2"
+                            ToolTip="File B — semi-transparent underlay (~45% opacity)" />
+                    <TextBlock Text="File B (semi-transparent underlay)" Foreground="{DynamicResource Cave.TextMuted}" VerticalAlignment="Center" />
+                </StackPanel>
                 <TextBlock x:Name="DiffSummaryText" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,8" />
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                        <TextBlock Text="File A" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
-                        <Image x:Name="PreviewA" Height="180" Stretch="Uniform" />
+                    <StackPanel x:Name="SideBySidePanel" Grid.Column="0" Grid.ColumnSpan="2">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <TextBlock Text="File A" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
+                                <Image x:Name="PreviewA" Height="180" Stretch="Uniform" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                <TextBlock Text="File B" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
+                                <Image x:Name="PreviewB" Height="180" Stretch="Uniform" />
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                        <TextBlock Text="File B" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
-                        <Image x:Name="PreviewB" Height="180" Stretch="Uniform" />
+                    <StackPanel x:Name="OverlayPanel" Grid.Column="0" Grid.ColumnSpan="2" Visibility="Collapsed">
+                        <TextBlock Text="Overlay (A + B)" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
+                        <Image x:Name="PreviewOverlay" Height="200" Stretch="Uniform" HorizontalAlignment="Left" />
                     </StackPanel>
                 </Grid>
             </StackPanel>
