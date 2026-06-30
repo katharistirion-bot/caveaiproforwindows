@@ -213,6 +213,19 @@
                             <Separator x:Name="PlanCartographySeparator" Margin="0,0,0,10" />
 
                             <StackPanel x:Name="PlanCartographySection">
+                            <TextBlock Text="Toolbar preset" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                       Foreground="{DynamicResource Cave.Text}"
+                                       Margin="0,0,0,8" />
+                            <ComboBox x:Name="MapToolbarPresetCombo" Margin="0,0,0,10"
+                                      FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                      SelectionChanged="MapToolbarPresetCombo_SelectionChanged"
+                                      ToolTip="One-click Publication / Field QC / Minimal cartography">
+                                <ComboBoxItem Content="(choose preset…)" Tag="" IsSelected="True" />
+                                <ComboBoxItem Content="Publication" Tag="Publication" />
+                                <ComboBoxItem Content="Field QC" Tag="Field QC" />
+                                <ComboBoxItem Content="Minimal" Tag="Minimal" />
+                            </ComboBox>
                             <TextBlock Text="Map cartography style" FontWeight="SemiBold"
                                        FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                        Foreground="{DynamicResource Cave.Text}"

@@ -20,9 +20,19 @@ public static class ClientErrorTelemetryService
     private static string QueuePath =>
         Path.Combine(DiagnosticLogPaths.AppDataDirectory, "telemetry-queue.jsonl");
 
+    public static string? LastErrorSummary { get; private set; }
+
+    public static bool IsEnabled =>
+        AppUiSettingsStore.LoadOrDefault().SendAnonymizedErrorReports;
+
     public static void Report(string kind, Exception exception, string? context = null)
     {
         if (exception == null)
+            return;
+
+        LastErrorSummary = $"{kind}: {exception.GetType().Name} — {exception.Message}";
+
+        if (!IsEnabled)
             return;
 
         try

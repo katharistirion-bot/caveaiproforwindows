@@ -13,18 +13,25 @@ namespace CaveAiProForWindows;
 
 public partial class App : System.Windows.Application
 {
+    internal static string? PendingExploreMapUrl { get; set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         WriteStartupLog("OnStartup begin");
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         base.OnStartup(e);
+        IncrementCrashFreeSession();
         ThemePaletteSwitcher.ApplyInitial();
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-        var startupSurveyPaths = CollectStartupSurveyPaths(e.Args);
+        var startupIntent = StartupUriRouter.Parse(e.Args);
+        var startupSurveyPaths = startupIntent.SurveyFilePaths.ToList();
+        PendingExploreMapUrl = startupIntent.ExploreMapUrl;
         if (startupSurveyPaths.Count > 0)
             WriteStartupLog("Startup file args: " + string.Join("; ", startupSurveyPaths));
+        if (!string.IsNullOrWhiteSpace(PendingExploreMapUrl))
+            WriteStartupLog("Startup explore URL: " + PendingExploreMapUrl);
 
 #if !DEBUG
         if (!InstallationGuard.IsLaunchedFromRegisteredInstall())
@@ -214,39 +221,23 @@ public partial class App : System.Windows.Application
         }
     }
 
-    /// <summary>Paths from Explorer double-click / &quot;Open with&quot; (shell passes each path as one argument).</summary>
-    private static List<string> CollectStartupSurveyPaths(string[] args)
+    private static void IncrementCrashFreeSession()
     {
-        var list = new List<string>();
-        if (args == null || args.Length == 0)
-            return list;
-        foreach (var raw in args)
+        try
         {
-            if (string.IsNullOrWhiteSpace(raw))
-                continue;
-            string full;
-            try
-            {
-                full = Path.GetFullPath(raw.Trim().Trim('"'));
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (!File.Exists(full))
-                continue;
-            var ext = Path.GetExtension(full);
-            if (ext.Equals(".json", StringComparison.OrdinalIgnoreCase) ||
-                ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!list.Contains(full, StringComparer.OrdinalIgnoreCase))
-                    list.Add(full);
-            }
+            var settings = AppUiSettingsStore.LoadOrDefault();
+            settings.CrashFreeSessionCount++;
+            AppUiSettingsStore.Save(settings);
         }
-
-        return list;
+        catch
+        {
+            /* ignore */
+        }
     }
+
+    /// <summary>Paths from Explorer double-click / &quot;Open with&quot; (shell passes each path as one argument).</summary>
+    private static List<string> CollectStartupSurveyPaths(string[] args) =>
+        StartupUriRouter.Parse(args).SurveyFilePaths.ToList();
 
     internal static void WriteStartupLog(string message)
     {

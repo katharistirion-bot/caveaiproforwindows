@@ -79,6 +79,8 @@
 
       <ComponentGroupRef Id="SurveyFileAssociations" />
 
+      <ComponentGroupRef Id="ProtocolHandler" />
+
     </Feature>
 
     <!-- Classic Windows Installer wizard (welcome, license, folder, ready) + built-in progress bar. -->
@@ -256,6 +258,30 @@
                        Type="string"
                        Value=""
                        KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProtocolHandler" Directory="INSTALLFOLDER">
+      <Component Id="CmpProtocolCaveAiPro" Guid="B2C3D4E5-F6A7-8901-BCDE-F123456789AB">
+        <RegistryValue Id="RegProtocolScheme"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\caveaipro"
+                       Type="string"
+                       Value="URL:CaveAI Pro Protocol"
+                       KeyPath="yes" />
+        <RegistryValue Id="RegProtocolUrlProtocol"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\caveaipro"
+                       Name="URL Protocol"
+                       Type="string"
+                       Value="" />
+        <RegistryValue Id="RegProtocolCommand"
+                       Root="HKLM"
+                       Key="SOFTWARE\Classes\caveaipro\shell\open\command"
+                       Type="string"
+                       Value="&quot;[INSTALLFOLDER]CaveAiProForWindows.exe&quot; &quot;%1&quot;" />
       </Component>
     </ComponentGroup>
   </Fragment>

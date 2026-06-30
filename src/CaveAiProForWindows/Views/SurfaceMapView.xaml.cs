@@ -75,6 +75,7 @@ public partial class SurfaceMapView : UserControl
     private async void OnLoadedAsync(object sender, RoutedEventArgs e)
     {
         ApplyPersistedUiSettings();
+        UpdateTileCacheSizeLabel();
         await EnsureWebViewAsync().ConfigureAwait(true);
         UpdateCoordsLine();
         QueueProjectPush();
@@ -213,6 +214,7 @@ public partial class SurfaceMapView : UserControl
                 {
                     PlaceholderText.Text = "Surface map failed to load.";
                     StatusText.Text = "Navigation error";
+                    OfflineBanner.Visibility = Visibility.Visible;
                 }
             };
 
@@ -292,7 +294,16 @@ public partial class SurfaceMapView : UserControl
                         break;
                     case "status":
                         if (root.TryGetProperty("message", out var msg))
-                            StatusText.Text = msg.GetString() ?? StatusText.Text;
+                        {
+                            var text = msg.GetString() ?? StatusText.Text;
+                            StatusText.Text = text;
+                            if (text.Contains("offline", StringComparison.OrdinalIgnoreCase) ||
+                                text.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+                                text.Contains("error", StringComparison.OrdinalIgnoreCase))
+                            {
+                                OfflineBanner.Visibility = Visibility.Visible;
+                            }
+                        }
                         break;
                     case "exportPngResult":
                         if (root.TryGetProperty("dataUrl", out var dataUrlEl))
@@ -489,9 +500,41 @@ public partial class SurfaceMapView : UserControl
     {
         _mapReady = false;
         StatusText.Text = "Reloading…";
+        OfflineBanner.Visibility = Visibility.Collapsed;
         if (SurfaceWebView?.CoreWebView2 != null)
             SurfaceWebView.CoreWebView2.Reload();
         else
             await EnsureWebViewAsync().ConfigureAwait(true);
+    }
+
+    private void UpdateTileCacheSizeLabel()
+    {
+        if (TileCacheSizeText == null)
+            return;
+        var bytes = _tileCache?.CurrentBytes ?? 0;
+        var maxBytes = _tileCache?.MaxBytes ?? 128L * 1024 * 1024;
+        TileCacheSizeText.Text = $"Cache: {SurfaceMapTileCacheService.FormatBytes(bytes)} / {SurfaceMapTileCacheService.FormatBytes(maxBytes)}";
+    }
+
+    private void ClearTileCache_Click(object sender, RoutedEventArgs e)
+    {
+        _tileCache?.ClearAll();
+        UpdateTileCacheSizeLabel();
+        StatusText.Text = "Tile cache cleared";
+    }
+
+    private void OpenSurfaceMapInBrowser_Click(object sender, RoutedEventArgs e)
+    {
+        var url = SurfaceWebView?.Source?.ToString();
+        if (string.IsNullOrWhiteSpace(url))
+            url = SurfaceMapProjectBridge.EntryUri;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Open in browser", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 }

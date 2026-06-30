@@ -18,6 +18,17 @@ public partial class PublicLibraryWebWindow : Window
     {
         InitializeComponent();
         Loaded += OnLoadedAsync;
+        Closing += OnClosingPersistViewport;
+    }
+
+    private void OnClosingPersistViewport(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        var url = LibraryWebView?.Source?.ToString();
+        if (!string.IsNullOrWhiteSpace(url) &&
+            url.Contains("view=explore", StringComparison.OrdinalIgnoreCase))
+        {
+            PublicLibraryCatalog.RememberExploreMapViewportUrl(url);
+        }
     }
 
     private async void OnLoadedAsync(object sender, RoutedEventArgs e)
@@ -158,12 +169,27 @@ public partial class PublicLibraryWebWindow : Window
                 docId,
                 dlg.FileName,
                 token).ConfigureAwait(true);
-            MessageBox.Show(
+
+            var openNow = MessageBox.Show(
                 this,
-                $"Saved {(result.CaveName ?? docId)} with {result.AssetCount} cartography asset(s).\n\n{result.OutputPath}",
+                $"Saved {(result.CaveName ?? docId)} with {result.AssetCount} cartography asset(s).\n\n{result.OutputPath}\n\nOpen in workspace now?",
                 "Download as backup",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (openNow == MessageBoxResult.Yes && Application.Current.MainWindow is MainWindow shell &&
+                shell.DataContext is ViewModels.MainViewModel vm)
+            {
+                vm.LoadFromPaths(new[] { result.OutputPath });
+            }
+            else
+            {
+                MessageBox.Show(
+                    this,
+                    $"Saved {(result.CaveName ?? docId)} with {result.AssetCount} cartography asset(s).\n\n{result.OutputPath}",
+                    "Download as backup",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
         }
         catch (Exception ex)
         {

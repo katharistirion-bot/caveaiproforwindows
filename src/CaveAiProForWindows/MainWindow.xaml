@@ -111,8 +111,8 @@
                 <MenuItem Header="{x:Static loc:AppStrings.MenuBatchSurveyQc}" Command="{Binding BatchSurveyQcCommand}" />
             </MenuItem>
             <MenuItem x:Name="MenuHelp" Header="_Help">
-                <MenuItem Header="{x:Static loc:AppStrings.MenuReferenceCatalog}" Command="{Binding OpenPublicLibraryCatalogCommand}"
-                          ToolTip="Native reference catalog (60k+ caves) — cached from caveaipro.com." />
+                <MenuItem Header="{x:Static loc:AppStrings.MenuReferenceCatalog}" Command="{Binding OpenPublicLibraryWithPickerCommand}"
+                          ToolTip="Public Library — native catalog or web map (picker)." />
                 <MenuItem Header="Public Library _WebView…" Click="OpenPublicLibraryWebView_Click"
                           ToolTip="Browse community-published caves in-app (WebView2 · Google sign-in)." />
                 <MenuItem Header="{x:Static loc:AppStrings.MenuExploreMap}" Click="OpenExploreMapWebView_Click"
@@ -183,9 +183,9 @@
                 <Button Content="Photos" Command="{Binding ExtractPhotosCommand}" ToolTip="Extract photos from ZIP" Padding="10,6" Margin="0,0,4,0" />
                 <Button Content="Explorer" Command="{Binding RevealCurrentFileInExplorerCommand}" ToolTip="Show current file in Explorer" Padding="10,6" Margin="0,0,4,0" />
                 <Separator />
-                <Button Content="Public Library" Command="{Binding OpenPublicLibraryCatalogCommand}"
+                <Button Content="Public Library" Command="{Binding OpenPublicLibraryWithPickerCommand}"
                         Click="OpenPublicLibraryToolbar_Click"
-                        ToolTip="Browse published caves in-app (WebView2 · Google sign-in)" Padding="10,6" />
+                        ToolTip="Public Library — native catalog or web map" Padding="10,6" />
             </ToolBar>
         </ToolBarTray>
 
@@ -212,6 +212,13 @@
                     <TextBlock Text="{Binding CollaborationUnreadCount}" FontWeight="SemiBold"
                                Foreground="{DynamicResource Cave.AccentBrush}" ToolTip="Unread collaboration comments" />
                 </StackPanel>
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding AuthStatusChip}" TextTrimming="CharacterEllipsis" MaxWidth="320"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource Cave.AccentBrush}"
+                           ToolTip="Sign-in, subscription, and legal acceptance status" />
             </StatusBarItem>
             <Separator />
             <StatusBarItem>
@@ -313,7 +320,7 @@
 
             <Grid Grid.Row="1" Margin="0,4,0,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition x:Name="RecentFilesColumn" Width="220" />
                     <ColumnDefinition Width="6" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -379,7 +386,7 @@
 
                 <Grid Grid.Column="2">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition x:Name="ProjectsColumn" Width="280" />
                         <ColumnDefinition Width="6" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
@@ -693,6 +700,42 @@
                                               Foreground="{DynamicResource Cave.Text}"
                                               Content="Show reference catalog pins on PLAN tab (linked entrance + nearby cached index)"
                                               Click="ShowReferencePinsOnPlanSetting_Changed" />
+                                    <Separator Margin="0,0,0,16" />
+                                    <TextBlock Text="Preferences" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8"
+                                               Foreground="{DynamicResource Cave.Text}" />
+                                    <TextBlock Text="Android sync folder" FontSize="12" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
+                                    <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                                        <Button DockPanel.Dock="Right" Content="Browse…" Padding="10,6" Margin="8,0,0,0"
+                                                Click="PreferencesBrowseSyncFolder_Click" />
+                                        <TextBox x:Name="PreferencesSyncFolderBox" Padding="8,6" IsReadOnly="True" />
+                                    </DockPanel>
+                                    <TextBlock Text="Default export folder (optional)" FontSize="12" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
+                                    <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                                        <Button DockPanel.Dock="Right" Content="Browse…" Padding="10,6" Margin="8,0,0,0"
+                                                Click="PreferencesBrowseExportFolder_Click" />
+                                        <TextBox x:Name="PreferencesExportFolderBox" Padding="8,6" IsReadOnly="True" />
+                                    </DockPanel>
+                                    <TextBlock Text="Map export quality" FontSize="12" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,4" />
+                                    <ComboBox x:Name="PreferencesMapQualityCombo" Margin="0,0,0,12" Padding="8,6"
+                                              SelectionChanged="PreferencesMapQualityCombo_SelectionChanged">
+                                        <ComboBoxItem Content="Standard (~300 DPI)" Tag="Standard" />
+                                        <ComboBoxItem Content="Print (~600 DPI)" Tag="Print" />
+                                    </ComboBox>
+                                    <CheckBox x:Name="PreferencesDarkThemeCheck" Margin="0,0,0,8" FontSize="13"
+                                              Content="Dark theme (survey maps and shell)"
+                                              Click="PreferencesDarkThemeCheck_Changed" />
+                                    <CheckBox x:Name="PreferencesTelemetryCheck" Margin="0,0,0,8" FontSize="13"
+                                              Content="Send anonymized error reports when signed in"
+                                              Click="PreferencesTelemetryCheck_Changed" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock x:Name="PreferencesLastErrorText" TextWrapping="Wrap" FontSize="11.5"
+                                                   MaxWidth="640" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Cave.TextMuted}" />
+                                        <Button Content="Copy for support" Padding="10,6" Margin="12,0,0,0"
+                                                Click="PreferencesCopyLastError_Click" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="PreferencesPublishHistoryText" TextWrapping="Wrap" FontSize="11.5"
+                                               Margin="0,0,0,12" Foreground="{DynamicResource Cave.TextSubdued}" />
                                 </StackPanel>
                             </ScrollViewer>
                         </TabItem>

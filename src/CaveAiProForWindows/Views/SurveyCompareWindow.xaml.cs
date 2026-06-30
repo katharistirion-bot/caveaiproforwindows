@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 
@@ -9,6 +10,10 @@ namespace CaveAiProForWindows.Views;
 
 public partial class SurveyCompareWindow : Window
 {
+    private static readonly SolidColorBrush ChangedRowBrush = new(Color.FromArgb(0x33, 0xF5, 0x9E, 0x0B));
+    private static readonly SolidColorBrush AddedRowBrush = new(Color.FromArgb(0x33, 0x22, 0xC5, 0x5E));
+    private static readonly SolidColorBrush RemovedRowBrush = new(Color.FromArgb(0x33, 0xEF, 0x44, 0x44));
+
     private string? _pathA;
     private string? _pathB;
     private Dictionary<string, CaveProjectDocument> _mapA = new(StringComparer.OrdinalIgnoreCase);
@@ -28,6 +33,49 @@ public partial class SurveyCompareWindow : Window
         StationGrid.Columns.Add(new DataGridTextColumn { Header = "Station", Binding = new System.Windows.Data.Binding("Station"), Width = 100 });
         StationGrid.Columns.Add(new DataGridTextColumn { Header = "File A", Binding = new System.Windows.Data.Binding("DetailA"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         StationGrid.Columns.Add(new DataGridTextColumn { Header = "File B", Binding = new System.Windows.Data.Binding("DetailB"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+        LegGrid.LoadingRow += DiffGrid_LoadingRow;
+        StationGrid.LoadingRow += DiffGrid_LoadingRow;
+    }
+
+    public static void ShowWithPaths(Window? owner, string pathA, string pathB, string? preferredProjectName = null)
+    {
+        var w = new SurveyCompareWindow { Owner = owner };
+        w._pathA = pathA;
+        w._pathB = pathB;
+        w.TxtA.Text = Path.GetFileName(pathA);
+        w.TxtA.ToolTip = pathA;
+        w.TxtB.Text = Path.GetFileName(pathB);
+        w.TxtB.ToolTip = pathB;
+        w.Compare_Click(w, new RoutedEventArgs());
+        if (!string.IsNullOrWhiteSpace(preferredProjectName) && w.ProjectCombo.Items.Count > 0)
+        {
+            foreach (var item in w.ProjectCombo.Items)
+            {
+                if (item is string name &&
+                    string.Equals(name, preferredProjectName, StringComparison.OrdinalIgnoreCase))
+                {
+                    w.ProjectCombo.SelectedItem = item;
+                    w.RunCompare();
+                    break;
+                }
+            }
+        }
+
+        w.ShowDialog();
+    }
+
+    private static void DiffGrid_LoadingRow(object? sender, DataGridRowEventArgs e)
+    {
+        if (e.Row.Item is not { } item)
+            return;
+        var kind = item.GetType().GetProperty("ChangeKind")?.GetValue(item) as string ?? "";
+        e.Row.Background = kind switch
+        {
+            "Changed" => ChangedRowBrush,
+            "Added" => AddedRowBrush,
+            "Removed" => RemovedRowBrush,
+            _ => Brushes.Transparent,
+        };
     }
 
     private void PickA_Click(object sender, RoutedEventArgs e) => Pick(ref _pathA, TxtA);
@@ -81,7 +129,7 @@ public partial class SurveyCompareWindow : Window
         _mapB.TryGetValue(name, out var b);
         var result = SurveyCompareService.Compare(a, b);
         SummaryText.Text =
-            $"Legs: +{result.LegsAdded} / −{result.LegsRemoved} / d{result.LegsChanged} · " +
+            $"Legs: +{result.LegsAdded} / −{result.LegsRemoved} / Δ{result.LegsChanged} · " +
             $"Stations: +{result.StationsAdded} / −{result.StationsRemoved} / moved {result.StationsMoved}";
 
         var legs = (ObservableCollection<SurveyCompareService.LegDiffRow>)LegGrid.ItemsSource;

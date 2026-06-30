@@ -138,6 +138,11 @@ public static class CloudPublishWorkflow
                     request.CancellationToken)
                 .ConfigureAwait(true);
 
+            CloudPublishHistoryStore.Record(
+                project.Name,
+                docId,
+                CaveProjectDisplayNames.GetDisplayName(project));
+
             request.Progress.Report(new CloudPublishProgressUpdate
             {
                 Message = $"Publish complete — updated published_caves/{docId}.",

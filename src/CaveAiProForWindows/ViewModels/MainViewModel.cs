@@ -114,6 +114,8 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _footerContextLine = "";
 
+    [ObservableProperty] private string _authStatusChip = "";
+
     [ObservableProperty] private bool _showLoadProgress;
 
     [ObservableProperty] private string _loadProgressMessage = "";
@@ -258,6 +260,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnLegalTermsAcceptedChanged(bool value)
     {
+        RefreshAuthStatusChip();
         LegalTermsAcceptanceStore.Save(value);
         if (value)
         {
@@ -689,23 +692,61 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenPublicLibraryCatalog()
     {
+        OpenPublicLibraryWithPicker();
+    }
+
+    [RelayCommand]
+    private void OpenPublicLibraryWithPicker()
+    {
         if (TryNotifyCloudBlockedInTestMode("Public Cave Library"))
             return;
 
-        try
+        var owner = Wpf.Application.Current.MainWindow;
+        switch (PublicLibraryEntryPicker.Prompt(owner))
         {
-            PublicLibraryCatalog.ShowNativeReferenceCatalog(Wpf.Application.Current.MainWindow);
-            StatusMessage = $"Reference catalog · {PublicLibraryCatalog.WebOrigin}";
+            case PublicLibraryEntryPicker.Choice.NativeCatalog:
+                try
+                {
+                    PublicLibraryCatalog.ShowNativeReferenceCatalog(owner);
+                    StatusMessage = $"Reference catalog · {PublicLibraryCatalog.WebOrigin}";
+                }
+                catch (Exception ex)
+                {
+                    Wpf.MessageBox.Show(owner, ex.Message, "Public Cave Library", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+                }
+                break;
+            case PublicLibraryEntryPicker.Choice.WebMap:
+                try
+                {
+                    PublicLibraryCatalog.ShowMapInAppWindow(owner);
+                    StatusMessage = "Public Library — web map";
+                }
+                catch (Exception ex)
+                {
+                    Wpf.MessageBox.Show(owner, ex.Message, "Public Cave Library", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+                }
+                break;
+            case PublicLibraryEntryPicker.Choice.ExternalBrowser:
+                try
+                {
+                    PublicLibraryCatalog.OpenMap();
+                }
+                catch (Exception ex)
+                {
+                    Wpf.MessageBox.Show(owner, ex.Message, "Public Cave Library", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Warning);
+                }
+                break;
         }
-        catch (Exception ex)
-        {
-            Wpf.MessageBox.Show(
-                Wpf.Application.Current.MainWindow,
-                ex.Message,
-                "Public Cave Library",
-                Wpf.MessageBoxButton.OK,
-                Wpf.MessageBoxImage.Warning);
-        }
+    }
+
+    [RelayCommand]
+    private void ShowCommandPalette()
+    {
+        var owner = Wpf.Application.Current.MainWindow;
+        if (owner == null)
+            return;
+        var palette = new CommandPaletteWindow(this) { Owner = owner };
+        palette.ShowDialog();
     }
 
     [RelayCommand]
@@ -1023,7 +1064,7 @@ public partial class MainViewModel : ObservableObject
         LoadFromPath(path);
     }
 
-    private void LoadFromPath(string path) => LoadFromPaths(new[] { path });
+    public void LoadFromPath(string path) => LoadFromPaths(new[] { path });
 
     /// <summary>Loads one or more JSON/ZIP files and merges all projects (heavy work runs off the UI thread).</summary>
     public void LoadFromPaths(IReadOnlyList<string> paths)
@@ -1904,6 +1945,15 @@ public partial class MainViewModel : ObservableObject
                 progress).ConfigureAwait(true);
             StatusMessage = $"Downloaded {result.CaveName ?? docId} — {result.AssetCount} asset(s).";
             SnackbarService.Show(owner, StatusMessage);
+
+            var openNow = Wpf.MessageBox.Show(
+                owner,
+                $"Saved to {result.OutputPath}\n\nOpen this backup in the workspace now?",
+                "Download complete",
+                Wpf.MessageBoxButton.YesNo,
+                Wpf.MessageBoxImage.Question);
+            if (openNow == Wpf.MessageBoxResult.Yes)
+                LoadFromPath(result.OutputPath);
         }
         catch (Exception ex)
         {
@@ -2285,6 +2335,25 @@ public partial class MainViewModel : ObservableObject
             parts.Add("Not signed in");
 
         FooterContextLine = string.Join(" · ", parts);
+        RefreshAuthStatusChip();
+    }
+
+    private void RefreshAuthStatusChip()
+    {
+        var chips = new List<string>();
+        if (!string.IsNullOrWhiteSpace(FirebaseAuthSession.CurrentAccountEmail))
+            chips.Add("Signed in");
+        else
+            chips.Add("Not signed in");
+
+        var entitlement = AccountSessionState.LastEntitlement;
+        if (entitlement?.IsEntitled == true)
+            chips.Add("Subscription OK");
+        else if (!string.IsNullOrWhiteSpace(FirebaseAuthSession.CurrentAccountEmail))
+            chips.Add("Subscription required");
+
+        chips.Add(LegalTermsAccepted ? "Legal OK" : "Legal pending");
+        AuthStatusChip = string.Join(" · ", chips);
     }
 
     private static string FormatFooterBackupAge(TimeSpan age)

@@ -1,0 +1,15 @@
+﻿<Window x:Class="CaveAiProForWindows.Views.CommandPaletteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Command palette"
+        Height="420" Width="520"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource Cave.Background}">
+    <DockPanel Margin="12">
+        <TextBox x:Name="FilterBox" DockPanel.Dock="Top" Padding="10,8" Margin="0,0,0,8"
+                 KeyDown="FilterBox_KeyDown" />
+        <ListBox x:Name="CommandList" DisplayMemberPath="Label" MouseDoubleClick="CommandList_MouseDoubleClick"
+                 KeyDown="CommandList_KeyDown" />
+    </DockPanel>
+</Window>

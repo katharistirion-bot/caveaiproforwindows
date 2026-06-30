@@ -45,6 +45,21 @@ public sealed class AppUiSettingsModel
     /// <summary>Cinematic intro video shown once after login (<see cref="Views.IntroVideoWindow"/>).</summary>
     public bool HasSeenIntroVideo { get; set; }
 
+    /// <summary>One-time tooltip when user first opens the 3D MODEL tab.</summary>
+    public bool HasSeen3DCompetitiveTooltip { get; set; }
+
+    /// <summary>Send anonymized error reports when signed in (see LEGAL &amp; SETTINGS).</summary>
+    public bool SendAnonymizedErrorReports { get; set; } = true;
+
+    /// <summary>Use dark application theme (<see cref="Services.ThemePaletteSwitcher"/>).</summary>
+    public bool UseDarkTheme { get; set; }
+
+    /// <summary>Default folder for map/image exports (optional).</summary>
+    public string? DefaultExportFolderPath { get; set; }
+
+    /// <summary>Crash-free session counter for diagnostic bundle.</summary>
+    public int CrashFreeSessionCount { get; set; }
+
     /// <summary>UI language code (English only; non-<c>en</c> values are reset on startup).</summary>
     public string UiLanguage { get; set; } = "en";
 
@@ -57,7 +72,7 @@ public sealed class AppUiSettingsModel
 
 public static class AppUiSettingsSchema
 {
-    public const int Current = 8;
+    public const int Current = 9;
 }
 
 /// <summary>Persisted MapLibre surface-map camera and layer toggles.</summary>

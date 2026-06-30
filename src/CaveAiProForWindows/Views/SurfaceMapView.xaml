@@ -65,6 +65,10 @@
                           Margin="0,0,12,0"
                           Foreground="{DynamicResource Cave.TextSubdued}"
                           ToolTip="Cache OSM / hillshade / DEM tiles locally (128 MB LRU)" />
+                <TextBlock x:Name="TileCacheSizeText" VerticalAlignment="Center" Margin="0,0,12,0"
+                           FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Text="Cache: —" />
+                <Button Content="Clear cache" Padding="8,6" Margin="0,0,12,0" Click="ClearTileCache_Click"
+                        ToolTip="Delete cached surface map tiles" />
                 <Button Content="Fit entrance" Padding="10,6" Margin="0,0,6,0" Click="FitEntrance_Click"
                         ToolTip="Center on project entrance coordinates" />
                 <Button Content="Export PNG" Padding="10,6" Margin="0,0,6,0" Click="ExportPng_Click"
@@ -86,6 +90,15 @@
                 CornerRadius="4">
             <Grid>
                 <wv2:WebView2 x:Name="SurfaceWebView" />
+                <Border x:Name="OfflineBanner" Background="#CC1A2332" Padding="12,10"
+                        VerticalAlignment="Top" HorizontalAlignment="Stretch" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Offline or tile fetch failed — cached tiles may still display."
+                                   Foreground="#FFE2E8F0" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <Button Content="Open surface map in browser" Padding="10,6" Margin="0,8,0,0"
+                                HorizontalAlignment="Left" Click="OpenSurfaceMapInBrowser_Click" />
+                    </StackPanel>
+                </Border>
                 <TextBlock x:Name="PlaceholderText"
                            Text="Initializing WebView2…"
                            HorizontalAlignment="Center"

@@ -64,4 +64,21 @@ public sealed class InstallationGuardTests
         Assert.IsTrue(InstallationGuard.IsLaunchedFromRegisteredInstall());
     }
 #endif
+
+    [TestMethod]
+    public void StartupUriRouter_parses_explore_protocol()
+    {
+        var intent = StartupUriRouter.Parse(["caveaipro://explore?lat=40.1&lon=22.5&z=8"]);
+        StringAssert.Contains(intent.ExploreMapUrl, "lat=40.1");
+        StringAssert.Contains(intent.ExploreMapUrl, "lon=22.5");
+    }
+
+    [TestMethod]
+    public void MapToolbarPreset_field_qc_enables_loop_highlights()
+    {
+        MapToolbarPresetApplier.Apply(MapToolbarPresetApplier.Preset.FieldQc);
+        var settings = AppUiSettingsStore.LoadOrDefault();
+        Assert.IsTrue(settings.Plan.LoopClosureHighlights);
+        Assert.AreEqual("Full", settings.SurveyDetailDensity);
+    }
 }

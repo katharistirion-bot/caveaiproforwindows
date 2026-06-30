@@ -1493,6 +1493,33 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
         Redraw();
     }
 
+    private void MapToolbarPresetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingSettings || MapToolbarPresetCombo?.SelectedItem is not ComboBoxItem { Tag: string tag })
+            return;
+        if (string.IsNullOrWhiteSpace(tag))
+            return;
+        var preset = tag switch
+        {
+            "Publication" => MapToolbarPresetApplier.Preset.Publication,
+            "Field QC" => MapToolbarPresetApplier.Preset.FieldQc,
+            "Minimal" => MapToolbarPresetApplier.Preset.Minimal,
+            _ => MapToolbarPresetApplier.Preset.Minimal,
+        };
+        MapToolbarPresetApplier.Apply(preset);
+        ApplyPlanTabFromSettings();
+        Redraw();
+        _applyingSettings = true;
+        try
+        {
+            MapToolbarPresetCombo.SelectedIndex = 0;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+    }
+
     private void SyncMapExportQualityCombo(string? persisted)
     {
         if (MapExportQualityCombo == null)
