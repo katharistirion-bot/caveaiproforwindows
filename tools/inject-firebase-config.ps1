@@ -58,7 +58,7 @@ if ([string]::IsNullOrWhiteSpace($ApiKey) -and (Test-Path -LiteralPath $path)) {
             Write-Host "inject-firebase-config: reusing existing config at $path"
         }
     } catch {
-        Write-Verbose "inject-firebase-config: could not read existing config at $path — $_"
+        Write-Verbose "inject-firebase-config: could not read existing config at $path"
     }
 }
 
