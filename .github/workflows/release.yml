@@ -65,6 +65,8 @@ jobs:
         run: dotnet build src/CaveAiProForWindows/CaveAiProForWindows.csproj -c Release --no-restore
 
       - name: Test (full suite, no filter)
+        env:
+          CAVEAIPRO_FIREBASE_API_KEY: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY }}
         run: dotnet test tests/CaveAiProForWindows.Tests/CaveAiProForWindows.Tests.csproj -c Debug --no-restore --verbosity minimal
 
       - name: Publish + smoke test
