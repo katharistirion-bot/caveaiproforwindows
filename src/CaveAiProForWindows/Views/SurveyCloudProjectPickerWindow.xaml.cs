@@ -57,18 +57,23 @@ public partial class SurveyCloudProjectPickerWindow : Window
         Close();
     }
 
-    private sealed class SurveyCloudPickerRow(SurveyCloudProjectMeta meta)
+    private sealed class SurveyCloudPickerRow
     {
-        public SurveyCloudProjectMeta Meta { get; } = meta;
+        public SurveyCloudProjectMeta Meta { get; }
+
+        public SurveyCloudPickerRow(SurveyCloudProjectMeta meta)
+        {
+            Meta = meta;
+        }
 
         public string DisplayLine
         {
             get
             {
-                var when = meta.UpdatedAtMs > 0
-                    ? DateTimeOffset.FromUnixTimeMilliseconds(meta.UpdatedAtMs).LocalDateTime.ToString("yyyy-MM-dd HH:mm")
+                var when = Meta.UpdatedAtMs > 0
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(Meta.UpdatedAtMs).LocalDateTime.ToString("yyyy-MM-dd HH:mm")
                     : "unknown time";
-                return $"{meta.CaveName} — {meta.ShotCount} shots — {when} ({meta.PlatformOrigin})";
+                return $"{Meta.CaveName} — {Meta.ShotCount} shots — {when} ({Meta.PlatformOrigin})";
             }
         }
     }
