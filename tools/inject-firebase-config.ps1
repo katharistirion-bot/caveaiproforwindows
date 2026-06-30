@@ -45,6 +45,23 @@ if ([string]::IsNullOrWhiteSpace($ApiKey)) {
     }
 }
 
+# CI/local: reuse config injected earlier in the same job (smoke-publish calls inject again).
+if ([string]::IsNullOrWhiteSpace($ApiKey) -and (Test-Path -LiteralPath $path)) {
+    try {
+        $existing = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        $existingKey = [string]$existing.apiKey
+        if (-not [string]::IsNullOrWhiteSpace($existingKey) -and $existingKey -notmatch 'REPLACE|PASTE_') {
+            $ApiKey = $existingKey.Trim()
+            if ($existing.projectId) { $ProjectId = [string]$existing.projectId.Trim() }
+            if ($existing.storageBucket) { $StorageBucket = [string]$existing.storageBucket.Trim() }
+            if ($existing.authDomain) { $AuthDomain = [string]$existing.authDomain.Trim() }
+            Write-Host "inject-firebase-config: reusing existing config at $path"
+        }
+    } catch {
+        Write-Verbose "inject-firebase-config: could not read existing config at $path — $_"
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($ApiKey)) {
     if ($AllowPlaceholder) {
         Write-Host 'inject-firebase-config: no API key — leaving REPLACE_AT_BUILD placeholder.'
