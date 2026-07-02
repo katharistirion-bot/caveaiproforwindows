@@ -10,6 +10,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.5.8] - 2026-07-02
+
+### Fixed
+
+- **WiX MSI packaging** — trigger post-install launch from ExitDialog Finish via `Publish` instead of invalid `InstallUISequence/InstallFinalize` (WIX0094 on WiX v5)
+
 ## [1.5.1] - 2026-06-15
 
 ### Added
