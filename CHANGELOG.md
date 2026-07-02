@@ -10,13 +10,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.5.11] - 2026-07-02
+
+### Fixed
+
+- **Public Library WebView** — OAuth popups via `WebView2AuthPopupHost.WirePopupHandling`; drop custom User-Agent suffix that broke Google sign-in
+
 ## [1.5.10] - 2026-07-02
 
 ### Fixed
 
 - **Release notes extraction** — match dated CHANGELOG headers (`## [x.y.z] - date`) when preparing GitHub Release body
 - **Directory.Build.props** — align `Version` / assembly metadata with v1.5.10 release tag (was stuck at 1.5.5)
-- **Public Library WebView** — OAuth popups via `WebView2AuthPopupHost.WirePopupHandling`; drop custom User-Agent suffix that broke Google sign-in
 
 ## [1.5.9] - 2026-07-02
 
