@@ -97,7 +97,7 @@
     <CustomAction Id="LaunchApplication"
                   Directory="INSTALLFOLDER"
                   ExeCommand="CaveAiProForWindows.exe"
-                  Execute="asyncNoWait"
+                  Execute="immediate"
                   Impersonate="yes"
                   Return="asyncNoWait" />
 
