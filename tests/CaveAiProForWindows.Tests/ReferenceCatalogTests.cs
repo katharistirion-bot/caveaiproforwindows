@@ -1,5 +1,6 @@
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Favorites;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using CaveAiProForWindows.Services.FieldTrip;
 using CaveAiProForWindows.Services.ReferenceCatalog;
@@ -296,5 +297,27 @@ public class FieldTripExportTests
         var hits = ReferenceCatalogSimilarCaves.FindSimilar(source, index);
         Assert.AreEqual(2, hits.Count);
         Assert.AreEqual("c", hits[0].Entry.Id);
+    }
+}
+
+[TestClass]
+public sealed class CaveFavoriteIdMergeTests
+{
+    [TestMethod]
+    public void Merge_includes_both_favorites_and_saved_caves()
+    {
+        var merged = CaveFavoriteIdMerge.Merge(
+            new[] { "pub-1", "pub-2" },
+            new[] { "ref-gr-1", "pub-2" });
+
+        CollectionAssert.AreEquivalent(
+            new[] { "pub-1", "pub-2", "ref-gr-1" },
+            merged.ToArray());
+    }
+
+    [TestMethod]
+    public void Merge_empty_inputs_returns_empty_set()
+    {
+        Assert.AreEqual(0, CaveFavoriteIdMerge.Merge(Array.Empty<string>(), Array.Empty<string>()).Count);
     }
 }

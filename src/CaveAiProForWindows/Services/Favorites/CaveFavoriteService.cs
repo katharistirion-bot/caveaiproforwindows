@@ -31,10 +31,15 @@ public sealed class CaveFavoriteService
         if (token == null || string.IsNullOrWhiteSpace(uid))
             return;
 
-        var ids = await _rest.ListSubcollectionDocumentIdsAsync(
+        var favoriteIds = await _rest.ListSubcollectionDocumentIdsAsync(
             token,
             $"users/{uid}/favorites",
             cancellationToken).ConfigureAwait(false);
+        var savedCaveIds = await _rest.ListSubcollectionDocumentIdsAsync(
+            token,
+            $"users/{uid}/saved_caves",
+            cancellationToken).ConfigureAwait(false);
+        var ids = CaveFavoriteIdMerge.Merge(favoriteIds, savedCaveIds);
 
         _local.Clear();
         foreach (var id in ids)
@@ -58,16 +63,25 @@ public sealed class CaveFavoriteService
         if (token == null || string.IsNullOrWhiteSpace(uid))
             throw new InvalidOperationException("Sign in to save favorites.");
 
-        var docPath = $"users/{uid}/favorites/{caveId.Trim()}";
+        var isReference = string.Equals(kind.Trim(), "reference", StringComparison.OrdinalIgnoreCase);
+        var collection = isReference ? "saved_caves" : "favorites";
+        var docPath = $"users/{uid}/{collection}/{caveId.Trim()}";
         if (favorited)
         {
-            var fields = FirestoreFieldBuilder.BuildFields([
-                new KeyValuePair<string, object?>("caveId", caveId.Trim()),
-                new KeyValuePair<string, object?>("kind", kind.Trim()),
-                new KeyValuePair<string, object?>("caveName", caveName?.Trim() ?? ""),
-                new KeyValuePair<string, object?>("country", country?.Trim() ?? ""),
-                new KeyValuePair<string, object?>("favoritedAtMs", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
-            ]);
+            var fields = isReference
+                ? FirestoreFieldBuilder.BuildFields([
+                    new KeyValuePair<string, object?>("caveId", caveId.Trim()),
+                    new KeyValuePair<string, object?>("caveName", caveName?.Trim() ?? ""),
+                    new KeyValuePair<string, object?>("country", country?.Trim() ?? ""),
+                    new KeyValuePair<string, object?>("savedAtMs", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+                ])
+                : FirestoreFieldBuilder.BuildFields([
+                    new KeyValuePair<string, object?>("caveId", caveId.Trim()),
+                    new KeyValuePair<string, object?>("kind", kind.Trim()),
+                    new KeyValuePair<string, object?>("caveName", caveName?.Trim() ?? ""),
+                    new KeyValuePair<string, object?>("country", country?.Trim() ?? ""),
+                    new KeyValuePair<string, object?>("favoritedAtMs", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+                ]);
             await _rest.PatchDocumentAsync(token, docPath, fields, cancellationToken).ConfigureAwait(false);
             _local[caveId] = 0;
         }

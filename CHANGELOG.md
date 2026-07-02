@@ -58,6 +58,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Reference catalog share URL fallback via country shard loader
 - Offline brain greetings and trip/expedition report routing
 
+## [1.5.6] - 2026-07-02
+
+### Fixed
+
+- **Reference favorites parity** — `CaveFavoriteService` merges `users/{uid}/favorites` and `users/{uid}/saved_caves` on load; reference stars write to `saved_caves` (web/Android parity)
+- **Release pipeline** — pass `CAVEAIPRO_FIREBASE_API_KEY` into the release test step after config inject
+
 ## [1.5.5] - 2026-06-30
 
 ### Added
