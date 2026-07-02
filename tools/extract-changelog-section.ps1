@@ -12,7 +12,13 @@ if (-not (Test-Path -LiteralPath $ChangelogPath)) {
 
 $lines = Get-Content -LiteralPath $ChangelogPath -Encoding utf8
 $header = "## [$Version]"
-$start = [array]::IndexOf($lines, $header)
+$start = -1
+for ($i = 0; $i -lt $lines.Count; $i++) {
+    if ($lines[$i].StartsWith($header)) {
+        $start = $i
+        break
+    }
+}
 if ($start -lt 0) {
     throw "No CHANGELOG section '$header' in $ChangelogPath"
 }

@@ -10,6 +10,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.5.10] - 2026-07-02
+
+### Fixed
+
+- **Release notes extraction** — match dated CHANGELOG headers (`## [x.y.z] - date`) when preparing GitHub Release body
+
 ## [1.5.9] - 2026-07-02
 
 ### Fixed
@@ -21,6 +27,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - **WiX MSI packaging** — trigger post-install launch from ExitDialog Finish via `Publish` instead of invalid `InstallUISequence/InstallFinalize` (WIX0094 on WiX v5)
+- **Velopack packaging** — update `vpk pack` flags for CLI 1.2.0 (`--shortcuts`, drop removed `--installDir` / `--shortcutLocations`)
 
 ## [1.5.1] - 2026-06-15
 
