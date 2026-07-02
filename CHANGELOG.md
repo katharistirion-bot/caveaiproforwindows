@@ -10,6 +10,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.5.9] - 2026-07-02
+
+### Fixed
+
+- **Velopack packaging** — use vpk 1.2.0 `--shortcuts` flag only; drop unsupported `--shortcutLocations` and `--installDir` that broke Release workflow after MSI succeeded
+
 ## [1.5.8] - 2026-07-02
 
 ### Fixed
