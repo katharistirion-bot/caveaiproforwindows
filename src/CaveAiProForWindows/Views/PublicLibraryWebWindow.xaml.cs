@@ -53,24 +53,18 @@ public partial class PublicLibraryWebWindow : Window
             core.Settings.AreDefaultContextMenusEnabled = true;
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
-            core.Settings.UserAgent = core.Settings.UserAgent + " CaveAiProForWindows/1.0";
+            // Do not customize UserAgent — Google OAuth rejects many embedded / modified agents.
 
             // postMessage bridge for Push to Cloud.
             CloudPublishWebViewHost.EnsureAuthBridgeAttached(core);
 
-            core.NewWindowRequested += (_, args) =>
-            {
-                // Google OAuth / Firebase auth popups — navigate in the same view instead of blocking.
-                args.Handled = true;
-                if (!string.IsNullOrWhiteSpace(args.Uri))
-                    core.Navigate(args.Uri);
-            };
+            WebView2AuthPopupHost.WirePopupHandling(core, this, IsAllowedNavigation);
 
             core.NavigationStarting += (_, args) =>
             {
                 if (string.IsNullOrWhiteSpace(args.Uri))
                     return;
-                if (!PublicLibraryWebWindowNavigationPolicy.IsAllowed(args.Uri))
+                if (!IsAllowedNavigation(args.Uri))
                 {
                     args.Cancel = true;
                     try
@@ -200,4 +194,7 @@ public partial class PublicLibraryWebWindow : Window
             Title = "Public Cave Library — CaveAI Pro";
         }
     }
+
+    private static bool IsAllowedNavigation(string uri) =>
+        PublicLibraryWebWindowNavigationPolicy.IsAllowed(uri);
 }
