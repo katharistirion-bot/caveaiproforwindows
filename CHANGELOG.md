@@ -10,6 +10,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.5.12] - 2026-07-06
+
+### Added
+
+- **Cave AI web handoff** — open `caveaipro.com/ai` in the default browser with reference-catalog context (Android `isCaveAiWebDeepLink` parity); entry points from Main window and Reference Catalog
+
+### Changed
+
+- **Surface map** — bundled MapLibre assets synced from caveaipro.com website (viewport snapback, layer prefs)
+
+### Fixed
+
+- **SURVEY QC offline hints** — `OfflineBrainHintText` binding on Reference Catalog detail panel
+- **MSIX manifest** — remove invalid duplicate file-type extensions and redundant location capability (Store packaging)
+
 ## [1.5.11] - 2026-07-02
 
 ### Fixed

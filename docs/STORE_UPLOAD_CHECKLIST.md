@@ -1,6 +1,6 @@
 # Microsoft Store upload checklist
 
-Generated: 2026-06-21  
+Generated: 2026-07-06  
 Repo: `D:\caveaiproforwindows`  
 Product ID: **9PPF3HPZRL21**
 
@@ -9,24 +9,34 @@ Product ID: **9PPF3HPZRL21**
 | Package | Path | Status |
 |---------|------|--------|
 | **Review (certification)** | `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned.msix` | Rebuild with `.\tools\package-store-msix-review.ps1` |
-| **Production (unsigned)** | `_store_out\CaveAiProForWindows-1.5.3-Store-unsigned.msix` | **Ready** — built 2026-06-21 (~96.4 MB, unsigned) |
+| **Production (unsigned)** | `_store_out\CaveAiProForWindows-1.5.12-Store-unsigned.msix` | Build with `.\tools\package-store-msix.ps1` after setting Firebase key |
 
-App version in `Directory.Build.props`: **1.5.3** (package identity version **1.5.3.0**).
+App version in `Directory.Build.props`: **1.5.12** (package identity version **1.5.12.0**).
 
 Review build uses **`STORE_REVIEW_UNLOCKED`** via profile `MicrosoftStore-Review-Win64` (subscription gate disabled for cert testers).
 
-### Build review MSIX (reproduce)
+### Build production MSIX (reproduce)
 
-Firebase Browser API key loaded from `tools/local/firebase-web-config.json` (not committed) or env:
+Firebase Browser API key ("CaveAI Pro Web") from `tools/local/firebase-web-config.json` (not committed) or env:
 
 ```powershell
 cd D:\caveaiproforwindows
 $cfg = Get-Content tools\local\firebase-web-config.json -Raw | ConvertFrom-Json
 $env:CAVEAIPRO_FIREBASE_API_KEY = $cfg.apiKey
-.\tools\package-store-msix-review.ps1
+.\tools\package-store-msix.ps1
 ```
 
-Or set `$env:CAVEAIPRO_FIREBASE_API_KEY` directly.
+Or set `$env:CAVEAIPRO_FIREBASE_API_KEY` directly (Firebase Console → Project settings → Your apps → CaveAI Pro Web → Web API Key).
+
+Expected output: `_store_out\CaveAiProForWindows-1.5.12-Store-unsigned.msix`
+
+### Build review MSIX (certification)
+
+```powershell
+cd D:\caveaiproforwindows
+$env:CAVEAIPRO_FIREBASE_API_KEY = '<Browser key from tools/local/firebase-web-config.json>'
+.\tools\package-store-msix-review.ps1
+```
 
 Expected output: `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned.msix`
 
@@ -34,7 +44,7 @@ Expected output: `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned
 
 ## Partner Center — certification (review MSIX)
 
-- [x] Review MSIX built locally (`package-store-msix-review.ps1` succeeded)
+- [ ] Review MSIX built locally (`package-store-msix-review.ps1` succeeded)
 - [ ] Upload **`*-Store-Review-unsigned.msix`** to Partner Center → **Packages** (unsigned; Microsoft re-signs)
 - [ ] Bump `<Version>` in `Directory.Build.props` if resubmitting after rejection
 - [ ] Manifest identity matches Partner Center Product identity exactly (`store/Package.appxmanifest`)
@@ -70,7 +80,8 @@ See `docs/SECURITY.md` for `-AllowPlaceholder` on `tools/inject-firebase-config.
 
 | Blocker | Action |
 |---------|--------|
-| Partner Center upload | Sign in to Microsoft Partner Center; upload MSIX manually |
+| Firebase Browser API key | Set `$env:CAVEAIPRO_FIREBASE_API_KEY` before `package-store-msix.ps1` (see `tools/local/README.md`) |
+| Partner Center upload | Sign in to [Microsoft Partner Center](https://partner.microsoft.com/dashboard); upload MSIX manually |
 | Certification notes | Copy from `docs/MICROSOFT-STORE-CERTIFICATION-NOTES.md` |
 | Production update after cert | Build with `package-store-msix.ps1` (non-review profile), upload unsigned MSIX |
 | Version bump | Edit `Directory.Build.props` before resubmission if Partner Center requires higher version |

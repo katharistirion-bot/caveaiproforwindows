@@ -256,11 +256,20 @@
 
   function ensureMap() {
     if (map) return map;
+    if (typeof maplibregl === 'undefined') {
+      postHost({
+        type: 'mapError',
+        error: 'MapLibre failed to load — reload the page.',
+      });
+      postHost({ type: 'status', message: 'MapLibre failed to load — reload the page.' });
+      return null;
+    }
     const ms = (project && project.mapState) || {};
     performanceMode = !!ms.performanceMode;
     readLayerDefaults(ms);
 
-    map = new maplibregl.Map({
+    try {
+      map = new maplibregl.Map({
       container: 'map',
       style: {
         version: 8,
@@ -278,28 +287,27 @@
       maxTileCacheSize: MAP_TILE_CACHE_SIZE,
       refreshExpiredTiles: false,
     });
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      postHost({ type: 'mapError', error: msg });
+      postHost({ type: 'status', message: 'Map failed to start: ' + msg });
+      return null;
+    }
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
     map.on('load', () => {
       addBasemap();
-      addHillshade();
-      addCopernicusDsm();
-      addTerrain();
-      applyEntrancePin();
-      applyVehiclePins();
-      applySurveyCorridor();
-      applyLidarRaster();
       bindHud();
       bindWebGlRecovery();
       updateEmptyState();
-      schedulePersist();
-      scheduleElevationProfile();
       bindMapResize();
       scheduleMapResize();
       setTimeout(scheduleMapResize, 300);
-      maybeWarnHeavyLayers();
+      setMapBusy(false);
+      postHost({ type: 'loading', phase: 'basemap', message: 'Basemap ready' });
       postHost({ type: 'ready' });
+      deferHeavyLayers();
     });
 
     map.on('movestart', () => {
@@ -313,6 +321,34 @@
       scheduleElevationProfile();
     });
     return map;
+  }
+
+  function deferHeavyLayers() {
+    const run = () => {
+      if (!map) return;
+      postHost({ type: 'loading', phase: 'layers', message: 'Loading overlays…' });
+      addHillshade();
+      addCopernicusDsm();
+      addTerrain();
+      applyEntrancePin();
+      applyVehiclePins();
+      applySurveyCorridor();
+      applyLidarRaster();
+      schedulePersist();
+      maybeWarnHeavyLayers();
+      postHost({ type: 'loading', phase: 'done', message: buildStatusMessage() });
+      const scheduleProfile = () => scheduleElevationProfile();
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(scheduleProfile, { timeout: 4000 });
+      } else {
+        setTimeout(scheduleProfile, 2000);
+      }
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      setTimeout(run, 80);
+    }
   }
 
   function addBasemap() {
@@ -1598,5 +1634,15 @@
     handleHostMessage(data);
   });
 
-  ensureMap();
+  setMapBusy(true, 'Loading map engine…');
+  postHost({ type: 'loading', phase: 'engine', message: 'Loading map engine…' });
+
+  try {
+    ensureMap();
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    setMapBusy(false);
+    postHost({ type: 'mapError', error: msg });
+    postHost({ type: 'status', message: 'Map failed to start: ' + msg });
+  }
 })();

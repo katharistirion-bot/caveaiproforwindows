@@ -4,7 +4,7 @@
 
 Desktop **survey workstation** for **CaveAI Pro (Android)**: import backups, QC traverse data, plan/section/3D/X-Ray views, sketch editor, reference catalog, field trip planner, cloud publish, and office exports (Survex, Therion, DXF, SVG, PDF, CSV).
 
-**Current version:** 1.5.4 (see `Directory.Build.props`, `CHANGELOG.md`).
+**Current version:** 1.5.12 (see `Directory.Build.props`, `CHANGELOG.md`).
 
 ### Distribution (Play Store vs PC)
 
