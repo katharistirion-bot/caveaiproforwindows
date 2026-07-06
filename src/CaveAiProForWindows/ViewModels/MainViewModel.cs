@@ -212,6 +212,9 @@ public partial class MainViewModel : ObservableObject
 
     public string StatisticsText => TraverseQcStats.BuildSummaryText(SelectedProject);
 
+    /// <summary>On-device survey hints for SURVEY QC tab (mirrors GEO/BIO and publication sheet panels).</summary>
+    public string OfflineBrainHintText => CaveAiOfflineBrain.FormatStatusHintPanel(SelectedProject);
+
     /// <summary>English site-identity line for status bar tooltip (mirrors Android <c>SiteIdentity.kt</c>).</summary>
     public string SiteIdentityTooltip =>
         SiteIdentity.SummarizeActiveProject(SelectedProject, _knownCaveMaster);
@@ -323,6 +326,7 @@ public partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(StatisticsText));
+        OnPropertyChanged(nameof(OfflineBrainHintText));
         RefreshSurveyQcIssueRows();
         RefreshStationQc();
         ExportCsvCommand.NotifyCanExecuteChanged();
@@ -486,6 +490,7 @@ public partial class MainViewModel : ObservableObject
     private void OnStationCoordinateOverrideEdited()
     {
         OnPropertyChanged(nameof(StatisticsText));
+        OnPropertyChanged(nameof(OfflineBrainHintText));
         RefreshSurveyQcIssueRows();
         SurveyDataChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -502,6 +507,7 @@ public partial class MainViewModel : ObservableObject
     {
         RefreshStationQc();
         OnPropertyChanged(nameof(StatisticsText));
+        OnPropertyChanged(nameof(OfflineBrainHintText));
         RefreshSurveyQcIssueRows();
         CollectionViewSource.GetDefaultView(Projects)?.Refresh();
         SurveyDataChanged?.Invoke(this, EventArgs.Empty);
@@ -661,6 +667,26 @@ public partial class MainViewModel : ObservableObject
     {
         var owner = Wpf.Application.Current.MainWindow;
         new AboutWindow { Owner = owner }.ShowDialog();
+    }
+
+    /// <summary>Opens web Cave AI in the default browser (context from linked reference pin when available).</summary>
+    [RelayCommand]
+    private void OpenCaveAiWeb()
+    {
+        var url = SelectedProject != null &&
+                  ReferenceSurveyLinkService.TryGetLink(SelectedProject, out var link) &&
+                  link != null
+            ? CaveAiWebUrls.BuildFromSurveyLink(link)
+            : CaveAiWebUrls.BaseUrl;
+        try
+        {
+            CaveAiWebUrls.OpenInDefaultBrowser(url);
+            StatusMessage = "Opened Cave AI on the web";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Could not open browser: " + ex.Message;
+        }
     }
 
     [RelayCommand]

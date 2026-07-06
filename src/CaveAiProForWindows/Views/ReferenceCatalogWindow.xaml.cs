@@ -792,6 +792,16 @@ public partial class ReferenceCatalogWindow : Window
         };
         DetailPanel.Children.Add(favBtn);
 
+        var askAiBtn = new Button
+        {
+            Content = "Ask Cave AI (web)",
+            Margin = new Thickness(0, 8, 0, 0),
+            Padding = new Thickness(12, 6, 12, 6),
+            Tag = pin,
+        };
+        askAiBtn.Click += (_, _) => OpenCaveAiWebForEntry(entry, pin);
+        DetailPanel.Children.Add(askAiBtn);
+
 
 
         StatusText.Text = $"{_allEntries.Count:N0} caves in index";
@@ -928,6 +938,23 @@ public partial class ReferenceCatalogWindow : Window
         var url = ReferenceCatalogShareUrls.BuildSurveyStartUrl(_selected);
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
         ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
+    }
+
+    private void AskCaveAiWeb_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected == null)
+        {
+            MessageBox.Show(this, "Select a reference cave first.", "Cave AI on web", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        OpenCaveAiWebForEntry(_selected);
+    }
+
+    private static void OpenCaveAiWebForEntry(ReferenceCaveIndexEntry entry, ReferenceCavePin? detail = null)
+    {
+        var url = CaveAiWebUrls.BuildFromReference(entry, detail);
+        CaveAiWebUrls.OpenInDefaultBrowser(url);
     }
 
     private async void LinkToCurrentProject_Click(object sender, RoutedEventArgs e)

@@ -136,6 +136,28 @@ public class ReferenceCatalogTests
     }
 
     [TestMethod]
+    public void CaveAiWebUrl_FromReference_IncludesContextParams()
+    {
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "osm-node-42",
+            Name = "Melissani Cave",
+            Country = "Greece",
+            Region = "Kefalonia",
+            DepthM = 39,
+            Lat = 38.2,
+            Lon = 20.6,
+        };
+        var url = CaveAiWebUrls.BuildFromReference(entry);
+        StringAssert.Contains(url, "/ai?");
+        StringAssert.Contains(url, "refId=osm-node-42");
+        StringAssert.Contains(url, "name=Melissani");
+        StringAssert.Contains(url, "country=Greece");
+        Assert.IsTrue(CaveAiWebUrls.IsCaveAiWebDeepLink(url));
+        Assert.IsFalse(CaveAiWebUrls.IsCaveAiWebDeepLink("https://www.caveaipro.com/map"));
+    }
+
+    [TestMethod]
     public void NearbyPins_FiltersByBounds()
     {
         var index = new List<ReferenceCaveIndexEntry>

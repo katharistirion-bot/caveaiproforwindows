@@ -8,6 +8,9 @@ internal static class PublicLibraryWebWindowNavigationPolicy
 {
     public static bool IsAllowed(string uri)
     {
+        if (CaveAiWebUrls.IsCaveAiWebDeepLink(uri))
+            return false;
+
         if (DesktopAuthFallback.IsFallbackUri(uri))
             return true;
 

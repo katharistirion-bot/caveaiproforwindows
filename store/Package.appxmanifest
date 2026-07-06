@@ -1,98 +1,74 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Package
-  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
-  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
-  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap3 rescap">
-
-  <!--
-    Identity Name and Publisher MUST match the app registered in Partner Center before submission.
-    This template uses placeholders; package-store-msix.ps1 stamps Version from Directory.Build.props.
-    Store re-signs unsigned uploads — do not sign locally for submission.
-  -->
-  <Identity
-    Name="GeorgiosKourentzis.CaveAIPro"
-    Publisher="CN=54966508-95FA-45A0-B2A2-D1AF31D44DC4"
-    Version="1.5.1.0" />
-
-  <Properties>
-    <DisplayName>CAVE AI PRO</DisplayName>
-    <PublisherDisplayName>GeorgiosKourentzis</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
-  </Properties>
-
-  <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
-  </Dependencies>
-
-  <Resources>
-    <Resource Language="en-us" />
-  </Resources>
-
-  <Applications>
-    <Application
-      Id="CaveAiProForWindows"
-      Executable="CaveAiProForWindows.exe"
-      EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements
-        DisplayName="CAVE AI PRO"
-        Description="Desktop companion for CaveAI Pro subscribers — survey maps, exports, and cloud sync."
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png"
-        BackgroundColor="transparent" />
-      <Extensions>
-        <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="caveaipro-survey-json">
-            <uap:DisplayName>CaveAI Pro survey backup (JSON)</uap:DisplayName>
-            <uap:SupportedFileTypes>
-              <uap:FileType>.json</uap:FileType>
-            </uap:SupportedFileTypes>
-          </uap:FileTypeAssociation>
-        </uap:Extension>
-        <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="caveaipro-backup-zip">
-            <uap:DisplayName>CaveAI Pro backup (ZIP)</uap:DisplayName>
-            <uap:SupportedFileTypes>
-              <uap:FileType>.zip</uap:FileType>
-            </uap:SupportedFileTypes>
-          </uap:FileTypeAssociation>
-        </uap:Extension>
-        <uap3:Extension Category="windows.protocol">
-          <uap3:Protocol Name="caveaipro">
-            <uap:DisplayName>CAVE AI PRO</uap:DisplayName>
-          </uap3:Protocol>
-        </uap3:Extension>
-      </Extensions>
-      <Extensions>
-        <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="caveaiprosurveyjson">
-            <uap:DisplayName>CaveAI Pro survey backup (JSON)</uap:DisplayName>
-            <uap:SupportedFileTypes>
-              <uap:FileType>.json</uap:FileType>
-            </uap:SupportedFileTypes>
-          </uap:FileTypeAssociation>
-        </uap:Extension>
-        <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="caveaiprobackupzip">
-            <uap:DisplayName>CaveAI Pro backup (ZIP)</uap:DisplayName>
-            <uap:SupportedFileTypes>
-              <uap:FileType>.zip</uap:FileType>
-            </uap:SupportedFileTypes>
-          </uap:FileTypeAssociation>
-        </uap:Extension>
-        <uap:Extension Category="windows.protocol">
-          <uap:Protocol Name="caveaipro">
-            <uap:DisplayName>CAVE AI PRO links</uap:DisplayName>
-          </uap:Protocol>
-        </uap:Extension>
-      </Extensions>
-    </Application>
-  </Applications>
-
-    <Capabilities>
-    <Capability Name="internetClient" />
-    <rescap:Capability Name="runFullTrust" />
-    <DeviceCapability Name="location" />
-  </Capabilities>
-</Package>
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 rescap">
+
+  <!--
+    Identity Name and Publisher MUST match the app registered in Partner Center before submission.
+    This template uses placeholders; package-store-msix.ps1 stamps Version from Directory.Build.props.
+    Store re-signs unsigned uploads — do not sign locally for submission.
+  -->
+  <Identity
+    Name="GeorgiosKourentzis.CaveAIPro"
+    Publisher="CN=54966508-95FA-45A0-B2A2-D1AF31D44DC4"
+    Version="1.5.1.0" />
+
+  <Properties>
+    <DisplayName>CAVE AI PRO</DisplayName>
+    <PublisherDisplayName>GeorgiosKourentzis</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="CaveAiProForWindows"
+      Executable="CaveAiProForWindows.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="CAVE AI PRO"
+        Description="Desktop companion for CaveAI Pro subscribers — survey maps, exports, and cloud sync."
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        BackgroundColor="transparent" />
+      <Extensions>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="caveaipro-survey-json">
+            <uap:DisplayName>CaveAI Pro survey backup (JSON)</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.json</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="caveaipro-backup-zip">
+            <uap:DisplayName>CaveAI Pro backup (ZIP)</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.zip</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+        <uap3:Extension Category="windows.protocol">
+          <uap3:Protocol Name="caveaipro">
+            <uap:DisplayName>CAVE AI PRO</uap:DisplayName>
+          </uap3:Protocol>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

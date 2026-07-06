@@ -190,6 +190,9 @@
 
             <Button Content="Copy share link" Padding="12,6" Margin="0,0,8,0" Click="CopyShareLink_Click" />
 
+            <Button Content="Ask Cave AI (web)" Padding="12,6" Margin="0,0,8,0" Click="AskCaveAiWeb_Click"
+                    ToolTip="Opens caveaipro.com/ai with this reference cave in your default browser." />
+
             <Button Content="Open on web" Padding="12,6" Margin="0,0,8,0" Click="OpenOnWeb_Click" ToolTip="Open reference detail on caveaipro.com" />
 
             <Button Content="Paste share URL…" Padding="12,6" Margin="0,0,8,0" Click="PasteShareUrl_Click" />

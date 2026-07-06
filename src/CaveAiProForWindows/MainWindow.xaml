@@ -119,6 +119,8 @@
                           ToolTip="Terrain explore map for reference cave discovery (WebView2)." />
                 <MenuItem Header="_Download from Public Library…" Command="{Binding DownloadPublicLibraryBackupCommand}"
                           ToolTip="Fetch surveyJsonUrl + cartography assets into a local .zip or .json backup." />
+                <MenuItem Header="Cave _AI on web…" Command="{Binding OpenCaveAiWebCommand}"
+                          ToolTip="Opens caveaipro.com/ai in your browser (uses linked reference pin context when available)." />
                 <MenuItem Header="Public Library in _browser…" Click="OpenPublicLibraryExternal_Click"
                           ToolTip="Open the web map in your default browser." />
                 <Separator />
