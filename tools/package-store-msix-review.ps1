@@ -15,4 +15,5 @@ param(
     -OutDir $OutDir `
     -PublishProfile 'MicrosoftStore-Review-Win64' `
     -MsixNameSuffix 'Store-Review-unsigned' `
-    -PublishRelativeDir 'microsoft-store-review/win-x64'
+    -PublishRelativeDir 'microsoft-store-review/win-x64' `
+    -AllowReviewBuild

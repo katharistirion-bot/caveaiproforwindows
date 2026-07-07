@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Views;
 using Microsoft.Web.WebView2.Core;
 
 namespace CaveAiProForWindows.Services.CloudPublish;
@@ -153,6 +154,12 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
                 {
                     App.WriteStartupLog(
                         "DesktopAuthBridge: blocked navigate to OAuth callback URL (would break sign-in loop)");
+                    return;
+                }
+
+                if (!PublicLibraryWebWindowNavigationPolicy.IsAllowed(redirectUrl))
+                {
+                    App.WriteStartupLog("DesktopAuthBridge: blocked redirect fallback to disallowed URL");
                     return;
                 }
 

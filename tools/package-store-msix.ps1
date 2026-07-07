@@ -16,7 +16,9 @@ param(
 
     [string]$MsixNameSuffix = 'Store-unsigned',
 
-    [string]$PublishRelativeDir = ''
+    [string]$PublishRelativeDir = '',
+
+    [switch]$AllowReviewBuild
 
 )
 
@@ -173,6 +175,12 @@ try {
 
 
     Write-Host "Version: $version (package $packageVersion)"
+
+    if ($PublishProfile -eq 'MicrosoftStore-Review-Win64' -and -not $AllowReviewBuild) {
+        throw @'
+Review MSIX profile blocked (subscription bypass). Use tools/package-store-msix-review.ps1 only for certification.
+'@
+    }
 
     Write-Host 'Step 0/5: inject Firebase client config (required for Store MSIX)'
 

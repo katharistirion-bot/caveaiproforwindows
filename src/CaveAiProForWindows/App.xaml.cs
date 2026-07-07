@@ -271,6 +271,15 @@ public partial class App : System.Windows.Application
             var sb = new System.Text.StringBuilder();
             sb.AppendLine(title);
             sb.AppendLine(new string('-', 60));
+#if !DEBUG
+            sb.AppendLine(DiagnosticLogRedactor.RedactLine(ex.ToString()));
+            if (ex.InnerException != null)
+            {
+                sb.AppendLine();
+                sb.AppendLine("Inner:");
+                sb.AppendLine(DiagnosticLogRedactor.RedactLine(ex.InnerException.ToString()));
+            }
+#else
             sb.AppendLine(ex.ToString());
             if (ex.InnerException != null)
             {
@@ -278,6 +287,7 @@ public partial class App : System.Windows.Application
                 sb.AppendLine("Inner:");
                 sb.AppendLine(ex.InnerException.ToString());
             }
+#endif
 
             File.WriteAllText(path, sb.ToString());
             ClientErrorTelemetryService.Report(title, ex);

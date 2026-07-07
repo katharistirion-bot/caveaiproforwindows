@@ -48,7 +48,7 @@ public partial class ReferenceCatalogWindow : Window
     private static ReferenceCatalogWindow? _active;
 
     private ReferenceCatalogGeolocation.NearMeOrigin? _nearMeOrigin;
-
+    private string? _nearMeStatusMessage;
     private bool _nearMeLocating;
 
     private readonly DispatcherTimer _searchDebounceTimer;
@@ -92,6 +92,7 @@ public partial class ReferenceCatalogWindow : Window
         NearMeCheck.Unchecked += (_, _) =>
         {
             _nearMeOrigin = null;
+            _nearMeStatusMessage = null;
             _nearMeLocating = false;
             ApplyFilter();
         };
@@ -380,33 +381,24 @@ public partial class ReferenceCatalogWindow : Window
         {
 
             if (nearMeLocating)
-
             {
-
-                if (StatusText.Text is not { Length: > 0 } s || !s.StartsWith("Near me:", StringComparison.Ordinal))
-
-                    StatusText.Text = "Near me: getting Windows location…";
-
+                StatusText.Text = _nearMeStatusMessage ?? "Near me: getting high-accuracy Windows location…";
                 ResultsGrid.ItemsSource = Array.Empty<ReferenceCatalogRow>();
-
                 return;
-
             }
-
-
 
             if (nearMeOrigin == null)
-
             {
-
-                StatusText.Text = "Near me: allow location access or open a survey project with entrance GPS.";
-
+                StatusText.Text = _nearMeStatusMessage
+                    ?? "Near me: allow location access or open a survey project with entrance GPS.";
                 ResultsGrid.ItemsSource = Array.Empty<ReferenceCatalogRow>();
-
                 return;
-
             }
 
+            if (!string.IsNullOrWhiteSpace(_nearMeStatusMessage))
+            {
+                StatusText.Text = $"Near me: {_nearMeStatusMessage}";
+            }
         }
 
 
@@ -541,18 +533,33 @@ public partial class ReferenceCatalogWindow : Window
 
         _nearMeLocating = true;
         _nearMeOrigin = null;
+        _nearMeStatusMessage = "Acquiring high-accuracy GPS…";
         ApplyFilter();
 
         try
         {
             var device = await ReferenceCatalogGeolocation.TryGetDeviceLocationAsync();
-            if (device != null)
+            if (device.Ok && device.Origin is { } origin)
             {
-                _nearMeOrigin = device;
+                _nearMeOrigin = origin;
+                _nearMeStatusMessage = device.Warning;
             }
             else if (TryGetProjectNearMeOrigin() is { } projectOrigin)
             {
-                _nearMeOrigin = projectOrigin;
+                var validated = ReferenceCatalogGeolocation.ValidateNearMeOrigin(projectOrigin);
+                if (validated.Ok && validated.Origin is { } okOrigin)
+                {
+                    _nearMeOrigin = okOrigin;
+                    _nearMeStatusMessage = validated.Warning ?? "Using project entrance (no GPS fix).";
+                }
+                else
+                {
+                    _nearMeStatusMessage = validated.Error ?? device.Error ?? "Near me unavailable.";
+                }
+            }
+            else
+            {
+                _nearMeStatusMessage = device.Error ?? "Near me unavailable.";
             }
         }
         finally
