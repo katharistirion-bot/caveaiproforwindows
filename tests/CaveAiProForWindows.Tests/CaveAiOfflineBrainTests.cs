@@ -127,7 +127,7 @@ public sealed class CaveAiOfflineBrainTests
             ],
         };
         var reply = CaveAiOfflineBrain.Answer(project, "what is the loop misclosure");
-        StringAssert.Contains(reply, "loop");
+        StringAssert.Contains(reply, "Loops");
         StringAssert.Contains(reply, "m");
     }
 

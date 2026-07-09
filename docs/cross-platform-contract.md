@@ -314,6 +314,24 @@ Windows resolves `imageUri` from backup ZIP / sibling files and serves via `cave
 
 ---
 
+## Publish readiness (rules-only)
+
+Shared checklist before Public Library publish (no LLM). Contract: `docs/publish-readiness-contract.json` (mirror of website repo). Windows evaluator: `Services/PublishReadiness/PublishReadinessEvaluator.cs`; confirm dialog: `Views/CloudPublishChecklistDialog.cs`.
+
+---
+
+## Firebase App Check (Windows REST)
+
+| Client | Token source | REST header |
+|--------|--------------|-------------|
+| **Web** | `firebase/app-check` + reCAPTCHA v3 | SDK attaches automatically |
+| **Android** | Play Integrity (+ debug in dev) | `X-Firebase-AppCheck` on proxy + SDK |
+| **Windows** | WebView2 embed on `www.caveaipro.com` (`desktopAppCheckBridge.js`) | `X-Firebase-AppCheck` on `FirebaseRestClient` / `FirebaseCallableClient` when cached |
+
+Windows has no native App Check provider. Tokens are bridged from the website session after sign-in or Public Library load. See `docs/APPCHECK-WINDOWS.md`. **Do not Enforce** Storage/Firestore until Metrics show valid Web tokens from Windows WebView traffic.
+
+---
+
 ## Change process
 
 1. Update all three clients when changing keys or URL formats.

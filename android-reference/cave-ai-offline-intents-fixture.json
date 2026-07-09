@@ -206,7 +206,7 @@
         "pendingGeoSamples": 0,
         "entranceGpsLocked": true
       },
-      "expectedContains": ["loop", "|Δ|", "m"]
+      "expectedContains": ["Loops", "|Δ|", "m"]
     },
     {
       "intentId": "trip_narrative",

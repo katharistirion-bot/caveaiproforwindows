@@ -10,6 +10,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.5.13] - 2026-07-07
+
+### Added
+
+- **Firebase App Check (Windows)** — WebView2 bridge receives App Check JWT from `?embed=windows` website pages; `FirebaseRestClient` / `FirebaseCallableClient` attach `X-Firebase-AppCheck` when cached (`docs/APPCHECK-WINDOWS.md`)
+
+### Security
+
+- Block disallowed auth redirect navigation in Public Library WebView
+- Redact fatal crash logs before write
+- Require Firebase auth for field trip Firestore REST reads
+- Block review MSIX profile by default in release packaging
+
+### Fixed
+
+- **Near Me** reference catalog — improve GPS accuracy for radius filter
+
 ## [1.5.12] - 2026-07-06
 
 ### Added

@@ -12,7 +12,10 @@ internal static class DesktopAuthBridgeScript
           if (window.__caveAiDesktopAuthBridgeV1) return;
           window.__caveAiDesktopAuthBridgeV1 = true;
           var TOKEN_TYPE = 'caveai-desktop-auth-token';
+          var APP_CHECK_TYPE = 'caveai-desktop-appcheck-token';
+          var APP_CHECK_REQUEST_TYPE = 'caveai-desktop-appcheck-request';
           var READY_TYPE = 'caveai-desktop-auth-ready';
+          var lastAppCheckDelivered = '';
           var lastDelivered = '';
           function post(obj) {
             try {
@@ -36,13 +39,25 @@ internal static class DesktopAuthBridgeScript
           function isSignInWithIdpUrl(url) {
             return url && String(url).indexOf('signInWithIdp') >= 0;
           }
+          function deliverAppCheck(appCheckToken) {
+            if (!appCheckToken || typeof appCheckToken !== 'string') return;
+            if (appCheckToken === lastAppCheckDelivered) return;
+            if (appCheckToken.split('.').length !== 3) return;
+            lastAppCheckDelivered = appCheckToken;
+            post({ type: APP_CHECK_TYPE, appCheckToken: appCheckToken });
+          }
           window.caveAiDesktopAuth = { deliverToken: deliver };
+          window.caveAiDesktopAppCheck = { deliverToken: deliverAppCheck };
           window.addEventListener('message', function(ev) {
             var d = ev.data;
             if (!d) return;
             if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { return; } }
             if (d.type === 'caveai-desktop-auth-token' && d.idToken)
               deliver(d.idToken);
+            if (d.type === APP_CHECK_TYPE && d.appCheckToken)
+              deliverAppCheck(d.appCheckToken);
+            if (d.type === APP_CHECK_REQUEST_TYPE && window.caveAiDesktopAppCheck && window.caveAiDesktopAppCheck.requestRefresh)
+              window.caveAiDesktopAppCheck.requestRefresh();
           });
           function readAuthHeader(headers) {
             if (!headers) return null;
@@ -54,6 +69,16 @@ internal static class DesktopAuthBridgeScript
             } catch (e) {}
             return null;
           }
+          function readAppCheckHeader(headers) {
+            if (!headers) return null;
+            try {
+              if (headers.get) {
+                var v = headers.get('X-Firebase-AppCheck') || headers.get('x-firebase-appcheck');
+                if (v) return String(v).trim();
+              }
+            } catch (e) {}
+            return null;
+          }
           var origFetch = window.fetch;
           if (typeof origFetch === 'function') {
             window.fetch = function(input, init) {
@@ -61,6 +86,8 @@ internal static class DesktopAuthBridgeScript
                 var h = (init && init.headers) || (input && input.headers);
                 var t = readAuthHeader(h);
                 if (t) deliver(t);
+                var ac = readAppCheckHeader(h);
+                if (ac) deliverAppCheck(ac);
               } catch (e) {}
               var url = typeof input === 'string' ? input : (input && input.url) || '';
               var p = origFetch.apply(this, arguments);
@@ -93,6 +120,8 @@ internal static class DesktopAuthBridgeScript
             try {
               var auth = this.__caveAiHeaders && this.__caveAiHeaders.authorization;
               if (auth && auth.indexOf('Bearer ') === 0) deliver(auth.substring(7).trim());
+              var ac = this.__caveAiHeaders && this.__caveAiHeaders['x-firebase-appcheck'];
+              if (ac) deliverAppCheck(String(ac).trim());
               var url = this.__caveAiUrl || '';
               if (isSignInWithIdpUrl(url)) {
                 this.addEventListener('load', function() {

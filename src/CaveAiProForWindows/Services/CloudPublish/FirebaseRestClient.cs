@@ -22,12 +22,17 @@ public sealed class FirebaseRestClient : IDisposable
 
     private readonly HttpClient _http;
     private readonly FirebaseProjectConfig _config;
+    private readonly FirebaseAppCheckTokenCache? _appCheckCache;
 
-    public FirebaseRestClient(FirebaseProjectConfig? config = null, HttpMessageHandler? handler = null)
+    public FirebaseRestClient(
+        FirebaseProjectConfig? config = null,
+        HttpMessageHandler? handler = null,
+        FirebaseAppCheckTokenCache? appCheckCache = null)
     {
         _config = config ?? FirebaseProjectConfig.LoadFromEnvironment();
         _http = handler == null ? new HttpClient() : new HttpClient(handler);
         _http.Timeout = TimeSpan.FromMinutes(10);
+        _appCheckCache = appCheckCache ?? CloudPublishWebViewHost.AppCheckTokenCache;
     }
 
     private static void EnsureNetworkAllowed() =>
@@ -57,6 +62,7 @@ public sealed class FirebaseRestClient : IDisposable
 
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         req.Content = new ByteArrayContent(content);
         req.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
 
@@ -111,6 +117,7 @@ public sealed class FirebaseRestClient : IDisposable
 
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         req.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
@@ -148,6 +155,7 @@ public sealed class FirebaseRestClient : IDisposable
 
         using var req = new HttpRequestMessage(HttpMethod.Patch, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         req.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
@@ -193,6 +201,7 @@ public sealed class FirebaseRestClient : IDisposable
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         if (token != null)
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
 
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
         var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -219,6 +228,7 @@ public sealed class FirebaseRestClient : IDisposable
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
         return resp.IsSuccessStatusCode;
     }
@@ -236,6 +246,7 @@ public sealed class FirebaseRestClient : IDisposable
 
         using var req = new HttpRequestMessage(HttpMethod.Delete, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
         if (!resp.IsSuccessStatusCode && resp.StatusCode != System.Net.HttpStatusCode.NotFound)
         {
@@ -260,6 +271,7 @@ public sealed class FirebaseRestClient : IDisposable
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
         var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!resp.IsSuccessStatusCode)
@@ -329,6 +341,7 @@ public sealed class FirebaseRestClient : IDisposable
         var json = JsonSerializer.Serialize(body, JsonOptions);
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         req.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
@@ -389,6 +402,7 @@ public sealed class FirebaseRestClient : IDisposable
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
         if (!resp.IsSuccessStatusCode)

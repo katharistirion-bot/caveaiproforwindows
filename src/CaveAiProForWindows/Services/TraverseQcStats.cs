@@ -82,6 +82,7 @@ public static class TraverseQcStats
 
         AppendGraphQc(sb, trav, inv);
         AppendInstrumentQcSummary(sb, p, trav, inv);
+        SurveyLoopQc.SurveyLoopQcSummary.AppendLoopQcSummary(sb, p);
 
         return sb.ToString().TrimEnd();
     }
@@ -111,8 +112,9 @@ public static class TraverseQcStats
             rows.Add(new SurveyQcIssueRow("Topology QC", line));
 
         AppendInstrumentQcRows(rows, p, trav, inv);
+        AppendLoopQcRows(rows, p);
 
-        if (!rows.Any(r => r.Category is "Topology QC" or "Instrument QC"))
+        if (!rows.Any(r => r.Category is "Topology QC" or "Instrument QC" or "Loop QC"))
             rows.Add(new SurveyQcIssueRow("OK", "No traverse topology warnings — duplicate pairs, zero-length legs, az/clino range, disconnected components, and bidirectional pairs all look clear."));
 
         return rows;
@@ -174,6 +176,40 @@ public static class TraverseQcStats
             Summary = string.Join("\n", rows.Select(r => $"{r.Category}: {r.Message}").Take(6)),
             AccentBrushHex = "#7A7F88",
         };
+    }
+
+    private static void AppendLoopQcRows(List<SurveyQcIssueRow> rows, CaveProjectDocument p)
+    {
+        var loops = SurveyLoopQc.SurveyLoopQcAnalyzer.AnalyzeLoops(p);
+        if (loops.Count == 0)
+        {
+            rows.Add(new SurveyQcIssueRow(
+                "Loop QC",
+                "No traverse loops detected — log closing shots to known stations to measure misclosure."));
+            return;
+        }
+
+        var inv = CultureInfo.InvariantCulture;
+        var worst = loops.OrderByDescending(l => l.MisclosureMeters).First();
+        var label = SurveyLoopQc.SurveyLoopQcSummary.SeverityLabel(worst.MisclosureMeters, worst.PathLengthMeters);
+        rows.Add(new SurveyQcIssueRow(
+            "Loop QC",
+            SurveyLoopQc.SurveyLoopQcSummary.BuildMisclosureSummary(loops)));
+
+        foreach (var loop in loops.OrderByDescending(l => l.MisclosureMeters).Take(8))
+        {
+            var loopLabel = SurveyLoopQc.SurveyLoopQcSummary.SeverityLabel(loop.MisclosureMeters, loop.PathLengthMeters);
+            var ppm = loop.PathLengthMeters > 0
+                ? (loop.MisclosureMeters / loop.PathLengthMeters) * 1_000_000
+                : 0;
+            var ppmText = ppm > 0 ? $", ~{Math.Round(ppm).ToString(inv)} ppm" : "";
+            rows.Add(new SurveyQcIssueRow(
+                "Loop QC",
+                $"|Δ|={loop.MisclosureMeters.ToString("0.##", inv)} m ({loopLabel}) — {string.Join("→", loop.StationCycle)}{ppmText}"));
+        }
+
+        if (loops.Count > 8)
+            rows.Add(new SurveyQcIssueRow("Loop QC", $"… and {loops.Count - 8} more loop(s) — see statistics summary."));
     }
 
     /// <summary>Undirected traverse graph: duplicate directed legs, tiny distances, disconnected pieces.</summary>

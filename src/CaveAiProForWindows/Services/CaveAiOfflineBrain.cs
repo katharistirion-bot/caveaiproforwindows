@@ -282,31 +282,11 @@ public static class CaveAiOfflineBrain
 
     private static string BuildLoopMisclosureAnswer(CaveProjectDocument project)
     {
-        var loops = SurveyLoopClosureAdjuster.DetectLoops(project);
+        var loops = SurveyLoopQc.SurveyLoopQcAnalyzer.AnalyzeLoops(project);
         if (loops.Count == 0)
             return "No traverse loops detected yet — log closing shots to known stations to measure misclosure.";
 
-        var worst = loops.OrderByDescending(l => l.MisclosureMeters).First();
-        var inv = CultureInfo.InvariantCulture;
-        var severity = LoopClosureSeverityClassifier.SeverityCaption(LoopClosureSeverityClassifier.Classify(worst.MisclosureMeters));
-        var headline = $"{loops.Count} loop{(loops.Count == 1 ? "" : "s")} — worst |Δ|={worst.MisclosureMeters.ToString("0.##", inv)} m ({severity})";
-        var ppm = worst.TotalLegLength > 0
-            ? (worst.MisclosureMeters / worst.TotalLegLength) * 1_000_000
-            : 0;
-        var cycle = string.Join("→", worst.Stations);
-        var sb = new System.Text.StringBuilder(headline);
-        sb.Append(". Worst cycle: ").Append(cycle);
-        sb.Append("; path ~").Append(worst.TotalLegLength.ToString("0.#", inv)).Append(" m");
-        if (ppm > 0)
-            sb.Append(", ~").Append(ppm.ToString("0", inv)).Append(" ppm");
-        sb.Append('.');
-        if (loops.Count > 1)
-        {
-            var total = loops.Sum(l => l.MisclosureMeters);
-            sb.Append(" Total |Δ| across ").Append(loops.Count).Append(" loop(s): ~")
-                .Append(total.ToString("0.##", inv)).Append(" m.");
-        }
-        return sb.ToString();
+        return SurveyLoopQc.SurveyLoopQcSummary.BuildMisclosureSummary(loops);
     }
 
     private static double ComputeRoughVolumeM3(CaveProjectDocument project)
@@ -342,12 +322,13 @@ public static class CaveAiOfflineBrain
         if (pendingGeo > 0)
             hints.Add($"{pendingGeo} field sample(s) pending geo/bio — open GEO & BIO tab.");
 
-        var loops = SurveyLoopClosureAdjuster.DetectLoops(project);
+        var loops = SurveyLoopQc.SurveyLoopQcAnalyzer.AnalyzeLoops(project);
         if (loops.Count > 0)
         {
             var worst = loops.OrderByDescending(l => l.MisclosureMeters).First();
+            var inv = CultureInfo.InvariantCulture;
             hints.Add(
-                $"Loop closure: worst {LoopClosureSeverityClassifier.FormatMisclosureLabel(worst.MisclosureMeters)} — Tools → Loop closure assistant.");
+                $"Loop closure: worst |Δ|={worst.MisclosureMeters.ToString("0.##", inv)} m ({SurveyLoopQc.SurveyLoopQcSummary.SeverityLabel(worst.MisclosureMeters, worst.PathLengthMeters)}) — Tools → Loop closure assistant.");
         }
 
         var next = Answer(project, "what should I do next").Replace("**", "", StringComparison.Ordinal);

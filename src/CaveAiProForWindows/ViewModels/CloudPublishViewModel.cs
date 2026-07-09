@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.PublishReadiness;
 using CaveAiProForWindows.Views;
 
 namespace CaveAiProForWindows.ViewModels;
@@ -71,12 +72,34 @@ public partial class CloudPublishViewModel : ObservableObject
 
     [ObservableProperty] private string _linkedCaveIdDisplay = "Library link: not set";
 
+    [ObservableProperty] private string _readinessSummary = "";
+
     public void RefreshLinkedCaveDisplay(CaveProjectDocument? project)
     {
         var id = project != null ? LinkedLibraryCaveIdResolver.TryGet(project) : null;
         LinkedCaveIdDisplay = string.IsNullOrEmpty(id)
             ? "Library link: not set (required before publish)"
             : $"Library link: {id}";
+        RefreshReadinessSummary(project);
+    }
+
+    public void RefreshReadinessSummary(CaveProjectDocument? project)
+    {
+        if (project == null)
+        {
+            ReadinessSummary = "";
+            return;
+        }
+
+        var result = PublishReadinessEvaluator.Evaluate(new PublishReadinessContext
+        {
+            Mode = PublishReadinessMode.WindowsCloud,
+            Project = project,
+            LegalTermsAccepted = _host.GetLegalTermsAccepted(),
+            LinkedLibraryCaveId = LinkedLibraryCaveIdResolver.TryGet(project),
+            TopologyQcCriticalCount = PublishReadinessEvaluator.CountCriticalTopologyIssues(project),
+        });
+        ReadinessSummary = PublishReadinessEvaluator.FormatSummaryLine(result);
     }
 
     partial void OnIsPublishingChanged(bool value) => PushToCloudCommand.NotifyCanExecuteChanged();

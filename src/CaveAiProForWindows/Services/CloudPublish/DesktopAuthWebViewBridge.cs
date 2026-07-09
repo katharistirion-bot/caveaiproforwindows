@@ -16,15 +16,17 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
         "https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp*";
 
     private readonly FirebaseAuthTokenCache _cache;
+    private readonly FirebaseAppCheckTokenCache? _appCheckCache;
     private readonly DesktopAuthOAuthExchangeGate _oauthExchangeGate = new();
     private FirebaseIdentityToolkitClient? _identityToolkit;
     private CoreWebView2? _core;
     private bool _identityToolkitFilterRegistered;
     private bool _documentCreatedScriptRegistered;
 
-    public DesktopAuthWebViewBridge(FirebaseAuthTokenCache cache)
+    public DesktopAuthWebViewBridge(FirebaseAuthTokenCache cache, FirebaseAppCheckTokenCache? appCheckCache = null)
     {
         _cache = cache;
+        _appCheckCache = appCheckCache;
     }
 
     public FirebaseAuthTokenCache Cache => _cache;
@@ -69,6 +71,22 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
         _core.NavigationCompleted -= OnNavigationCompleted;
         _core.WebResourceResponseReceived -= OnWebResourceResponseReceived;
         _core = null;
+    }
+
+    public async Task RequestAppCheckDeliveryAsync()
+    {
+        if (_core == null)
+            return;
+
+        try
+        {
+            var json = DesktopAuthProtocol.BuildAppCheckRequestMessageJson();
+            await _core.ExecuteScriptAsync($"window.postMessage({json}, '*');").ConfigureAwait(true);
+        }
+        catch
+        {
+            /* best-effort nudge */
+        }
     }
 
     /// <summary>Ask the page (or injected bridge) to deliver the current Firebase ID token.</summary>
@@ -134,6 +152,7 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
             await RunAuthCompletionWithRetriesAsync().ConfigureAwait(true);
 
         await RequestTokenDeliveryAsync().ConfigureAwait(true);
+        await RequestAppCheckDeliveryAsync().ConfigureAwait(true);
     }
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -189,6 +208,16 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
 
             if (!DesktopAuthProtocol.TryParseTokenMessage(json, out var token) || token == null)
             {
+                if (DesktopAuthProtocol.TryParseAppCheckTokenMessage(json, out var appCheckToken)
+                    && appCheckToken != null
+                    && _appCheckCache != null)
+                {
+                    Debug.WriteLine(
+                        $"[DesktopAuthBridge] App Check token accepted — exp={appCheckToken.ExpiresAtUtc:O}");
+                    _appCheckCache.Update(appCheckToken);
+                    return;
+                }
+
                 var preview = json.Length > 120 ? json[..120] + "…" : json;
                 Debug.WriteLine("[DesktopAuthBridge] WebMessageReceived: non-token message: " + preview);
                 return;

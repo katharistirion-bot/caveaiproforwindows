@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "description": "Parity fixtures for survey loop QC",
+  "cases": [
+    {
+      "id": "fewer_than_three_legs",
+      "project": {
+        "shots": [
+          {
+            "fromStation": "A",
+            "toStation": "B",
+            "azimuth": 0,
+            "clino": 0,
+            "distance": 10
+          }
+        ]
+      },
+      "expect": {
+        "loopCount": 0,
+        "summaryContains": "none detected"
+      }
+    },
+    {
+      "id": "triangle_well_closed",
+      "project": {
+        "shots": [
+          {
+            "fromStation": "A",
+            "toStation": "B",
+            "azimuth": 0,
+            "clino": 0,
+            "distance": 10
+          },
+          {
+            "fromStation": "B",
+            "toStation": "C",
+            "azimuth": 90,
+            "clino": 0,
+            "distance": 10
+          },
+          {
+            "fromStation": "C",
+            "toStation": "A",
+            "azimuth": 225,
+            "clino": 0,
+            "distance": 14.14
+          }
+        ]
+      },
+      "expect": {
+        "loopCountMin": 1,
+        "worstMisclosureMax": 0.05,
+        "worstSeverity": "excellent"
+      }
+    },
+    {
+      "id": "triangle_review_misclosure",
+      "project": {
+        "shots": [
+          {
+            "fromStation": "A",
+            "toStation": "B",
+            "azimuth": 0,
+            "clino": 0,
+            "distance": 10
+          },
+          {
+            "fromStation": "B",
+            "toStation": "C",
+            "azimuth": 90,
+            "clino": 0,
+            "distance": 10
+          },
+          {
+            "fromStation": "C",
+            "toStation": "A",
+            "azimuth": 222,
+            "clino": 0,
+            "distance": 14.14
+          }
+        ]
+      },
+      "expect": {
+        "loopCountMin": 1,
+        "worstMisclosureMin": 0.25,
+        "worstMisclosureMax": 1,
+        "worstSeverity": "review"
+      }
+    },
+    {
+      "id": "severity_label_review_band",
+      "misclosureM": 0.42,
+      "pathLengthM": 30,
+      "expect": {
+        "severity": "review"
+      }
+    },
+    {
+      "id": "severity_label_good_ppm",
+      "misclosureM": 0.1,
+      "pathLengthM": 500,
+      "expect": {
+        "severity": "good"
+      }
+    }
+  ]
+}

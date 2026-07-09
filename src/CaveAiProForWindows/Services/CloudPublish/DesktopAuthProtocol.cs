@@ -9,8 +9,10 @@ namespace CaveAiProForWindows.Services.CloudPublish;
 public static class DesktopAuthProtocol
 {
     public const string TokenMessageType = "caveai-desktop-auth-token";
+    public const string AppCheckTokenMessageType = "caveai-desktop-appcheck-token";
     public const string ReadyMessageType = "caveai-desktop-auth-ready";
     public const string RequestMessageType = "caveai-desktop-auth-request";
+    public const string AppCheckRequestMessageType = "caveai-desktop-appcheck-request";
     public const string RedirectFallbackMessageType = "caveai-auth-redirect-fallback";
     public const string AuthErrorMessageType = "caveai-auth-error";
     public const string AuthConsoleMessageType = "caveai-auth-console";
@@ -155,4 +157,48 @@ public static class DesktopAuthProtocol
 
     public static string BuildRequestMessageJson() =>
         JsonSerializer.Serialize(new { type = RequestMessageType });
+
+    public static string BuildAppCheckRequestMessageJson() =>
+        JsonSerializer.Serialize(new { type = AppCheckRequestMessageType });
+
+    /// <summary>Parses App Check JWT from WebView2 postMessage.</summary>
+    public static bool TryParseAppCheckTokenMessage(string? json, out FirebaseAppCheckToken? token)
+    {
+        token = null;
+        if (string.IsNullOrWhiteSpace(json))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return false;
+
+            if (!root.TryGetProperty("type", out var typeEl)
+                || typeEl.ValueKind != JsonValueKind.String)
+                return false;
+
+            if (!string.Equals(typeEl.GetString(), AppCheckTokenMessageType, StringComparison.Ordinal))
+                return false;
+
+            if (!root.TryGetProperty("appCheckToken", out var tokenEl)
+                || tokenEl.ValueKind != JsonValueKind.String)
+                return false;
+
+            var raw = tokenEl.GetString();
+            if (string.IsNullOrWhiteSpace(raw))
+                return false;
+
+            if (!FirebaseAppCheckTokenParser.TryParse(raw, out var parsed) || parsed == null)
+                return false;
+
+            token = parsed;
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 }

@@ -80,8 +80,9 @@ Rotation checklist: see `docs/SECURITY.md` (Windows) § Firebase API key rotatio
 
 1. Firebase Console → **App Check** → register Web (reCAPTCHA v3), Android (Play Integrity), optional debug tokens for dev.
 2. Website: set `VITE_FIREBASE_APPCHECK_RECAPTCHA_SITE_KEY` in `.env.local`; prod build via `check-production-env.mjs`.
-3. Start with **Monitoring**, then enforce on **Storage** and **Firestore** when clients send valid tokens.
-4. Android Gemini proxy already sends App Check headers (`GeminiProxyAppCheckHeader.kt`).
+3. **Windows:** WebView2 bridge from `?embed=windows` pages — see `docs/APPCHECK-WINDOWS.md`. REST client sends `X-Firebase-AppCheck` when cached.
+4. Start with **Monitoring**, then enforce on **Storage** and **Firestore** when web **and** Windows clients show valid tokens in Metrics.
+5. Android Gemini proxy already sends App Check headers (`GeminiProxyAppCheckHeader.kt`).
 
 ---
 

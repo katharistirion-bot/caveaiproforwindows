@@ -1,6 +1,7 @@
 using System.Windows;
 using CaveAiProForWindows.Models;
-using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.PublishReadiness;
 
 namespace CaveAiProForWindows.Views;
 
@@ -9,18 +10,15 @@ public static class CloudPublishChecklistDialog
 {
     public static bool Confirm(Window? owner, CaveProjectDocument project, bool legalTermsAccepted)
     {
-        var qcRows = TraverseQcStats.BuildSurveyQcIssueRows(project);
-        var criticalQc = qcRows.Count(r =>
-            r.Category.Contains("Topology", StringComparison.OrdinalIgnoreCase) &&
-            !r.Message.Contains("OK", StringComparison.OrdinalIgnoreCase));
-        var photoCount = project.Shots.Sum(s => s.Photos?.Count ?? 0);
-
-        var message =
-            "Before publishing to the Public Cave Library, confirm:\n\n" +
-            $"• Traverse QC: {(criticalQc == 0 ? "no critical issues" : $"{criticalQc} critical issue(s) — review SURVEY QC tab")}\n" +
-            $"• Legal terms: {(legalTermsAccepted ? "accepted" : "NOT accepted — open LEGAL & SETTINGS")}\n" +
-            $"• Photos in survey: {photoCount}\n\n" +
-            "Continue with publish?";
+        var ctx = new PublishReadinessContext
+        {
+            Mode = PublishReadinessMode.WindowsCloud,
+            Project = project,
+            LegalTermsAccepted = legalTermsAccepted,
+            LinkedLibraryCaveId = LinkedLibraryCaveIdResolver.TryGet(project),
+            TopologyQcCriticalCount = PublishReadinessEvaluator.CountCriticalTopologyIssues(project),
+        };
+        var message = PublishReadinessEvaluator.FormatConfirmationMessage(ctx);
 
         if (!legalTermsAccepted)
         {

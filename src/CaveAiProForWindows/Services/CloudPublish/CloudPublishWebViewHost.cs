@@ -8,10 +8,13 @@ namespace CaveAiProForWindows.Services.CloudPublish;
 public static class CloudPublishWebViewHost
 {
     private static readonly FirebaseAuthTokenCache SharedTokenCache = CreateSharedTokenCache();
+    private static readonly FirebaseAppCheckTokenCache SharedAppCheckTokenCache = new();
     private static readonly object Gate = new();
     private static DesktopAuthWebViewBridge? _bridge;
 
     public static FirebaseAuthTokenCache TokenCache => SharedTokenCache;
+
+    public static FirebaseAppCheckTokenCache AppCheckTokenCache => SharedAppCheckTokenCache;
 
     private static FirebaseAuthTokenCache CreateSharedTokenCache()
     {
@@ -27,7 +30,7 @@ public static class CloudPublishWebViewHost
     {
         lock (Gate)
         {
-            _bridge ??= new DesktopAuthWebViewBridge(SharedTokenCache);
+            _bridge ??= new DesktopAuthWebViewBridge(SharedTokenCache, SharedAppCheckTokenCache);
             _bridge.Attach(core);
             return _bridge;
         }

@@ -23,17 +23,20 @@ public sealed class FirebaseCallableClient
     private readonly FirebaseProjectConfig _config;
     private readonly string _functionName;
     private readonly string _region;
+    private readonly FirebaseAppCheckTokenCache? _appCheckCache;
 
     public FirebaseCallableClient(
         string functionName,
         FirebaseProjectConfig? config = null,
         string region = "us-central1",
-        HttpClient? http = null)
+        HttpClient? http = null,
+        FirebaseAppCheckTokenCache? appCheckCache = null)
     {
         _functionName = functionName;
         _region = region;
         _config = config ?? FirebaseProjectConfig.LoadFromEnvironment();
         _http = http ?? new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        _appCheckCache = appCheckCache ?? CloudPublishWebViewHost.AppCheckTokenCache;
     }
 
     public string EndpointUrl =>
@@ -52,6 +55,7 @@ public sealed class FirebaseCallableClient
 
         using var req = new HttpRequestMessage(HttpMethod.Post, EndpointUrl);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
         req.Content = new StringContent(
             JsonSerializer.Serialize(new CallableEnvelope(payload), JsonOptions),
             Encoding.UTF8,

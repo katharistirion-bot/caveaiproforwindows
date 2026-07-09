@@ -82,6 +82,91 @@ public sealed class CloudPublishTests
         Assert.IsFalse(DesktopAuthProtocol.TryParseTokenMessage("{not json", out _));
     }
 
+    [TestMethod]
+    public void DesktopAuthProtocol_parses_valid_appcheck_token_message()
+    {
+        var payload = """{"exp":4102444800}""";
+        var jwt = "aaa." + Base64UrlEncode(payload) + ".sig";
+        var json = $$"""{"type":"caveai-desktop-appcheck-token","appCheckToken":"{{jwt}}"}""";
+        Assert.IsTrue(DesktopAuthProtocol.TryParseAppCheckTokenMessage(json, out var token));
+        Assert.IsNotNull(token);
+        Assert.AreEqual(jwt, token!.Raw);
+        Assert.IsFalse(token.IsExpired());
+    }
+
+    [TestMethod]
+    public void FirebaseAppCheckTokenCache_returns_usable_token_until_expiry()
+    {
+        var payload = """{"exp":4102444800}""";
+        var jwt = "aaa." + Base64UrlEncode(payload) + ".sig";
+        Assert.IsTrue(FirebaseAppCheckTokenParser.TryParse(jwt, out var parsed));
+        Assert.IsNotNull(parsed);
+
+        var cache = new FirebaseAppCheckTokenCache();
+        cache.Update(parsed!);
+        Assert.IsNotNull(cache.TryGetUsableToken());
+    }
+
+    [TestMethod]
+    public async Task FirebaseRestClient_attaches_appcheck_header_when_cached()
+    {
+        var payload = """{"exp":4102444800}""";
+        var jwt = "aaa." + Base64UrlEncode(payload) + ".sig";
+        Assert.IsTrue(FirebaseAppCheckTokenParser.TryParse(jwt, out var appCheck));
+        Assert.IsNotNull(appCheck);
+
+        var appCheckCache = new FirebaseAppCheckTokenCache();
+        appCheckCache.Update(appCheck!);
+
+        var handler = new AppCheckRecordingHandler();
+        handler.Enqueue(System.Net.HttpStatusCode.OK, """{"name":"x"}""");
+
+        using var rest = new FirebaseRestClient(
+            new FirebaseProjectConfig { ProjectId = "test-proj", StorageBucket = "b.appspot.com" },
+            handler,
+            appCheckCache);
+
+        var idPayload = """{"sub":"uid","exp":4102444800}""";
+        var idJwt = "aaa." + Base64UrlEncode(idPayload) + ".sig";
+        Assert.IsTrue(FirebaseIdTokenParser.TryParse(idJwt, out var idToken));
+        Assert.IsNotNull(idToken);
+
+        await rest.UploadBytesAsync(idToken!, "users/u/file.png", [1], "image/png");
+        Assert.AreEqual(1, handler.Requests.Count);
+        Assert.IsTrue(handler.Requests[0].Headers.ContainsKey("X-Firebase-AppCheck"));
+        Assert.AreEqual(jwt, handler.Requests[0].Headers["X-Firebase-AppCheck"]);
+    }
+
+    private sealed class AppCheckRecordingHandler : HttpMessageHandler
+    {
+        private readonly Queue<(System.Net.HttpStatusCode Code, string Body)> _responses = new();
+
+        public List<RecordedRequest> Requests { get; } = [];
+
+        public sealed class RecordedRequest
+        {
+            public required Dictionary<string, string> Headers { get; init; }
+        }
+
+        public void Enqueue(System.Net.HttpStatusCode code, string body) => _responses.Enqueue((code, body));
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var h in request.Headers)
+                headers[h.Key] = string.Join(",", h.Value);
+            Requests.Add(new RecordedRequest { Headers = headers });
+
+            var (code, body) = _responses.Dequeue();
+            return new HttpResponseMessage(code)
+            {
+                Content = new StringContent(body),
+            };
+        }
+    }
+
     private static string Base64UrlEncode(string json)
     {
         var bytes = Encoding.UTF8.GetBytes(json);
