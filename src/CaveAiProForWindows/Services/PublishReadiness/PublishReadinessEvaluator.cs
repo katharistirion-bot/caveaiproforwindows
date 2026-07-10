@@ -73,6 +73,7 @@ public static class PublishReadinessEvaluator
     [
         "legal_terms",
         "library_link",
+        "publisher_profile",
         "cave_name",
         "entrance_gps",
         "survey_json",
@@ -100,6 +101,11 @@ public static class PublishReadinessEvaluator
                 ruleId, PublishReadinessTier.Required, "Public Library link",
                 "Firestore published_caves document id (?cave= on the web map).",
                 !string.IsNullOrWhiteSpace(linkedId), linkedId),
+            "publisher_profile" when ctx.Mode == PublishReadinessMode.WindowsCloud && ctx.ProfileComplete.HasValue => Item(
+                ruleId, PublishReadinessTier.Required, "Publisher profile",
+                "First name, last name, and country — complete at caveaipro.com/account/profile.",
+                ctx.ProfileComplete.Value,
+                ctx.ProfileComplete.Value ? null : "Open account profile in browser"),
             "cave_name" => Item(
                 ruleId, PublishReadinessTier.Required, "Cave name",
                 "Shown in browse, map popups, and library search.",

@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 
 using CaveAiProForWindows.Services.Auth;
+using CaveAiProForWindows.Services.UserProfile;
 
 namespace CaveAiProForWindows.Services.CloudPublish;
 
@@ -182,6 +183,38 @@ public sealed class FirebaseRestClient : IDisposable
         var fields = FirestoreFieldBuilder.BuildFields(pairs);
         var docPath = $"published_caves/{publishedCaveDocId.Trim()}";
         await PatchDocumentAsync(token, docPath, fields, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Reads <c>users/{uid}</c> publisher profile (subscriber entitlement enforced by caller).</summary>
+    public async Task<UserProfileDocument?> GetUserProfileDocumentAsync(
+        FirebaseIdToken token,
+        string uid,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        if (string.IsNullOrWhiteSpace(uid))
+            throw new ArgumentException("User id is required.", nameof(uid));
+
+        var docPath = $"users/{uid.Trim()}";
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{docPath}";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
+
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+            return null;
+        if (!resp.IsSuccessStatusCode)
+            throw new FirebaseRestException(
+                $"Firestore GET failed ({(int)resp.StatusCode}): {Truncate(body)}",
+                resp.StatusCode,
+                body);
+
+        return ParseUserProfileDocument(uid.Trim(), body);
     }
 
     /// <summary>Reads <c>published_caves/{docId}</c> for Public Library download (Firebase ID token required — rules allow signed-in read only).</summary>
@@ -498,6 +531,36 @@ public sealed class FirebaseRestClient : IDisposable
             EntranceMagneticHintsJson = ReadString("entranceMagneticHintsJson"),
             EntranceMagneticHintsUrl = ReadString("entranceMagneticHintsUrl"),
             AccessSeasonNote = ReadString("accessSeasonNote"),
+            PublisherFirstName = ReadString("publisherFirstName"),
+            PublisherLastName = ReadString("publisherLastName"),
+            PublisherCountry = ReadString("publisherCountry"),
+            OwnerUid = ReadString("ownerUid"),
+        };
+    }
+
+    private static UserProfileDocument? ParseUserProfileDocument(string uid, string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("fields", out var fields))
+            return null;
+
+        string ReadString(string name)
+        {
+            if (!fields.TryGetProperty(name, out var el) || !el.TryGetProperty("stringValue", out var s))
+                return "";
+            return s.GetString()?.Trim() ?? "";
+        }
+
+        return new UserProfileDocument
+        {
+            Uid = uid,
+            FirstName = ReadString("firstName"),
+            LastName = ReadString("lastName"),
+            Country = ReadString("country"),
+            Continent = ReadString("continent"),
+            Bio = ReadString("bio"),
+            AvatarUrl = ReadString("avatarUrl"),
+            PublicSlug = ReadString("publicSlug"),
         };
     }
 

@@ -97,6 +97,22 @@ public static class CloudPublishWorkflow
                     request.CancellationToken)
                 .ConfigureAwait(true);
 
+            var rest = new FirebaseRestClient();
+            var profileReady = await CloudPublishProfileGate.EnsureReadyForPublishAsync(
+                    rest,
+                    token,
+                    docId,
+                    request.GetOwnerWindow(),
+                    request.CancellationToken)
+                .ConfigureAwait(true);
+            if (!profileReady)
+            {
+                ReportError(
+                    request.Progress,
+                    "Complete your publisher profile (first name, last name, country) at caveaipro.com/account/profile before publishing.");
+                return null;
+            }
+
             request.Progress.Report(new CloudPublishProgressUpdate
             {
                 Message = "Signed in — preparing artifacts…",

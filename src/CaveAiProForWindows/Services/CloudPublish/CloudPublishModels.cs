@@ -88,4 +88,12 @@ public sealed class PublishedCaveDocument
     public string? EntranceMagneticHintsUrl { get; init; }
 
     public string? AccessSeasonNote { get; init; }
+
+    public string? PublisherFirstName { get; init; }
+
+    public string? PublisherLastName { get; init; }
+
+    public string? PublisherCountry { get; init; }
+
+    public string? OwnerUid { get; init; }
 }

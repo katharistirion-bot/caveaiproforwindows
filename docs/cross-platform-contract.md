@@ -316,7 +316,16 @@ Windows resolves `imageUri` from backup ZIP / sibling files and serves via `cave
 
 ## Publish readiness (rules-only)
 
-Shared checklist before Public Library publish (no LLM). Contract: `docs/publish-readiness-contract.json` (mirror of website repo). Windows evaluator: `Services/PublishReadiness/PublishReadinessEvaluator.cs`; confirm dialog: `Views/CloudPublishChecklistDialog.cs`.
+Shared checklist before Public Library publish (no LLM). Contract: `docs/publish-readiness-contract.json` (mirror of website repo). Windows evaluator: `Services/PublishReadiness/PublishReadinessEvaluator.cs`; confirm dialog: `Views/CloudPublishChecklistDialog.cs`. Publisher profile rule (`publisher_profile`) applies to `windows_cloud` when profile completeness is known; hard gate after sign-in: `Services/CloudPublish/CloudPublishProfileGate.cs`.
+
+---
+
+## User profile (publisher identity)
+
+Subscriber profile at `users/{uid}` — required before first Public Library publish on web/Android; Windows owner sync skips the gate when `published_caves` already has publisher attribution fields.
+
+- Contract mirror: website `docs/user-profile-contract.json`
+- Windows: `Services/UserProfile/UserProfileService.cs` · `UserProfileDocument` · profile settings URL `https://www.caveaipro.com/account/profile`
 
 ---
 

@@ -44,4 +44,7 @@ public sealed class PublishReadinessContext
     public string? LinkedLibraryCaveId { get; init; }
     public string? Description { get; init; }
     public int? TopologyQcCriticalCount { get; init; }
+
+    /// <summary>Publisher profile completeness; omit in pre-sign-in checklist.</summary>
+    public bool? ProfileComplete { get; init; }
 }

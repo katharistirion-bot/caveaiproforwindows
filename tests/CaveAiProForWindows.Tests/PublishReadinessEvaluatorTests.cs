@@ -25,6 +25,31 @@ public sealed class PublishReadinessEvaluatorTests
     }
 
     [TestMethod]
+    public void Windows_cloud_readiness_includes_publisher_profile_when_known()
+    {
+        var incomplete = PublishReadinessEvaluator.Evaluate(new PublishReadinessContext
+        {
+            Mode = PublishReadinessMode.WindowsCloud,
+            Project = SampleProject(),
+            LegalTermsAccepted = true,
+            LinkedLibraryCaveId = "uid_local1",
+            ProfileComplete = false,
+        });
+        Assert.IsFalse(incomplete.RequiredDone);
+        Assert.IsTrue(incomplete.Items.Any(i => i.Id == "publisher_profile" && !i.Done));
+
+        var complete = PublishReadinessEvaluator.Evaluate(new PublishReadinessContext
+        {
+            Mode = PublishReadinessMode.WindowsCloud,
+            Project = SampleProject(),
+            LegalTermsAccepted = true,
+            LinkedLibraryCaveId = "uid_local1",
+            ProfileComplete = true,
+        });
+        Assert.IsTrue(complete.RequiredDone);
+    }
+
+    [TestMethod]
     public void FormatConfirmationMessage_includes_score_line()
     {
         var message = PublishReadinessEvaluator.FormatConfirmationMessage(new PublishReadinessContext
