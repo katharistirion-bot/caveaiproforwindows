@@ -31,3 +31,11 @@ _website_upload/
 firebase/functions/node_modules/
 firebase-debug.log
 firebase-debug.*.log
+
+# Agent / local scratch (do not commit)
+agent-*.txt
+agent-*.json
+build-*-log.txt
+ci-failed.zip
+_w.py
+_write_*.py

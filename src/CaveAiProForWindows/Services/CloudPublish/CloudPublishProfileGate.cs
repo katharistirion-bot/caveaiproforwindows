@@ -26,9 +26,16 @@ public static class CloudPublishProfileGate
             cave = await rest.GetPublishedCaveDocumentAsync(publishedCaveDocId.Trim(), token, cancellationToken)
                 .ConfigureAwait(true);
         }
-        catch
+        catch (Exception ex)
         {
-            cave = new PublishedCaveDocument { DocumentId = publishedCaveDocId.Trim() };
+            Debug.WriteLine($"[CloudPublishProfileGate] published cave lookup failed: {ex.Message}");
+            MessageBox.Show(
+                ownerWindow,
+                "Could not verify the published cave record. Check your connection and try again.",
+                "Cloud publish",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return false;
         }
 
         if (HasPublisherIdentity(cave))
