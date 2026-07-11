@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -226,8 +227,16 @@ public partial class SurfaceMapView : UserControl
             }
             core.WebResourceRequested += async (_, args) =>
             {
-                if (_tileCache != null && _tileCache.Enabled)
-                    await _tileCache.TryServeOrCacheAsync(args).ConfigureAwait(false);
+                var deferral = args.GetDeferral();
+                try
+                {
+                    if (_tileCache != null && _tileCache.Enabled)
+                        await _tileCache.TryServeOrCacheAsync(args).ConfigureAwait(false);
+                }
+                finally
+                {
+                    deferral.Complete();
+                }
             };
 
             core.NavigationCompleted += (_, args) =>
@@ -885,7 +894,8 @@ public partial class SurfaceMapView : UserControl
         SurfaceWebView.CoreWebView2.PostWebMessageAsJson("""{"type":"exportPackage"}""");
         try
         {
-            var root = await _exportPackageTcs.Task.ConfigureAwait(true);
+            using var exportCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var root = await _exportPackageTcs.Task.WaitAsync(exportCts.Token).ConfigureAwait(true);
             var url = root.GetProperty("dataUrl").GetString()!;
             var png = Convert.FromBase64String(url["data:image/png;base64,".Length..]);
             var geo = root.TryGetProperty("geoJson", out var g) ? g.GetRawText() : "{}";
@@ -948,7 +958,8 @@ public partial class SurfaceMapView : UserControl
         SurfaceWebView.CoreWebView2.PostWebMessageAsJson("""{"type":"exportPng"}""");
         try
         {
-            var dataUrl = await _pngExportTcs.Task.ConfigureAwait(true);
+            using var exportCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var dataUrl = await _pngExportTcs.Task.WaitAsync(exportCts.Token).ConfigureAwait(true);
             if (string.IsNullOrWhiteSpace(dataUrl) || !dataUrl.StartsWith("data:image/png;base64,", StringComparison.Ordinal))
                 throw new InvalidOperationException("Invalid PNG export data");
 

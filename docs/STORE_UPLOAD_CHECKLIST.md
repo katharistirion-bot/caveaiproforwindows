@@ -1,6 +1,6 @@
 # Microsoft Store upload checklist
 
-Generated: 2026-07-06  
+Generated: 2026-07-11  
 Repo: `D:\caveaiproforwindows`  
 Product ID: **9PPF3HPZRL21**
 
@@ -8,10 +8,14 @@ Product ID: **9PPF3HPZRL21**
 
 | Package | Path | Status |
 |---------|------|--------|
-| **Review (certification)** | `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned.msix` | Rebuild with `.\tools\package-store-msix-review.ps1` |
-| **Production (unsigned)** | `_store_out\CaveAiProForWindows-1.5.12-Store-unsigned.msix` | Build with `.\tools\package-store-msix.ps1` after setting Firebase key |
+| **Review (certification)** | `_store_out\CaveAiProForWindows-1.5.13-Store-Review-unsigned.msix` | Built 2026-07-11 |
+| **Production (unsigned)** | `_store_out\CaveAiProForWindows-1.5.13-Store-unsigned.msix` | Built 2026-07-11 |
 
-App version in `Directory.Build.props`: **1.5.12** (package identity version **1.5.12.0**).
+App version in `Directory.Build.props`: **1.5.13** (package identity version **1.5.13.0**).
+
+GitHub sideload: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.5.13
+
+See **`docs/STORE_UPLOAD_1.5.13.md`** for Partner Center steps and release notes.
 
 Review build uses **`STORE_REVIEW_UNLOCKED`** via profile `MicrosoftStore-Review-Win64` (subscription gate disabled for cert testers).
 

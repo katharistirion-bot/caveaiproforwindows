@@ -3,6 +3,10 @@
 (function () {
   'use strict';
 
+  if (typeof maplibregl !== 'undefined' && typeof maplibregl.setWorkerUrl === 'function') {
+    maplibregl.setWorkerUrl(new URL('vendor/maplibre-gl-csp-worker.js', window.location.href).href);
+  }
+
   const OSM_TILES = ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'];
   const HILLSHADE_TILES = ['https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png'];
   const DEM_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];

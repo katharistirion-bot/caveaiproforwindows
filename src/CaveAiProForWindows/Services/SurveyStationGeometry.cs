@@ -137,6 +137,11 @@ public static class SurveyStationGeometry
                 stationComponent[first] = cid;
                 componentIndex++;
             }
+            else if (unresolved.Count > 0)
+            {
+                // Orphan shot — drop to avoid infinite loop on malformed geometry.
+                unresolved.RemoveAt(0);
+            }
         }
 
         ApplyPlanStationPositionOverrides(coords, planStationPositionOverrides);
