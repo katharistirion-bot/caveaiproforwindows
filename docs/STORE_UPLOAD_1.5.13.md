@@ -2,7 +2,7 @@
 
 Product ID **9PPF3HPZRL21** · Partner Center: https://partner.microsoft.com/dashboard
 
-Generated: 2026-07-11 · Artifacts built on this machine.
+Generated: 2026-07-11 · Artifacts rebuilt 16:11 (includes `5db67f6` expedition share + profile readiness).
 
 ## MSIX artifacts (unsigned)
 
@@ -31,6 +31,8 @@ Use Store MSIX for Microsoft Store listing; GitHub Setup.exe for sideload + auto
 ### Release notes (English)
 
 ```
+• Expedition share on surface map — view active subscriber shares (contract parity with Android/web).
+• Publisher profile readiness in cloud publish checklist (name, country required).
 • Firebase App Check on Windows — WebView2 bridge + REST headers for protected Firestore calls.
 • Security: hardened Public Library WebView auth redirects, redacted crash logs, authenticated field-trip reads.
 • Near Me reference catalog — improved GPS accuracy for radius filter.
