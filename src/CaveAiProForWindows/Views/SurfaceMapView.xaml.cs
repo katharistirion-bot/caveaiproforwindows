@@ -85,6 +85,7 @@ public partial class SurfaceMapView : UserControl
         UpdateTileCacheSizeLabel();
         UpdateDeclinationBadge();
         await EnsureWebViewAsync().ConfigureAwait(true);
+        ExpeditionSharePanel.Project = Project;
         UpdateCoordsLine();
         QueueProjectPush();
     }
@@ -663,6 +664,7 @@ public partial class SurfaceMapView : UserControl
         _pendingProject = Project;
         _pendingZipPath = ZipPath;
         _cloudAssetCacheDir = CloudAssetCacheDir;
+        ExpeditionSharePanel.Project = Project;
         UpdateCoordsLine();
         UpdateDeclinationBadge();
         if (_mapReady)
@@ -714,6 +716,7 @@ public partial class SurfaceMapView : UserControl
             MeasureText.Visibility = Visibility.Collapsed;
         if (ElevationChartCanvas != null)
             ElevationChartCanvas.Children.Clear();
+        ExpeditionSharePanel.Project = Project;
         UpdateCoordsLine();
         UpdateDeclinationBadge();
         PushEmptyProjectToMap();

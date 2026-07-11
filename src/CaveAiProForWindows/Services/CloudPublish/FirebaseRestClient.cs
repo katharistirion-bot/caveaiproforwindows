@@ -266,6 +266,73 @@ public sealed class FirebaseRestClient : IDisposable
         return resp.IsSuccessStatusCode;
     }
 
+    /// <summary>GET raw Firestore document JSON (includes <c>fields</c> map).</summary>
+    public async Task<string?> GetDocumentJsonAsync(
+        FirebaseIdToken token,
+        string documentPath,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        var normalized = documentPath.Trim().TrimStart('/');
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{normalized}";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
+
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+            return null;
+        if (!resp.IsSuccessStatusCode)
+            throw new FirebaseRestException(
+                $"Firestore GET failed ({(int)resp.StatusCode}): {Truncate(body)}",
+                resp.StatusCode,
+                body);
+        return body;
+    }
+
+    /// <summary>POST create with explicit document id under a collection.</summary>
+    public async Task CreateDocumentWithIdAsync(
+        FirebaseIdToken token,
+        string collectionId,
+        string documentId,
+        IReadOnlyDictionary<string, object> fields,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+        if (string.IsNullOrWhiteSpace(collectionId))
+            throw new ArgumentException("Collection id is required.", nameof(collectionId));
+        if (string.IsNullOrWhiteSpace(documentId))
+            throw new ArgumentException("Document id is required.", nameof(documentId));
+        if (fields.Count == 0)
+            throw new ArgumentException("At least one field is required.", nameof(fields));
+
+        var collection = collectionId.Trim().Trim('/');
+        var id = documentId.Trim();
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{collection}?documentId={Uri.EscapeDataString(id)}";
+
+        var body = new FirestoreDocumentPatch { Fields = new Dictionary<string, object>(fields) };
+        var json = JsonSerializer.Serialize(body, JsonOptions);
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
+        req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        var respBody = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new FirebaseRestException(
+                $"Firestore CREATE failed ({(int)resp.StatusCode}): {Truncate(respBody)}",
+                resp.StatusCode,
+                respBody);
+    }
+
     public async Task DeleteDocumentAsync(
         FirebaseIdToken token,
         string documentPath,

@@ -5,6 +5,7 @@ using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.CloudPublish;
 using CaveAiProForWindows.Services.PublishReadiness;
+using CaveAiProForWindows.Services.UserProfile;
 using CaveAiProForWindows.Views;
 
 namespace CaveAiProForWindows.ViewModels;
@@ -45,6 +46,7 @@ public partial class CloudPublishViewModel : ObservableObject
     private readonly CloudPublishEditorHost _host;
     private readonly CloudPublishService _publishService;
     private CancellationTokenSource? _publishCts;
+    private bool? _publisherProfileComplete;
 
     public CloudPublishViewModel(CloudPublishEditorHost host, CloudPublishService? publishService = null)
     {
@@ -74,6 +76,29 @@ public partial class CloudPublishViewModel : ObservableObject
 
     [ObservableProperty] private string _readinessSummary = "";
 
+    public async Task RefreshPublisherProfileAsync()
+    {
+        var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+        if (token == null)
+        {
+            _publisherProfileComplete = null;
+            RefreshReadinessSummary(_host.GetProject());
+            return;
+        }
+
+        try
+        {
+            var profile = await new UserProfileService().LoadProfileAsync(token).ConfigureAwait(true);
+            _publisherProfileComplete = profile?.IsCompleteForPublish();
+        }
+        catch
+        {
+            _publisherProfileComplete = null;
+        }
+
+        RefreshReadinessSummary(_host.GetProject());
+    }
+
     public void RefreshLinkedCaveDisplay(CaveProjectDocument? project)
     {
         var id = project != null ? LinkedLibraryCaveIdResolver.TryGet(project) : null;
@@ -98,6 +123,7 @@ public partial class CloudPublishViewModel : ObservableObject
             LegalTermsAccepted = _host.GetLegalTermsAccepted(),
             LinkedLibraryCaveId = LinkedLibraryCaveIdResolver.TryGet(project),
             TopologyQcCriticalCount = PublishReadinessEvaluator.CountCriticalTopologyIssues(project),
+            ProfileComplete = _publisherProfileComplete,
         });
         ReadinessSummary = PublishReadinessEvaluator.FormatSummaryLine(result);
     }
@@ -169,6 +195,7 @@ public partial class CloudPublishViewModel : ObservableObject
                 HasError = false;
                 ErrorMessage = "";
                 StatusMessage = "Signed in — ready to publish.";
+                await RefreshPublisherProfileAsync().ConfigureAwait(true);
             }
             else
                 StatusMessage = "Sign-in window closed without a token.";

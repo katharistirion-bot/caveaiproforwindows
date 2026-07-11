@@ -8,7 +8,7 @@ namespace CaveAiProForWindows.Views;
 /// <summary>Pre-publish checklist for cloud publish workflow.</summary>
 public static class CloudPublishChecklistDialog
 {
-    public static bool Confirm(Window? owner, CaveProjectDocument project, bool legalTermsAccepted)
+    public static bool Confirm(Window? owner, CaveProjectDocument project, bool legalTermsAccepted, bool? profileComplete = null)
     {
         var ctx = new PublishReadinessContext
         {
@@ -17,6 +17,7 @@ public static class CloudPublishChecklistDialog
             LegalTermsAccepted = legalTermsAccepted,
             LinkedLibraryCaveId = LinkedLibraryCaveIdResolver.TryGet(project),
             TopologyQcCriticalCount = PublishReadinessEvaluator.CountCriticalTopologyIssues(project),
+            ProfileComplete = profileComplete,
         };
         var message = PublishReadinessEvaluator.FormatConfirmationMessage(ctx);
 
