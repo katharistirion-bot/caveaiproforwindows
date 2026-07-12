@@ -108,7 +108,6 @@ jobs:
           ./tools/restore-firebase-config-placeholder.ps1
 
       - name: Upload Store MSIX artifact
-        if: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: CaveAiProForWindows-store-msix
