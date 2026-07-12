@@ -39,3 +39,9 @@ build-*-log.txt
 ci-failed.zip
 _w.py
 _write_*.py
+ci-ann-new.json
+ci-jobs-new.json
+*-build*.log
+startup-stderr.txt
+startup-stdout.txt
+website-build-log.txt
