@@ -158,7 +158,7 @@ Cave-centric helpers: website `src/utils/exploreMapLink.js` · Android: `Explore
 | `country` | Display country (web/Android) or slug (Windows, e.g. `greece`) |
 | `filters` | Active filter chips, comma-separated |
 | `embed=android` | Android WebView handoff (`exploreAndroidHandoff.js`) |
-| `embed=windows` | Windows WebView2 handoff — App Check token bridge (`desktopAppCheckBridge.js`; see `docs/APPCHECK-WINDOWS.md`) |
+| `embed=windows` | Windows in-app browser / catalog handoff (same Explore URL surface); WebView2 App Check token bridge (`desktopAppCheckBridge.js`; see `docs/APPCHECK-WINDOWS.md`) |
 | `ref`, `id`, `cave`, `name` | Pin handoff params for reference / community caves |
 
 Golden test vectors (website exports JSON): `scripts/cross-platform-url-vectors.mjs` · run `npm run test:cross-platform-urls`. Mirror assertions in Android `ExploreMapUrlsTest.kt` and Windows `ReferenceCatalogTests.cs`.
@@ -170,19 +170,31 @@ Golden test vectors (website exports JSON): `scripts/cross-platform-url-vectors.
 | Karst | `karst-{slug}.geojson` | Balkans + FR/ES/IT/GR (see website `exploreMapKarst.js`) |
 | Hydrology (OSM) | `hydrology-{slug}.geojson` | `greece`, `italy`, `france`, `spain`, `croatia`, `slovenia` |
 | Protected areas (OSM) | `natura-{slug}.geojson` | same six countries |
+| Speleo overlays | `speleo-{kind}-{slug}.geojson` | Balkans + FR/ES/IT/GR (`kind`: `springs`, `access`, `flood`, `logistics`, `multi-entrance`, `seasonal`, `survey`) |
 | Depression hints | `sinkhole-hints-{slug}.geojson` | `greece`, `italy` only |
 
-Build: website `npm run build:explore-hydrology` · `npm run build:explore-natura` · validate: `npm run validate:explore-data`.
+Build: website `npm run build:explore-hydrology` · `npm run build:explore-natura` · `npm run build:explore-speleo` · validate: `npm run validate:explore-data` (hydrology, natura, speleo).
 
 ### Share URL layer keys (`exploreMapShareUrl.js`)
 
-Boolean layer flags in `/map?view=explore` query (`layers=` param): only **non-default** values are encoded, e.g. `hydrology=1,karst=1`. Keys: `hillshade`, `copernicus`, `terrain3d`, `heatmap`, `karst`, `gaps`, `sinkholeHints`, `steepRelief`, `slopeZones`, `hydrology`, `naturaProtected`, `performanceMode`, `lightBasemap`, `pins`, `communityPins`, `detailOverlay`, etc. Presets: `terrain`, `discovery`, `light` (when preset is set, `layers=` is omitted — preset expands server-side).
+Boolean layer flags in `/map?view=explore` query (`layers=` param): only **non-default** values are encoded, e.g. `hydrology=1,karst=1`. Keys: `hillshade`, `copernicus`, `terrain3d`, `heatmap`, `karst`, `gaps`, `sinkholeHints`, `steepRelief`, `slopeZones`, `hydrology`, `naturaProtected`, `performanceMode`, `lightBasemap`, `pins`, `communityPins`, `detailOverlay`, plus speleo toggles (`speleoSprings`, `speleoCaveHeatmap`, `speleoAccess`, `speleoRigging`, `speleoFloodHints`, `speleoGeology`, `speleoSurvey`, `speleoMultiEntrance`, `speleoLogistics`, `speleoSeasonal`). Presets: `terrain`, `discovery`, `light`, `speleo`, `speleo-full` (when preset is set, `layers=` is omitted — preset expands server-side).
 
 Hydrology kind filters: `hydrologyKind_spring`, `hydrologyKind_sinkhole`, `hydrologyKind_cave_entrance`, `hydrologyKind_stream` (default all on).
 
+### Offline overlay pack v2 (`exploreMapOfflinePack.js`)
+
+JSON manifest listing karst/hydrology/natura GeoJSON URLs for viewport slugs — **not** cached satellite tiles or reference catalog shards.
+
+- **v1** (`version: 1`): URL manifest only (`buildExploreOfflinePackManifest`).
+- **v2** (`version: 2`): same manifest plus optional embedded hydrology/natura GeoJSON (`buildExploreOfflinePackWithPrefetch`), size-capped (~5 MB). Download filename: `caveai-explore-pack-v2-{timestamp}.json`. Toolbar action: **Offline pack + data**.
+
 ### Cave AI map handoff
 
-`/ai?explore=1&lat=&lon=&zoom=` — viewport context from Explore terrain (website `exploreMapAiHandoff.js`).
+`/ai?explore=1&lat=&lon=&zoom=` — viewport context from Explore terrain (website `exploreMapAiHandoff.js`). Field trip pre-trip: `fieldTripPreTripLink.js`.
+
+### Android parity
+
+In-app WebView opens `https://www.caveaipro.com/map?view=explore` with terrain preset and field-trip viewport (`ExploreMapUrls.kt` in Android repo).
 
 ### Windows parity
 

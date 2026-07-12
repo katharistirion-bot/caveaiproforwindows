@@ -34,7 +34,7 @@ Use Store MSIX for Microsoft Store listing; GitHub Setup.exe for sideload + auto
 • Explore terrain deep links — reference catalog and field trip planner open web Explore map with viewport and layer params.
 • Hydrology scout — karst and hydrology layer flags on Explore URLs (website/Android parity).
 • Expedition share — active subscriber shares on surface map layer.
-• Followed contributors — Public Library followed publishers and in-app profile completion.
+• Followed contributors — Public Library followed publishers UI and in-app profile completion gate.
 • Cross-platform Explore URL golden tests and CI MSIX packaging fix.
 • Surface map WebView stability and survey corridor geometry hardening.
 ```
