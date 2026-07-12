@@ -64,6 +64,7 @@ public static class ReferenceCatalogLightAnalytics
         public const string CatalogForceRefresh = "catalog_force_refresh";
         public const string CatalogShareLinkCopy = "catalog_share_link_copy";
         public const string CatalogSurveyStartLink = "catalog_survey_start_link";
+        public const string CatalogExploreTerrainLink = "catalog_explore_terrain_link";
         public const string FieldTripExport = "field_trip_export";
         public const string FieldTripExportPdf = "field_trip_export_pdf";
         public const string ReferenceCompareOpen = "reference_compare_open";

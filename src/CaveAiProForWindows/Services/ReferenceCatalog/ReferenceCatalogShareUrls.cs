@@ -1,4 +1,6 @@
+using System.Globalization;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.FieldTrip;
 
 namespace CaveAiProForWindows.Services.ReferenceCatalog;
@@ -10,6 +12,49 @@ public static class ReferenceCatalogShareUrls
         var id = Uri.EscapeDataString(entry.Id.Trim());
         var country = ReferenceCatalogCountrySlug.Slugify(entry.Country);
         return $"{FieldTripShareCodec.SiteOrigin}/cave/ref/{id}?country={country}";
+    }
+
+    /// <summary>Opens Explore terrain on the web map centered on a reference cave.</summary>
+    public static string BuildExploreTerrainUrl(ReferenceCaveIndexEntry entry, string preset = "terrain")
+    {
+        if (!ReferenceCatalogGeolocation.IsValidCoordinate(entry.Lat, entry.Lon))
+            return PublicLibraryCatalog.WebExploreMapUrl;
+        var country = ReferenceCatalogCountrySlug.Slugify(entry.Country);
+        var lat = entry.Lat.ToString(CultureInfo.InvariantCulture);
+        var lon = entry.Lon.ToString(CultureInfo.InvariantCulture);
+        var presetPart = string.IsNullOrWhiteSpace(preset) ? "terrain" : preset.Trim().ToLowerInvariant();
+        return $"{FieldTripShareCodec.SiteOrigin}/map?view=explore&preset={Uri.EscapeDataString(presetPart)}&lat={lat}&lon={lon}&country={country}";
+    }
+
+    /// <summary>Explore terrain URL framing multiple field-trip stops.</summary>
+    public static string BuildExploreTerrainUrlForStops(IReadOnlyList<FieldTripStop> stops, string preset = "terrain")
+    {
+        if (stops == null || stops.Count == 0)
+            return PublicLibraryCatalog.WebExploreMapUrl;
+        var coords = stops
+            .Where(s => ReferenceCatalogGeolocation.IsValidCoordinate(s.Lat, s.Lon))
+            .ToList();
+        if (coords.Count == 0)
+            return PublicLibraryCatalog.WebExploreMapUrl;
+        var lats = coords.Select(s => s.Lat).ToList();
+        var lons = coords.Select(s => s.Lon).ToList();
+        var centerLat = (lats.Min() + lats.Max()) / 2;
+        var centerLon = (lons.Min() + lons.Max()) / 2;
+        var span = Math.Max(lats.Max() - lats.Min(), lons.Max() - lons.Min());
+        var zoom = span switch
+        {
+            > 8 => 5,
+            > 3 => 6,
+            > 1 => 8,
+            > 0.3 => 10,
+            _ => 12,
+        };
+        var country = ReferenceCatalogCountrySlug.Slugify(coords[0].Country);
+        var lat = centerLat.ToString(CultureInfo.InvariantCulture);
+        var lon = centerLon.ToString(CultureInfo.InvariantCulture);
+        var presetPart = string.IsNullOrWhiteSpace(preset) ? "terrain" : preset.Trim().ToLowerInvariant();
+        var countryPart = string.IsNullOrWhiteSpace(country) ? "" : $"&country={country}";
+        return $"{FieldTripShareCodec.SiteOrigin}/map?view=explore&preset={Uri.EscapeDataString(presetPart)}&lat={lat}&lon={lon}&zoom={zoom}{countryPart}";
     }
 
     /// <summary>Opens Cave AI Pro on Android to start field survey (<c>?action=survey</c>).</summary>

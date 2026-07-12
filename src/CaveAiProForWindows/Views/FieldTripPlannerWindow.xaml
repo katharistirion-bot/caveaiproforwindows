@@ -20,6 +20,8 @@
             <Button Content="Copy share link" Padding="12,6" Margin="0,0,8,0" Click="CopyShareLink_Click" />
             <Button Content="Import from link…" Padding="12,6" Margin="0,0,8,0" Click="ImportShareLink_Click" />
             <Button Content="Open on web" Padding="12,6" Margin="0,0,8,0" Click="OpenShareOnWeb_Click" />
+            <Button Content="Preview on Explore terrain" Padding="12,6" Margin="0,0,8,0" Click="PreviewOnExploreTerrain_Click"
+                    ToolTip="Open field trip stops on caveaipro.com Explore terrain map in your browser" />
             <Button Content="Close" Padding="12,6" IsCancel="True" Click="Close_Click" />
         </StackPanel>
         <Grid>

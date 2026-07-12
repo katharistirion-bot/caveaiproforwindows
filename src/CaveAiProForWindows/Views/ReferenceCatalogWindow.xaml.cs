@@ -1081,6 +1081,32 @@ public partial class ReferenceCatalogWindow : Window
 
 
 
+    private void OpenExploreTerrain_Click(object sender, RoutedEventArgs e)
+
+    {
+
+        if (_selected == null)
+
+        {
+
+            MessageBox.Show(this, "Select a reference cave first.", "Explore terrain", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            return;
+
+        }
+
+
+
+        var url = PublicLibraryCatalog.WithEmbed(ReferenceCatalogShareUrls.BuildExploreTerrainUrl(_selected));
+
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+
+        ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogExploreTerrainLink);
+
+    }
+
+
+
     private async void PasteShareUrl_Click(object sender, RoutedEventArgs e)
 
     {

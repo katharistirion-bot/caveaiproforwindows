@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.FieldTrip;
 using CaveAiProForWindows.Services.ReferenceCatalog;
 using Microsoft.Web.WebView2.Core;
@@ -459,6 +460,18 @@ public partial class FieldTripPlannerWindow : Window
         if (trip == null || trip.Stops.Count == 0)
             return;
         var url = await FieldTripShareCodec.BuildShareUrlAsync(trip.Stops);
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    }
+
+    private void PreviewOnExploreTerrain_Click(object sender, RoutedEventArgs e)
+    {
+        var trip = CurrentTrip();
+        if (trip == null || trip.Stops.Count == 0)
+        {
+            MessageBox.Show(this, "Add at least one stop first.", "Explore terrain", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var url = PublicLibraryCatalog.WithEmbed(ReferenceCatalogShareUrls.BuildExploreTerrainUrlForStops(trip.Stops));
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 

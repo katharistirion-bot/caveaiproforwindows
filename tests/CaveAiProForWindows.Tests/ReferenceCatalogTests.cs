@@ -87,6 +87,18 @@ public class ReferenceCatalogTests
     }
 
     [TestMethod]
+    public void ExploreTerrainUrl_IncludesViewportAndPreset()
+    {
+        var entry = new ReferenceCaveIndexEntry { Id = "1", Country = "Greece", Lat = 38.22, Lon = 20.62 };
+        var url = ReferenceCatalogShareUrls.BuildExploreTerrainUrl(entry);
+        StringAssert.Contains(url, "view=explore");
+        StringAssert.Contains(url, "preset=terrain");
+        StringAssert.Contains(url, "country=greece");
+        StringAssert.Contains(url, "lat=38.22");
+        StringAssert.Contains(url, "lon=20.62");
+    }
+
+    [TestMethod]
     public void Display_ListSummary_IncludesDepthAndRegion()
     {
         var entry = new ReferenceCaveIndexEntry

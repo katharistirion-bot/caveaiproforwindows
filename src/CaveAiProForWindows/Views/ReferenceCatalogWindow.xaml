@@ -195,6 +195,9 @@
 
             <Button Content="Open on web" Padding="12,6" Margin="0,0,8,0" Click="OpenOnWeb_Click" ToolTip="Open reference detail on caveaipro.com" />
 
+            <Button Content="Explore terrain (web)" Padding="12,6" Margin="0,0,8,0" Click="OpenExploreTerrain_Click"
+                    ToolTip="Open this cave on caveaipro.com Explore terrain map (karst, hydrology, protected areas)" />
+
             <Button Content="Paste share URL…" Padding="12,6" Margin="0,0,8,0" Click="PasteShareUrl_Click" />
 
             <Button Content="Add to field trip" Padding="12,6" Margin="0,0,8,0" Click="AddToFieldTrip_Click" />
