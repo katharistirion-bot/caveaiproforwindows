@@ -353,6 +353,37 @@ public class FieldTripExportTests
         StringAssert.Contains(url, "layers=hydrology=1,karst=1");
     }
 
+    // Golden vectors — keep aligned with website scripts/cross-platform-url-vectors.mjs
+    [TestMethod]
+    public void CrossPlatformVector_ExploreViewportTerrain()
+    {
+        var entry = new ReferenceCaveIndexEntry { Id = "osm-node-1", Country = "Greece", Lat = 38.22, Lon = 20.62 };
+        var url = ReferenceCatalogShareUrls.BuildExploreTerrainUrl(entry, preset: "terrain", zoom: 13);
+        AssertCrossPlatformVector(url, "view=explore", "preset=terrain", "lat=38.22", "lon=20.62", "zoom=13", "country=greece");
+    }
+
+    [TestMethod]
+    public void CrossPlatformVector_ExploreHydrologyScout()
+    {
+        var entry = new ReferenceCaveIndexEntry { Id = "osm-node-1", Country = "Greece", Lat = 38.22, Lon = 20.62 };
+        var url = ReferenceCatalogShareUrls.BuildExploreHydrologyScoutUrl(entry);
+        AssertCrossPlatformVector(url, "view=explore", "preset=terrain", "zoom=14", "lat=38.22", "lon=20.62", "country=greece", "layers=hydrology=1,karst=1");
+    }
+
+    [TestMethod]
+    public void CrossPlatformVector_ExploreCompareTerrain()
+    {
+        var a = new ReferenceCaveIndexEntry { Id = "1", Country = "Greece", Lat = 38.0, Lon = 20.0 };
+        var b = new ReferenceCaveIndexEntry { Id = "2", Country = "Greece", Lat = 38.5, Lon = 20.5 };
+        var url = ReferenceCatalogShareUrls.BuildExploreCompareTerrainUrl(a, b);
+        AssertCrossPlatformVector(url, "view=explore", "preset=terrain", "lat=38.25", "lon=20.25", "zoom=10", "country=greece");
+    }
+
+    private static void AssertCrossPlatformVector(string url, params string[] needles)
+    {
+        foreach (var needle in needles)
+            StringAssert.Contains(url, needle);
+    }
 }
 
 
