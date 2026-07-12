@@ -25,6 +25,38 @@ public sealed class UserProfileService
 
         return await _rest.GetUserProfileDocumentAsync(token, uid, cancellationToken).ConfigureAwait(false);
     }
+
+    public async Task<UserProfileDocument?> LoadProfileByUidAsync(
+        FirebaseIdToken token,
+        string uid,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        return await _rest.GetUserProfileDocumentAsync(token, uid.Trim(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveProfileAsync(
+        FirebaseIdToken token,
+        string firstName,
+        string lastName,
+        string country,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        var uid = token.Subject?.Trim() ?? throw new InvalidOperationException("Missing uid.");
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var fields = FirestoreFieldBuilder.BuildFields([
+            new KeyValuePair<string, object?>("firstName", firstName.Trim()),
+            new KeyValuePair<string, object?>("lastName", lastName.Trim()),
+            new KeyValuePair<string, object?>("country", country.Trim()),
+            new KeyValuePair<string, object?>("profileUpdatedAtMs", now),
+        ]);
+        var path = $"users/{uid}";
+        if (await _rest.DocumentExistsAsync(token, path, cancellationToken).ConfigureAwait(false))
+            await _rest.PatchDocumentAsync(token, path, fields, cancellationToken).ConfigureAwait(false);
+        else
+            await _rest.CreateDocumentWithIdAsync(token, "users", uid, fields, cancellationToken).ConfigureAwait(false);
+    }
 }
 
 /// <summary>Firestore users/{uid} publisher profile - contract: docs/user-profile-contract.json</summary>

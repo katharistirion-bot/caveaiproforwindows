@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using CaveAiProForWindows.Services.UserProfile;
+using CaveAiProForWindows.Views;
 
 namespace CaveAiProForWindows.Services.CloudPublish;
 
@@ -66,6 +67,9 @@ public static class CloudPublishProfileGate
 
     public static bool PromptCompleteProfile(Window? ownerWindow)
     {
+        if (PublisherProfileMiniWindow.TryPrompt(ownerWindow, out var saved) && saved)
+            return true;
+
         var result = MessageBox.Show(
             ownerWindow,
             "Complete your publisher profile (first name, last name, country) before publishing to the Public Library.\n\nOpen your profile settings in the browser now?",

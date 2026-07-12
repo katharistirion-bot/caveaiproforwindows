@@ -123,6 +123,7 @@
                           ToolTip="Opens caveaipro.com/ai in your browser (uses linked reference pin context when available)." />
                 <MenuItem Header="Public Library in _browser…" Click="OpenPublicLibraryExternal_Click"
                           ToolTip="Open the web map in your default browser." />
+                <MenuItem Header="_Following contributors…" Click="OpenFollowingPublishers_Click" />
                 <Separator />
                 <MenuItem x:Name="MenuCheckUpdates" Header="Check for _updates…" Command="{Binding CheckForUpdatesCommand}"
                           ToolTip="Check GitHub Releases (Velopack Setup.exe install gets in-app updates; MSI opens release page)" />

@@ -748,6 +748,18 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OpenFollowingPublishers_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            new FollowingPublishersWindow { Owner = this }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, ex.Message, "Following", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void OpenSharedFieldTripLink_Click(object sender, RoutedEventArgs e)
     {
         var pasted = ShareUrlPrompt.Show(this, "Field trip share link", "Paste a caveaipro.com field trip URL:");
