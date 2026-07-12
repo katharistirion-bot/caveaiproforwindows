@@ -350,6 +350,7 @@ public class FieldTripExportTests
         var url = ReferenceCatalogShareUrls.BuildExploreHydrologyScoutUrl(entry);
         StringAssert.Contains(url, "zoom=14");
         StringAssert.Contains(url, "preset=terrain");
+        StringAssert.Contains(url, "layers=hydrology=1,karst=1");
     }
 
 }

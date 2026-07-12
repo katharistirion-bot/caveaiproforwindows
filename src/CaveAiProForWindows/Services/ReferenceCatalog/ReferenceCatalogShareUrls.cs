@@ -25,9 +25,14 @@ public static class ReferenceCatalogShareUrls
             fallbackZoom: zoom ?? 13);
     }
 
-    /// <summary>Explore terrain with terrain preset (hydrology + karst) zoomed for OSM scouting near a cave.</summary>
-    public static string BuildExploreHydrologyScoutUrl(ReferenceCaveIndexEntry entry) =>
-        BuildExploreTerrainUrl(entry, preset: "terrain", zoom: 14);
+    /// <summary>Explore terrain with hydrology + karst layers zoomed for OSM scouting near a cave.</summary>
+    public static string BuildExploreHydrologyScoutUrl(ReferenceCaveIndexEntry entry)
+    {
+        var baseUrl = BuildExploreTerrainUrl(entry, preset: "terrain", zoom: 14);
+        if (baseUrl == PublicLibraryCatalog.WebExploreMapUrl)
+            return baseUrl;
+        return $"{baseUrl}&layers=hydrology=1,karst=1";
+    }
 
     /// <summary>Explore terrain URL framing two reference catalog caves (compare on terrain).</summary>
     public static string BuildExploreCompareTerrainUrl(ReferenceCaveIndexEntry left, ReferenceCaveIndexEntry right, string preset = "terrain") =>
