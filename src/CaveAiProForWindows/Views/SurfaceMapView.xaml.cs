@@ -6,8 +6,10 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.ExpeditionShare;
 using CaveAiProForWindows.Services.SurfaceMap;
 using Microsoft.Web.WebView2.Core;
 
@@ -29,6 +31,9 @@ public partial class SurfaceMapView : UserControl
     private SurfaceMapTileCacheService? _tileCache;
     private TaskCompletionSource<string?>? _pngExportTcs;
     private TaskCompletionSource<JsonElement>? _exportPackageTcs;
+    private readonly ExpeditionShareRepository _expeditionShareRepository = new();
+    private DispatcherTimer? _expeditionShareTimer;
+    private bool _expeditionShareRefreshRunning;
 
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
         nameof(Project),
@@ -92,6 +97,7 @@ public partial class SurfaceMapView : UserControl
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _expeditionShareTimer?.Stop();
         if (SurfaceWebView?.CoreWebView2 != null)
             SurfaceWebView.CoreWebView2.WebMessageReceived -= OnWebMessageReceived;
     }
@@ -325,6 +331,7 @@ public partial class SurfaceMapView : UserControl
                         PlaceholderText.Visibility = Visibility.Collapsed;
                         UpdateDeclinationBadge();
                         FlushPendingProject();
+                        StartExpeditionSharePolling();
                         if (!_fitSurveyOnReady)
                         {
                             _fitSurveyOnReady = true;
@@ -700,6 +707,40 @@ public partial class SurfaceMapView : UserControl
             mapState,
             cloudAssetCacheDir: _cloudAssetCacheDir);
         core.PostWebMessageAsJson(json);
+    }
+
+    private void StartExpeditionSharePolling()
+    {
+        _expeditionShareTimer?.Stop();
+        _expeditionShareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(120) };
+        _expeditionShareTimer.Tick += (_, _) => _ = RefreshExpeditionSharesAsync();
+        _expeditionShareTimer.Start();
+        _ = RefreshExpeditionSharesAsync();
+    }
+
+    private async Task RefreshExpeditionSharesAsync()
+    {
+        if (_expeditionShareRefreshRunning || !_mapReady)
+            return;
+        var core = SurfaceWebView?.CoreWebView2;
+        if (core == null)
+            return;
+
+        _expeditionShareRefreshRunning = true;
+        try
+        {
+            var shares = await _expeditionShareRepository.LoadVisibleActiveSharesAsync().ConfigureAwait(true);
+            var json = SurfaceMapProjectBridge.BuildExpeditionSharesMessageJson(shares);
+            core.PostWebMessageAsJson(json);
+        }
+        catch
+        {
+            // optional layer — ignore when signed out or unsubscribed
+        }
+        finally
+        {
+            _expeditionShareRefreshRunning = false;
+        }
     }
 
     /// <summary>Clears WebView overlays and host UI when the workspace is unloaded or replaced.</summary>

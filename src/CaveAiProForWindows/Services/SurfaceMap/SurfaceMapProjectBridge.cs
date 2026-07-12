@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.ExpeditionShare;
 
 namespace CaveAiProForWindows.Services.SurfaceMap;
 
@@ -23,6 +24,37 @@ public static class SurfaceMapProjectBridge
     {
         var payload = BuildPayload(project, zipPath, mapState, cloudProjectJsonStoragePath, cloudAssetCacheDir);
         var envelope = new SurfaceMapHostMessage("project", payload);
+        return JsonSerializer.Serialize(envelope, JsonOptions);
+    }
+
+    public static string BuildExpeditionSharesMessageJson(IReadOnlyList<ExpeditionShareDisplay.ExpeditionShareRow> shares)
+    {
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var features = shares
+            .Where(s => ExpeditionShareDisplay.IsVisibleOnMap(s, nowMs))
+            .Where(s => s.Lat is >= -90 and <= 90 && s.Lon is >= -180 and <= 180)
+            .Select(s =>
+            {
+                var display = ExpeditionShareDisplay.ComputeDisplayStatus(s, nowMs);
+                var status = display == ExpeditionShareDisplay.DisplayStatus.Overdue ? "overdue" : "active";
+                return new
+                {
+                    type = "Feature",
+                    geometry = new { type = "Point", coordinates = new[] { s.Lon, s.Lat } },
+                    properties = new
+                    {
+                        id = s.LeaderUid,
+                        caveName = s.CaveName,
+                        display = status,
+                        fill = status == "overdue" ? "#ffb020" : "#ff6b35",
+                        leaderDisplayName = ExpeditionShareDisplay.LeaderDisplayName(s),
+                    },
+                };
+            })
+            .ToList();
+
+        var payload = new { type = "FeatureCollection", features };
+        var envelope = new { type = "expeditionShares", payload };
         return JsonSerializer.Serialize(envelope, JsonOptions);
     }
 

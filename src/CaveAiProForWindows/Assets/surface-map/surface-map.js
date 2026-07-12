@@ -1544,6 +1544,35 @@
     }
   }
 
+  function applyExpeditionShares(payload) {
+    if (!map) return;
+    const fc = payload && payload.type === 'FeatureCollection' ? payload : { type: 'FeatureCollection', features: [] };
+    if (map.getSource('expedition-shares')) {
+      map.getSource('expedition-shares').setData(fc);
+    } else {
+      map.addSource('expedition-shares', { type: 'geojson', data: fc });
+      map.addLayer({
+        id: 'expedition-shares-points',
+        type: 'circle',
+        source: 'expedition-shares',
+        paint: {
+          'circle-radius': 9,
+          'circle-color': ['get', 'fill'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+      });
+      map.on('click', 'expedition-shares-points', (e) => {
+        const f = e.features && e.features[0];
+        if (!f) return;
+        const p = f.properties || {};
+        const name = p.caveName || 'Expedition';
+        const leader = p.leaderDisplayName || 'Expedition team';
+        postHost({ type: 'status', message: leader + ' · ' + name });
+      });
+    }
+  }
+
   function handleHostMessage(data) {
     if (!data || !data.type) return;
     switch (data.type) {
@@ -1552,6 +1581,9 @@
         break;
       case 'layers':
         onLayersMessage(data.payload);
+        break;
+      case 'expeditionShares':
+        applyExpeditionShares(data.payload);
         break;
       case 'fitEntrance':
         fitEntrance();

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.CloudPublish;
 using CaveAiProForWindows.Services.ExpeditionShare;
 
 namespace CaveAiProForWindows.Views;
@@ -110,7 +111,8 @@ public partial class ExpeditionSharePanel : UserControl
       ErrorText.Visibility = Visibility.Collapsed;
       try
       {
-          _share = await _repository.StartSharingAsync(Project, null, SelectedExpectedExitMs()).ConfigureAwait(true);
+          var publishedDocId = ResolvePublishedDocId(Project);
+          _share = await _repository.StartSharingAsync(Project, publishedDocId, SelectedExpectedExitMs()).ConfigureAwait(true);
       }
       catch (Exception ex)
       {
@@ -141,5 +143,14 @@ public partial class ExpeditionSharePanel : UserControl
           _busy = false;
           ApplyUi();
       }
+  }
+
+  private static string? ResolvePublishedDocId(CaveProjectDocument? project)
+  {
+      if (project == null) return null;
+      var fromHistory = CloudPublishHistoryStore.ForProject(project.Name ?? "")
+          .FirstOrDefault()?.PublishedDocId;
+      if (!string.IsNullOrWhiteSpace(fromHistory)) return fromHistory.Trim();
+      return LinkedLibraryCaveIdResolver.TryGet(project);
   }
 }

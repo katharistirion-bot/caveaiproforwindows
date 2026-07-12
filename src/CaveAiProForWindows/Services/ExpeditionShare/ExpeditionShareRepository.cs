@@ -98,7 +98,7 @@ public sealed class ExpeditionShareRepository
             new("disclaimerVersion", DisclaimerVersion),
             new("teamLabel", "Expedition team"),
         };
-        string? country = null;
+        string? country = profile?.Country?.Trim();
         if (!string.IsNullOrEmpty(country)) pairs.Add(new("country", country));
         if (expectedExitAtMs is long exitAt && exitAt > now) pairs.Add(new("expectedExitAtMs", exitAt));
         var displayName = profile?.DisplayName;
@@ -130,6 +130,13 @@ public sealed class ExpeditionShareRepository
             new KeyValuePair<string, object?>("endedAtMs", now),
         }, cancellationToken).ConfigureAwait(false);
         return new ExpeditionShareState { Active = false };
+    }
+
+    public async Task<IReadOnlyList<ExpeditionShareDisplay.ExpeditionShareRow>> LoadVisibleActiveSharesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var token = await RequireTokenAsync(cancellationToken).ConfigureAwait(false);
+        return await _rest.QueryActiveExpeditionSharesAsync(token, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task UpsertFieldsAsync(

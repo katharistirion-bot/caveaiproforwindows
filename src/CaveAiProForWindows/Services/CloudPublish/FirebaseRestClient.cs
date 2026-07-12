@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 
 using CaveAiProForWindows.Services.Auth;
+using CaveAiProForWindows.Services.ExpeditionShare;
 using CaveAiProForWindows.Services.UserProfile;
 
 namespace CaveAiProForWindows.Services.CloudPublish;
@@ -482,6 +483,121 @@ public sealed class FirebaseRestClient : IDisposable
         }
 
         return results;
+    }
+
+    /// <summary>Lists active expedition shares for subscriber map layer.</summary>
+    public async Task<IReadOnlyList<ExpeditionShareDisplay.ExpeditionShareRow>> QueryActiveExpeditionSharesAsync(
+        FirebaseIdToken token,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureNetworkAllowed();
+        ArgumentNullException.ThrowIfNull(token);
+
+        var url =
+            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents:runQuery";
+
+        var body = new Dictionary<string, object>
+        {
+            ["structuredQuery"] = new Dictionary<string, object>
+            {
+                ["from"] = new object[] { new Dictionary<string, object> { ["collectionId"] = "expedition_shares" } },
+                ["where"] = new Dictionary<string, object>
+                {
+                    ["fieldFilter"] = new Dictionary<string, object>
+                    {
+                        ["field"] = new Dictionary<string, object> { ["fieldPath"] = "status" },
+                        ["op"] = "EQUAL",
+                        ["value"] = new Dictionary<string, object> { ["stringValue"] = "active" },
+                    },
+                },
+                ["limit"] = 200,
+            },
+        };
+
+        var json = JsonSerializer.Serialize(body, JsonOptions);
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
+        req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        var respBody = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new FirebaseRestException(
+                $"Firestore runQuery failed ({(int)resp.StatusCode}): {Truncate(respBody)}",
+                resp.StatusCode,
+                respBody);
+
+        using var doc = JsonDocument.Parse(respBody);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var rows = new List<ExpeditionShareDisplay.ExpeditionShareRow>();
+        foreach (var row in doc.RootElement.EnumerateArray())
+        {
+            if (!row.TryGetProperty("document", out var document))
+                continue;
+            if (!document.TryGetProperty("fields", out var fields))
+                continue;
+            var leaderUid = document.TryGetProperty("name", out var nameEl)
+                ? nameEl.GetString()?.Split('/').LastOrDefault() ?? ""
+                : "";
+            var share = ParseExpeditionShareRow(leaderUid, fields);
+            if (ExpeditionShareDisplay.IsVisibleOnMap(share, nowMs))
+                rows.Add(share);
+        }
+
+        return rows;
+    }
+
+    private static ExpeditionShareDisplay.ExpeditionShareRow ParseExpeditionShareRow(string leaderUid, JsonElement fields)
+    {
+        string ReadString(string key)
+        {
+            if (!fields.TryGetProperty(key, out var el) || !el.TryGetProperty("stringValue", out var sv))
+                return "";
+            return sv.GetString() ?? "";
+        }
+
+        double ReadDouble(string key)
+        {
+            if (!fields.TryGetProperty(key, out var el)) return 0;
+            if (el.TryGetProperty("doubleValue", out var dv) && dv.TryGetDouble(out var d)) return d;
+            if (el.TryGetProperty("integerValue", out var iv) && long.TryParse(iv.GetString(), out var l)) return l;
+            return 0;
+        }
+
+        long ReadLong(string key)
+        {
+            if (!fields.TryGetProperty(key, out var el)) return 0;
+            if (el.TryGetProperty("integerValue", out var iv) && long.TryParse(iv.GetString(), out var l)) return l;
+            if (el.TryGetProperty("doubleValue", out var dv) && dv.TryGetDouble(out var d)) return (long)d;
+            return 0;
+        }
+
+        long? ReadOptionalLong(string key)
+        {
+            if (!fields.TryGetProperty(key, out var el)) return null;
+            if (el.TryGetProperty("integerValue", out var iv) && long.TryParse(iv.GetString(), out var l)) return l;
+            return null;
+        }
+
+        return new ExpeditionShareDisplay.ExpeditionShareRow
+        {
+            LeaderUid = leaderUid,
+            CaveKey = ReadString("caveKey"),
+            CaveName = ReadString("caveName"),
+            Country = ReadString("country"),
+            Lat = ReadDouble("lat"),
+            Lon = ReadDouble("lon"),
+            StartedAtMs = ReadLong("startedAtMs"),
+            ExpectedExitAtMs = ReadOptionalLong("expectedExitAtMs"),
+            Status = ReadString("status"),
+            TeamLabel = ReadString("teamLabel"),
+            LeaderDisplayName = ReadString("leaderDisplayName"),
+            LeaderAvatarUrl = ReadString("leaderAvatarUrl"),
+        };
     }
 
     /// <summary>Downloads a Storage object using the Firebase ID token (owner rules).</summary>
