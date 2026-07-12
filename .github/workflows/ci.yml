@@ -79,3 +79,39 @@ jobs:
           path: src/CaveAiProForWindows/bin/Release/net8.0-windows/publish/win-x64/CaveAiProForWindows.exe
           if-no-files-found: error
           retention-days: 14
+
+  store-msix-pack:
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore CaveAiProForWindows.sln
+
+      - name: Pack Store MSIX (unsigned)
+        shell: pwsh
+        env:
+          CAVEAIPRO_FIREBASE_API_KEY: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CAVEAIPRO_FIREBASE_API_KEY)) {
+            Write-Host "Skipping MSIX pack — CAVEAIPRO_FIREBASE_API_KEY not set."
+            exit 0
+          }
+          ./tools/inject-firebase-config.ps1
+          ./tools/package-store-msix.ps1 -RepoRoot $PWD
+          ./tools/restore-firebase-config-placeholder.ps1
+
+      - name: Upload Store MSIX artifact
+        if: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaveAiProForWindows-store-msix
+          path: _store_out/*-Store-unsigned.msix
+          if-no-files-found: warn
+          retention-days: 14
