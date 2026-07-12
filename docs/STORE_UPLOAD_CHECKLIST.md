@@ -1,6 +1,6 @@
 # Microsoft Store upload checklist
 
-Generated: 2026-07-11  
+Generated: 2026-07-12  
 Repo: `D:\caveaiproforwindows`  
 Product ID: **9PPF3HPZRL21**
 
@@ -8,14 +8,14 @@ Product ID: **9PPF3HPZRL21**
 
 | Package | Path | Status |
 |---------|------|--------|
-| **Review (certification)** | `_store_out\CaveAiProForWindows-1.5.13-Store-Review-unsigned.msix` | Built 2026-07-11 |
-| **Production (unsigned)** | `_store_out\CaveAiProForWindows-1.5.13-Store-unsigned.msix` | Built 2026-07-11 |
+| **Review (certification)** | `_store_out\CaveAiProForWindows-1.5.14-Store-Review-unsigned.msix` | Not built this session |
+| **Production (unsigned)** | `_store_out\CaveAiProForWindows-1.5.14-Store-unsigned.msix` | Built 2026-07-12 |
 
-App version in `Directory.Build.props`: **1.5.13** (package identity version **1.5.13.0**).
+App version in `Directory.Build.props`: **1.5.14** (package identity version **1.5.14.0**).
 
-GitHub sideload: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.5.13
+GitHub sideload: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.5.14
 
-See **`docs/STORE_UPLOAD_1.5.13.md`** for Partner Center steps and release notes.
+See **`docs/STORE_UPLOAD_1.5.14.md`** for Partner Center steps and release notes.
 
 Review build uses **`STORE_REVIEW_UNLOCKED`** via profile `MicrosoftStore-Review-Win64` (subscription gate disabled for cert testers).
 
@@ -32,7 +32,7 @@ $env:CAVEAIPRO_FIREBASE_API_KEY = $cfg.apiKey
 
 Or set `$env:CAVEAIPRO_FIREBASE_API_KEY` directly (Firebase Console → Project settings → Your apps → CaveAI Pro Web → Web API Key).
 
-Expected output: `_store_out\CaveAiProForWindows-1.5.12-Store-unsigned.msix`
+Expected output: `_store_out\CaveAiProForWindows-1.5.14-Store-unsigned.msix`
 
 ### Build review MSIX (certification)
 

@@ -138,6 +138,69 @@ Implementation: `src/utils/fieldTripShare.js` (web), `FieldTripShare.kt` (Androi
 
 ---
 
+## Explore terrain overlays (web map)
+
+Canonical capability copy: website `src/data/exploreCapabilities.js` · UI: `MapExploreToolbar.jsx`, `ExploreCapabilitiesPanel.jsx`.
+
+### Explore share URL contract (`view=explore`)
+
+All Explore terrain handoffs use `/map?view=explore` with optional viewport and layer params.
+
+Builder: website `src/utils/exploreMapShareUrl.js` → `buildExploreShareUrl` / `buildExploreViewportPath`  
+Cave-centric helpers: website `src/utils/exploreMapLink.js` · Android: `ExploreMapUrls.kt` · Windows: `ReferenceCatalogShareUrls.cs`
+
+| Param | Meaning |
+|-------|---------|
+| `view=explore` | Required — opens Explore terrain tab |
+| `lat`, `lon`, `zoom` | Viewport center and zoom |
+| `preset` | One of `terrain`, `discovery`, `light`, `speleo`, `speleo-full` — expands to layer set (see `EXPLORE_LAYER_PRESETS`) |
+| `layers` | Comma-separated non-default flags: `hydrology=1,karst=1` (used when no preset, or Windows hydrology scout append) |
+| `country` | Display country (web/Android) or slug (Windows, e.g. `greece`) |
+| `filters` | Active filter chips, comma-separated |
+| `embed=android` | Android WebView handoff (`exploreAndroidHandoff.js`) |
+| `embed=windows` | Windows WebView2 handoff — App Check token bridge (`desktopAppCheckBridge.js`; see `docs/APPCHECK-WINDOWS.md`) |
+| `ref`, `id`, `cave`, `name` | Pin handoff params for reference / community caves |
+
+Golden test vectors (website exports JSON): `scripts/cross-platform-url-vectors.mjs` · run `npm run test:cross-platform-urls`. Mirror assertions in Android `ExploreMapUrlsTest.kt` and Windows `ReferenceCatalogTests.cs`.
+
+### Static GeoJSON assets (`/data/explore/`)
+
+| Kind | Path pattern | Countries (slug) |
+|------|--------------|-------------------|
+| Karst | `karst-{slug}.geojson` | Balkans + FR/ES/IT/GR (see website `exploreMapKarst.js`) |
+| Hydrology (OSM) | `hydrology-{slug}.geojson` | `greece`, `italy`, `france`, `spain`, `croatia`, `slovenia` |
+| Protected areas (OSM) | `natura-{slug}.geojson` | same six countries |
+| Depression hints | `sinkhole-hints-{slug}.geojson` | `greece`, `italy` only |
+
+Build: website `npm run build:explore-hydrology` · `npm run build:explore-natura` · validate: `npm run validate:explore-data`.
+
+### Share URL layer keys (`exploreMapShareUrl.js`)
+
+Boolean layer flags in `/map?view=explore` query (`layers=` param): only **non-default** values are encoded, e.g. `hydrology=1,karst=1`. Keys: `hillshade`, `copernicus`, `terrain3d`, `heatmap`, `karst`, `gaps`, `sinkholeHints`, `steepRelief`, `slopeZones`, `hydrology`, `naturaProtected`, `performanceMode`, `lightBasemap`, `pins`, `communityPins`, `detailOverlay`, etc. Presets: `terrain`, `discovery`, `light` (when preset is set, `layers=` is omitted — preset expands server-side).
+
+Hydrology kind filters: `hydrologyKind_spring`, `hydrologyKind_sinkhole`, `hydrologyKind_cave_entrance`, `hydrologyKind_stream` (default all on).
+
+### Cave AI map handoff
+
+`/ai?explore=1&lat=&lon=&zoom=` — viewport context from Explore terrain (website `exploreMapAiHandoff.js`).
+
+### Windows parity
+
+Reference catalog and field trip planner open `https://www.caveaipro.com/map?view=explore` with terrain preset, hydrology scout layers, and field-trip viewport (`ReferenceCatalogShareUrls.cs`). Public Library Explore map WebView persists viewport URL including layer query params.
+
+---
+
+## Expedition share (subscriber map)
+
+Opt-in team presence at a specific cave. **English UI only.** See website `docs/expedition-share-contract.md`.
+
+- Collection: `expedition_shares/{leaderUid}`
+- Read: active premium subscribers
+- Write: team leader only (start / end sharing)
+- Windows: active shares rendered on surface map layer
+
+---
+
 ## Firestore `published_caves` optional fields
 
 When publishing with a reference catalog match, all clients may set:

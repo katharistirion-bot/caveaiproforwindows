@@ -14,7 +14,7 @@ Store builds use the compile constant **`STORE_DISTRIBUTION`** (set by publish p
 
 ## Version
 
-Application version is centralized in `Directory.Build.props` (`<Version>`). Current release: **1.5.13** (see `CHANGELOG.md`).
+Application version is centralized in `Directory.Build.props` (`<Version>`). Current release: **1.5.14** (see `CHANGELOG.md`).
 
 ## Obfuscation (required before packaging)
 
@@ -70,9 +70,9 @@ Output: `_store_out\CaveAiProForWindows-<version>-Store-Review-unsigned.msix`. A
 
 Default folder: `_store_out\`
 
-Example: `_store_out\CaveAiProForWindows-1.5.13-Store-unsigned.msix`
+Example: `_store_out\CaveAiProForWindows-1.5.14-Store-unsigned.msix`
 
-Review certification example: `_store_out\CaveAiProForWindows-1.5.13-Store-Review-unsigned.msix`
+Review certification example: `_store_out\CaveAiProForWindows-1.5.14-Store-Review-unsigned.msix`
 
 ### Manual steps (equivalent)
 

@@ -10,6 +10,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
 
+## [1.5.14] - 2026-07-12
+
+### Added
+
+- **Explore terrain deep links** — reference catalog and field trip planner open `/map?view=explore` with viewport and layer params (`ReferenceCatalogShareUrls.cs`)
+- **Explore compare terrain** — terrain preset parity with web/Android Explore handoff
+- **Hydrology scout** — append `hydrology=1,karst=1` layer flags for website parity on Explore URLs
+- **Expedition share** — active subscriber shares on surface map layer (Android/web contract parity)
+- **Followed contributors** — Public Library followed publishers UI and in-app profile completion gate
+- **Cross-platform URL tests** — golden vectors for Explore share URLs in `ReferenceCatalogTests.cs` (mirrors website `cross-platform-url-vectors.mjs`)
+
+### Changed
+
+- **CI** — optional unsigned Store MSIX pack job; fix invalid `secrets` condition on MSIX upload step
+
+### Fixed
+
+- **Surface map WebView** — harden against hangs; survey corridor geometry stability
+
 ## [1.5.13] - 2026-07-07
 
 ### Added
