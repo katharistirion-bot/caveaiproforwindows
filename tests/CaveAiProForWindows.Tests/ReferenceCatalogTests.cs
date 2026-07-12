@@ -332,7 +332,28 @@ public class FieldTripExportTests
         Assert.AreEqual(2, hits.Count);
         Assert.AreEqual("c", hits[0].Entry.Id);
     }
+    [TestMethod]
+    public void ExploreCompareTerrainUrl_FramesTwoReferences()
+    {
+        var a = new ReferenceCaveIndexEntry { Id = "1", Country = "Greece", Lat = 38.0, Lon = 20.0 };
+        var b = new ReferenceCaveIndexEntry { Id = "2", Country = "Greece", Lat = 38.5, Lon = 20.5 };
+        var url = ReferenceCatalogShareUrls.BuildExploreCompareTerrainUrl(a, b);
+        StringAssert.Contains(url, "view=explore");
+        StringAssert.Contains(url, "zoom=");
+        StringAssert.Contains(url, "country=greece");
+    }
+
+    [TestMethod]
+    public void ExploreHydrologyScoutUrl_UsesCloserZoom()
+    {
+        var entry = new ReferenceCaveIndexEntry { Id = "1", Country = "Greece", Lat = 38.22, Lon = 20.62 };
+        var url = ReferenceCatalogShareUrls.BuildExploreHydrologyScoutUrl(entry);
+        StringAssert.Contains(url, "zoom=14");
+        StringAssert.Contains(url, "preset=terrain");
+    }
+
 }
+
 
 [TestClass]
 public sealed class CaveFavoriteIdMergeTests

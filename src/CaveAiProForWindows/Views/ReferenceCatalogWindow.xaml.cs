@@ -1081,6 +1081,20 @@ public partial class ReferenceCatalogWindow : Window
 
 
 
+
+    private void OpenHydrologyScout_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected == null)
+        {
+            MessageBox.Show(this, "Select a reference cave first.", "Hydrology scout", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var url = PublicLibraryCatalog.WithEmbed(ReferenceCatalogShareUrls.BuildExploreHydrologyScoutUrl(_selected));
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogExploreHydrologyScoutLink);
+    }
+
     private void OpenExploreTerrain_Click(object sender, RoutedEventArgs e)
 
     {

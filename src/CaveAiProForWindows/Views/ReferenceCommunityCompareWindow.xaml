@@ -17,6 +17,7 @@
             <Button Content="Compare active vs reference link" Padding="12,6" Margin="0,0,8,0"
                     Click="CompareActiveProjectLink_Click"
                     ToolTip="Compare the selected project in the main window with its referenceCatalogLink metadata" />
+            <Button Content="Compare on Explore terrain" Padding="12,6" Margin="0,0,8,0" Click="CompareOnExploreTerrain_Click" ToolTip="Frame both reference selections on caveaipro.com Explore terrain (WebView2)" />
             <Button Content="Compare" Padding="12,6" Margin="0,0,8,0" Click="Compare_Click" IsDefault="True" />
             <Button Content="Close" Padding="12,6" IsCancel="True" Click="Close_Click" />
         </StackPanel>

@@ -198,6 +198,9 @@
             <Button Content="Explore terrain (web)" Padding="12,6" Margin="0,0,8,0" Click="OpenExploreTerrain_Click"
                     ToolTip="Open this cave on caveaipro.com Explore terrain map (karst, hydrology, protected areas)" />
 
+            <Button Content="Hydrology scout (web)" Padding="12,6" Margin="0,0,8,0" Click="OpenHydrologyScout_Click"
+                    ToolTip="Zoom Explore terrain for hydrology and karst scouting near this cave" />
+
             <Button Content="Paste share URL…" Padding="12,6" Margin="0,0,8,0" Click="PasteShareUrl_Click" />
 
             <Button Content="Add to field trip" Padding="12,6" Margin="0,0,8,0" Click="AddToFieldTrip_Click" />

@@ -298,6 +298,33 @@ public partial class ReferenceCommunityCompareWindow : Window
         return null;
     }
 
+
+    private void CompareOnExploreTerrain_Click(object sender, RoutedEventArgs e)
+    {
+        if (RefListA.SelectedItem is not ReferenceCaveIndexEntry left ||
+            RefListB.SelectedItem is not ReferenceCaveIndexEntry right)
+        {
+            MessageBox.Show(this,
+                "Select a reference catalog entry on both sides to frame them on Explore terrain.",
+                "Compare on Explore terrain",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (!ReferenceCatalogGeolocation.IsValidCoordinate(left.Lat, left.Lon) ||
+            !ReferenceCatalogGeolocation.IsValidCoordinate(right.Lat, right.Lon))
+        {
+            MessageBox.Show(this, "Both reference caves need valid GPS coordinates.", "Compare on Explore terrain",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var url = PublicLibraryCatalog.WithEmbed(ReferenceCatalogShareUrls.BuildExploreCompareTerrainUrl(left, right));
+        ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.ReferenceCompareExploreTerrainLink);
+        PublicLibraryCatalog.ShowInAppWindow(Owner, url);
+    }
+
     private static void AppendSide(StringBuilder sb, string tag, CompareSide side)
     {
         sb.AppendLine($"[{tag}] {side.Kind}: {side.Label}");

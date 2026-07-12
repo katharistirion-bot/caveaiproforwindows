@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 
 namespace CaveAiProForWindows.Services.ReferenceCatalog;
@@ -65,6 +65,8 @@ public static class ReferenceCatalogLightAnalytics
         public const string CatalogShareLinkCopy = "catalog_share_link_copy";
         public const string CatalogSurveyStartLink = "catalog_survey_start_link";
         public const string CatalogExploreTerrainLink = "catalog_explore_terrain_link";
+        public const string CatalogExploreHydrologyScoutLink = "catalog_explore_hydrology_scout_link";
+        public const string ReferenceCompareExploreTerrainLink = "reference_compare_explore_terrain_link";
         public const string FieldTripExport = "field_trip_export";
         public const string FieldTripExportPdf = "field_trip_export_pdf";
         public const string ReferenceCompareOpen = "reference_compare_open";
@@ -74,3 +76,4 @@ public static class ReferenceCatalogLightAnalytics
         public const string SurveyReferenceCompare = "survey_reference_compare";
     }
 }
+
