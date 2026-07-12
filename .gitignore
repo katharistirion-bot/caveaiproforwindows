@@ -45,3 +45,4 @@ ci-jobs-new.json
 startup-stderr.txt
 startup-stdout.txt
 website-build-log.txt
+health-check-win-build.log
