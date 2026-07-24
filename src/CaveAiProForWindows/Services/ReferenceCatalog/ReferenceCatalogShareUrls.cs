@@ -19,10 +19,15 @@ public static class ReferenceCatalogShareUrls
     {
         if (!ReferenceCatalogGeolocation.IsValidCoordinate(entry.Lat, entry.Lon))
             return PublicLibraryCatalog.WebExploreMapUrl;
-        return BuildExploreTerrainUrlForCoordinates(
+        var url = BuildExploreTerrainUrlForCoordinates(
             [(entry.Lat, entry.Lon, entry.Country)],
             preset,
             fallbackZoom: zoom ?? 13);
+        return AppendPinFocusParams(
+            url,
+            name: entry.Name,
+            referenceId: entry.Id,
+            communityDocId: null);
     }
 
     /// <summary>Explore terrain with hydrology + karst layers zoomed for OSM scouting near a cave.</summary>
@@ -41,18 +46,64 @@ public static class ReferenceCatalogShareUrls
             preset,
             fallbackZoom: 10);
 
-    /// <summary>Explore terrain URL framing multiple field-trip stops.</summary>
+    /// <summary>Explore terrain URL framing multiple field-trip stops (focus = first stop, web parity).</summary>
     public static string BuildExploreTerrainUrlForStops(IReadOnlyList<FieldTripStop> stops, string preset = "terrain")
     {
         if (stops == null || stops.Count == 0)
             return PublicLibraryCatalog.WebExploreMapUrl;
-        var coords = stops
+        var valid = stops
             .Where(s => ReferenceCatalogGeolocation.IsValidCoordinate(s.Lat, s.Lon))
+            .ToList();
+        if (valid.Count == 0)
+            return PublicLibraryCatalog.WebExploreMapUrl;
+        var coords = valid
             .Select(s => (s.Lat, s.Lon, (string?)s.Country))
             .ToList();
-        if (coords.Count == 0)
-            return PublicLibraryCatalog.WebExploreMapUrl;
-        return BuildExploreTerrainUrlForCoordinates(coords, preset, fallbackZoom: 12);
+        var url = BuildExploreTerrainUrlForCoordinates(coords, preset, fallbackZoom: 12);
+        var first = valid[0];
+        var isCommunity = !string.IsNullOrWhiteSpace(first.CommunityDocId);
+        return AppendPinFocusParams(
+            url,
+            name: first.Name,
+            referenceId: isCommunity ? null : first.ReferenceId,
+            communityDocId: isCommunity ? first.CommunityDocId : null);
+    }
+
+    /// <summary>
+    /// Pin-focus query params so Explore opens the preview card (web <c>buildExploreCaveTerrainPath</c> parity).
+    /// </summary>
+    public static string AppendPinFocusParams(
+        string url,
+        string? name = null,
+        string? referenceId = null,
+        string? communityDocId = null)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return url;
+        var parts = new List<string>();
+        var trimmedName = name?.Trim();
+        if (!string.IsNullOrWhiteSpace(trimmedName))
+            parts.Add($"name={Uri.EscapeDataString(trimmedName)}");
+
+        var community = communityDocId?.Trim();
+        if (!string.IsNullOrWhiteSpace(community))
+        {
+            parts.Add($"cave={Uri.EscapeDataString(community)}");
+        }
+        else
+        {
+            var id = referenceId?.Trim();
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                parts.Add("ref=cave");
+                parts.Add($"id={Uri.EscapeDataString(id)}");
+            }
+        }
+
+        if (parts.Count == 0)
+            return url;
+        var sep = url.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+        return url + sep + string.Join("&", parts);
     }
 
     private static string BuildExploreTerrainUrlForCoordinates(

@@ -89,13 +89,52 @@ public class ReferenceCatalogTests
     [TestMethod]
     public void ExploreTerrainUrl_IncludesViewportAndPreset()
     {
-        var entry = new ReferenceCaveIndexEntry { Id = "1", Country = "Greece", Lat = 38.22, Lon = 20.62 };
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "1",
+            Name = "Test Cave",
+            Country = "Greece",
+            Lat = 38.22,
+            Lon = 20.62,
+        };
         var url = ReferenceCatalogShareUrls.BuildExploreTerrainUrl(entry);
         StringAssert.Contains(url, "view=explore");
         StringAssert.Contains(url, "preset=terrain");
         StringAssert.Contains(url, "country=greece");
         StringAssert.Contains(url, "lat=38.22");
         StringAssert.Contains(url, "lon=20.62");
+        StringAssert.Contains(url, "ref=cave");
+        StringAssert.Contains(url, "id=1");
+        StringAssert.Contains(url, "name=Test");
+    }
+
+    [TestMethod]
+    public void ExploreTerrainUrlForStops_FocusesFirstStop()
+    {
+        var stops = new List<FieldTripStop>
+        {
+            new()
+            {
+                ReferenceId = "osm-node-1",
+                Name = "First Cave",
+                Lat = 38.0,
+                Lon = 20.0,
+                Country = "Greece",
+            },
+            new()
+            {
+                ReferenceId = "osm-node-2",
+                Name = "Second Cave",
+                Lat = 38.5,
+                Lon = 20.5,
+                Country = "Greece",
+            },
+        };
+        var url = ReferenceCatalogShareUrls.BuildExploreTerrainUrlForStops(stops);
+        StringAssert.Contains(url, "view=explore");
+        StringAssert.Contains(url, "ref=cave");
+        StringAssert.Contains(url, "id=osm-node-1");
+        StringAssert.Contains(url, "name=First");
     }
 
     [TestMethod]
@@ -357,17 +396,51 @@ public class FieldTripExportTests
     [TestMethod]
     public void CrossPlatformVector_ExploreViewportTerrain()
     {
-        var entry = new ReferenceCaveIndexEntry { Id = "osm-node-1", Country = "Greece", Lat = 38.22, Lon = 20.62 };
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "osm-node-1",
+            Name = "Melissani Cave",
+            Country = "Greece",
+            Lat = 38.22,
+            Lon = 20.62,
+        };
         var url = ReferenceCatalogShareUrls.BuildExploreTerrainUrl(entry, preset: "terrain", zoom: 13);
-        AssertCrossPlatformVector(url, "view=explore", "preset=terrain", "lat=38.22", "lon=20.62", "zoom=13", "country=greece");
+        AssertCrossPlatformVector(
+            url,
+            "view=explore",
+            "preset=terrain",
+            "lat=38.22",
+            "lon=20.62",
+            "zoom=13",
+            "country=greece",
+            "ref=cave",
+            "id=osm-node-1",
+            "name=Melissani");
     }
 
     [TestMethod]
     public void CrossPlatformVector_ExploreHydrologyScout()
     {
-        var entry = new ReferenceCaveIndexEntry { Id = "osm-node-1", Country = "Greece", Lat = 38.22, Lon = 20.62 };
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "osm-node-1",
+            Name = "Melissani Cave",
+            Country = "Greece",
+            Lat = 38.22,
+            Lon = 20.62,
+        };
         var url = ReferenceCatalogShareUrls.BuildExploreHydrologyScoutUrl(entry);
-        AssertCrossPlatformVector(url, "view=explore", "preset=terrain", "zoom=14", "lat=38.22", "lon=20.62", "country=greece", "layers=hydrology=1,karst=1");
+        AssertCrossPlatformVector(
+            url,
+            "view=explore",
+            "preset=terrain",
+            "zoom=14",
+            "lat=38.22",
+            "lon=20.62",
+            "country=greece",
+            "layers=hydrology=1,karst=1",
+            "ref=cave",
+            "id=osm-node-1");
     }
 
     [TestMethod]
