@@ -760,16 +760,29 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OpenSharedFieldTripLink_Click(object sender, RoutedEventArgs e)
+    private async void OpenSharedFieldTripLink_Click(object sender, RoutedEventArgs e)
     {
         var pasted = ShareUrlPrompt.Show(this, "Field trip share link", "Paste a caveaipro.com field trip URL:");
         if (string.IsNullOrWhiteSpace(pasted))
             return;
 
-        var payload = Services.FieldTrip.FieldTripShareCodec.TryParseFromUrl(pasted);
+        Services.FieldTrip.FieldTripSharePayloadV1? payload;
+        try
+        {
+            payload = await Services.FieldTrip.FieldTripShareCodec.TryParseFromUrlAsync(pasted);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, "Could not load field trip link:\n" + ex.Message, "Field trip",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         if (payload == null)
         {
-            System.Windows.MessageBox.Show(this, "Could not parse field trip link.", "Field trip",
+            System.Windows.MessageBox.Show(this,
+                "Could not parse field trip link. For large shared trips, sign in and ensure the tripId link is valid.",
+                "Field trip",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

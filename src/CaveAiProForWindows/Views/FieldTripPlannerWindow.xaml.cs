@@ -421,6 +421,13 @@ public partial class FieldTripPlannerWindow : Window
         if (trip == null || trip.Stops.Count == 0)
             return;
         var url = await FieldTripShareCodec.BuildShareUrlAsync(trip.Stops);
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            MessageBox.Show(this,
+                "Could not create a share link for this trip. Sign in to CaveAI Pro, then try again (large trips need cloud storage).",
+                "Field trip", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         Clipboard.SetText(url);
         MessageBox.Show(this, "Share link copied to clipboard:\n" + url, "Field trip", MessageBoxButton.OK, MessageBoxImage.Information);
     }
@@ -460,6 +467,13 @@ public partial class FieldTripPlannerWindow : Window
         if (trip == null || trip.Stops.Count == 0)
             return;
         var url = await FieldTripShareCodec.BuildShareUrlAsync(trip.Stops);
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            MessageBox.Show(this,
+                "Could not create a share link for this trip. Sign in to CaveAI Pro, then try again (large trips need cloud storage).",
+                "Field trip", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
@@ -471,7 +485,9 @@ public partial class FieldTripPlannerWindow : Window
             MessageBox.Show(this, "Add at least one stop first.", "Explore terrain", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        var url = PublicLibraryCatalog.WithEmbed(ReferenceCatalogShareUrls.BuildExploreTerrainUrlForStops(trip.Stops));
+        SaveCurrentTripFields();
+        var url = PublicLibraryCatalog.WithEmbed(
+            ReferenceCatalogShareUrls.BuildExploreTerrainUrlForStops(trip.Stops, notes: trip.Notes));
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 

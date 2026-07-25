@@ -35,10 +35,15 @@ public static class FieldTripShareCodec
             return $"{baseUrl}/map?view=fieldtrip#trip={encoded}";
         }
 
-        return $"{baseUrl}/map?view=fieldtrip";
+        throw new InvalidOperationException(
+            "This trip is too large for an inline link. Sign in and use BuildShareUrlAsync so it can be saved to the cloud.");
     }
 
-    public static async Task<string> BuildShareUrlAsync(IReadOnlyList<FieldTripStop> stops, string? origin = null, CancellationToken ct = default)
+    /// <summary>
+    /// Builds a share URL. Oversized trips require cloud <c>tripId</c>.
+    /// Returns null when cloud save fails (caller must not treat bare field-trip URL as success).
+    /// </summary>
+    public static async Task<string?> BuildShareUrlAsync(IReadOnlyList<FieldTripStop> stops, string? origin = null, CancellationToken ct = default)
     {
         var baseUrl = (origin ?? SiteOrigin).TrimEnd('/');
         var json = JsonSerializer.Serialize(BuildPayload(stops));
@@ -52,7 +57,7 @@ public static class FieldTripShareCodec
         if (!string.IsNullOrWhiteSpace(tripId))
             return $"{baseUrl}/map?view=fieldtrip&tripId={Uri.EscapeDataString(tripId)}";
 
-        return $"{baseUrl}/map?view=fieldtrip";
+        return null;
     }
 
     public static string? ExtractTripIdFromUrl(string? urlOrText)

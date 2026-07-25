@@ -163,6 +163,9 @@ Cave-centric helpers: website `src/utils/exploreMapLink.js` · Android: `Explore
 | `ft` | Compact multi-stop pack: `lat,lon;lat,lon` (max 10). Web seeds Field Trip; Android/Windows encode on Explore handoff |
 | `stops` | Declared stop count for the `ft=` pack |
 | `notes` | Optional short safety/briefing text (max 160 chars) |
+| `story` | Chronos story id (e.g. `crete-chronos`) — web primary; Android WebView preserves |
+| `era` | Chronos era id within the story |
+| `breath` | Breathing Karst: `wet`, `shoulder`, or `dry` |
 
 Golden test vectors (website exports JSON): `scripts/cross-platform-url-vectors.mjs` · run `npm run test:cross-platform-urls`. Mirror assertions in Android `ExploreMapUrlsTest.kt` and Windows `ReferenceCatalogTests.cs`.
 
