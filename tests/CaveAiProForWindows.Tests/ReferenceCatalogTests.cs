@@ -137,6 +137,10 @@ public class ReferenceCatalogTests
         StringAssert.Contains(url, "name=First");
         StringAssert.Contains(url, "stops=2");
         StringAssert.Contains(url, "ft=");
+        // First-stop center (web/Android parity) — not bbox midpoint 38.25
+        StringAssert.Contains(url, "lat=38");
+        StringAssert.Contains(url, "lon=20");
+        Assert.IsFalse(url.Contains("lat=38.25", StringComparison.Ordinal), url);
         StringAssert.Contains(url, "38.00000");
         StringAssert.Contains(url, "20.00000");
         StringAssert.Contains(url, "38.50000");

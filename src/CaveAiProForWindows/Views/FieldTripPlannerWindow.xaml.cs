@@ -420,6 +420,22 @@ public partial class FieldTripPlannerWindow : Window
         var trip = CurrentTrip();
         if (trip == null || trip.Stops.Count == 0)
             return;
+        var encodable = FieldTripShareCodec.CountEncodableStops(trip.Stops);
+        if (encodable == 0)
+        {
+            MessageBox.Show(this,
+                "No stops with valid coordinates to share.",
+                "Field trip", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (encodable < trip.Stops.Count)
+        {
+            var proceed = MessageBox.Show(this,
+                $"{trip.Stops.Count - encodable} stop(s) lack coordinates and will be omitted from the share link. Continue?",
+                "Field trip", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (proceed != MessageBoxResult.Yes)
+                return;
+        }
         var url = await FieldTripShareCodec.BuildShareUrlAsync(trip.Stops);
         if (string.IsNullOrWhiteSpace(url))
         {

@@ -59,11 +59,12 @@ public static class ReferenceCatalogShareUrls
             .ToList();
         if (valid.Count == 0)
             return PublicLibraryCatalog.WebExploreMapUrl;
-        var coords = valid
-            .Select(s => (s.Lat, s.Lon, (string?)s.Country))
-            .ToList();
-        var url = BuildExploreTerrainUrlForCoordinates(coords, preset, fallbackZoom: 12);
         var first = valid[0];
+        // Web/Android pack handoff centers on the first stop at zoom 12 (not multi-stop bbox).
+        var url = BuildExploreTerrainUrlForCoordinates(
+            [(first.Lat, first.Lon, (string?)first.Country)],
+            preset,
+            fallbackZoom: 12);
         var isCommunity = !string.IsNullOrWhiteSpace(first.CommunityDocId);
         url = AppendPinFocusParams(
             url,

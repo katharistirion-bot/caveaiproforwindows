@@ -106,13 +106,24 @@ public partial class SurveyCompareWindow : Window
 
         try
         {
-            _mapA = IndexProjects(ExplorationDataLoader.LoadAuto(_pathA!));
-            _mapB = IndexProjects(ExplorationDataLoader.LoadAuto(_pathB!));
+            _mapA = SurveyProjectIndex.Build(ExplorationDataLoader.LoadAuto(_pathA!), out var dA);
+            _mapB = SurveyProjectIndex.Build(ExplorationDataLoader.LoadAuto(_pathB!), out var dB);
             var names = _mapA.Keys.Union(_mapB.Keys, StringComparer.OrdinalIgnoreCase)
                 .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
             ProjectCombo.ItemsSource = names;
             if (names.Count > 0)
                 ProjectCombo.SelectedIndex = 0;
+            if (dA + dB > 0)
+            {
+                MessageBox.Show(
+                    this,
+                    $"{dA + dB} cave name group(s) appear more than once across the selected files. " +
+                    "Duplicates are listed separately (shots/coords) so none are silently dropped. " +
+                    "LinkedLibraryCaveId is preferred when present.",
+                    "Survey compare",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
             RunCompare();
         }
         catch (Exception ex)
@@ -142,8 +153,4 @@ public partial class SurveyCompareWindow : Window
         foreach (var row in result.StationChanges)
             stations.Add(row);
     }
-
-    private static Dictionary<string, CaveProjectDocument> IndexProjects(IEnumerable<CaveProjectDocument> list) =>
-        list.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 }

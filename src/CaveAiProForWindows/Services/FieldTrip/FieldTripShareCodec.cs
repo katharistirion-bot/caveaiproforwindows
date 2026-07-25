@@ -256,9 +256,13 @@ public static class FieldTripShareCodec
                 continue;
 
             var isCommunity = !string.IsNullOrWhiteSpace(s.CommunityDocId);
-            var id = isCommunity ? s.CommunityDocId!.Trim() : s.ReferenceId.Trim();
+            var id = isCommunity ? s.CommunityDocId!.Trim() : (s.ReferenceId ?? "").Trim();
+            // Coord-only stops (manual GPS / ft pack) — keep in share with synthetic id (web keeps empty i; Android/Windows need a key).
             if (string.IsNullOrWhiteSpace(id))
-                continue;
+            {
+                id = FormattableString.Invariant(
+                    $"coord:{Math.Round(s.Lat, 5):0.00000},{Math.Round(s.Lon, 5):0.00000}");
+            }
 
             var name = string.IsNullOrWhiteSpace(s.Name) ? "Site" : s.Name.Trim();
             if (name.Length > 80)
@@ -277,6 +281,10 @@ public static class FieldTripShareCodec
 
         return list;
     }
+
+    /// <summary>Stops with valid coords that would be included in a share payload.</summary>
+    public static int CountEncodableStops(IReadOnlyList<FieldTripStop> stops) =>
+        EncodeStops(stops).Count;
 }
 
 public sealed class FieldTripSharePayloadV1

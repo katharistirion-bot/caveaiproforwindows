@@ -51,10 +51,17 @@ public partial class CompareBackupsWindow : Window
         {
             var listA = ExplorationDataLoader.LoadAuto(_pathA!).ToList();
             var listB = ExplorationDataLoader.LoadAuto(_pathB!).ToList();
-            _mapA = listA.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-            _mapB = listB.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            _mapA = SurveyProjectIndex.Build(listA, out var dA);
+            _mapB = SurveyProjectIndex.Build(listB, out var dB);
+            if (dA + dB > 0)
+            {
+                MessageBox.Show(
+                    this,
+                    $"{dA + dB} cave name group(s) appear more than once. Duplicates are listed separately so none are silently dropped.",
+                    "Compare backups",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
             var names = _mapA.Keys.Union(_mapB.Keys, StringComparer.OrdinalIgnoreCase)
                 .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
             var rows = (ObservableCollection<ProjectDiffRow>)DiffGrid.ItemsSource;
