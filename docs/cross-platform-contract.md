@@ -160,6 +160,9 @@ Cave-centric helpers: website `src/utils/exploreMapLink.js` · Android: `Explore
 | `embed=android` | Android WebView handoff (`exploreAndroidHandoff.js`) |
 | `embed=windows` | Windows in-app browser / catalog handoff (same Explore URL surface); WebView2 App Check token bridge (`desktopAppCheckBridge.js`; see `docs/APPCHECK-WINDOWS.md`) |
 | `ref`, `id`, `cave`, `name` | Pin handoff params for reference / community caves |
+| `ft` | Compact multi-stop pack: `lat,lon;lat,lon` (max 10). Web seeds Field Trip; Android/Windows encode on Explore handoff |
+| `stops` | Declared stop count for the `ft=` pack |
+| `notes` | Optional short safety/briefing text (max 160 chars) |
 
 Golden test vectors (website exports JSON): `scripts/cross-platform-url-vectors.mjs` · run `npm run test:cross-platform-urls`. Mirror assertions in Android `ExploreMapUrlsTest.kt` and Windows `ReferenceCatalogTests.cs`.
 

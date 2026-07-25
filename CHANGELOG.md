@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Field Trip multi-stop pack** — Explore terrain URLs encode `ft=` / `stops=` / `notes=` (web/Android parity).
+
 
 
 All notable changes to **CAVE AI PRO for Windows** are documented here.

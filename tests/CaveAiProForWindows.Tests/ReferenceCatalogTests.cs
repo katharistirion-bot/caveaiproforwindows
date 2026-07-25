@@ -135,6 +135,42 @@ public class ReferenceCatalogTests
         StringAssert.Contains(url, "ref=cave");
         StringAssert.Contains(url, "id=osm-node-1");
         StringAssert.Contains(url, "name=First");
+        StringAssert.Contains(url, "stops=2");
+        StringAssert.Contains(url, "ft=");
+        StringAssert.Contains(url, "38.00000");
+        StringAssert.Contains(url, "20.00000");
+        StringAssert.Contains(url, "38.50000");
+        StringAssert.Contains(url, "20.50000");
+    }
+
+    [TestMethod]
+    public void ExploreTerrainUrlForStops_EncodesNotesInPack()
+    {
+        var stops = new List<FieldTripStop>
+        {
+            new()
+            {
+                ReferenceId = "a",
+                Name = "A",
+                Lat = 35.20825,
+                Lon = 24.82894,
+                Country = "Greece",
+            },
+            new()
+            {
+                ReferenceId = "b",
+                Name = "B",
+                Lat = 35.16286,
+                Lon = 25.44506,
+                Country = "Greece",
+            },
+        };
+        var url = ReferenceCatalogShareUrls.BuildExploreTerrainUrlForStops(stops, notes: "Respect show-cave rules");
+        StringAssert.Contains(url, "stops=2");
+        StringAssert.Contains(url, "ft=");
+        StringAssert.Contains(url, "35.20825");
+        StringAssert.Contains(url, "notes=");
+        StringAssert.Contains(url, "Respect");
     }
 
     [TestMethod]

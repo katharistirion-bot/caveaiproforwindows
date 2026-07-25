@@ -46,8 +46,11 @@ public static class ReferenceCatalogShareUrls
             preset,
             fallbackZoom: 10);
 
-    /// <summary>Explore terrain URL framing multiple field-trip stops (focus = first stop, web parity).</summary>
-    public static string BuildExploreTerrainUrlForStops(IReadOnlyList<FieldTripStop> stops, string preset = "terrain")
+    /// <summary>Explore terrain URL framing multiple field-trip stops (focus = first stop + compact <c>ft=</c> pack, web/Android parity).</summary>
+    public static string BuildExploreTerrainUrlForStops(
+        IReadOnlyList<FieldTripStop> stops,
+        string preset = "terrain",
+        string? notes = null)
     {
         if (stops == null || stops.Count == 0)
             return PublicLibraryCatalog.WebExploreMapUrl;
@@ -62,11 +65,50 @@ public static class ReferenceCatalogShareUrls
         var url = BuildExploreTerrainUrlForCoordinates(coords, preset, fallbackZoom: 12);
         var first = valid[0];
         var isCommunity = !string.IsNullOrWhiteSpace(first.CommunityDocId);
-        return AppendPinFocusParams(
+        url = AppendPinFocusParams(
             url,
             name: first.Name,
             referenceId: isCommunity ? null : first.ReferenceId,
             communityDocId: isCommunity ? first.CommunityDocId : null);
+        return AppendFieldTripPackParams(url, valid, notes);
+    }
+
+    /// <summary>
+    /// Compact multi-stop pack params (<c>ft=lat,lon;…</c>, <c>stops=</c>, optional <c>notes=</c>) — web/Android handoff parity.
+    /// </summary>
+    public static string AppendFieldTripPackParams(
+        string url,
+        IReadOnlyList<FieldTripStop> stops,
+        string? notes = null,
+        int maxStops = 10)
+    {
+        if (string.IsNullOrWhiteSpace(url) || stops == null || stops.Count == 0)
+            return url;
+
+        var valid = stops
+            .Where(s => ReferenceCatalogGeolocation.IsValidCoordinate(s.Lat, s.Lon))
+            .Take(Math.Max(1, maxStops))
+            .ToList();
+        if (valid.Count == 0)
+            return url;
+
+        var ft = string.Join(";", valid.Select(s =>
+            $"{s.Lat.ToString("0.00000", CultureInfo.InvariantCulture)},{s.Lon.ToString("0.00000", CultureInfo.InvariantCulture)}"));
+        var parts = new List<string>
+        {
+            $"stops={valid.Count}",
+            $"ft={Uri.EscapeDataString(ft)}",
+        };
+        var trimmedNotes = notes?.Trim();
+        if (!string.IsNullOrWhiteSpace(trimmedNotes))
+        {
+            if (trimmedNotes.Length > 160)
+                trimmedNotes = trimmedNotes[..160];
+            parts.Add($"notes={Uri.EscapeDataString(trimmedNotes)}");
+        }
+
+        var sep = url.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+        return url + sep + string.Join("&", parts);
     }
 
     /// <summary>
