@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -96,6 +97,7 @@ public partial class MainWindow : Window
 
             ApplyPreferencesSettingsUi();
             TryOpenPendingExploreMap();
+            _ = TryOpenPendingFieldTripShareAsync();
 
             _entitlementTimer = new System.Windows.Threading.DispatcherTimer
             {
@@ -484,6 +486,43 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(this, ex.Message, "Explore map", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    private async Task TryOpenPendingFieldTripShareAsync()
+    {
+        var url = App.PendingFieldTripShareUrl;
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+        App.PendingFieldTripShareUrl = null;
+
+        Services.FieldTrip.FieldTripSharePayloadV1? payload;
+        try
+        {
+            payload = await Services.FieldTrip.FieldTripShareCodec.TryParseFromUrlAsync(url);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Could not load field trip link:\n" + ex.Message, "Field trip",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (payload == null)
+        {
+            MessageBox.Show(this,
+                "Could not parse field trip link from startup. For large trips, sign in first.",
+                "Field trip", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var store = Services.FieldTrip.FieldTripStore.Load();
+        var trip = store.Trips.FirstOrDefault() ?? new Models.FieldTripDocument { Name = "Imported trip" };
+        if (!store.Trips.Contains(trip))
+            store.Trips.Add(trip);
+        trip.Stops.Clear();
+        trip.Stops.AddRange(Services.FieldTrip.FieldTripShareCodec.ToFieldTripStops(payload));
+        Services.FieldTrip.FieldTripStore.Upsert(trip);
+        FieldTripPlannerWindow.Show(this);
     }
 
     private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)

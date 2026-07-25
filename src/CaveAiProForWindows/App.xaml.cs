@@ -14,6 +14,7 @@ namespace CaveAiProForWindows;
 public partial class App : System.Windows.Application
 {
     internal static string? PendingExploreMapUrl { get; set; }
+    internal static string? PendingFieldTripShareUrl { get; set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -28,10 +29,13 @@ public partial class App : System.Windows.Application
         var startupIntent = StartupUriRouter.Parse(e.Args);
         var startupSurveyPaths = startupIntent.SurveyFilePaths.ToList();
         PendingExploreMapUrl = startupIntent.ExploreMapUrl;
+        PendingFieldTripShareUrl = startupIntent.FieldTripShareUrl;
         if (startupSurveyPaths.Count > 0)
             WriteStartupLog("Startup file args: " + string.Join("; ", startupSurveyPaths));
         if (!string.IsNullOrWhiteSpace(PendingExploreMapUrl))
             WriteStartupLog("Startup explore URL: " + PendingExploreMapUrl);
+        if (!string.IsNullOrWhiteSpace(PendingFieldTripShareUrl))
+            WriteStartupLog("Startup field-trip URL: " + PendingFieldTripShareUrl);
 
 #if !DEBUG
         if (!InstallationGuard.IsLaunchedFromRegisteredInstall())

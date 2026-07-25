@@ -267,20 +267,23 @@ public sealed class FirebaseRestClient : IDisposable
         return resp.IsSuccessStatusCode;
     }
 
-    /// <summary>GET raw Firestore document JSON (includes <c>fields</c> map).</summary>
-    public async Task<string?> GetDocumentJsonAsync(
-        FirebaseIdToken token,
+    /// <summary>
+    /// GET Firestore document JSON. Auth bearer is optional (public collections like field_trip_shares).
+    /// Always attaches App Check when a token is cached.
+    /// </summary>
+    public async Task<string?> GetDocumentJsonOptionalAuthAsync(
         string documentPath,
+        FirebaseIdToken? token = null,
         CancellationToken cancellationToken = default)
     {
         EnsureNetworkAllowed();
-        ArgumentNullException.ThrowIfNull(token);
         var normalized = documentPath.Trim().TrimStart('/');
         var url =
             $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_config.ProjectId)}/databases/{Uri.EscapeDataString(_config.FirestoreDatabaseId)}/documents/{normalized}";
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        if (token != null && !string.IsNullOrWhiteSpace(token.Raw))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
         FirebaseAppCheckHeader.TryApply(req, _appCheckCache);
 
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
@@ -293,6 +296,17 @@ public sealed class FirebaseRestClient : IDisposable
                 resp.StatusCode,
                 body);
         return body;
+    }
+
+    /// <summary>GET raw Firestore document JSON (includes <c>fields</c> map).</summary>
+    public async Task<string?> GetDocumentJsonAsync(
+        FirebaseIdToken token,
+        string documentPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        return await GetDocumentJsonOptionalAuthAsync(documentPath, token, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>POST create with explicit document id under a collection.</summary>

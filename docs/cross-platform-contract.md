@@ -122,19 +122,19 @@ Compact JSON for cross-app field trip handoff (web hash, Android/Windows clipboa
 
 ### Share URLs
 
-When JSON length ≤ **1800** characters:
+When JSON length ≤ **1800** characters (inline, no auth required):
 
 ```
 https://www.caveaipro.com/map?view=fieldtrip#trip={base64-utf8-json}
 ```
 
-When larger (web only — uses `localStorage` fallback):
+When larger, clients create a Firestore doc under `field_trip_shares/{tripId}` (**write requires signed-in auth**; **read is public**) and share:
 
 ```
-https://www.caveaipro.com/map?view=fieldtrip&tripId={ft_id}
+https://www.caveaipro.com/map?view=fieldtrip&tripId={ft_…}
 ```
 
-Implementation: `src/utils/fieldTripShare.js` (web), `FieldTripShare.kt` (Android), `FieldTripShareCodec.cs` (Windows).
+Implementation: website `src/utils/fieldTripShare.js`, Android `FieldTripShare.kt` + `FieldTripShareCloudRepository`, Windows `FieldTripShareCodec.cs` (via `FirebaseRestClient` + App Check).
 
 ---
 

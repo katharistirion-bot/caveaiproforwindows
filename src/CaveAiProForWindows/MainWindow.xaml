@@ -39,8 +39,8 @@
                 <MenuItem Header="Show in _Explorer" Command="{Binding RevealCurrentFileInExplorerCommand}"
                           ToolTip="Select the open .json or .zip in File Explorer" />
                 <Separator />
-                <MenuItem Header="_Open from cloud…" Command="{Binding OpenSurveyProjectFromCloudCommand}"
-                          ToolTip="Import a private survey synced from CaveAI Pro (Android) via Survey Cloud." />
+                <MenuItem Header="_Open from Survey Cloud…" Command="{Binding OpenSurveyProjectFromCloudCommand}"
+                          ToolTip="Download a private survey JSON from Survey Cloud (Android → Windows open). This is open-only — it does not upload or push changes back." />
                 <Separator />
                 <MenuItem x:Name="MenuSave" Header="_Save project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S"
                           ToolTip="Write sketch mapObjects, AI assets, and all loaded projects back to the open .json or .zip file" />

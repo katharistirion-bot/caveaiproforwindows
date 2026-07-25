@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -14,7 +13,6 @@ public static class FieldTripShareCodec
 {
     public const string SiteOrigin = "https://www.caveaipro.com";
     private const int InlineJsonMaxLength = 1800;
-    private const string FirestoreProjectId = "caveaipro-5950e";
     private const string FirestoreShareCollection = "field_trip_shares";
     private static readonly Regex CloudTripIdRegex = new(@"^ft_[a-zA-Z0-9_-]+$", RegexOptions.CultureInvariant);
 
@@ -98,18 +96,18 @@ public static class FieldTripShareCodec
         if (!IsCloudTripId(id))
             return null;
 
-        var url =
-            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(FirestoreProjectId)}/databases/(default)/documents/{FirestoreShareCollection}/{Uri.EscapeDataString(id)}";
-
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        ApplyFirebaseAuthHeader(client);
-        using var resp = await client.GetAsync(url, ct).ConfigureAwait(false);
-        if (!resp.IsSuccessStatusCode)
-            return null;
-
-        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         try
         {
+            using var rest = new FirebaseRestClient();
+            var token = FirebaseAuthTokenStore.TryLoad();
+            var body = await rest.GetDocumentJsonOptionalAuthAsync(
+                    $"{FirestoreShareCollection}/{id}",
+                    token,
+                    ct)
+                .ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(body))
+                return null;
+
             using var doc = JsonDocument.Parse(body);
             if (!doc.RootElement.TryGetProperty("fields", out var fields))
                 return null;
@@ -136,38 +134,30 @@ public static class FieldTripShareCodec
             return null;
 
         var token = FirebaseAuthTokenStore.TryLoad();
-        if (token == null || string.IsNullOrWhiteSpace(token.Subject))
+        if (token == null || string.IsNullOrWhiteSpace(token.Subject) || string.IsNullOrWhiteSpace(token.Raw))
             return null;
 
         var idRaw = $"ft_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds():x}_{Guid.NewGuid():N}";
         var id = idRaw.Length <= 48 ? idRaw : idRaw[..48];
-        var url =
-            $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(FirestoreProjectId)}/databases/(default)/documents/{FirestoreShareCollection}?documentId={Uri.EscapeDataString(id)}";
 
-        var firestoreBody = new
+        var fields = new Dictionary<string, object>
         {
-            fields = new Dictionary<string, object>
-            {
-                ["payloadJson"] = new { stringValue = json },
-                ["createdAtMs"] = new { integerValue = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() },
-                ["creatorUid"] = new { stringValue = token.Subject },
-            },
+            ["payloadJson"] = new { stringValue = json },
+            ["createdAtMs"] = new { integerValue = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() },
+            ["creatorUid"] = new { stringValue = token.Subject },
         };
 
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        ApplyFirebaseAuthHeader(client);
-        using var content = new StringContent(JsonSerializer.Serialize(firestoreBody), Encoding.UTF8, "application/json");
-        using var resp = await client.PostAsync(url, content, ct).ConfigureAwait(false);
-        return resp.IsSuccessStatusCode ? id : null;
-    }
-
-    private static void ApplyFirebaseAuthHeader(HttpClient client)
-    {
-        var token = FirebaseAuthTokenStore.TryLoad();
-        if (token == null || string.IsNullOrWhiteSpace(token.Raw))
-            return;
-        client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Raw);
+        try
+        {
+            using var rest = new FirebaseRestClient();
+            await rest.CreateDocumentWithIdAsync(token, FirestoreShareCollection, id, fields, ct)
+                .ConfigureAwait(false);
+            return id;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static FieldTripSharePayloadV1? TryParseFromUrl(string? urlOrText)
