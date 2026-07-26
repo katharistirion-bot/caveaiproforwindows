@@ -36,7 +36,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _sourcePathDisplay = "";
 
     [ObservableProperty] private string _statusMessage =
-        "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
+        "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, Survex/Therion import, Loop closure (Compass/WLS), exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
 
     [ObservableProperty] private bool _showIntegrityBanner;
 
@@ -568,7 +568,7 @@ public partial class MainViewModel : ObservableObject
         ClearWorkspaceDataCore();
         WindowTitle = "CAVE AI PRO — Survey workstation";
         StatusMessage =
-            "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
+            "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, Survex/Therion import, Loop closure (Compass/WLS), exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
         NotifyWorkspaceCommandStateChanged();
     }
 

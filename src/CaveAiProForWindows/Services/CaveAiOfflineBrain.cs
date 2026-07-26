@@ -15,7 +15,7 @@ public static class CaveAiOfflineBrain
 
         var q = Normalize(query);
         if (q.Length == 0)
-            return "Ask about depth, traverse length, shot count, return distance, pending geo samples, site type, last leg, volume, clino, trip report, or next step (English only).";
+            return "Ask about depth, traverse length, shot count, return distance, pending geo samples, site type, last leg, volume, clino, loop closure, trip report, Survex/Therion import, or next step (English only).";
 
         var shots = project.Shots;
         var mains = shots.Where(s => s.IsTraverseLeg).ToList();
@@ -71,6 +71,20 @@ public static class CaveAiOfflineBrain
         if (IsLoopMisclosureQuery(q))
             return BuildLoopMisclosureAnswer(project);
 
+        if (ContainsAny(q, "survex", "therion", "import svx", "import .svx", "import th", "import .th") ||
+            (q.Contains("import") && ContainsAny(q, "survex", "therion", "svx", ".th")))
+        {
+            return "File → Import Survex (.svx) or Import Therion (.th) to bring office surveys into CaveAI Pro for Windows. "
+                + "Use Loop closure assistant for Compass / WLS plan overrides after import. Export Survex/Therion/DXF remains available from the export menus.";
+        }
+
+        if (ContainsAny(q, "loop closure assistant", "compass rule", "wls", "weighted least") ||
+            (q.Contains("adjust") && ContainsAny(q, "loop", "closure", "misclosure")))
+        {
+            return "Open Loop closure assistant for multi-loop Compass rule or weighted least-squares (WLS) plan overrides. "
+                + "Raw shots stay unchanged. The web Survey QC → Loop closure panel offers the same office adjust.";
+        }
+
         if (ContainsAny(q, "depth", "deep", "vertical"))
             return $"Max depth span vs entrance ~{maxDepth.ToString("0.#", CultureInfo.InvariantCulture)} m.";
 
@@ -112,7 +126,7 @@ public static class CaveAiOfflineBrain
         var siteLabelFallback = SurveySiteTypeResolver.GetMapLabel(project, library);
         return
             $"Project \"{project.Name}\" — {siteLabelFallback}. {shots.Count} shots, ~{traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m traverse, max depth ~{maxDepth.ToString("0.#", CultureInfo.InvariantCulture)} m. " +
-            "Ask about depth, traverse, shots, return distance, pending geo, site type, last leg, volume, clino, trip report, or next step.";
+            "Ask about depth, traverse, shots, return distance, pending geo, site type, last leg, volume, clino, loop closure, Survex/Therion import, trip report, or next step.";
     }
 
     private static string BuildNextActionAnswer(

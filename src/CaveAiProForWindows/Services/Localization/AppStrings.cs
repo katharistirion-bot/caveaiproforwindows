@@ -29,13 +29,13 @@ public static class AppStrings
     public static string ToolbarOpen => "Open";
     public static string ToolbarSave => "Save";
     public static string StatusReady =>
-        "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, exports, and batch workflows.";
+        "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, Survex/Therion import, Loop closure, exports, and batch workflows.";
 
     public static string OnboardingTitle => "GETTING STARTED";
     public static string OnboardingStep0Title => "One subscription, two platforms";
     public static string OnboardingStep0Body =>
         "CaveAI Pro on Android is your field hub. This Desktop Companion extends the same projects with " +
-        "large-screen QC, publication exports, and cloud tools. Sign in with the same Google account used on Android.";
+        "large-screen QC, Survex/Therion import, Loop closure, publication exports, and cloud tools. Sign in with the same Google account used on Android.";
     public static string OnboardingStep1Title => "Open your survey data";
     public static string OnboardingStep1Body =>
         "File → Open, or drag a CaveAI Pro backup (.json or .zip) from your phone or sync folder. " +

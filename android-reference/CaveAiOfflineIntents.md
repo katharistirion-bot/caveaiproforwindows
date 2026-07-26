@@ -24,8 +24,11 @@ English-only user-visible strings.
 | `last_leg` | "last leg", "last main leg", "latest main" | Latest main leg from→to, tape m, clino ° |
 | `volume` | "passage volume", "how big", "how large" | Rough LRUD × leg prism volume in m³ (indicative) |
 | `clino` | "latest clino", "inclination", "slope" (not rope/SRT) | Latest main clino ° with station pair |
-| `loop_misclosure` | "loop closure", "misclosure", "loop quality" | Detected loop count, worst |Δ|, ppm when applicable |
+| `loop_misclosure` | "loop closure", "misclosure", "loop quality" | Detected loop count, worst |Δ|, ppm when applicable; office Compass/WLS hint (Windows + web) |
 | `trip_narrative` | "trip report", "expedition report", "mission writer", "expedition summary" | Structured offline expedition report excerpt from project shots, loops, geo/bio, notes — **never** mention Gemini or cloud AI |
+| `survey_qc_summary` | "QC summary", "survey quality" | Rules-based QC including loop misclosure + office adjust hint |
+| `publish_checklist` | "publish checklist", "ready to publish" | Publish readiness checklist text |
+| `public_sources_summary` | "public sources", "wikipedia", "official website" | Reference-pin Wikipedia / website / OSM links only (web + Android Public Library; N/A on Windows docked brain without catalog context) |
 
 ## Greeting (separate)
 

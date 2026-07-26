@@ -230,7 +230,9 @@ public static class SurveyLoopQcSummary
             var total = loops.Sum(l => l.MisclosureMeters);
             parts.Add($"total |Δ| ~{total.ToString("0.##", inv)} m across {loops.Count} loops");
         }
-        return string.Join("; ", parts) + ".";
+        return string.Join("; ", parts)
+            + ". Office adjust: Loop closure assistant (Compass / WLS plan overrides; raw shots unchanged). "
+            + "Web workspace Survey QC → Loop closure offers the same.";
     }
 
     public static void AppendLoopQcSummary(StringBuilder sb, CaveProjectDocument project)
