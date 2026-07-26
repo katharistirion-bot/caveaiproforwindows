@@ -96,7 +96,7 @@ In-app Android guide: ☰ menu → **User guide** → **Aerial DEM / surface DSM
 
 **Export:** `.svx` traverse (`*data normal from to tape compass clino`) with a provisional `*fix` — verify conventions/units before production use (Survex/Cavern).
 
-**Import:** File → Import Survex… (or command palette) opens a `.svx` centerline as a CaveAI project. Round-trips with Export → Survex. Supports optional feet→metres. Not a full Survex feature parser (equates, scrap, etc.).
+**Import:** File → Import Survex… / Import Therion… (or command palette) opens `.svx` / `.th` centerlines as CaveAI projects. Round-trips with the matching Export commands. Supports optional Survex feet→metres. Not a full Survex/Therion feature parser (equates, scrap, etc.).
 
 ## Build / Run
 

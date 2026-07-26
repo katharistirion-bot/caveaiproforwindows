@@ -33,6 +33,8 @@
                 <MenuItem x:Name="MenuOpen" Header="_Open…" Command="{Binding OpenFileCommand}" InputGestureText="Ctrl+O" />
                 <MenuItem Header="Import Sur_vex…" Command="{Binding ImportSurvexCommand}"
                           ToolTip="Open a Survex .svx centerline (from to tape compass clino) as a CaveAI project — round-trip with Export → Survex." />
+                <MenuItem Header="Import T_herion…" Command="{Binding ImportTherionCommand}"
+                          ToolTip="Open a Therion .th centerline as a CaveAI project — round-trip with Export → Therion." />
                 <MenuItem Header="_Close workspace" Command="{Binding CloseWorkspaceCommand}" InputGestureText="Ctrl+W"
                           ToolTip="Unload all opened backups, Cave Library snapshot, standalone maps, and ZIP list (so this session no longer references those files)." />
                 <MenuItem Header="Open standalone _map(s)…" Command="{Binding OpenStandaloneMapsCommand}"

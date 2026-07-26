@@ -59,5 +59,5 @@ Shared fixture: [test-fixtures/survey-loop-qc-fixture.json](./test-fixtures/surv
 ## Deferred (Horizon 3+ / WLS UI)
 
 - Global weighted least-squares **adjustment UI** on web (Windows already has Compass / WLS in Loop closure assistant).
-- Publishing gate that blocks on `large` loop misclosure (optional rule in publish-readiness).
+- ~~Publishing gate on `large` loop misclosure~~ — shipped as recommended publish-readiness rule `loop_misclosure` (warn, not hard block).
 - Live multi-loop telemetry sync Android 뿯↽ web workspace.

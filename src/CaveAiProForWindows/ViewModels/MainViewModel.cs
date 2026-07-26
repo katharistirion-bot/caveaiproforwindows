@@ -873,28 +873,62 @@ public partial class MainViewModel : ObservableObject
         LoadFromPaths(dlg.FileNames);
     }
 
-    /// <summary>Import Survex <c>.svx</c> centerline (round-trip with Export Survex). Does not replace Therion/Disto stacks.</summary>
     [RelayCommand]
-    private void ImportSurvex()
+    private void ImportSurvex() =>
+        ImportCenterlineFile(
+            title: "Import Survex centerline",
+            filter: "Survex centerline|*.svx|All files|*.*",
+            formatLabel: "Survex",
+            survex: true);
+
+    [RelayCommand]
+    private void ImportTherion() =>
+        ImportCenterlineFile(
+            title: "Import Therion centerline",
+            filter: "Therion centerline|*.th|All files|*.*",
+            formatLabel: "Therion",
+            survex: false);
+
+    private void ImportCenterlineFile(string title, string filter, string formatLabel, bool survex)
     {
         var owner = Wpf.Application.Current.MainWindow;
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Import Survex centerline",
-            Filter = "Survex centerline|*.svx|All files|*.*",
+            Title = title,
+            Filter = filter,
             Multiselect = false,
         };
         if (dlg.ShowDialog(owner) != true) return;
 
         try
         {
-            var imported = SurvexImporter.ParseFile(dlg.FileName);
+            CaveProjectDocument project;
+            int traverse;
+            int splay;
+            IReadOnlyList<string> warnings;
+            if (survex)
+            {
+                var imported = SurvexImporter.ParseFile(dlg.FileName);
+                project = imported.Project;
+                traverse = imported.TraverseLegs;
+                splay = imported.SplayLegs;
+                warnings = imported.Warnings;
+            }
+            else
+            {
+                var imported = TherionImporter.ParseFile(dlg.FileName);
+                project = imported.Project;
+                traverse = imported.TraverseLegs;
+                splay = imported.SplayLegs;
+                warnings = imported.Warnings;
+            }
+
             UnloadWorkspaceBeforeNewLoad();
             ProjectListFilter = "";
-            Projects = new ObservableCollection<CaveProjectDocument>(new[] { imported.Project });
+            Projects = new ObservableCollection<CaveProjectDocument>(new[] { project });
             RefreshCaveRegistryAndCatalog(Projects.ToList());
-            SelectedProject = imported.Project;
-            _loadedSurveyFingerprint = SurveyContentFingerprint.Compute(imported.Project);
+            SelectedProject = project;
+            _loadedSurveyFingerprint = SurveyContentFingerprint.Compute(project);
             _primarySourcePath = dlg.FileName;
             SourcePathDisplay = dlg.FileName;
             AppUiSettingsStore.ApplyFullOverlaysAfterImport();
@@ -903,26 +937,26 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(ActiveZipPath));
             OnPropertyChanged(nameof(ActiveZipPathForMaps));
 
-            var warn = imported.Warnings.Count > 0
-                ? " Warnings: " + string.Join(" ", imported.Warnings.Take(3))
+            var warn = warnings.Count > 0
+                ? " Warnings: " + string.Join(" ", warnings.Take(3))
                 : "";
             StatusMessage =
-                $"Imported Survex “{imported.Project.Name}” — {imported.TraverseLegs} traverse, {imported.SplayLegs} splay.{warn}";
-            SnackbarService.Show(owner, $"Survex imported — {imported.TraverseLegs} traverse leg(s).");
-            if (imported.Warnings.Count > 0)
+                $"Imported {formatLabel} “{project.Name}” — {traverse} traverse, {splay} splay.{warn}";
+            SnackbarService.Show(owner, $"{formatLabel} imported — {traverse} traverse leg(s).");
+            if (warnings.Count > 0)
             {
                 Wpf.MessageBox.Show(
                     owner,
-                    string.Join("\n", imported.Warnings),
-                    "Survex import notes",
+                    string.Join("\n", warnings),
+                    $"{formatLabel} import notes",
                     Wpf.MessageBoxButton.OK,
                     Wpf.MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            Wpf.MessageBox.Show(owner, ex.Message, "Survex import failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
-            StatusMessage = "Survex import failed.";
+            Wpf.MessageBox.Show(owner, ex.Message, $"{formatLabel} import failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+            StatusMessage = $"{formatLabel} import failed.";
         }
     }
 

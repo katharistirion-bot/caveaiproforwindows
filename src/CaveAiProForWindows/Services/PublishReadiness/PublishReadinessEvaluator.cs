@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text;
+using CaveAiProForWindows.Services.SurveyLoopQc;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services.CloudPublish;
 
@@ -79,6 +80,7 @@ public static class PublishReadinessEvaluator
         "survey_json",
         "survey_structure",
         "traverse_qc_topology",
+        "loop_misclosure",
         "description",
         "photos_in_survey",
     ];
@@ -129,6 +131,7 @@ public static class PublishReadinessEvaluator
                 topologyCritical == 0,
                 topologyCritical == 0 ? "No critical issues" : $"{topologyCritical} critical issue(s) - review SURVEY QC tab",
                 required: false),
+            "loop_misclosure" when ctx.Mode is PublishReadinessMode.WindowsCloud or PublishReadinessMode.WebWorkspace or PublishReadinessMode.WebPublish => EvaluateLoopMisclosure(project),
             "description" => Item(
                 ruleId, PublishReadinessTier.Recommended, "Description",
                 "Short summary for Public Library search and share cards.",
@@ -142,6 +145,37 @@ public static class PublishReadinessEvaluator
                 required: false),
             _ => null,
         };
+    }
+
+    private static PublishReadinessItem EvaluateLoopMisclosure(CaveProjectDocument? project)
+    {
+        if (project == null)
+        {
+            return Item(
+                "loop_misclosure", PublishReadinessTier.Recommended, "Loop misclosure",
+                "Close large traverse loops (worst |Δ| ≥ 1 m) in Survey QC before publishing.",
+                true, "No survey loaded", required: false);
+        }
+
+        var loops = SurveyLoopQcAnalyzer.AnalyzeLoops(project);
+        if (loops.Count == 0)
+        {
+            return Item(
+                "loop_misclosure", PublishReadinessTier.Recommended, "Loop misclosure",
+                "Close large traverse loops (worst |Δ| ≥ 1 m) in Survey QC before publishing.",
+                true, "No loops detected", required: false);
+        }
+
+        var worst = loops.OrderByDescending(l => l.MisclosureMeters).First();
+        var label = SurveyLoopQcSummary.SeverityLabel(worst.MisclosureMeters, worst.PathLengthMeters);
+        var done = !string.Equals(label, "large", StringComparison.Ordinal);
+        var detail = done
+            ? $"Worst |Δ|={worst.MisclosureMeters.ToString("0.##", CultureInfo.InvariantCulture)} m ({label})"
+            : $"Worst |Δ|={worst.MisclosureMeters.ToString("0.##", CultureInfo.InvariantCulture)} m (large) — review closing shots";
+        return Item(
+            "loop_misclosure", PublishReadinessTier.Recommended, "Loop misclosure",
+            "Close large traverse loops (worst |Δ| ≥ 1 m) in Survey QC before publishing.",
+            done, detail, required: false);
     }
 
     private static bool HasEntranceGps(CaveProjectDocument? project) =>
