@@ -31,6 +31,8 @@
         <Menu DockPanel.Dock="Top" Padding="4,2" Background="{DynamicResource Cave.Surface}">
             <MenuItem x:Name="MenuFile" Header="_File">
                 <MenuItem x:Name="MenuOpen" Header="_Open…" Command="{Binding OpenFileCommand}" InputGestureText="Ctrl+O" />
+                <MenuItem Header="Import Sur_vex…" Command="{Binding ImportSurvexCommand}"
+                          ToolTip="Open a Survex .svx centerline (from to tape compass clino) as a CaveAI project — round-trip with Export → Survex." />
                 <MenuItem Header="_Close workspace" Command="{Binding CloseWorkspaceCommand}" InputGestureText="Ctrl+W"
                           ToolTip="Unload all opened backups, Cave Library snapshot, standalone maps, and ZIP list (so this session no longer references those files)." />
                 <MenuItem Header="Open standalone _map(s)…" Command="{Binding OpenStandaloneMapsCommand}"

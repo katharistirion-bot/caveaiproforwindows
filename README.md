@@ -94,11 +94,9 @@ In-app Android guide: ☰ menu → **User guide** → **Aerial DEM / surface DSM
 
 ### Survex
 
-The `.svx` file contains only **traverse** shots (`*data normal from to tape compass clino`) and a provisional `*fix` at station `0 0 0` — **verify** conventions/units before production use (Survex/Cavern).
+**Export:** `.svx` traverse (`*data normal from to tape compass clino`) with a provisional `*fix` — verify conventions/units before production use (Survex/Cavern).
 
-## Build / Run
-
-The `.svx` file contains only **traverse** shots (`*data normal from to tape compass clino`) and a provisional `*fix` at station `0 0 0` — **verify** conventions/units before production use (Survex/Cavern).
+**Import:** File → Import Survex… (or command palette) opens a `.svx` centerline as a CaveAI project. Round-trips with Export → Survex. Supports optional feet→metres. Not a full Survex feature parser (equates, scrap, etc.).
 
 ## Build / Run
 

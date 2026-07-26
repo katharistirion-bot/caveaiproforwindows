@@ -29,6 +29,7 @@ public partial class CommandPaletteWindow : Window
 
         Add("File", "Open project…", () => _vm.OpenFileCommand.Execute(null), "open", "project", "backup", "json", "zip");
         Add("File", "Open backup…", () => _vm.OpenFileCommand.Execute(null), "open", "load", "zip", "json");
+        Add("File", "Import Survex…", () => _vm.ImportSurvexCommand.Execute(null), "svx", "survex", "import");
         Add("File", "Save project", () => _vm.SaveProjectCommand.Execute(null), "save", "write");
         Add("File", "Close workspace", () => _vm.CloseWorkspaceCommand.Execute(null), "close", "unload");
         Add("View", "Surface map tab", () => _vm.OpenSurfaceMapTabCommand.Execute(null), "surface", "terrain", "hillshade", "map");
