@@ -2,11 +2,23 @@
 
 ## Unreleased
 
-- **Field Trip multi-stop pack** — Explore terrain URLs encode `ft=` / `stops=` / `notes=` (web/Android parity).
+## [1.5.15] - 2026-08-10
 
+### Added
 
+- **Surface Map entrance lock (Windows)** — set survey entrance from GPS or map click; persists to project JSON
+- **Offline tile pack** — download ~6 km OSM area (zoom 11–16), cache-only mode, cancel download
+- **Field Trip map** — shares Surface Map OSM tile cache for offline stops preview
 
-All notable changes to **CAVE AI PRO for Windows** are documented here.
+### Changed
+
+- **Unsaved edits** — window title `*` and close/unload prompt; no save popup on every pin
+- **Offline UX** — auto cache-only when offline; coverage hint when map center is outside downloaded pack
+
+### Fixed
+
+- **Surface Map Locate Me** — Windows GPS centers map; hardened null-project and tile error handling
+
 
 
 
