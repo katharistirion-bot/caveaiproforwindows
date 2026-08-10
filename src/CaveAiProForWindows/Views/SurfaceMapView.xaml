@@ -54,6 +54,8 @@
             </Button>
             <Button Content="Fit survey" Padding="10,6" Margin="0,0,6,6" Click="FitSurvey_Click" />
             <Button Content="Fit entrance" Padding="10,6" Margin="0,0,6,6" Click="FitEntrance_Click" />
+            <Button Content="Locate me" Padding="10,6" Margin="0,0,6,6" Click="LocateMe_Click"
+                    ToolTip="Center map on Windows GPS (works offline with satellite fix)" />
             <Button Content="Export PNG" Padding="10,6" Margin="0,0,6,6" Click="ExportPng_Click"
                     Style="{StaticResource Cave.AccentButton}" />
             <Button Content="Export package" Padding="10,6" Margin="0,0,6,6" Click="ExportPackage_Click" />

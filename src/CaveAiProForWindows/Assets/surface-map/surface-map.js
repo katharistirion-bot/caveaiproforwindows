@@ -797,6 +797,54 @@
     releasePersist();
   }
 
+  function applyMyLocationDot(lat, lon) {
+    if (!map || !isFinite(lat) || !isFinite(lon)) return;
+    const collection = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lon, lat] },
+        properties: { title: 'My location' },
+      }],
+    };
+    if (updateGeoJsonSource('my-location', collection)) {
+      /* updated */
+    } else {
+      map.addSource('my-location', { type: 'geojson', data: collection });
+      map.addLayer({
+        id: 'my-location',
+        type: 'circle',
+        source: 'my-location',
+        paint: {
+          'circle-radius': 8,
+          'circle-color': '#2563eb',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+      });
+    }
+  }
+
+  function onHostLocation(payload) {
+    if (!payload || !isFinite(payload.lat) || !isFinite(payload.lon)) return;
+    if (!project) project = {};
+    const kind = payload.kind || 'locate';
+    const zoom = isFinite(payload.zoom) ? payload.zoom : 17;
+    if (kind === 'vehicle') {
+      project.returnCar = { lat: payload.lat, lon: payload.lon };
+      applyVehiclePins();
+    } else if (kind === 'base') {
+      project.returnBase = { lat: payload.lat, lon: payload.lon };
+      applyVehiclePins();
+    } else {
+      applyMyLocationDot(payload.lat, payload.lon);
+    }
+    if (!map) return;
+    suppressPersist = true;
+    map.jumpTo({ center: [payload.lon, payload.lat], zoom: zoom });
+    map.once('moveend', () => { suppressPersist = false; });
+  }
+
   function collectSurveyExtentPoints() {
     const pts = [];
     const ent = entranceLonLat();
@@ -1025,6 +1073,7 @@
       postHost({ type: 'status', message: 'GPS unavailable in this browser context' });
       return;
     }
+    if (!project) project = {};
     setMapBusy(true, 'Reading GPS…');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -1062,6 +1111,7 @@
         return;
       }
       if (pinPickKind) {
+        if (!project) project = {};
         const kind = pinPickKind;
         pinPickKind = null;
         map.getCanvas().style.cursor = measureOn ? 'crosshair' : '';
@@ -1588,6 +1638,9 @@
       case 'fitEntrance':
         fitEntrance();
         break;
+      case 'hostLocation':
+        onHostLocation(data.payload);
+        break;
       case 'fitSurvey':
         fitSurvey();
         break;
@@ -1669,6 +1722,17 @@
     }
     handleHostMessage(data);
   });
+
+  window.addEventListener('offline', () => {
+    postHost({ type: 'mapOffline' });
+    postHost({ type: 'status', message: 'Network offline — using cache / performance mode' });
+  });
+  window.addEventListener('online', () => {
+    postHost({ type: 'status', message: 'Network online' });
+  });
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    postHost({ type: 'mapOffline' });
+  }
 
   setMapBusy(true, 'Loading map engine…');
   postHost({ type: 'loading', phase: 'engine', message: 'Loading map engine…' });

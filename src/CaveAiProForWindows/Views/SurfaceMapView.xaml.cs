@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.ExpeditionShare;
+using CaveAiProForWindows.Services.ReferenceCatalog;
 using CaveAiProForWindows.Services.SurfaceMap;
 using Microsoft.Web.WebView2.Core;
 
@@ -230,7 +231,8 @@ public partial class SurfaceMapView : UserControl
                          "https://tiles.maps.eox.at/*",
                      })
             {
-                core.AddWebResourceRequestedFilter(pattern, CoreWebView2WebResourceContext.Image);
+                // MapLibre loads tiles via fetch/XHR, not only classic <img> — intercept All.
+                core.AddWebResourceRequestedFilter(pattern, CoreWebView2WebResourceContext.All);
             }
             core.WebResourceRequested += async (_, args) =>
             {
@@ -240,9 +242,21 @@ public partial class SurfaceMapView : UserControl
                     if (_tileCache != null && _tileCache.Enabled)
                         await _tileCache.TryServeOrCacheAsync(args).ConfigureAwait(false);
                 }
+                catch
+                {
+                    /* cache miss / offline — let MapLibre retry or show blank tile */
+                }
                 finally
                 {
                     deferral.Complete();
+                }
+            };
+
+            core.PermissionRequested += (_, args) =>
+            {
+                if (args.PermissionKind == CoreWebView2PermissionKind.Geolocation)
+                {
+                    args.State = CoreWebView2PermissionState.Allow;
                 }
             };
 
@@ -346,6 +360,15 @@ public partial class SurfaceMapView : UserControl
                                 SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitSurvey"}""");
                         }
                         break;
+                    case "mapError":
+                        LoadingOverlay.Visibility = Visibility.Collapsed;
+                        OfflineBanner.Visibility = Visibility.Visible;
+                        PlaceholderText.Visibility = Visibility.Visible;
+                        PlaceholderText.Text = root.TryGetProperty("error", out var mapErrEl)
+                            ? (mapErrEl.GetString() ?? "Map failed to load")
+                            : "Map failed to load";
+                        StatusText.Text = "Map error";
+                        break;
                     case "mapViewport":
                         if (root.TryGetProperty("zoom", out var zEl) && zEl.TryGetDouble(out var zv))
                             ZoomText.Text = $"Zoom {zv:F1}";
@@ -428,7 +451,17 @@ public partial class SurfaceMapView : UserControl
                                 Project.ReturnBaseLon = los;
                             }
                             QueueProjectPush();
-                            StatusText.Text = "Pin updated";
+                            StatusText.Text = "Pin updated — Ctrl+S to save project";
+                            PromptSaveProjectAfterPin();
+                        }
+                        break;
+                    case "mapOffline":
+                        OfflineBanner.Visibility = Visibility.Visible;
+                        if (PerformanceToggle.IsChecked != true)
+                        {
+                            PerformanceToggle.IsChecked = true;
+                            PushLayerStateToMap();
+                            StatusText.Text = "Offline — performance mode on";
                         }
                         break;
                     case "elevationProfile":
@@ -971,16 +1004,95 @@ public partial class SurfaceMapView : UserControl
         LayersPanel.Visibility = LayersToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
     private void SetVehicleGps_Click(object sender, RoutedEventArgs e) =>
-        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPickGps","payload":{"kind":"vehicle"}}""");
+        _ = PlacePinFromHostGpsAsync("vehicle");
 
     private void PickVehicleMap_Click(object sender, RoutedEventArgs e) =>
         SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPick","payload":{"kind":"vehicle"}}""");
 
     private void SetBaseGps_Click(object sender, RoutedEventArgs e) =>
-        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPickGps","payload":{"kind":"base"}}""");
+        _ = PlacePinFromHostGpsAsync("base");
 
     private void PickBaseMap_Click(object sender, RoutedEventArgs e) =>
         SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPick","payload":{"kind":"base"}}""");
+
+    private async void LocateMe_Click(object sender, RoutedEventArgs e)
+    {
+        StatusText.Text = "Reading Windows GPS…";
+        var result = await ReferenceCatalogGeolocation.TryGetDeviceLocationAsync().ConfigureAwait(true);
+        if (!result.Ok || result.Origin is null)
+        {
+            StatusText.Text = result.Error ?? "Live location unavailable.";
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(result.Warning))
+            StatusText.Text = result.Warning;
+        else
+            StatusText.Text = "Centered on my location";
+        PostHostLocation(result.Origin.Lat, result.Origin.Lon, kind: "locate", zoom: 18);
+    }
+
+    private async Task PlacePinFromHostGpsAsync(string kind)
+    {
+        StatusText.Text = "Reading Windows GPS…";
+        var result = await ReferenceCatalogGeolocation.TryGetDeviceLocationAsync().ConfigureAwait(true);
+        if (!result.Ok || result.Origin is null)
+        {
+            StatusText.Text = result.Error ?? "GPS fix failed — pick on map instead";
+            return;
+        }
+        PostHostLocation(result.Origin.Lat, result.Origin.Lon, kind: kind, zoom: 17);
+        if (Project != null)
+        {
+            var ls = result.Origin.Lat.ToString("F6", CultureInfo.InvariantCulture);
+            var los = result.Origin.Lon.ToString("F6", CultureInfo.InvariantCulture);
+            if (string.Equals(kind, "vehicle", StringComparison.OrdinalIgnoreCase))
+            {
+                Project.ReturnCarLat = ls;
+                Project.ReturnCarLon = los;
+            }
+            else if (string.Equals(kind, "base", StringComparison.OrdinalIgnoreCase))
+            {
+                Project.ReturnBaseLat = ls;
+                Project.ReturnBaseLon = los;
+            }
+            QueueProjectPush();
+            StatusText.Text = (kind == "vehicle" ? "Vehicle park" : "Trailhead") + " pin set from GPS — Ctrl+S to save";
+            PromptSaveProjectAfterPin();
+        }
+        else
+        {
+            StatusText.Text = "Pin set on map (no project loaded)";
+        }
+    }
+
+    private void PostHostLocation(double lat, double lon, string kind, double zoom)
+    {
+        if (SurfaceWebView?.CoreWebView2 == null) return;
+        var json = JsonSerializer.Serialize(new
+        {
+            type = "hostLocation",
+            payload = new { lat, lon, kind, zoom },
+        });
+        SurfaceWebView.CoreWebView2.PostWebMessageAsJson(json);
+    }
+
+    private void PromptSaveProjectAfterPin()
+    {
+        var owner = Window.GetWindow(this);
+        if (owner?.DataContext is not ViewModels.MainViewModel vm)
+            return;
+        if (MessageBox.Show(
+                owner,
+                "Pin updated in project memory. Save project now?",
+                "Surface map pin",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        vm.SaveProjectCommand.Execute(null);
+    }
+
+    private void FitEntrance_Click(object sender, RoutedEventArgs e) =>
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitEntrance"}""");
 
     private async void ExportPng_Click(object sender, RoutedEventArgs e)
     {
@@ -1022,9 +1134,6 @@ public partial class SurfaceMapView : UserControl
         }
     }
 
-    private void FitEntrance_Click(object sender, RoutedEventArgs e) =>
-        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitEntrance"}""");
-
     private async void ReloadMap_Click(object sender, RoutedEventArgs e)
     {
         _mapReady = false;
@@ -1057,9 +1166,22 @@ public partial class SurfaceMapView : UserControl
 
     private void OpenSurfaceMapInBrowser_Click(object sender, RoutedEventArgs e)
     {
-        var url = SurfaceWebView?.Source?.ToString();
-        if (string.IsNullOrWhiteSpace(url))
-            url = SurfaceMapProjectBridge.EntryUri;
+        // Virtual host (caveai-surface.local) is not usable in an external browser — open Explore instead.
+        string url;
+        if (Project?.Lat is { } la && Project.Lon is { } lo
+            && la is > -90 and < 90 && lo is > -180 and < 180
+            && !(Math.Abs(la) < 1e-12 && Math.Abs(lo) < 1e-12))
+        {
+            url = PublicLibraryCatalog.WithEmbed(
+                PublicLibraryCatalog.WebExploreMapUrl
+                + $"&lat={la.ToString(CultureInfo.InvariantCulture)}"
+                + $"&lon={lo.ToString(CultureInfo.InvariantCulture)}"
+                + "&zoom=15&preset=terrain");
+        }
+        else
+        {
+            url = PublicLibraryCatalog.WebExploreMapUrlEmbedded;
+        }
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
