@@ -149,6 +149,7 @@ public sealed class SubscriptionEntitlementService
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
+        FirebaseAppCheckHeader.TryApply(req, CloudPublishWebViewHost.AppCheckTokenCache);
 
         using var resp = await _http.SendAsync(req, cancellationToken).ConfigureAwait(false);
         if (resp.StatusCode == HttpStatusCode.NotFound)

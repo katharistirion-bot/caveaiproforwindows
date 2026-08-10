@@ -19,6 +19,8 @@ public partial class LoginWindow : Window
     private bool _initialized;
     private bool _completed;
     private bool _validating;
+    private bool _clearedAuthSiteCache;
+    private int _recoverRedirectRetries;
     private string? _lastAccessDeniedDetail;
     private CancellationTokenRegistration _startupTimeoutRegistration;
 
@@ -153,6 +155,21 @@ public partial class LoginWindow : Window
 
             core.NavigationCompleted += async (_, _) =>
             {
+                var src = core.Source ?? "";
+                if (src.Contains("recover.html", StringComparison.OrdinalIgnoreCase))
+                {
+                    App.WriteStartupLog("LoginWindow: recover.html (stale site cache after deploy)");
+                    if (src.Contains("manual=1", StringComparison.OrdinalIgnoreCase) &&
+                        _recoverRedirectRetries < 1)
+                    {
+                        _recoverRedirectRetries++;
+                        _clearedAuthSiteCache = false;
+                        await ClearStaleWebsiteAuthCacheAsync(core).ConfigureAwait(true);
+                        await NavigateAuthEntryAsync(core).ConfigureAwait(true);
+                    }
+                    return;
+                }
+
                 if (!DesktopAuthFallback.IsFallbackUri(core.Source))
                     return;
                 await DesktopAuthFallback.PushFirebaseConfigToPageAsync(core).ConfigureAwait(true);
@@ -417,13 +434,36 @@ public partial class LoginWindow : Window
             await DesktopAuthFallback.PrepareFallbackNavigationAsync(core).ConfigureAwait(true);
             SetIdleStatus("Sign in with Google on the bundled auth page…");
             Debug.WriteLine("[LoginWindow] Navigating to bundled auth: " + DesktopAuthFallback.FallbackUri);
+            App.WriteStartupLog("LoginWindow: bundled auth (localhost/auth.html)");
             core.Navigate(DesktopAuthFallback.FallbackUri);
             return;
         }
 
+        await ClearStaleWebsiteAuthCacheAsync(core).ConfigureAwait(true);
         SetIdleStatus("Sign in with Google on the Cave Library auth page…");
         Debug.WriteLine("[LoginWindow] Bundled Firebase config missing — using live desktop auth URL.");
+        App.WriteStartupLog("LoginWindow: live web auth (bundled firebase-config missing)");
         core.Navigate(PublicLibraryCatalog.DesktopAuthUrl);
+    }
+
+    /// <summary>Clears cached SPA chunks after caveaipro.com deploys (avoids recover.html login loop in WebView2).</summary>
+    private async Task ClearStaleWebsiteAuthCacheAsync(CoreWebView2 core)
+    {
+        if (_clearedAuthSiteCache)
+            return;
+        _clearedAuthSiteCache = true;
+        try
+        {
+            await core.Profile.ClearBrowsingDataAsync(
+                CoreWebView2BrowsingDataKinds.DiskCache |
+                CoreWebView2BrowsingDataKinds.CacheStorage |
+                CoreWebView2BrowsingDataKinds.IndexedDb).ConfigureAwait(true);
+            App.WriteStartupLog("LoginWindow: cleared WebView2 cache before auth");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("[LoginWindow] ClearBrowsingData skipped: " + ex.Message);
+        }
     }
 
     private void Exit_Click(object sender, RoutedEventArgs e)

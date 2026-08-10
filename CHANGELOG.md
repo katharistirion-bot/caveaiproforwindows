@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [1.5.16] - 2026-08-10
+
+### Fixed
+
+- **Sign-in after website deploy** — clear WebView2 cache before live auth; recover from recover.html stale-chunk loop
+- **Subscription check** — attach App Check header on Firestore entitlement reads when token is cached
+
 ## [1.5.15] - 2026-08-10
 
 ### Added
