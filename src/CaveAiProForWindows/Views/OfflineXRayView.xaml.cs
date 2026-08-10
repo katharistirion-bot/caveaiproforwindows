@@ -1134,15 +1134,6 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
             return;
 
         vm.MarkDirty("X-Ray calibration updated — Ctrl+S to save");
-        if (MessageBox.Show(
-                owner,
-                "Geo bounds updated in project memory. Save project now to write extensionData to disk?",
-                "X-Ray calibration",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
-            return;
-
-        vm.SaveProjectCommand.Execute(null);
     }
 
     private void ExportGeoMap_Click(object sender, RoutedEventArgs e)

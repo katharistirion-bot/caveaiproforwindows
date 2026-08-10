@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Net.NetworkInformation;
 using System.Text.Json;
 using System.Threading;
 using System.Windows;
@@ -353,6 +354,12 @@ public partial class SurfaceMapView : UserControl
                         UpdateDeclinationBadge();
                         FlushPendingProject();
                         StartExpeditionSharePolling();
+                        if (!NetworkInterface.GetIsNetworkAvailable())
+                        {
+                            OfflineBanner.Visibility = Visibility.Visible;
+                            ApplyOfflineFallbackMode("Offline at startup — cache-only + performance mode");
+                        }
+                        RefreshOfflinePackStatusLabel();
                         if (!_fitSurveyOnReady)
                         {
                             _fitSurveyOnReady = true;
@@ -465,7 +472,7 @@ public partial class SurfaceMapView : UserControl
                                 UpdateCoordsLine();
                             }
                             QueueProjectPush();
-                            MarkProjectDirtyAndPrompt(
+                            MarkProjectDirty(
                                 string.Equals(kind, "entrance", StringComparison.OrdinalIgnoreCase)
                                     ? "Entrance locked from map — Ctrl+S to save"
                                     : "Pin updated — Ctrl+S to save project");
@@ -473,21 +480,7 @@ public partial class SurfaceMapView : UserControl
                         break;
                     case "mapOffline":
                         OfflineBanner.Visibility = Visibility.Visible;
-                        if (CacheOnlyCheck.IsChecked != true)
-                        {
-                            CacheOnlyCheck.IsChecked = true;
-                            if (_tileCache != null)
-                                _tileCache.CacheOnlyMode = true;
-                            var all = AppUiSettingsStore.LoadOrDefault();
-                            all.SurfaceMap.CacheOnlyMode = true;
-                            AppUiSettingsStore.Save(all);
-                        }
-                        if (PerformanceToggle.IsChecked != true)
-                        {
-                            PerformanceToggle.IsChecked = true;
-                            PushLayerStateToMap();
-                        }
-                        StatusText.Text = "Offline — cache-only + performance mode";
+                        ApplyOfflineFallbackMode("Offline — cache-only + performance mode");
                         break;
                     case "elevationProfile":
                         ApplyElevationProfile(root);
@@ -524,10 +517,16 @@ public partial class SurfaceMapView : UserControl
         if (payload.TryGetProperty("lidarOverlayEnabled", out var lo) &&
             lo.ValueKind is JsonValueKind.True or JsonValueKind.False)
             s.LidarOverlayEnabled = lo.GetBoolean();
-        if (payload.TryGetProperty("centerLon", out var clon) && clon.TryGetDouble(out var lon))
-            s.CenterLon = lon;
         if (payload.TryGetProperty("centerLat", out var clat) && clat.TryGetDouble(out var lat))
+        {
             s.CenterLat = lat;
+            UpdateOfflineCoverageHint(lat, s.CenterLon);
+        }
+        if (payload.TryGetProperty("centerLon", out var clon) && clon.TryGetDouble(out var lon))
+        {
+            s.CenterLon = lon;
+            UpdateOfflineCoverageHint(s.CenterLat, lon);
+        }
         if (payload.TryGetProperty("zoom", out var zoom) && zoom.TryGetDouble(out var z))
         {
             s.Zoom = z;
@@ -1106,7 +1105,7 @@ public partial class SurfaceMapView : UserControl
                 UpdateCoordsLine();
             }
             QueueProjectPush();
-            MarkProjectDirtyAndPrompt(
+            MarkProjectDirty(
                 kind switch
                 {
                     "entrance" => "Entrance locked from GPS — Ctrl+S to save",
@@ -1131,35 +1130,100 @@ public partial class SurfaceMapView : UserControl
         SurfaceWebView.CoreWebView2.PostWebMessageAsJson(json);
     }
 
-    private void MarkProjectDirtyAndPrompt(string status)
+    private void MarkProjectDirty(string status)
     {
         StatusText.Text = status;
         if (Window.GetWindow(this)?.DataContext is ViewModels.MainViewModel vm)
             vm.MarkDirty(status);
-        PromptSaveProjectAfterPin();
     }
 
-    private void PromptSaveProjectAfterPin()
+    private static bool IsValidMapCoord(double lat, double lon) =>
+        lat is > -90 and < 90 && lon is > -180 and < 180 &&
+        !(Math.Abs(lat) < 1e-12 && Math.Abs(lon) < 1e-12);
+
+    private void ApplyOfflineFallbackMode(string statusMessage)
     {
-        var owner = Window.GetWindow(this);
-        if (owner?.DataContext is not ViewModels.MainViewModel vm)
+        if (CacheOnlyCheck.IsChecked != true)
+        {
+            _applyingSettings = true;
+            try
+            {
+                CacheOnlyCheck.IsChecked = true;
+            }
+            finally
+            {
+                _applyingSettings = false;
+            }
+            if (_tileCache != null)
+                _tileCache.CacheOnlyMode = true;
+            var all = AppUiSettingsStore.LoadOrDefault();
+            all.SurfaceMap.CacheOnlyMode = true;
+            AppUiSettingsStore.Save(all);
+        }
+        if (PerformanceToggle.IsChecked != true)
+        {
+            PerformanceToggle.IsChecked = true;
+            PushLayerStateToMap();
+        }
+        StatusText.Text = statusMessage;
+    }
+
+    private void UpdateOfflineCoverageHint(double lat, double lon)
+    {
+        if (_offlinePackDownloading || OfflinePackStatusText == null)
             return;
-        if (MessageBox.Show(
-                owner,
-                "Pin/entrance updated in project memory. Save project now?",
-                "Surface map",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
+        var meta = SurfaceMapOfflinePack.Read();
+        if (meta == null)
+        {
+            RefreshOfflinePackStatusLabel();
             return;
-        vm.SaveProjectCommand.Execute(null);
+        }
+        if (!IsValidMapCoord(lat, lon))
+        {
+            RefreshOfflinePackStatusLabel();
+            return;
+        }
+        OfflinePackStatusText.Text = meta.Covers(lat, lon)
+            ? "Offline pack: " + meta.Label()
+            : "Offline pack: " + meta.Label() + " — map center outside downloaded area";
     }
 
     private void RefreshOfflinePackStatusLabel()
     {
+        if (OfflinePackStatusText == null)
+            return;
+        if (_offlinePackDownloading)
+            return;
         var meta = SurfaceMapOfflinePack.Read();
-        OfflinePackStatusText.Text = meta == null
-            ? "Offline pack: none yet — download while online before field use"
-            : "Offline pack: " + meta.Label();
+        if (meta == null)
+        {
+            OfflinePackStatusText.Text = "Offline pack: none yet — download while online before field use";
+            return;
+        }
+        var sv = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
+        if (IsValidMapCoord(sv.CenterLat, sv.CenterLon) && !meta.Covers(sv.CenterLat, sv.CenterLon))
+        {
+            OfflinePackStatusText.Text = "Offline pack: " + meta.Label() + " — map center outside downloaded area";
+            return;
+        }
+        OfflinePackStatusText.Text = "Offline pack: " + meta.Label();
+    }
+
+    private void SetOfflineDownloadUiBusy(bool busy)
+    {
+        _offlinePackDownloading = busy;
+        if (DownloadOfflineAreaButton != null)
+            DownloadOfflineAreaButton.IsEnabled = !busy;
+        if (CancelOfflineDownloadButton != null)
+            CancelOfflineDownloadButton.IsEnabled = busy;
+    }
+
+    private void CancelOfflineDownload_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_offlinePackDownloading)
+            return;
+        _offlinePackCts?.Cancel();
+        StatusText.Text = "Cancelling offline download…";
     }
 
     private async void DownloadOfflineArea_Click(object sender, RoutedEventArgs e)
@@ -1174,23 +1238,26 @@ public partial class SurfaceMapView : UserControl
 
         double? lat = null;
         double? lon = null;
-        var gps = await ReferenceCatalogGeolocation.TryGetDeviceLocationAsync().ConfigureAwait(true);
-        if (gps.Ok && gps.Origin != null)
-        {
-            lat = gps.Origin.Lat;
-            lon = gps.Origin.Lon;
-        }
-        else if (Project?.Lat is { } pla && Project.Lon is { } plo &&
-                 pla is > -90 and < 90 && plo is > -180 and < 180 &&
-                 !(Math.Abs(pla) < 1e-12 && Math.Abs(plo) < 1e-12))
+        // Prefer survey entrance, then device GPS, then last map center.
+        if (Project?.Lat is { } pla && Project.Lon is { } plo && IsValidMapCoord(pla, plo))
         {
             lat = pla;
             lon = plo;
         }
         else
         {
+            var gps = await ReferenceCatalogGeolocation.TryGetDeviceLocationAsync().ConfigureAwait(true);
+            if (gps.Ok && gps.Origin != null)
+            {
+                lat = gps.Origin.Lat;
+                lon = gps.Origin.Lon;
+            }
+        }
+
+        if (lat is null || lon is null)
+        {
             var sv = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
-            if (Math.Abs(sv.CenterLat) > 1e-6 || Math.Abs(sv.CenterLon) > 1e-6)
+            if (IsValidMapCoord(sv.CenterLat, sv.CenterLon))
             {
                 lat = sv.CenterLat;
                 lon = sv.CenterLon;
@@ -1212,7 +1279,7 @@ public partial class SurfaceMapView : UserControl
         var (south, west, north, east) = SurfaceMapOfflinePack.BoundingBoxAround(lat.Value, lon.Value);
         _offlinePackCts?.Cancel();
         _offlinePackCts = new CancellationTokenSource();
-        _offlinePackDownloading = true;
+        SetOfflineDownloadUiBusy(true);
         StatusText.Text = "Downloading offline OSM tiles…";
         OfflinePackStatusText.Text = "Offline pack: downloading…";
         try
@@ -1253,7 +1320,7 @@ public partial class SurfaceMapView : UserControl
         }
         finally
         {
-            _offlinePackDownloading = false;
+            SetOfflineDownloadUiBusy(false);
             RefreshOfflinePackStatusLabel();
         }
     }

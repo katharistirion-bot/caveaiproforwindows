@@ -81,9 +81,12 @@
                               ToolTip="Use for airplane mode after Download offline area" />
                     <TextBlock x:Name="TileCacheSizeText" VerticalAlignment="Center" Margin="0,0,12,4"
                                FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Text="Cache: —" />
-                    <Button Content="Download offline area" Padding="8,4" Margin="0,0,8,4"
+                    <Button x:Name="DownloadOfflineAreaButton" Content="Download offline area" Padding="8,4" Margin="0,0,8,4"
                             Click="DownloadOfflineArea_Click"
                             ToolTip="Prefetch ~6 km OSM topo around entrance / GPS / map center (zoom 11–16)" />
+                    <Button x:Name="CancelOfflineDownloadButton" Content="Cancel" Padding="8,4" Margin="0,0,8,4"
+                            Click="CancelOfflineDownload_Click" IsEnabled="False"
+                            ToolTip="Stop an in-progress offline tile download" />
                     <Button Content="Clear cache" Padding="8,4" Margin="0,0,0,4" Click="ClearTileCache_Click" />
                 </WrapPanel>
                 <TextBlock x:Name="OfflinePackStatusText" FontSize="11" Margin="0,0,0,8"
