@@ -2,6 +2,8 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using CaveAiProForWindows.Services;
+
 namespace CaveAiProForWindows.Services.CloudPublish;
 
 /// <summary>Firebase web client config (public identifiers + API key) for Auth in WebView2.</summary>
@@ -96,16 +98,39 @@ public sealed class FirebaseProjectConfig
 
     private static FirebaseWebClientConfig? TryLoadEmbeddedWebClientConfig()
     {
-        try
+        foreach (var path in CandidateConfigPaths())
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "DesktopAuth", "firebase-config.json");
-            if (!File.Exists(path))
-                return null;
-            return JsonSerializer.Deserialize<FirebaseWebClientConfig>(File.ReadAllText(path));
+            try
+            {
+                if (!File.Exists(path))
+                    continue;
+                var cfg = JsonSerializer.Deserialize<FirebaseWebClientConfig>(File.ReadAllText(path));
+                if (cfg != null && IsUsableApiKey(cfg.ApiKey))
+                    return cfg;
+            }
+            catch
+            {
+                /* try next path */
+            }
         }
-        catch
+
+        return null;
+    }
+
+    private static IEnumerable<string> CandidateConfigPaths()
+    {
+        yield return AppContentPaths.Assets("DesktopAuth", "firebase-config.json");
+        yield return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CaveAiProForWindows",
+            "firebase-web-config.json");
+
+        // Debug / repo checkout: walk up from content root to find tools/local/firebase-web-config.json
+        var dir = AppContentPaths.ContentRoot;
+        for (var i = 0; i < 8 && !string.IsNullOrWhiteSpace(dir); i++)
         {
-            return null;
+            yield return Path.Combine(dir, "tools", "local", "firebase-web-config.json");
+            dir = Path.GetDirectoryName(dir);
         }
     }
 

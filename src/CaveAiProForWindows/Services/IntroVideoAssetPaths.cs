@@ -16,7 +16,7 @@ public static class IntroVideoAssetPaths
     {
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, RelativeVideoPath);
+            var path = Path.Combine(AppContentPaths.ContentRoot, RelativeVideoPath);
             return File.Exists(path) ? path : null;
         }
         catch

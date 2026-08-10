@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [1.5.17] - 2026-08-10
+
+### Fixed
+
+- **Sign-in (critical)** — locate `Assets/DesktopAuth` next to the real .exe under single-file/Velopack (was looking in temp extract folder → live web auth crash)
+
 ## [1.5.16] - 2026-08-10
 
 ### Fixed

@@ -131,7 +131,7 @@ public partial class FieldTripPlannerWindow : Window
                 }
             };
 
-            var assetsFolder = Path.Combine(AppContext.BaseDirectory, "Assets", "field-trip-map");
+            var assetsFolder = AppContentPaths.Assets("field-trip-map");
             if (!Directory.Exists(assetsFolder))
             {
                 ShowMapError("Field trip map assets not found.");

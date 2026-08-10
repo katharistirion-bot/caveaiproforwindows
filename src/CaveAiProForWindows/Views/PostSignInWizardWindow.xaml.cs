@@ -69,7 +69,7 @@ public partial class PostSignInWizardWindow : Window
 
     private void OpenSample_Click(object sender, RoutedEventArgs e)
     {
-        var sample = Path.Combine(AppContext.BaseDirectory, "Assets", "Certification", "certification-demo-survey.json");
+        var sample = AppContentPaths.Assets("Certification", "certification-demo-survey.json");
         if (!File.Exists(sample))
         {
             MessageBox.Show(this, "Demo survey not found in app folder.", "Sample", MessageBoxButton.OK, MessageBoxImage.Information);

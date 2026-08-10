@@ -295,7 +295,7 @@ public partial class SurfaceMapView : UserControl
 
     private static string? ResolveSurfaceMapAssetsFolder()
     {
-        var candidate = Path.Combine(AppContext.BaseDirectory, "Assets", "surface-map");
+        var candidate = AppContentPaths.Assets("surface-map");
         return Directory.Exists(candidate) ? candidate : null;
     }
 

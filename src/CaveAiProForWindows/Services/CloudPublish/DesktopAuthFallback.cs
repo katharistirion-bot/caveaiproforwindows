@@ -1,6 +1,8 @@
 using System.IO;
 using Microsoft.Web.WebView2.Core;
 
+using CaveAiProForWindows.Services;
+
 namespace CaveAiProForWindows.Services.CloudPublish;
 
 /// <summary>Bundled auth.html fallback when the web desktopAuth endpoint is unavailable.</summary>
@@ -92,8 +94,7 @@ internal static class DesktopAuthFallback
 
     private static string? ResolveAuthFolder()
     {
-        var baseDir = AppContext.BaseDirectory;
-        var candidate = Path.Combine(baseDir, "Assets", "DesktopAuth");
+        var candidate = AppContentPaths.Assets("DesktopAuth");
         return Directory.Exists(candidate) ? candidate : null;
     }
 }

@@ -1,6 +1,8 @@
 using System.IO;
 using System.Text.Json;
 
+using CaveAiProForWindows.Services;
+
 namespace CaveAiProForWindows.Services.CloudPublish;
 
 /// <summary>Validates bundled firebase-config.json before release packaging and at runtime diagnostics.</summary>
@@ -41,7 +43,7 @@ public static class FirebaseBundledConfigGuard
     }
 
     public static string DefaultBundledConfigPath =>
-        Path.Combine(AppContext.BaseDirectory, "Assets", "DesktopAuth", "firebase-config.json");
+        AppContentPaths.Assets("DesktopAuth", "firebase-config.json");
 
     public static bool IsCurrentBundledConfigUsable() =>
         FirebaseProjectConfig.LoadFromEnvironment().ToWebClientConfig().IsUsable
