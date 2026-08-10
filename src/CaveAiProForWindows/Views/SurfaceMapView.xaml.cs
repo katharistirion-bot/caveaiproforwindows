@@ -35,6 +35,8 @@ public partial class SurfaceMapView : UserControl
     private readonly ExpeditionShareRepository _expeditionShareRepository = new();
     private DispatcherTimer? _expeditionShareTimer;
     private bool _expeditionShareRefreshRunning;
+    private CancellationTokenSource? _offlinePackCts;
+    private bool _offlinePackDownloading;
 
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
         nameof(Project),
@@ -115,6 +117,7 @@ public partial class SurfaceMapView : UserControl
             LidarCheck.IsChecked = s.LidarOverlayEnabled;
             CopernicusCheck.IsChecked = s.CopernicusDsmEnabled;
             OfflineCacheCheck.IsChecked = s.OfflineTileCacheEnabled;
+            CacheOnlyCheck.IsChecked = s.CacheOnlyMode;
             EntrancePinCheck.IsChecked = s.EntrancePinEnabled;
             VehiclePinsCheck.IsChecked = s.VehiclePinsEnabled;
             LidarOpacitySlider.Value = s.LidarOpacity;
@@ -136,8 +139,11 @@ public partial class SurfaceMapView : UserControl
             VehiclePinsCheck.Unchecked += LayerToggle_Changed;
             OfflineCacheCheck.Checked += OfflineCacheToggle_Changed;
             OfflineCacheCheck.Unchecked += OfflineCacheToggle_Changed;
+            CacheOnlyCheck.Checked += CacheOnlyToggle_Changed;
+            CacheOnlyCheck.Unchecked += CacheOnlyToggle_Changed;
             PerformanceToggle.Checked += PerformanceToggle_Changed;
             PerformanceToggle.Unchecked += PerformanceToggle_Changed;
+            RefreshOfflinePackStatusLabel();
         }
         finally
         {
@@ -222,6 +228,7 @@ public partial class SurfaceMapView : UserControl
 
             _tileCache = new SurfaceMapTileCacheService();
             _tileCache.Enabled = AppUiSettingsStore.LoadOrDefault().SurfaceMap.OfflineTileCacheEnabled;
+            _tileCache.CacheOnlyMode = AppUiSettingsStore.LoadOrDefault().SurfaceMap.CacheOnlyMode;
             _tileCache.AttachEnvironment(environment);
             foreach (var pattern in new[]
                      {
@@ -438,31 +445,49 @@ public partial class SurfaceMapView : UserControl
                             root.TryGetProperty("lat", out var pla) && pla.TryGetDouble(out var plat) &&
                             root.TryGetProperty("lon", out var plo) && plo.TryGetDouble(out var plon))
                         {
+                            var kind = pk.GetString() ?? "";
                             var ls = plat.ToString("F6", CultureInfo.InvariantCulture);
                             var los = plon.ToString("F6", CultureInfo.InvariantCulture);
-                            if (string.Equals(pk.GetString(), "vehicle", StringComparison.OrdinalIgnoreCase))
+                            if (string.Equals(kind, "vehicle", StringComparison.OrdinalIgnoreCase))
                             {
                                 Project.ReturnCarLat = ls;
                                 Project.ReturnCarLon = los;
                             }
-                            else if (string.Equals(pk.GetString(), "base", StringComparison.OrdinalIgnoreCase))
+                            else if (string.Equals(kind, "base", StringComparison.OrdinalIgnoreCase))
                             {
                                 Project.ReturnBaseLat = ls;
                                 Project.ReturnBaseLon = los;
                             }
+                            else if (string.Equals(kind, "entrance", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Project.Lat = plat;
+                                Project.Lon = plon;
+                                UpdateCoordsLine();
+                            }
                             QueueProjectPush();
-                            StatusText.Text = "Pin updated — Ctrl+S to save project";
-                            PromptSaveProjectAfterPin();
+                            MarkProjectDirtyAndPrompt(
+                                string.Equals(kind, "entrance", StringComparison.OrdinalIgnoreCase)
+                                    ? "Entrance locked from map — Ctrl+S to save"
+                                    : "Pin updated — Ctrl+S to save project");
                         }
                         break;
                     case "mapOffline":
                         OfflineBanner.Visibility = Visibility.Visible;
+                        if (CacheOnlyCheck.IsChecked != true)
+                        {
+                            CacheOnlyCheck.IsChecked = true;
+                            if (_tileCache != null)
+                                _tileCache.CacheOnlyMode = true;
+                            var all = AppUiSettingsStore.LoadOrDefault();
+                            all.SurfaceMap.CacheOnlyMode = true;
+                            AppUiSettingsStore.Save(all);
+                        }
                         if (PerformanceToggle.IsChecked != true)
                         {
                             PerformanceToggle.IsChecked = true;
                             PushLayerStateToMap();
-                            StatusText.Text = "Offline — performance mode on";
                         }
+                        StatusText.Text = "Offline — cache-only + performance mode";
                         break;
                     case "elevationProfile":
                         ApplyElevationProfile(root);
@@ -826,7 +851,7 @@ public partial class SurfaceMapView : UserControl
         EntranceHintText.Visibility = p == null ? Visibility.Collapsed : Visibility.Visible;
         EntranceHintPanel.Visibility = p == null ? Visibility.Collapsed : Visibility.Visible;
         EntranceHintText.Text =
-            "Set entrance lat/lon in the project JSON (Android: lock A1 under Entrance & Surface Tracking), then reload the surface map.";
+            "Use Entrance GPS or Pick entrance on this map (or lock A1 on Android), then Ctrl+S to save.";
     }
 
     private void PreviewGreeceMap_Click(object sender, RoutedEventArgs e) =>
@@ -854,6 +879,19 @@ public partial class SurfaceMapView : UserControl
         AppUiSettingsStore.Save(all);
         if (_tileCache != null)
             _tileCache.Enabled = all.SurfaceMap.OfflineTileCacheEnabled;
+    }
+
+    private void CacheOnlyToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_applyingSettings) return;
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.SurfaceMap.CacheOnlyMode = CacheOnlyCheck.IsChecked == true;
+        AppUiSettingsStore.Save(all);
+        if (_tileCache != null)
+            _tileCache.CacheOnlyMode = all.SurfaceMap.CacheOnlyMode;
+        StatusText.Text = all.SurfaceMap.CacheOnlyMode
+            ? "Cache-only mode — network tile fetches disabled"
+            : "Network tile fetches allowed when cache misses";
     }
 
     private void LayerToggle_Changed(object sender, RoutedEventArgs e)
@@ -1003,6 +1041,12 @@ public partial class SurfaceMapView : UserControl
     private void LayersToggle_Click(object sender, RoutedEventArgs e) =>
         LayersPanel.Visibility = LayersToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
+    private void SetEntranceGps_Click(object sender, RoutedEventArgs e) =>
+        _ = PlacePinFromHostGpsAsync("entrance");
+
+    private void PickEntranceMap_Click(object sender, RoutedEventArgs e) =>
+        SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPick","payload":{"kind":"entrance"}}""");
+
     private void SetVehicleGps_Click(object sender, RoutedEventArgs e) =>
         _ = PlacePinFromHostGpsAsync("vehicle");
 
@@ -1055,9 +1099,20 @@ public partial class SurfaceMapView : UserControl
                 Project.ReturnBaseLat = ls;
                 Project.ReturnBaseLon = los;
             }
+            else if (string.Equals(kind, "entrance", StringComparison.OrdinalIgnoreCase))
+            {
+                Project.Lat = result.Origin.Lat;
+                Project.Lon = result.Origin.Lon;
+                UpdateCoordsLine();
+            }
             QueueProjectPush();
-            StatusText.Text = (kind == "vehicle" ? "Vehicle park" : "Trailhead") + " pin set from GPS — Ctrl+S to save";
-            PromptSaveProjectAfterPin();
+            MarkProjectDirtyAndPrompt(
+                kind switch
+                {
+                    "entrance" => "Entrance locked from GPS — Ctrl+S to save",
+                    "vehicle" => "Vehicle park pin set from GPS — Ctrl+S to save",
+                    _ => "Trailhead pin set from GPS — Ctrl+S to save",
+                });
         }
         else
         {
@@ -1076,6 +1131,14 @@ public partial class SurfaceMapView : UserControl
         SurfaceWebView.CoreWebView2.PostWebMessageAsJson(json);
     }
 
+    private void MarkProjectDirtyAndPrompt(string status)
+    {
+        StatusText.Text = status;
+        if (Window.GetWindow(this)?.DataContext is ViewModels.MainViewModel vm)
+            vm.MarkDirty(status);
+        PromptSaveProjectAfterPin();
+    }
+
     private void PromptSaveProjectAfterPin()
     {
         var owner = Window.GetWindow(this);
@@ -1083,12 +1146,116 @@ public partial class SurfaceMapView : UserControl
             return;
         if (MessageBox.Show(
                 owner,
-                "Pin updated in project memory. Save project now?",
-                "Surface map pin",
+                "Pin/entrance updated in project memory. Save project now?",
+                "Surface map",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         vm.SaveProjectCommand.Execute(null);
+    }
+
+    private void RefreshOfflinePackStatusLabel()
+    {
+        var meta = SurfaceMapOfflinePack.Read();
+        OfflinePackStatusText.Text = meta == null
+            ? "Offline pack: none yet — download while online before field use"
+            : "Offline pack: " + meta.Label();
+    }
+
+    private async void DownloadOfflineArea_Click(object sender, RoutedEventArgs e)
+    {
+        if (_tileCache == null)
+        {
+            StatusText.Text = "Tile cache not ready";
+            return;
+        }
+        if (_offlinePackDownloading)
+            return;
+
+        double? lat = null;
+        double? lon = null;
+        var gps = await ReferenceCatalogGeolocation.TryGetDeviceLocationAsync().ConfigureAwait(true);
+        if (gps.Ok && gps.Origin != null)
+        {
+            lat = gps.Origin.Lat;
+            lon = gps.Origin.Lon;
+        }
+        else if (Project?.Lat is { } pla && Project.Lon is { } plo &&
+                 pla is > -90 and < 90 && plo is > -180 and < 180 &&
+                 !(Math.Abs(pla) < 1e-12 && Math.Abs(plo) < 1e-12))
+        {
+            lat = pla;
+            lon = plo;
+        }
+        else
+        {
+            var sv = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
+            if (Math.Abs(sv.CenterLat) > 1e-6 || Math.Abs(sv.CenterLon) > 1e-6)
+            {
+                lat = sv.CenterLat;
+                lon = sv.CenterLon;
+            }
+        }
+
+        if (lat is null || lon is null)
+        {
+            StatusText.Text = "Need GPS, entrance, or map center to download an offline area";
+            MessageBox.Show(
+                Window.GetWindow(this),
+                "Set an entrance, get a GPS fix, or pan the map first, then download again.",
+                "Download offline area",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var (south, west, north, east) = SurfaceMapOfflinePack.BoundingBoxAround(lat.Value, lon.Value);
+        _offlinePackCts?.Cancel();
+        _offlinePackCts = new CancellationTokenSource();
+        _offlinePackDownloading = true;
+        StatusText.Text = "Downloading offline OSM tiles…";
+        OfflinePackStatusText.Text = "Offline pack: downloading…";
+        try
+        {
+            var progress = new Progress<(int Done, int Total, int Zoom)>(p =>
+            {
+                StatusText.Text = $"Offline tiles {p.Done}/{p.Total} (z{p.Zoom})";
+                OfflinePackStatusText.Text = $"Offline pack: {p.Done}/{p.Total}";
+            });
+            var result = await _tileCache.PrefetchOsmAreaAsync(
+                south, west, north, east,
+                SurfaceMapOfflinePack.ZoomMin,
+                SurfaceMapOfflinePack.ZoomMax,
+                progress,
+                _offlinePackCts.Token).ConfigureAwait(true);
+            SurfaceMapOfflinePack.Write(south, west, north, east);
+            RefreshOfflinePackStatusLabel();
+            UpdateTileCacheSizeLabel();
+            StatusText.Text = result.Fail == 0
+                ? $"Offline area ready ({result.Ok} tiles) — enable Cache only for airplane mode"
+                : $"Offline pack saved with {result.Fail} tile errors ({result.Ok} ok)";
+            if (!_tileCache.CacheOnlyMode)
+            {
+                CacheOnlyCheck.IsChecked = true;
+                var all = AppUiSettingsStore.LoadOrDefault();
+                all.SurfaceMap.CacheOnlyMode = true;
+                AppUiSettingsStore.Save(all);
+                _tileCache.CacheOnlyMode = true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText.Text = "Offline download cancelled";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Offline download failed: " + ex.Message;
+        }
+        finally
+        {
+            _offlinePackDownloading = false;
+            RefreshOfflinePackStatusLabel();
+        }
     }
 
     private void FitEntrance_Click(object sender, RoutedEventArgs e) =>
@@ -1160,6 +1327,8 @@ public partial class SurfaceMapView : UserControl
     private void ClearTileCache_Click(object sender, RoutedEventArgs e)
     {
         _tileCache?.ClearAll();
+        SurfaceMapOfflinePack.Clear();
+        RefreshOfflinePackStatusLabel();
         UpdateTileCacheSizeLabel();
         StatusText.Text = "Tile cache cleared";
     }

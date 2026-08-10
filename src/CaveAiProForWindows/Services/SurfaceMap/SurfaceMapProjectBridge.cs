@@ -88,8 +88,8 @@ public static class SurfaceMapProjectBridge
         if (!hasEntrance)
         {
             emptyHint = corridor.Corridor != null
-                ? "No entrance GPS — corridor is a preview near Athens. Lock A1 in CaveAI Pro (Android → Entrance & Surface Tracking) or set lat/lon in the project JSON, then reload."
-                : "Set entrance lat/lon in the project JSON (or lock A1 GPS on Android), then reload the surface map.";
+                ? "No entrance GPS — corridor is a preview near Athens. Use Entrance GPS / Pick entrance on Surface Map (or lock A1 on Android), then reload."
+                : "Set entrance with Entrance GPS / Pick entrance on Surface Map (or lock A1 on Android), then reload.";
         }
 
         return new SurfaceMapProjectPayload

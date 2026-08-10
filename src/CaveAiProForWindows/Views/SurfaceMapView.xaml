@@ -76,10 +76,18 @@
                               Foreground="{DynamicResource Cave.TextSubdued}" />
                     <CheckBox x:Name="OfflineCacheCheck" Content="Offline tile cache" IsChecked="True"
                               Margin="0,0,16,4" Foreground="{DynamicResource Cave.TextSubdued}" />
+                    <CheckBox x:Name="CacheOnlyCheck" Content="Cache only (no network tiles)"
+                              Margin="0,0,16,4" Foreground="{DynamicResource Cave.TextSubdued}"
+                              ToolTip="Use for airplane mode after Download offline area" />
                     <TextBlock x:Name="TileCacheSizeText" VerticalAlignment="Center" Margin="0,0,12,4"
                                FontSize="11" Foreground="{DynamicResource Cave.TextMuted}" Text="Cache: —" />
+                    <Button Content="Download offline area" Padding="8,4" Margin="0,0,8,4"
+                            Click="DownloadOfflineArea_Click"
+                            ToolTip="Prefetch ~6 km OSM topo around entrance / GPS / map center (zoom 11–16)" />
                     <Button Content="Clear cache" Padding="8,4" Margin="0,0,0,4" Click="ClearTileCache_Click" />
                 </WrapPanel>
+                <TextBlock x:Name="OfflinePackStatusText" FontSize="11" Margin="0,0,0,8"
+                           Foreground="{DynamicResource Cave.TextMuted}" Text="Offline pack: none yet" />
                 <TextBlock Text="Layers" FontWeight="SemiBold" FontSize="11"
                            Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,6" />
                 <WrapPanel Margin="0,0,0,8">
@@ -109,6 +117,10 @@
                 <TextBlock Text="Field pins" FontWeight="SemiBold" FontSize="11"
                            Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,6" />
                 <WrapPanel>
+                    <Button Content="Entrance GPS" Padding="8,4" Margin="0,0,6,0" Click="SetEntranceGps_Click"
+                            ToolTip="Lock survey entrance from Windows GPS" />
+                    <Button Content="Pick entrance" Padding="8,4" Margin="0,0,12,0" Click="PickEntranceMap_Click"
+                            ToolTip="Click the map to set entrance lat/lon" />
                     <Button Content="Vehicle GPS" Padding="8,4" Margin="0,0,6,0" Click="SetVehicleGps_Click" />
                     <Button Content="Pick vehicle" Padding="8,4" Margin="0,0,12,0" Click="PickVehicleMap_Click" />
                     <Button Content="Base GPS" Padding="8,4" Margin="0,0,6,0" Click="SetBaseGps_Click" />

@@ -1133,6 +1133,7 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         if (owner?.DataContext is not ViewModels.MainViewModel vm)
             return;
 
+        vm.MarkDirty("X-Ray calibration updated — Ctrl+S to save");
         if (MessageBox.Show(
                 owner,
                 "Geo bounds updated in project memory. Save project now to write extensionData to disk?",

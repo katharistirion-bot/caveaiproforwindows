@@ -95,6 +95,9 @@ public sealed class SurfaceMapPersistedState
     /// <summary>Cache OSM / hillshade / DEM tiles locally for offline use (WebView2 intercept).</summary>
     public bool OfflineTileCacheEnabled { get; set; } = true;
 
+    /// <summary>Serve only cached tiles — no network fetch on miss (field / airplane mode).</summary>
+    public bool CacheOnlyMode { get; set; }
+
     /// <summary>Show entrance pin on the surface map.</summary>
     public bool EntrancePinEnabled { get; set; } = true;
 

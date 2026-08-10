@@ -10,6 +10,7 @@ public sealed class ProjectAutosaveService : IDisposable
     private Func<CaveProjectDocument?>? _getProject;
     private Func<string?>? _getSourcePath;
     private Action<CaveProjectDocument>? _persistBeforeSave;
+    private Func<bool>? _isDirty;
 
     public ProjectAutosaveService()
     {
@@ -19,11 +20,13 @@ public sealed class ProjectAutosaveService : IDisposable
     public void Configure(
         Func<CaveProjectDocument?> getProject,
         Func<string?> getSourcePath,
-        Action<CaveProjectDocument> persistBeforeSave)
+        Action<CaveProjectDocument> persistBeforeSave,
+        Func<bool>? isDirty = null)
     {
         _getProject = getProject;
         _getSourcePath = getSourcePath;
         _persistBeforeSave = persistBeforeSave;
+        _isDirty = isDirty;
     }
 
     public string DraftsDirectory =>
@@ -33,6 +36,9 @@ public sealed class ProjectAutosaveService : IDisposable
     {
         try
         {
+            if (_isDirty != null && !_isDirty())
+                return;
+
             var project = _getProject?.Invoke();
             if (project == null)
                 return;

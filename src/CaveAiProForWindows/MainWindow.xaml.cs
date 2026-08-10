@@ -110,7 +110,8 @@ public partial class MainWindow : Window
             _autosave.Configure(
                 () => vm.SelectedProject,
                 () => vm.PrimarySourceFilePath,
-                p => vm.PersistProjectBeforeSave?.Invoke(p));
+                p => vm.PersistProjectBeforeSave?.Invoke(p),
+                () => vm.IsDirty);
             StartAndroidBackupSyncWatcher(vm);
             StartCollaborationNotifications(vm);
             ApplyPlanViewLocalization();
@@ -120,8 +121,14 @@ public partial class MainWindow : Window
             AndroidDesktopSyncHub.CollaborationProjectChanged += OnCollaborationProjectChanged;
             AndroidDesktopSyncHub.SyncFilesChanged += OnAndroidSyncFilesChanged;
         };
-        Closing += (_, _) =>
+        Closing += (_, e) =>
         {
+            if (DataContext is MainViewModel vmDirty && !vmDirty.ConfirmDiscardUnsavedChanges("this session"))
+            {
+                e.Cancel = true;
+                return;
+            }
+
             AndroidDesktopSyncHub.SyncSettingsChanged -= OnAndroidSyncSettingsChanged;
             AndroidDesktopSyncHub.SyncFilesChanged -= OnAndroidSyncFilesChanged;
             AndroidDesktopSyncHub.CollaborationProjectChanged -= OnCollaborationProjectChanged;

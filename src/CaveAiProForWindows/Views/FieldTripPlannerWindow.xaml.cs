@@ -6,6 +6,7 @@ using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.FieldTrip;
 using CaveAiProForWindows.Services.ReferenceCatalog;
+using CaveAiProForWindows.Services.SurfaceMap;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
 
@@ -18,6 +19,7 @@ public partial class FieldTripPlannerWindow : Window
     private static FieldTripPlannerWindow? _active;
     private bool _mapReady;
     private bool _webViewInitialized;
+    private SurfaceMapTileCacheService? _tileCache;
     private System.Windows.Threading.DispatcherTimer? _mapLoadTimer;
 
     public FieldTripPlannerWindow()
@@ -29,7 +31,12 @@ public partial class FieldTripPlannerWindow : Window
             await EnsureMapWebViewAsync().ConfigureAwait(true);
             ReloadStore();
         };
-        Closed += (_, _) => _mapLoadTimer?.Stop();
+        Closed += (_, _) =>
+        {
+            _mapLoadTimer?.Stop();
+            _tileCache?.Dispose();
+            _tileCache = null;
+        };
     }
 
     public static void Show(Window? owner)
@@ -135,6 +142,29 @@ public partial class FieldTripPlannerWindow : Window
                 FieldTripMapBridge.VirtualHost,
                 assetsFolder,
                 CoreWebView2HostResourceAccessKind.Allow);
+
+            // Share Surface Map disk cache so offline packs help Field Trip OSM basemap too.
+            var sm = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
+            _tileCache = new SurfaceMapTileCacheService();
+            _tileCache.Enabled = sm.OfflineTileCacheEnabled;
+            _tileCache.CacheOnlyMode = sm.CacheOnlyMode;
+            _tileCache.AttachEnvironment(environment);
+            core.AddWebResourceRequestedFilter(
+                "https://tile.openstreetmap.org/*",
+                CoreWebView2WebResourceContext.All);
+            core.WebResourceRequested += async (_, args) =>
+            {
+                var deferral = args.GetDeferral();
+                try
+                {
+                    if (_tileCache != null && _tileCache.Enabled)
+                        await _tileCache.TryServeOrCacheAsync(args).ConfigureAwait(true);
+                }
+                finally
+                {
+                    deferral.Complete();
+                }
+            };
 
             core.NavigationCompleted += (_, args) =>
             {

@@ -131,7 +131,7 @@
     const customHint = project && project.emptyStateHint;
     if (hint) {
       hint.textContent = customHint ||
-        'Lock the survey entrance (A1) in CaveAI Pro on Android (Entrance & Surface Tracking) or set lat/lon in Windows project settings, then reload this map.';
+        'Use Entrance GPS or Pick entrance on this map (Windows), or lock A1 on Android, then save the project.';
     }
   }
 
@@ -836,6 +836,11 @@
     } else if (kind === 'base') {
       project.returnBase = { lat: payload.lat, lon: payload.lon };
       applyVehiclePins();
+    } else if (kind === 'entrance') {
+      project.lat = payload.lat;
+      project.lon = payload.lon;
+      applyEntrancePin();
+      updateEmptyState();
     } else {
       applyMyLocationDot(payload.lat, payload.lon);
     }
@@ -1080,14 +1085,21 @@
         setMapBusy(false);
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
-        postHost({ type: 'pinPlaced', kind, lat, lon, source: 'gps' });
         if (kind === 'vehicle') {
           project.returnCar = { lat, lon };
+          applyVehiclePins();
         } else if (kind === 'base') {
           project.returnBase = { lat, lon };
+          applyVehiclePins();
+        } else if (kind === 'entrance') {
+          project.lat = lat;
+          project.lon = lon;
+          applyEntrancePin();
+          updateEmptyState();
         }
-        applyVehiclePins();
-        postHost({ type: 'status', message: (kind === 'vehicle' ? 'Vehicle park' : 'Trailhead') + ' pin set from GPS' });
+        postHost({ type: 'pinPlaced', kind, lat, lon, source: 'gps' });
+        const label = kind === 'entrance' ? 'Entrance' : kind === 'vehicle' ? 'Vehicle park' : 'Trailhead';
+        postHost({ type: 'status', message: label + ' pin set from GPS' });
       },
       () => {
         setMapBusy(false);
@@ -1117,11 +1129,21 @@
         map.getCanvas().style.cursor = measureOn ? 'crosshair' : '';
         const lat = e.lngLat.lat;
         const lon = e.lngLat.lng;
-        if (kind === 'vehicle') project.returnCar = { lat, lon };
-        else if (kind === 'base') project.returnBase = { lat, lon };
-        applyVehiclePins();
+        if (kind === 'vehicle') {
+          project.returnCar = { lat, lon };
+          applyVehiclePins();
+        } else if (kind === 'base') {
+          project.returnBase = { lat, lon };
+          applyVehiclePins();
+        } else if (kind === 'entrance') {
+          project.lat = lat;
+          project.lon = lon;
+          applyEntrancePin();
+          updateEmptyState();
+        }
         postHost({ type: 'pinPlaced', kind, lat, lon, source: 'map' });
-        postHost({ type: 'status', message: (kind === 'vehicle' ? 'Vehicle park' : 'Trailhead') + ' pin placed — save project to persist' });
+        const label = kind === 'entrance' ? 'Entrance' : kind === 'vehicle' ? 'Vehicle park' : 'Trailhead';
+        postHost({ type: 'status', message: label + ' pin placed — save project to persist' });
         postHost({ type: 'pinPickMode', active: false, kind: null });
       }
     });
@@ -1673,14 +1695,15 @@
         break;
       case 'pinPick': {
         const kind = data.payload && data.payload.kind;
-        if (kind === 'vehicle' || kind === 'base') {
+        if (kind === 'vehicle' || kind === 'base' || kind === 'entrance') {
           pinPickKind = kind;
           measureOn = false;
           measurePoints = [];
           updateMeasureOverlay();
           if (map) map.getCanvas().style.cursor = 'crosshair';
           postHost({ type: 'pinPickMode', active: true, kind });
-          postHost({ type: 'status', message: 'Click map to set ' + (kind === 'vehicle' ? 'vehicle park' : 'trailhead') + ' pin' });
+          const label = kind === 'entrance' ? 'entrance' : kind === 'vehicle' ? 'vehicle park' : 'trailhead';
+          postHost({ type: 'status', message: 'Click map to set ' + label + ' pin' });
         } else {
           pinPickKind = null;
           if (map) map.getCanvas().style.cursor = measureOn ? 'crosshair' : '';
@@ -1689,7 +1712,7 @@
         break;
       }
       case 'pinPickGps':
-        if (data.payload && (data.payload.kind === 'vehicle' || data.payload.kind === 'base')) {
+        if (data.payload && (data.payload.kind === 'vehicle' || data.payload.kind === 'base' || data.payload.kind === 'entrance')) {
           placePinFromGps(data.payload.kind);
         }
         break;

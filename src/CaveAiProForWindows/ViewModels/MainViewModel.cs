@@ -30,6 +30,11 @@ public partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private string _windowTitle = "CAVE AI PRO — Survey workstation";
 
+    /// <summary>True when the open project has unsaved in-memory edits (pins, entrance, X-Ray bounds, …).</summary>
+    [ObservableProperty] private bool _isDirty;
+
+    private string _windowTitleBase = "CAVE AI PRO — Survey workstation";
+
     /// <summary>Toolbar subtitle with assembly version (e.g. Survey workstation · v1.2.1).</summary>
     public string ToolbarVersionText { get; } = $"Survey workstation · v{AppMetadata.InformationalVersion}";
 
@@ -550,6 +555,78 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoProjects));
     }
 
+    /// <summary>Marks the session dirty and shows * in the window title until [ClearDirty] / successful save.</summary>
+    public void MarkDirty(string? statusHint = null)
+    {
+        if (!IsDirty)
+            IsDirty = true;
+        RefreshDirtyWindowTitle();
+        if (!string.IsNullOrWhiteSpace(statusHint))
+            StatusMessage = statusHint;
+        SaveProjectCommand.NotifyCanExecuteChanged();
+    }
+
+    public void ClearDirty()
+    {
+        if (!IsDirty)
+            return;
+        IsDirty = false;
+        RefreshDirtyWindowTitle();
+        SaveProjectCommand.NotifyCanExecuteChanged();
+    }
+
+    private void SetWindowTitleBase(string titleWithoutAsterisk)
+    {
+        _windowTitleBase = string.IsNullOrWhiteSpace(titleWithoutAsterisk)
+            ? "CAVE AI PRO — Survey workstation"
+            : titleWithoutAsterisk;
+        RefreshDirtyWindowTitle();
+    }
+
+    private void RefreshDirtyWindowTitle()
+    {
+        WindowTitle = IsDirty ? _windowTitleBase + " *" : _windowTitleBase;
+    }
+
+    /// <summary>
+    /// Returns false if the user cancelled. On Yes, attempts save; if save is impossible, warns and returns false.
+    /// </summary>
+    public bool ConfirmDiscardUnsavedChanges(string? contextLabel = null)
+    {
+        if (!IsDirty)
+            return true;
+
+        var owner = Wpf.Application.Current.MainWindow;
+        var label = string.IsNullOrWhiteSpace(contextLabel) ? "this project" : contextLabel;
+        var result = Wpf.MessageBox.Show(
+            owner,
+            $"You have unsaved changes in {label}.\n\nSave before continuing?",
+            "Unsaved changes",
+            Wpf.MessageBoxButton.YesNoCancel,
+            Wpf.MessageBoxImage.Warning);
+
+        if (result == Wpf.MessageBoxResult.Cancel)
+            return false;
+
+        if (result == Wpf.MessageBoxResult.Yes)
+        {
+            if (!CanSaveProject())
+            {
+                UserErrorReporter.ShowWarning(
+                    owner,
+                    "Cannot save this project from here (need a writable .json/.zip source on disk and accepted legal terms). Use Save as / fix the source path, or choose Don't Save.",
+                    "Save project");
+                return false;
+            }
+
+            SaveProject();
+            return !IsDirty;
+        }
+
+        ClearDirty();
+        return true;
+    }
+
     private bool CanCloseWorkspace() =>
         Projects.Count > 0 ||
         _knownCaveMaster.Count > 0 ||
@@ -564,9 +641,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (!CanCloseWorkspace())
             return;
+        if (!ConfirmDiscardUnsavedChanges("the open workspace"))
+            return;
 
         ClearWorkspaceDataCore();
-        WindowTitle = "CAVE AI PRO — Survey workstation";
+        ClearDirty();
+        SetWindowTitleBase("CAVE AI PRO — Survey workstation");
         StatusMessage =
             "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, Survex/Therion import, Loop closure (Compass/WLS), exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
         NotifyWorkspaceCommandStateChanged();
@@ -581,12 +661,17 @@ public partial class MainViewModel : ObservableObject
         MapInventoryRows.Count > 0;
 
     /// <summary>Auto-unload before opening a different backup so the previous session cannot leak into the new project.</summary>
-    private void UnloadWorkspaceBeforeNewLoad()
+    /// <returns>False if the user cancelled leaving a dirty workspace.</returns>
+    private bool UnloadWorkspaceBeforeNewLoad()
     {
         if (!HasLoadedWorkspaceContent())
-            return;
+            return true;
+        if (!ConfirmDiscardUnsavedChanges("the current workspace"))
+            return false;
 
         ClearWorkspaceDataCore();
+        ClearDirty();
+        return true;
     }
 
     private void ClearWorkspaceDataCore()
@@ -923,7 +1008,8 @@ public partial class MainViewModel : ObservableObject
                 warnings = imported.Warnings;
             }
 
-            UnloadWorkspaceBeforeNewLoad();
+            if (!UnloadWorkspaceBeforeNewLoad())
+                return;
             ProjectListFilter = "";
             Projects = new ObservableCollection<CaveProjectDocument>(new[] { project });
             RefreshCaveRegistryAndCatalog(Projects.ToList());
@@ -931,6 +1017,8 @@ public partial class MainViewModel : ObservableObject
             _loadedSurveyFingerprint = SurveyContentFingerprint.Compute(project);
             _primarySourcePath = dlg.FileName;
             SourcePathDisplay = dlg.FileName;
+            SetWindowTitleBase($"CAVE AI PRO — {Path.GetFileName(dlg.FileName)}");
+            ClearDirty();
             AppUiSettingsStore.ApplyFullOverlaysAfterImport();
             RefreshReferenceLinkSummary();
             ApplyIntegrityUi();
@@ -1217,7 +1305,7 @@ public partial class MainViewModel : ObservableObject
             _auxiliaryZipForMaps = newPath;
 
         SourcePathDisplay = newPath;
-        WindowTitle = $"CAVE AI PRO — {Path.GetFileName(newPath)}";
+        SetWindowTitleBase($"CAVE AI PRO — {Path.GetFileName(newPath)}");
         RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
         SaveProjectCommand.NotifyCanExecuteChanged();
     }
@@ -1246,7 +1334,8 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Loads one or more JSON/ZIP files and merges all projects (heavy work runs off the UI thread).</summary>
     public void LoadFromPaths(IReadOnlyList<string> paths)
     {
-        UnloadWorkspaceBeforeNewLoad();
+        if (!UnloadWorkspaceBeforeNewLoad())
+            return;
         _loadCts?.Cancel();
         _loadCts?.Dispose();
         _loadCts = new CancellationTokenSource();
@@ -1409,9 +1498,10 @@ public partial class MainViewModel : ObservableObject
                     "Open — JSON");
             }
 
-            WindowTitle = orderedPaths.Count <= 1
+            SetWindowTitleBase(orderedPaths.Count <= 1
                 ? $"CAVE AI PRO — {Path.GetFileName(orderedPaths[0])}"
-                : $"CAVE AI PRO — {orderedPaths.Count} files";
+                : $"CAVE AI PRO — {orderedPaths.Count} files");
+            ClearDirty();
             ExtractPhotosCommand.NotifyCanExecuteChanged();
             ExtractFullArchiveCommand.NotifyCanExecuteChanged();
             RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
@@ -1685,6 +1775,7 @@ public partial class MainViewModel : ObservableObject
                 },
             });
 
+            ClearDirty();
             StatusMessage =
                 $"Saved {Projects.Count} project(s) — sketch mapObjects and metadata written to {Path.GetFileName(_primarySourcePath)}.";
         }
