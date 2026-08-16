@@ -208,6 +208,50 @@ public sealed class AndroidPipelineTests
     }
 
     [TestMethod]
+    public void PlanStationPositionOverrides_roundTrip_objectMap()
+    {
+        const string json = """
+            [{
+              "name":"t",
+              "date":"2026-01-01",
+              "shots":[],
+              "planStationPositionOverrides":{"B2":{"x":12.345,"y":-3.21,"z":101.5}}
+            }]
+            """;
+        var loaded = ExplorationDataLoader.DeserializeProjectsFromText(json);
+        Assert.AreEqual(1, loaded.Count);
+        Assert.IsTrue(loaded[0].PlanStationPositionOverrides.TryGetValue("b2", out var o));
+        Assert.AreEqual(12.345f, o.X, 1e-4f);
+        Assert.AreEqual(-3.21f, o.Y, 1e-4f);
+        Assert.AreEqual(101.5f, o.Z, 1e-4f);
+        var blob = JsonSerializer.Serialize(loaded[0].PlanStationPositionOverrides);
+        StringAssert.Contains(blob, "12.345");
+        var dict = JsonSerializer.Deserialize<Dictionary<string, PlanStationPositionOverride>>(blob);
+        Assert.IsNotNull(dict);
+        Assert.IsTrue(dict!.TryGetValue("B2", out var o2));
+        Assert.AreEqual(12.345f, o2.X, 1e-4f);
+    }
+
+    [TestMethod]
+    public void ImportedStationCoordinatesBootstrap_merges_planStationPositionOverrides_objectMap()
+    {
+        var p = new CaveProjectDocument
+        {
+            Name = "t",
+            ExtensionData = new Dictionary<string, JsonElement>
+            {
+                ["planStationPositionOverrides"] = JsonDocument.Parse(
+                    """{"B2":{"x":12.3,"y":-3.2,"z":101.5}}""").RootElement,
+            },
+        };
+        ImportedStationCoordinatesBootstrap.TryApply(p);
+        Assert.IsTrue(p.PlanStationPositionOverrides.TryGetValue("B2", out var b));
+        Assert.AreEqual(12.3f, b.X, 1e-4f);
+        Assert.AreEqual(-3.2f, b.Y, 1e-4f);
+        Assert.AreEqual(101.5f, b.Z, 1e-4f);
+    }
+
+    [TestMethod]
     public void ExplorationDataLoader_deserializes_survey_archive_v2_enrichment()
     {
         const string json = """

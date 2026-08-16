@@ -20,6 +20,7 @@ using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.Services.Localization;
 using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.Services.ReferenceCatalog;
+using CaveAiProForWindows.Services.SurveyAnalysis;
 using CaveAiProForWindows.Services.SurveyCloud;
 using CaveAiProForWindows.Views;
 using Wpf = System.Windows;
@@ -220,6 +221,11 @@ public partial class MainViewModel : ObservableObject
     /// <summary>On-device survey hints for SURVEY QC tab (mirrors GEO/BIO and publication sheet panels).</summary>
     public string OfflineBrainHintText => CaveAiOfflineBrain.FormatStatusHintPanel(SelectedProject);
 
+    [ObservableProperty] private string _caveAiQueryText = "";
+
+    [ObservableProperty] private string _caveAiAnswerText =
+        "Ask about depth, traverse length, loops, volume, or next step. Answers stay on this PC.";
+
     /// <summary>English site-identity line for status bar tooltip (mirrors Android <c>SiteIdentity.kt</c>).</summary>
     public string SiteIdentityTooltip =>
         SiteIdentity.SummarizeActiveProject(SelectedProject, _knownCaveMaster);
@@ -333,6 +339,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(StatisticsText));
         OnPropertyChanged(nameof(OfflineBrainHintText));
+        AskCaveAiCommand.NotifyCanExecuteChanged();
+        SaveSurveyProjectToCloudCommand.NotifyCanExecuteChanged();
         RefreshSurveyQcIssueRows();
         RefreshStationQc();
         ExportCsvCommand.NotifyCanExecuteChanged();
@@ -1114,6 +1122,87 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = "Survey Cloud open failed.";
         }
     }
+
+    private bool CanSaveSurveyProjectToCloud() =>
+        LegalTermsGateOpen() && SelectedProject != null && !MicrosoftTestMode.IsActive;
+
+    [RelayCommand(CanExecute = nameof(CanSaveSurveyProjectToCloud))]
+    private async Task SaveSurveyProjectToCloud()
+    {
+        if (MicrosoftTestMode.IsActive)
+        {
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                "Survey Cloud is disabled in Microsoft certification test mode.",
+                "Survey Cloud",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
+            return;
+        }
+
+        if (SelectedProject == null)
+            return;
+
+        var owner = GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow;
+        try
+        {
+            var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+            if (token == null)
+            {
+                await DesktopAuthWindow.AcquireTokenAsync(owner, CloudPublishWebViewHost.TokenCache).ConfigureAwait(true);
+                token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+            }
+
+            if (token == null)
+            {
+                Wpf.MessageBox.Show(
+                    owner,
+                    "Sign in with the same Google account you use in CaveAI Pro on Android to save private cloud surveys.",
+                    "Survey Cloud",
+                    Wpf.MessageBoxButton.OK,
+                    Wpf.MessageBoxImage.Information);
+                return;
+            }
+
+            var confirm = Wpf.MessageBox.Show(
+                owner,
+                "Upload this survey to Survey Cloud?\n\n" +
+                "The JSON is stored privately under your account (same path as Android). " +
+                "Loop-closure plan overrides are included.",
+                "Save to Survey Cloud",
+                Wpf.MessageBoxButton.YesNo,
+                Wpf.MessageBoxImage.Question);
+            if (confirm != Wpf.MessageBoxResult.Yes)
+                return;
+
+            PersistProjectBeforeSave?.Invoke(SelectedProject);
+            StatusMessage = $"Uploading “{SelectedProject.Name}” to Survey Cloud…";
+            var meta = await SurveyCloudProjectService.UploadProjectAsync(token, SelectedProject).ConfigureAwait(true);
+            MarkDirty();
+            if (CanSaveProject())
+                SaveProject();
+            StatusMessage = $"Saved “{meta.CaveName}” to Survey Cloud ({meta.ShotCount} shots).";
+            Wpf.MessageBox.Show(
+                owner,
+                $"Uploaded to Survey Cloud.\n\nPreview: {meta.PreviewUrl}",
+                "Survey Cloud",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            UserErrorReporter.ShowWarning(owner, ex.Message, "Survey Cloud");
+            StatusMessage = "Survey Cloud upload failed.";
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAskCaveAi))]
+    private void AskCaveAi()
+    {
+        CaveAiAnswerText = CaveAiOfflineBrain.Answer(SelectedProject, CaveAiQueryText, _knownCaveMaster);
+    }
+
+    private bool CanAskCaveAi() => LegalTermsGateOpen() && SelectedProject != null;
 
     [RelayCommand]
     private void OpenStandaloneMaps()
@@ -2138,7 +2227,19 @@ public partial class MainViewModel : ObservableObject
         if (SelectedProject == null)
             return;
         var owner = Wpf.Application.Current.MainWindow;
-        new LoopClosureAssistantWindow(SelectedProject) { Owner = owner }.ShowDialog();
+        new LoopClosureAssistantWindow(
+            SelectedProject,
+            canApplyInPlace: CanSaveProject(),
+            applyInPlace: result =>
+            {
+                SurveyLoopClosureAdjuster.ApplyToPlanOverrides(SelectedProject, result);
+                MarkDirty();
+                if (CanSaveProject())
+                    SaveProject();
+                RefreshStationQc();
+                OnPropertyChanged(nameof(StatisticsText));
+                OnPropertyChanged(nameof(SummaryText));
+            }) { Owner = owner }.ShowDialog();
     }
 
     private bool CanShowLoopClosureAssistant() => LegalTermsGateOpen() && SelectedProject != null;

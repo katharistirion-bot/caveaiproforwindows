@@ -3,8 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace CaveAiProForWindows.Models;
 
-/// <summary>Plan-frame station position override (metres). Session/editor use; not part of Android export JSON.</summary>
-public readonly record struct PlanStationPositionOverride(float X, float Y, float Z);
+/// <summary>Plan-frame station position override (metres). Persisted as <c>planStationPositionOverrides</c>.</summary>
+public readonly record struct PlanStationPositionOverride(
+    [property: JsonPropertyName("x")] float X,
+    [property: JsonPropertyName("y")] float Y,
+    [property: JsonPropertyName("z")] float Z);
 
 /// <summary>Android <c>CaveProject</c> Gson shape for backup <c>data.json</c> — explicit fields preserve 1:1 JSON mapping; overflow still in <see cref="ExtensionData"/>.</summary>
 public sealed class CaveProjectDocument
@@ -75,6 +78,10 @@ public sealed class CaveProjectDocument
 
     [JsonPropertyName("linkedLibraryCaveId")]
     public string? LinkedLibraryCaveId { get; set; }
+
+    /// <summary>Stable per-project id (Android <c>projectId</c>) for Survey Cloud round-trip.</summary>
+    [JsonPropertyName("projectId")]
+    public string? ProjectId { get; set; }
 
     /// <summary>
     /// Cross-platform site class: <c>CAVE</c>, <c>MINE</c>, <c>POTHOLE</c>, <c>SPRING</c>
@@ -230,9 +237,30 @@ public sealed class CaveProjectDocument
     [JsonIgnore]
     public string? LoadedFromFile { get; set; }
 
-    [JsonIgnore]
-    public Dictionary<string, PlanStationPositionOverride> PlanStationPositionOverrides { get; } =
+    private Dictionary<string, PlanStationPositionOverride> _planStationPositionOverrides =
         new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Absolute plan-frame XYZ (metres) applied after traverse reduction.
+    /// Shared with Android / web as <c>planStationPositionOverrides</c>.
+    /// </summary>
+    [JsonPropertyName("planStationPositionOverrides")]
+    public Dictionary<string, PlanStationPositionOverride> PlanStationPositionOverrides
+    {
+        get => _planStationPositionOverrides;
+        set
+        {
+            _planStationPositionOverrides = new Dictionary<string, PlanStationPositionOverride>(StringComparer.OrdinalIgnoreCase);
+            if (value == null)
+                return;
+            foreach (var kv in value)
+            {
+                if (string.IsNullOrWhiteSpace(kv.Key))
+                    continue;
+                _planStationPositionOverrides[kv.Key] = kv.Value;
+            }
+        }
+    }
 
     public override string ToString() => string.IsNullOrWhiteSpace(Date) ? Name : $"{Name}  ({Date})";
 }

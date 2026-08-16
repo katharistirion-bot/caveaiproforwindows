@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using CaveAiProForWindows.Models;
@@ -21,6 +22,8 @@ public partial class FieldTripPlannerWindow : Window
     private bool _webViewInitialized;
     private SurfaceMapTileCacheService? _tileCache;
     private System.Windows.Threading.DispatcherTimer? _mapLoadTimer;
+    private CancellationTokenSource? _offlinePackCts;
+    private bool _offlinePackDownloading;
 
     public FieldTripPlannerWindow()
     {
@@ -34,6 +37,7 @@ public partial class FieldTripPlannerWindow : Window
         Closed += (_, _) =>
         {
             _mapLoadTimer?.Stop();
+            _offlinePackCts?.Cancel();
             _tileCache?.Dispose();
             _tileCache = null;
         };
@@ -168,9 +172,17 @@ public partial class FieldTripPlannerWindow : Window
             _tileCache.Enabled = sm.OfflineTileCacheEnabled;
             _tileCache.CacheOnlyMode = sm.CacheOnlyMode;
             _tileCache.AttachEnvironment(environment);
-            core.AddWebResourceRequestedFilter(
-                "https://tile.openstreetmap.org/*",
-                CoreWebView2WebResourceContext.All);
+            foreach (var pattern in new[]
+                     {
+                         "https://tile.openstreetmap.org/*",
+                         "https://tiles.wmflabs.org/*",
+                         "https://s3.amazonaws.com/elevation-tiles-prod/*",
+                         "https://tiles.maps.eox.at/*",
+                         "https://demotiles.maplibre.org/*",
+                     })
+            {
+                core.AddWebResourceRequestedFilter(pattern, CoreWebView2WebResourceContext.All);
+            }
             core.WebResourceRequested += async (_, args) =>
             {
                 var deferral = args.GetDeferral();
@@ -203,6 +215,7 @@ public partial class FieldTripPlannerWindow : Window
 
             core.Navigate(FieldTripMapBridge.EntryUri);
             _webViewInitialized = true;
+            WireOfflineUi();
         }
         catch (Exception ex)
         {
@@ -564,6 +577,155 @@ public partial class FieldTripPlannerWindow : Window
         var url = PublicLibraryCatalog.WithEmbed(
             ReferenceCatalogShareUrls.BuildExploreTerrainUrlForStops(trip.Stops, notes: trip.Notes));
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    }
+
+    private void WireOfflineUi()
+    {
+        var sm = AppUiSettingsStore.LoadOrDefault().SurfaceMap;
+        OfflineCacheCheck.IsChecked = sm.OfflineTileCacheEnabled;
+        CacheOnlyCheck.IsChecked = sm.CacheOnlyMode;
+        OfflineCacheCheck.Checked += OfflineCacheToggle_Changed;
+        OfflineCacheCheck.Unchecked += OfflineCacheToggle_Changed;
+        CacheOnlyCheck.Checked += CacheOnlyToggle_Changed;
+        CacheOnlyCheck.Unchecked += CacheOnlyToggle_Changed;
+        UpdateTileCacheSizeLabel();
+        RefreshOfflinePackStatusLabel();
+    }
+
+    private void OfflineCacheToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.SurfaceMap.OfflineTileCacheEnabled = OfflineCacheCheck.IsChecked == true;
+        AppUiSettingsStore.Save(all);
+        if (_tileCache != null)
+            _tileCache.Enabled = all.SurfaceMap.OfflineTileCacheEnabled;
+    }
+
+    private void CacheOnlyToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        var all = AppUiSettingsStore.LoadOrDefault();
+        all.SurfaceMap.CacheOnlyMode = CacheOnlyCheck.IsChecked == true;
+        AppUiSettingsStore.Save(all);
+        if (_tileCache != null)
+            _tileCache.CacheOnlyMode = all.SurfaceMap.CacheOnlyMode;
+    }
+
+    private void UpdateTileCacheSizeLabel()
+    {
+        if (TileCacheSizeText == null || _tileCache == null)
+            return;
+        var mb = _tileCache.CurrentBytes / (1024.0 * 1024.0);
+        TileCacheSizeText.Text = $"Cache: {mb:0.0} MB";
+    }
+
+    private void RefreshOfflinePackStatusLabel()
+    {
+        if (OfflinePackStatusText == null || _offlinePackDownloading)
+            return;
+        var meta = SurfaceMapOfflinePack.Read();
+        OfflinePackStatusText.Text = meta == null
+            ? "Offline pack: none yet — download while online before field use"
+            : "Offline pack: " + meta.Label();
+    }
+
+    private void CancelOfflineDownload_Click(object sender, RoutedEventArgs e)
+    {
+        _offlinePackCts?.Cancel();
+        OfflinePackStatusText.Text = "Cancelling offline download…";
+    }
+
+    private async void DownloadOfflineArea_Click(object sender, RoutedEventArgs e)
+    {
+        if (_tileCache == null)
+        {
+            MessageBox.Show(this, "Tile cache is not ready yet.", "Download offline area",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (_offlinePackDownloading)
+            return;
+
+        double? lat = null;
+        double? lon = null;
+        var trip = CurrentTrip();
+        var stop = trip?.Stops.FirstOrDefault(s => !(Math.Abs(s.Lat) < 1e-9 && Math.Abs(s.Lon) < 1e-9));
+        if (stop != null)
+        {
+            lat = stop.Lat;
+            lon = stop.Lon;
+        }
+        else
+        {
+            var gps = await ReferenceCatalogGeolocation.TryGetDeviceLocationAsync().ConfigureAwait(true);
+            if (gps.Ok && gps.Origin != null)
+            {
+                lat = gps.Origin.Lat;
+                lon = gps.Origin.Lon;
+            }
+        }
+
+        if (lat is null || lon is null)
+        {
+            MessageBox.Show(this,
+                "Add a stop with coordinates, or enable GPS, then download again.",
+                "Download offline area",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var (south, west, north, east) = SurfaceMapOfflinePack.BoundingBoxAround(lat.Value, lon.Value);
+        _offlinePackCts?.Cancel();
+        _offlinePackCts = new CancellationTokenSource();
+        _offlinePackDownloading = true;
+        DownloadOfflineAreaButton.IsEnabled = false;
+        CancelOfflineDownloadButton.IsEnabled = true;
+        OfflinePackStatusText.Text = "Offline pack: downloading OSM + hillshade + DEM…";
+        try
+        {
+            var progress = new Progress<(int Done, int Total, int Zoom)>(p =>
+            {
+                OfflinePackStatusText.Text = $"Offline pack: {p.Done}/{p.Total} (z{p.Zoom})";
+            });
+            var result = await _tileCache.PrefetchOsmAreaAsync(
+                south, west, north, east,
+                SurfaceMapOfflinePack.ZoomMin,
+                SurfaceMapOfflinePack.ZoomMax,
+                progress,
+                _offlinePackCts.Token).ConfigureAwait(true);
+            SurfaceMapOfflinePack.Write(south, west, north, east);
+            UpdateTileCacheSizeLabel();
+            if (!_tileCache.CacheOnlyMode)
+            {
+                CacheOnlyCheck.IsChecked = true;
+                var all = AppUiSettingsStore.LoadOrDefault();
+                all.SurfaceMap.CacheOnlyMode = true;
+                AppUiSettingsStore.Save(all);
+                _tileCache.CacheOnlyMode = true;
+            }
+            OfflinePackStatusText.Text = result.Fail == 0
+                ? $"Offline area ready ({result.Ok} tiles) — Cache only is on"
+                : $"Offline pack saved with {result.Fail} tile errors ({result.Ok} ok)";
+        }
+        catch (OperationCanceledException)
+        {
+            OfflinePackStatusText.Text = "Offline download cancelled";
+        }
+        catch (Exception ex)
+        {
+            OfflinePackStatusText.Text = "Offline download failed";
+            MessageBox.Show(this, ex.Message, "Download offline area", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            _offlinePackDownloading = false;
+            DownloadOfflineAreaButton.IsEnabled = true;
+            CancelOfflineDownloadButton.IsEnabled = false;
+            if (OfflinePackStatusText.Text.StartsWith("Offline pack: downloading", StringComparison.Ordinal) ||
+                OfflinePackStatusText.Text.StartsWith("Offline pack: ", StringComparison.Ordinal) &&
+                OfflinePackStatusText.Text.Contains('/'))
+                RefreshOfflinePackStatusLabel();
+        }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

@@ -237,6 +237,7 @@ public partial class SurfaceMapView : UserControl
                          "https://tiles.wmflabs.org/*",
                          "https://s3.amazonaws.com/elevation-tiles-prod/*",
                          "https://tiles.maps.eox.at/*",
+                         "https://demotiles.maplibre.org/*",
                      })
             {
                 // MapLibre loads tiles via fetch/XHR, not only classic <img> — intercept All.
@@ -1280,7 +1281,7 @@ public partial class SurfaceMapView : UserControl
         _offlinePackCts?.Cancel();
         _offlinePackCts = new CancellationTokenSource();
         SetOfflineDownloadUiBusy(true);
-        StatusText.Text = "Downloading offline OSM tiles…";
+        StatusText.Text = "Downloading offline OSM + hillshade + DEM…";
         OfflinePackStatusText.Text = "Offline pack: downloading…";
         try
         {

@@ -121,7 +121,10 @@ public sealed class SurfaceMapTileCacheService : IDisposable
         }
     }
 
-    /// <summary>Prefetch OSM MAPNIK tiles for a bbox into the same disk cache the WebView interceptor uses.</summary>
+    /// <summary>
+    /// OSM MAPNIK + hillshade + Terrarium DEM + MapLibre glyph ranges for a bbox
+    /// into the same disk cache the WebView interceptor uses.
+    /// </summary>
     public async Task<(int Ok, int Fail, int Total)> PrefetchOsmAreaAsync(
         double south,
         double west,
@@ -132,20 +135,7 @@ public sealed class SurfaceMapTileCacheService : IDisposable
         IProgress<(int Done, int Total, int Zoom)>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var urls = new List<string>();
-        for (var z = zoomMin; z <= zoomMax; z++)
-        {
-            var xMin = LonToTileX(west, z);
-            var xMax = LonToTileX(east, z);
-            var yMin = LatToTileY(north, z);
-            var yMax = LatToTileY(south, z);
-            if (xMin > xMax) (xMin, xMax) = (xMax, xMin);
-            if (yMin > yMax) (yMin, yMax) = (yMax, yMin);
-            for (var x = xMin; x <= xMax; x++)
-            for (var y = yMin; y <= yMax; y++)
-                urls.Add($"https://tile.openstreetmap.org/{z}/{x}/{y}.png");
-        }
-
+        var urls = BuildOfflinePackUrls(south, west, north, east, zoomMin, zoomMax);
         var total = urls.Count;
         var ok = 0;
         var fail = 0;
@@ -186,6 +176,9 @@ public sealed class SurfaceMapTileCacheService : IDisposable
                 {
                     fail++;
                 }
+
+                // Be polite to public tile servers on actual network fetches.
+                await Task.Delay(40, cancellationToken).ConfigureAwait(false);
             }
 
             done++;
@@ -201,12 +194,59 @@ public sealed class SurfaceMapTileCacheService : IDisposable
                 catch { }
                 progress?.Report((done, total, zGuess));
             }
-
-            // Be polite to OSM tile servers.
-            await Task.Delay(40, cancellationToken).ConfigureAwait(false);
         }
 
         return (ok, fail, total);
+    }
+
+    /// <summary>OSM zMin–zMax, hillshade up to z15, Terrarium DEM up to z13, plus Open Sans glyph ranges.</summary>
+    public static List<string> BuildOfflinePackUrls(
+        double south,
+        double west,
+        double north,
+        double east,
+        int zoomMin,
+        int zoomMax)
+    {
+        var urls = new List<string>();
+        AppendXyzTiles(urls, "https://tile.openstreetmap.org/{z}/{x}/{y}.png", south, west, north, east, zoomMin, zoomMax);
+        AppendXyzTiles(urls, "https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png", south, west, north, east, zoomMin, Math.Min(zoomMax, 15));
+        AppendXyzTiles(urls, "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png", south, west, north, east, zoomMin, Math.Min(zoomMax, 13));
+        urls.AddRange(GlyphPrefetchUrls);
+        return urls;
+    }
+
+    private static readonly string[] GlyphPrefetchUrls =
+    [
+        "https://demotiles.maplibre.org/font/Open%20Sans%20Regular/0-255.pbf",
+        "https://demotiles.maplibre.org/font/Open%20Sans%20Regular/256-511.pbf",
+        "https://demotiles.maplibre.org/font/Open%20Sans%20Bold/0-255.pbf",
+    ];
+
+    private static void AppendXyzTiles(
+        List<string> urls,
+        string template,
+        double south,
+        double west,
+        double north,
+        double east,
+        int zoomMin,
+        int zoomMax)
+    {
+        for (var z = zoomMin; z <= zoomMax; z++)
+        {
+            var xMin = LonToTileX(west, z);
+            var xMax = LonToTileX(east, z);
+            var yMin = LatToTileY(north, z);
+            var yMax = LatToTileY(south, z);
+            if (xMin > xMax) (xMin, xMax) = (xMax, xMin);
+            if (yMin > yMax) (yMin, yMax) = (yMax, yMin);
+            for (var x = xMin; x <= xMax; x++)
+            for (var y = yMin; y <= yMax; y++)
+                urls.Add(template.Replace("{z}", z.ToString(CultureInfo.InvariantCulture))
+                    .Replace("{x}", x.ToString(CultureInfo.InvariantCulture))
+                    .Replace("{y}", y.ToString(CultureInfo.InvariantCulture)));
+        }
     }
 
     private static readonly byte[] EmptyPng =
@@ -249,15 +289,23 @@ public sealed class SurfaceMapTileCacheService : IDisposable
     private static string GuessContentType(string uri)
     {
         var lower = uri.ToLowerInvariant();
+        if (lower.Contains(".pbf")) return "application/x-protobuf";
+        if (lower.Contains(".json")) return "application/json";
         if (lower.Contains(".jpg") || lower.Contains(".jpeg")) return "image/jpeg";
         if (lower.Contains(".webp")) return "image/webp";
+        if (lower.Contains(".css")) return "text/css";
         return "image/png";
     }
 
     private string PathForUri(string uri)
     {
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(uri))).ToLowerInvariant();
-        var ext = GuessContentType(uri).Contains("jpeg") ? ".jpg" : ".png";
+        var ct = GuessContentType(uri);
+        var ext = ct.Contains("jpeg") ? ".jpg"
+            : ct.Contains("protobuf") ? ".pbf"
+            : ct.Contains("json") ? ".json"
+            : ct.Contains("css") ? ".css"
+            : ".png";
         return Path.Combine(_root, hash[..2], hash + ext);
     }
 

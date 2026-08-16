@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.Persistence;
 
 namespace CaveAiProForWindows.Services;
 
@@ -54,7 +55,19 @@ public static class SurveyPortableZipExporter
     public static string SerializeSingleProjectArray(CaveProjectDocument project) =>
         SerializeProjectArray(new[] { project });
 
+    /// <summary>Single project object (Android Gson <c>project.json</c> / Survey Cloud Storage).</summary>
+    public static string SerializeSingleProjectObject(CaveProjectDocument project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        CaveProjectJsonWriteNormalizer.Prepare(project);
+        return JsonSerializer.Serialize(project, WriteJson);
+    }
+
     /// <summary>Serializes one or more projects as a Gson-compatible JSON array.</summary>
-    public static string SerializeProjectArray(IReadOnlyList<CaveProjectDocument> projects) =>
-        JsonSerializer.Serialize(projects, WriteJson);
+    public static string SerializeProjectArray(IReadOnlyList<CaveProjectDocument> projects)
+    {
+        ArgumentNullException.ThrowIfNull(projects);
+        CaveProjectJsonWriteNormalizer.PrepareAll(projects);
+        return JsonSerializer.Serialize(projects, WriteJson);
+    }
 }

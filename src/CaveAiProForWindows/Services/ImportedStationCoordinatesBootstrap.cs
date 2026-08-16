@@ -24,12 +24,29 @@ public static class ImportedStationCoordinatesBootstrap
         if (project.ExtensionData == null || project.ExtensionData.Count == 0)
             return;
 
+        if (project.ExtensionData.TryGetValue("planStationPositionOverrides", out var overrideMap) &&
+            overrideMap.ValueKind == JsonValueKind.Object)
+            IngestOverrideObjectMap(overrideMap, project);
+
         foreach (var key in ContainerKeys)
         {
             if (!project.ExtensionData.TryGetValue(key, out var root))
                 continue;
             if (TryApplyFromElement(root, project))
                 return;
+        }
+    }
+
+    /// <summary>Object map <c>{ "B2": { "x", "y", "z" } }</c> (canonical Android / web key).</summary>
+    private static void IngestOverrideObjectMap(JsonElement root, CaveProjectDocument project)
+    {
+        foreach (var prop in root.EnumerateObject())
+        {
+            if (string.IsNullOrWhiteSpace(prop.Name) || prop.Value.ValueKind != JsonValueKind.Object)
+                continue;
+            if (!TryReadTriple(prop.Value, out var x, out var y, out var z))
+                continue;
+            project.PlanStationPositionOverrides[prop.Name.Trim()] = new PlanStationPositionOverride(x, y, z);
         }
     }
 

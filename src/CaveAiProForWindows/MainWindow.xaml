@@ -44,7 +44,9 @@
                           ToolTip="Select the open .json or .zip in File Explorer" />
                 <Separator />
                 <MenuItem Header="_Open from Survey Cloud…" Command="{Binding OpenSurveyProjectFromCloudCommand}"
-                          ToolTip="Download a private survey JSON from Survey Cloud (Android → Windows open). This is open-only — it does not upload or push changes back." />
+                          ToolTip="Download a private survey JSON from Survey Cloud (Android → Windows open)." />
+                <MenuItem Header="_Save to Survey Cloud…" Command="{Binding SaveSurveyProjectToCloudCommand}"
+                          ToolTip="Upload the selected project JSON to Survey Cloud (Windows → Android / web)." />
                 <Separator />
                 <MenuItem x:Name="MenuSave" Header="_Save project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S"
                           ToolTip="Write sketch mapObjects, AI assets, and all loaded projects back to the open .json or .zip file" />
@@ -558,6 +560,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,8"
@@ -570,13 +573,35 @@
                                                FontSize="11.5" Foreground="{DynamicResource Cave.TextMuted}"
                                                ToolTip="On-device survey hints (no cloud AI)" />
                                 </Border>
-                                <TextBox Grid.Row="2" Text="{Binding StatisticsText, Mode=OneWay}" IsReadOnly="True"
+                                <DockPanel Grid.Row="2" Margin="0,0,0,8">
+                                    <Button DockPanel.Dock="Right" Content="Ask" Padding="12,6" Margin="8,0,0,0"
+                                            Command="{Binding AskCaveAiCommand}"
+                                            ToolTip="On-device Cave AI — answers from the open survey only" />
+                                    <TextBox Text="{Binding CaveAiQueryText, UpdateSourceTrigger=PropertyChanged}"
+                                             Padding="8,6"
+                                             ToolTip="Ask about depth, traverse, loops, volume, or next step"
+                                             Background="{DynamicResource Cave.Surface}"
+                                             Foreground="{DynamicResource Cave.Text}"
+                                             BorderBrush="{DynamicResource Cave.Border}" />
+                                </DockPanel>
+                                <TextBox Grid.Row="3" Text="{Binding CaveAiAnswerText, Mode=OneWay}" IsReadOnly="True"
+                                         TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                                         MinHeight="72" MaxHeight="140" Margin="0,0,0,10" Padding="8"
+                                         FontSize="12.5"
+                                         Background="{DynamicResource Cave.Surface}" Foreground="{DynamicResource Cave.Text}"
+                                         BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" />
+                                <Grid Grid.Row="4">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                <TextBox Grid.Row="0" Text="{Binding StatisticsText, Mode=OneWay}" IsReadOnly="True"
                                          TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
                                          MinHeight="120" MaxHeight="220" Margin="0,0,0,10" Padding="8"
                                          FontFamily="Consolas" FontSize="12"
                                          Background="{DynamicResource Cave.Surface}" Foreground="{DynamicResource Cave.Text}"
                                          BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" />
-                                <DataGrid Grid.Row="3" ItemsSource="{Binding SurveyQcIssueRows}" AutoGenerateColumns="False"
+                                <DataGrid Grid.Row="1" ItemsSource="{Binding SurveyQcIssueRows}" AutoGenerateColumns="False"
                                           IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                           Background="{DynamicResource Cave.Surface}"
@@ -587,6 +612,7 @@
                                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
                                     </DataGrid.Columns>
                                 </DataGrid>
+                                </Grid>
                             </Grid>
                         </TabItem>
                         <TabItem x:Name="SketchEditorTabItem" Header="SKETCH EDITOR"
