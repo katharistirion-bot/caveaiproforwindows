@@ -362,7 +362,7 @@
       tiles: OSM_TILES,
       tileSize: 256,
       maxzoom: 19,
-      attribution: '? OpenStreetMap contributors',
+      attribution: '\u00A9 OpenStreetMap contributors',
     });
     map.addLayer({ id: 'osm', type: 'raster', source: 'osm' });
   }
@@ -377,7 +377,7 @@
       tiles: HILLSHADE_TILES,
       tileSize: 256,
       maxzoom: 15,
-      attribution: '? Wikimedia maps',
+      attribution: '\u00A9 Wikimedia maps',
     });
     map.addLayer({
       id: 'hillshade',
@@ -404,7 +404,7 @@
       tiles,
       tileSize: 256,
       maxzoom: 14,
-      attribution: '? Copernicus / EOX',
+      attribution: '\u00A9 Copernicus / EOX',
     });
     map.addLayer({
       id: layerId,
@@ -421,7 +421,7 @@
         if (map.getLayer(layerId)) map.removeLayer(layerId);
         if (map.getSource('copernicus-dsm')) map.removeSource('copernicus-dsm');
         addCopernicusDsm();
-        postHost({ type: 'status', message: 'Copernicus DSM unavailable ? using terrain-light fallback' });
+        postHost({ type: 'status', message: 'Copernicus DSM unavailable \u2014 using terrain-light fallback' });
       }
     });
   }
@@ -445,7 +445,7 @@
         tileSize: 256,
         maxzoom: 13,
         encoding: 'terrarium',
-        attribution: '? Mapzen / AWS Terrain Tiles',
+        attribution: '\u00A9 Mapzen / AWS Terrain Tiles',
       });
     }
     map.setTerrain({ source: 'dem', exaggeration: 1.2 });
@@ -1198,7 +1198,7 @@
 
   function buildStatusMessage() {
     if (!hasEntrance()) {
-      return 'No entrance coordinates ? set A1 in the app';
+      return 'No entrance coordinates \u2014 set A1 in the app';
     }
     const parts = ['Entrance pin'];
     if (project.returnCar) parts.push('vehicle park');
@@ -1209,7 +1209,7 @@
     } else if (project.lidarStatusHint) {
       parts.push(project.lidarStatusHint);
     }
-    return parts.join(' ? ');
+    return parts.join(' \u00B7 ');
   }
 
   function onProjectMessage(payload) {
@@ -1559,7 +1559,7 @@
 
     if (status) {
       status.textContent =
-        `Distance ${(maxD / 1000).toFixed(2)} km ? elevation ${minE.toFixed(0)}?${maxE.toFixed(0)} m`;
+        `Distance ${(maxD / 1000).toFixed(2)} km \u2014 elevation ${minE.toFixed(0)}\u2013${maxE.toFixed(0)} m`;
     }
   }
 

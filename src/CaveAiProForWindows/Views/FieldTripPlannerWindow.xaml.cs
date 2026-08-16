@@ -115,14 +115,33 @@ public partial class FieldTripPlannerWindow : Window
                 try
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(e.WebMessageAsJson);
-                    if (doc.RootElement.TryGetProperty("type", out var t) && t.GetString() == "ready")
+                    if (doc.RootElement.TryGetProperty("type", out var t))
                     {
-                        _mapReady = true;
-                        Dispatcher.Invoke(() =>
+                        var kind = t.GetString();
+                        if (kind == "ready")
                         {
-                            HideMapLoadingOverlay();
-                            PushStopsToMap();
-                        });
+                            _mapReady = true;
+                            Dispatcher.Invoke(() =>
+                            {
+                                HideMapLoadingOverlay();
+                                PushStopsToMap();
+                            });
+                        }
+                        else if (kind == "mapError")
+                        {
+                            var err = doc.RootElement.TryGetProperty("error", out var errEl)
+                                ? errEl.GetString()
+                                : "Map failed to load";
+                            Dispatcher.Invoke(() => ShowMapError(err ?? "Map failed to load"));
+                        }
+                        else if (kind == "mapOffline")
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                if (_tileCache != null)
+                                    _tileCache.CacheOnlyMode = true;
+                            });
+                        }
                     }
                 }
                 catch
@@ -160,16 +179,26 @@ public partial class FieldTripPlannerWindow : Window
                     if (_tileCache != null && _tileCache.Enabled)
                         await _tileCache.TryServeOrCacheAsync(args).ConfigureAwait(true);
                 }
+                catch
+                {
+                    /* cache miss / offline — MapLibre retries or shows blank tile */
+                }
                 finally
                 {
                     deferral.Complete();
                 }
             };
 
+            core.PermissionRequested += (_, args) =>
+            {
+                if (args.PermissionKind == CoreWebView2PermissionKind.Geolocation)
+                    args.State = CoreWebView2PermissionState.Allow;
+            };
+
             core.NavigationCompleted += (_, args) =>
             {
                 if (!args.IsSuccess)
-                    ShowMapError("Map failed to load — check WebView2 runtime and internet connection.");
+                    ShowMapError("Map failed to load — check WebView2 runtime. Offline OSM tiles work after a Surface Map download.");
             };
 
             core.Navigate(FieldTripMapBridge.EntryUri);

@@ -1703,6 +1703,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             return;
         EnsureSketchPersistenceViewModel();
         _sketchPersistence?.TryPersistSessionToProject(p);
+        _wiredMainVm?.MarkDirty("Sketch updated — Ctrl+S to save");
     }
 
     private void OnInkAdded(UIElement element)
@@ -1814,7 +1815,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                 if (p != null)
                     TryPersistSessionToProject(p);
                 if (_wiredMainVm != null)
-                    _wiredMainVm.StatusMessage = "Linked library cave id updated — save project to persist to disk.";
+                    _wiredMainVm.MarkDirty("Linked library cave id updated — Ctrl+S to save");
             },
         });
 

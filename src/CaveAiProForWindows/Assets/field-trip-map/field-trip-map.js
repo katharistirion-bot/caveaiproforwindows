@@ -1,6 +1,10 @@
 (function () {
   'use strict';
 
+  if (typeof maplibregl !== 'undefined' && typeof maplibregl.setWorkerUrl === 'function') {
+    maplibregl.setWorkerUrl(new URL('vendor/maplibre-gl-csp-worker.js', window.location.href).href);
+  }
+
   const SOURCE_ID = 'field-trip-route';
   const LAYER_LINE = 'field-trip-line';
   const LAYER_POINTS = 'field-trip-points';
@@ -107,6 +111,9 @@
       postHost({ type: 'ready' });
       applyStops(stops);
     });
+    map.on('error', (err) => {
+      postHost({ type: 'mapError', error: (err && err.error && err.error.message) || 'Map failed to load' });
+    });
   }
 
   function handleHostMessage(data) {
@@ -124,6 +131,14 @@
       }
       handleHostMessage(data);
     });
+  }
+
+  window.addEventListener('offline', () => {
+    postHost({ type: 'mapOffline' });
+    postHost({ type: 'status', message: 'Network offline — using cached OSM tiles when available' });
+  });
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    postHost({ type: 'mapOffline' });
   }
 
   initMap();

@@ -998,6 +998,7 @@ public partial class ReferenceCatalogWindow : Window
 
         ReferenceSurveyLinkService.SetLink(project, _selected, detail);
         vm.PersistProjectBeforeSave?.Invoke(project);
+        vm.MarkDirty("Reference link updated — Ctrl+S to save");
         ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
         MessageBox.Show(
             this,

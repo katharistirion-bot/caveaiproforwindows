@@ -253,6 +253,7 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedProjectSiteTypeLabel));
             OnPropertyChanged(nameof(SiteIdentityTooltip));
             OnPropertyChanged(nameof(SelectedProjectSiteTypeToken));
+            MarkDirty("Site type updated — Ctrl+S to save");
             StatusMessage = FormatSelectedProjectStatus(SelectedProject);
             SaveProjectCommand.NotifyCanExecuteChanged();
         }
