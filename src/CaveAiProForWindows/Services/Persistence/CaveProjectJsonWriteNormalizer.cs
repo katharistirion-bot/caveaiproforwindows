@@ -40,7 +40,11 @@ internal static class CaveProjectJsonWriteNormalizer
 
         var next = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
         foreach (var (key, value) in project.ExtensionData)
+        {
+            if (string.Equals(key, "planStationPositionOverrides", StringComparison.OrdinalIgnoreCase))
+                continue;
             next[key] = value.ValueKind == JsonValueKind.Undefined ? NullValue.Clone() : value.Clone();
+        }
         project.ExtensionData = next;
     }
 

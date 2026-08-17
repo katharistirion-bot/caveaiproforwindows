@@ -140,8 +140,9 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<StationQcRowViewModel> StationQcRows { get; } = new();
 
-    /// <summary>Fired when traverse data or plan station overrides change — map views should redraw.</summary>
     public event EventHandler? SurveyDataChanged;
+
+    public void NotifySurveyDataChanged() => SurveyDataChanged?.Invoke(this, EventArgs.Empty);
 
     /// <summary>First opened .json or .zip on disk (null when workspace is empty or merged from multiple files).</summary>
     public string? PrimarySourceFilePath => _primarySourcePath;

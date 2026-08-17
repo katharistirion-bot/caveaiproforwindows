@@ -26,7 +26,10 @@ public static class ImportedStationCoordinatesBootstrap
 
         if (project.ExtensionData.TryGetValue("planStationPositionOverrides", out var overrideMap) &&
             overrideMap.ValueKind == JsonValueKind.Object)
+        {
             IngestOverrideObjectMap(overrideMap, project);
+            project.ExtensionData.Remove("planStationPositionOverrides");
+        }
 
         foreach (var key in ContainerKeys)
         {

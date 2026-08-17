@@ -42,6 +42,11 @@
                                FontSize="11" FontWeight="SemiBold"
                                Foreground="{DynamicResource Cave.AccentBrush}" />
                 </Border>
+                <ComboBox x:Name="NamedCartographyCombo" Width="200" Margin="12,0,0,0"
+                          FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                          SelectionChanged="NamedCartographyCombo_SelectionChanged"
+                          ToolTip="Open a named cartography document from this survey"
+                          VerticalAlignment="Center" />
             </StackPanel>
             <StackPanel x:Name="PlanMapToolbarPanel" DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
                         VerticalAlignment="Center">

@@ -249,7 +249,7 @@ public partial class SurfaceMapView : UserControl
                 try
                 {
                     if (_tileCache != null && _tileCache.Enabled)
-                        await _tileCache.TryServeOrCacheAsync(args).ConfigureAwait(false);
+                        await _tileCache.TryServeOrCacheAsync(args).ConfigureAwait(true);
                 }
                 catch
                 {

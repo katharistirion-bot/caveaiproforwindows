@@ -42,6 +42,20 @@
   let projectReceived = false;
   let resizeObserver = null;
   let resizeDebounceTimer = null;
+
+  function whenStyleReady(fn) {
+    if (!map) return;
+    var ready = typeof map.isStyleLoaded === 'function'
+      ? map.isStyleLoaded()
+      : (typeof map.loaded === 'function' && map.loaded());
+    if (ready) {
+      try { fn(); } catch (e) { console.warn(e); }
+      return;
+    }
+    map.once('load', function () {
+      try { fn(); } catch (e) { console.warn(e); }
+    });
+  }
   let lastMapWidth = 0;
   let lastMapHeight = 0;
   let lidarObjectUrls = [];
@@ -279,7 +293,6 @@
         version: 8,
         sources: {},
         layers: [],
-        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
       },
       center: [ms.centerLon || defaultCenter()[0], ms.centerLat || defaultCenter()[1]],
       zoom: ms.zoom || defaultZoom(),
@@ -503,22 +516,6 @@
         'circle-stroke-color': '#ffffff',
       },
     });
-    map.addLayer({
-      id: 'entrance-label',
-      type: 'symbol',
-      source: srcId,
-      layout: {
-        'text-field': ['get', 'title'],
-        'text-offset': [0, 1.2],
-        'text-size': 12,
-        'text-anchor': 'top',
-      },
-      paint: {
-        'text-color': '#ffffff',
-        'text-halo-color': '#000000',
-        'text-halo-width': 1.2,
-      },
-    });
   }
 
   function applyVehiclePins() {
@@ -573,22 +570,6 @@
         ],
         'circle-stroke-width': 2,
         'circle-stroke-color': '#ffffff',
-      },
-    });
-    map.addLayer({
-      id: 'vehicle-labels',
-      type: 'symbol',
-      source: 'vehicle-pins',
-      layout: {
-        'text-field': ['get', 'title'],
-        'text-offset': [0, 1.1],
-        'text-size': 11,
-        'text-anchor': 'top',
-      },
-      paint: {
-        'text-color': '#e6edf3',
-        'text-halo-color': '#000000',
-        'text-halo-width': 1,
       },
     });
   }
@@ -1225,57 +1206,59 @@
       return;
     }
 
-    addHillshade();
-    addCopernicusDsm();
-    addTerrain();
-    applyEntrancePin();
-    applyVehiclePins();
-    applySurveyCorridor();
-    applyLidarRaster();
-    updateEmptyState();
+    whenStyleReady(function () {
+      addHillshade();
+      addCopernicusDsm();
+      addTerrain();
+      applyEntrancePin();
+      applyVehiclePins();
+      applySurveyCorridor();
+      applyLidarRaster();
+      updateEmptyState();
 
-    if (hasEntrance()) {
-      const hasSavedView =
-        Number.isFinite(ms.centerLon) &&
-        Number.isFinite(ms.centerLat) &&
-        Number.isFinite(ms.zoom) &&
-        ms.zoom > 0;
-      if (hasSavedView) {
-        const c = map.getCenter();
-        const payload = {
-          centerLon: c.lng,
-          centerLat: c.lat,
-          zoom: map.getZoom(),
-          bearing: map.getBearing(),
-          pitch: map.getPitch(),
-        };
-        if (
-          Math.abs(payload.centerLon - ms.centerLon) >= 1e-6
-          || Math.abs(payload.centerLat - ms.centerLat) >= 1e-6
-          || Math.abs(payload.zoom - ms.zoom) >= 1e-5
-        ) {
-          suppressPersist = true;
-          map.jumpTo({
-            center: [ms.centerLon, ms.centerLat],
-            zoom: ms.zoom,
-            bearing: ms.bearing || 0,
-            pitch: ms.pitch || 0,
-          });
-          map.once('moveend', () => {
-            suppressPersist = false;
-          });
+      if (hasEntrance()) {
+        const hasSavedView =
+          Number.isFinite(ms.centerLon) &&
+          Number.isFinite(ms.centerLat) &&
+          Number.isFinite(ms.zoom) &&
+          ms.zoom > 0;
+        if (hasSavedView) {
+          const c = map.getCenter();
+          const payload = {
+            centerLon: c.lng,
+            centerLat: c.lat,
+            zoom: map.getZoom(),
+            bearing: map.getBearing(),
+            pitch: map.getPitch(),
+          };
+          if (
+            Math.abs(payload.centerLon - ms.centerLon) >= 1e-6
+            || Math.abs(payload.centerLat - ms.centerLat) >= 1e-6
+            || Math.abs(payload.zoom - ms.zoom) >= 1e-5
+          ) {
+            suppressPersist = true;
+            map.jumpTo({
+              center: [ms.centerLon, ms.centerLat],
+              zoom: ms.zoom,
+              bearing: ms.bearing || 0,
+              pitch: ms.pitch || 0,
+            });
+            map.once('moveend', () => {
+              suppressPersist = false;
+            });
+          }
+        } else {
+          fitEntrance();
         }
       } else {
         fitEntrance();
       }
-    } else {
-      fitEntrance();
-    }
 
-    scheduleElevationProfile();
-    scheduleMapResize();
-    maybeWarnHeavyLayers();
-    postHost({ type: 'status', message: buildStatusMessage() });
+      scheduleElevationProfile();
+      scheduleMapResize();
+      maybeWarnHeavyLayers();
+      postHost({ type: 'status', message: buildStatusMessage() });
+    });
   }
 
   function onLayersMessage(payload) {
@@ -1314,11 +1297,13 @@
       }
     }
     if (!map) return;
-    addHillshade();
-    addCopernicusDsm();
-    addTerrain();
-    applySurveyCorridor();
-    applyLidarRaster();
+    whenStyleReady(function () {
+      addHillshade();
+      addCopernicusDsm();
+      addTerrain();
+      applySurveyCorridor();
+      applyLidarRaster();
+    });
     schedulePersist();
     scheduleElevationProfile();
     maybeWarnHeavyLayers();

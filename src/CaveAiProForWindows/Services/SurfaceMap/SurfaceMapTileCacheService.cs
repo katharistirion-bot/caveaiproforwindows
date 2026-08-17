@@ -12,8 +12,16 @@ namespace CaveAiProForWindows.Services.SurfaceMap;
 public sealed class SurfaceMapTileCacheService : IDisposable
 {
     private const long DefaultMaxBytes = 900L * 1024 * 1024;
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient Http;
     private readonly SemaphoreSlim _fetchGate = new(4, 4);
+
+    static SurfaceMapTileCacheService()
+    {
+        Http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        Http.DefaultRequestHeaders.TryAddWithoutValidation(
+            "User-Agent",
+            "CaveAiProForWindows/1.0 (tile cache; https://www.caveaipro.com)");
+    }
 
     private readonly string _root;
     private readonly long _maxBytes;
@@ -85,15 +93,22 @@ public sealed class SurfaceMapTileCacheService : IDisposable
         var path = PathForUri(uri);
         if (File.Exists(path))
         {
-            TouchLru(path);
-            args.Response = CreateFileResponse(_environment, path, uri);
-            return;
+            if (!TryOpenValidCacheFile(path, uri, out var cached))
+            {
+                try { File.Delete(path); } catch { /* ignore poison */ }
+            }
+            else
+            {
+                TouchLru(path);
+                args.Response = CreateStreamResponse(_environment, cached, uri);
+                return;
+            }
         }
 
         if (CacheOnlyMode)
         {
-            // Empty PNG keeps MapLibre from spinning forever offline.
-            args.Response = CreateStreamResponse(_environment, EmptyPng, uri);
+            if (TryCacheMissPlaceholder(uri, cacheOnly: true, out var status, out var body, out var contentType))
+                args.Response = CreateStreamResponse(_environment, body, status, contentType);
             return;
         }
 
@@ -103,6 +118,8 @@ public sealed class SurfaceMapTileCacheService : IDisposable
             try
             {
                 var bytes = await Http.GetByteArrayAsync(uri).ConfigureAwait(false);
+                if (!IsValidCachedPayload(uri, bytes))
+                    throw new InvalidDataException("Rejected non-tile payload for " + uri);
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 await File.WriteAllBytesAsync(path, bytes).ConfigureAwait(false);
                 RegisterFile(path, bytes.LongLength);
@@ -116,8 +133,10 @@ public sealed class SurfaceMapTileCacheService : IDisposable
         }
         catch
         {
-            if (_environment != null)
-                args.Response = CreateStreamResponse(_environment, EmptyPng, uri);
+            // Image tiles: 1x1 PNG. Glyphs/protobuf: do not substitute PNG (WebView crash).
+            if (_environment != null
+                && TryCacheMissPlaceholder(uri, cacheOnly: false, out var status, out var body, out var contentType))
+                args.Response = CreateStreamResponse(_environment, body, status, contentType);
         }
     }
 
@@ -161,11 +180,18 @@ public sealed class SurfaceMapTileCacheService : IDisposable
                         using var res = await Http.SendAsync(req, cancellationToken).ConfigureAwait(false);
                         res.EnsureSuccessStatusCode();
                         var bytes = await res.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-                        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                        await File.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
-                        RegisterFile(path, bytes.LongLength);
-                        EvictIfNeeded();
-                        ok++;
+                        if (!IsValidCachedPayload(uri, bytes))
+                        {
+                            fail++;
+                        }
+                        else
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                            await File.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
+                            RegisterFile(path, bytes.LongLength);
+                            EvictIfNeeded();
+                            ok++;
+                        }
                     }
                     finally
                     {
@@ -282,11 +308,104 @@ public sealed class SurfaceMapTileCacheService : IDisposable
 
     private static CoreWebView2WebResourceResponse CreateStreamResponse(CoreWebView2Environment env, byte[] bytes, string uri)
     {
-        var stream = new MemoryStream(bytes, writable: false);
-        return env.CreateWebResourceResponse(stream, 200, "OK", "Content-Type: " + GuessContentType(uri) + "\r\n");
+        return CreateStreamResponse(env, bytes, 200, GuessContentType(uri));
     }
 
-    private static string GuessContentType(string uri)
+    private static CoreWebView2WebResourceResponse CreateStreamResponse(
+        CoreWebView2Environment env,
+        byte[] bytes,
+        int status,
+        string contentType)
+    {
+        var stream = new MemoryStream(bytes, writable: false);
+        var reason = status == 200 ? "OK" : "Not Found";
+        return env.CreateWebResourceResponse(stream, status, reason, "Content-Type: " + contentType + "\r\n");
+    }
+
+    /// <summary>
+    /// Fallback when a tile is missing. Image tiles get a 1x1 PNG so MapLibre keeps painting.
+    /// Glyph/protobuf URLs must never receive PNG bytes — MapLibre parses them as PBF and the
+    /// WebView page crashes.
+    /// Returns false when the request should fall through to the network.
+    /// </summary>
+    public static bool TryCacheMissPlaceholder(
+        string uri,
+        bool cacheOnly,
+        out int statusCode,
+        out byte[] body,
+        out string contentType)
+    {
+        contentType = GuessContentType(uri);
+        var substitutableImage = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+            && !IsDemTileUrl(uri);
+        if (substitutableImage)
+        {
+            statusCode = 200;
+            body = EmptyPng;
+            return true;
+        }
+
+        if (cacheOnly)
+        {
+            statusCode = 404;
+            body = [];
+            return true;
+        }
+
+        statusCode = 0;
+        body = [];
+        return false;
+    }
+
+    public static bool IsDemTileUrl(string uri)
+    {
+        var lower = uri.ToLowerInvariant();
+        return lower.Contains("terrarium", StringComparison.Ordinal)
+            || lower.Contains("elevation-tiles-prod", StringComparison.Ordinal);
+    }
+
+    public static bool IsValidCachedPayload(string uri, byte[] bytes)
+    {
+        if (bytes == null || bytes.Length < 8)
+            return false;
+        if (bytes[0] is (byte)'<' or (byte)'{')
+            return false;
+
+        var ct = GuessContentType(uri);
+        if (ct.Contains("protobuf", StringComparison.OrdinalIgnoreCase))
+            return bytes.Length >= 16;
+        if (ct.Contains("jpeg", StringComparison.OrdinalIgnoreCase))
+            return bytes[0] == 0xFF && bytes[1] == 0xD8;
+        if (ct.Contains("webp", StringComparison.OrdinalIgnoreCase))
+            return bytes.Length >= 12 && bytes[0] == (byte)'R' && bytes[1] == (byte)'I';
+        if (ct.Contains("png", StringComparison.OrdinalIgnoreCase) || ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            if (bytes[0] != 0x89 || bytes[1] != 0x50 || bytes[2] != 0x4E || bytes[3] != 0x47)
+                return false;
+            // 1x1 EmptyPng is a valid PNG but poison for Terrarium DEM.
+            if (IsDemTileUrl(uri) && bytes.Length < 100)
+                return false;
+            return true;
+        }
+
+        return true;
+    }
+
+    private static bool TryOpenValidCacheFile(string path, string uri, out byte[] bytes)
+    {
+        bytes = [];
+        try
+        {
+            bytes = File.ReadAllBytes(path);
+            return IsValidCachedPayload(uri, bytes);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static string GuessContentType(string uri)
     {
         var lower = uri.ToLowerInvariant();
         if (lower.Contains(".pbf")) return "application/x-protobuf";

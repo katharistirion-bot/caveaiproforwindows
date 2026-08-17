@@ -175,6 +175,7 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     private PlanCanvasSurveyLayout _surveyHitLayout;
     private bool _surveyHitLayoutReady;
     private bool _applyingSettings;
+    private bool _applyingNamedCartographyCombo;
     private bool _showReferencePins = true;
     private SurveyMapPickHighlight? _surveyPickHighlight;
     private CaveViewport3DFlyThrough? _flyThrough;
@@ -964,6 +965,8 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             HostViewportShell == null)
             return;
 
+        RefreshNamedCartographyCombo();
+
         try
         {
             UpdateCartographySidebarVisibility();
@@ -1533,6 +1536,50 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 return;
             }
         }
+    }
+
+    private void RefreshNamedCartographyCombo()
+    {
+        if (NamedCartographyCombo == null)
+            return;
+        var summaries = NamedCartographyDocuments.List(Project);
+        _applyingNamedCartographyCombo = true;
+        try
+        {
+            NamedCartographyCombo.Items.Clear();
+            if (summaries.Count == 0)
+            {
+                NamedCartographyCombo.Visibility = Visibility.Collapsed;
+                return;
+            }
+            NamedCartographyCombo.Visibility = Visibility.Visible;
+            ComboBoxItem? selected = null;
+            foreach (var item in summaries)
+            {
+                var row = new ComboBoxItem { Content = item.Name, Tag = item.Id };
+                NamedCartographyCombo.Items.Add(row);
+                if (item.IsOpen)
+                    selected = row;
+            }
+            NamedCartographyCombo.SelectedItem = selected ?? NamedCartographyCombo.Items[0];
+        }
+        finally
+        {
+            _applyingNamedCartographyCombo = false;
+        }
+    }
+
+    private void NamedCartographyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingNamedCartographyCombo ||
+            NamedCartographyCombo?.SelectedItem is not ComboBoxItem { Tag: string id } ||
+            Project == null)
+            return;
+        if (!NamedCartographyDocuments.TryOpen(Project, id))
+            return;
+        Redraw();
+        if (Window.GetWindow(this)?.DataContext is MainViewModel vm)
+            vm.NotifySurveyDataChanged();
     }
 
     private MapExportQuality SelectedMapExportQuality()

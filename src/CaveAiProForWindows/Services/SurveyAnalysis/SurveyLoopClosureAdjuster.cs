@@ -321,6 +321,8 @@ public static class SurveyLoopClosureAdjuster
     /// <summary>
     /// Writes adjusted coordinates into <see cref="CaveProjectDocument.PlanStationPositionOverrides"/>
     /// without modifying raw shot measurements (non-destructive office preview / apply-to-copy).
+    /// Compares against traverse-only coords so existing overrides on stations the loop did not
+    /// move are never wiped (re-apply / Survey Cloud save).
     /// </summary>
     public static void ApplyToPlanOverrides(
         CaveProjectDocument project,
@@ -329,20 +331,26 @@ public static class SurveyLoopClosureAdjuster
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(result);
 
-        var baseCoords = SurveyStationGeometry.CalculatePlanCoordinates(project);
+        var traverseOnly = SurveyStationGeometry.CalculatePlanCoordinates(
+            project.Shots,
+            (float)project.Alt,
+            planStationPositionOverrides: null);
         foreach (var (station, adjusted) in result.AdjustedCoordinates)
         {
-            if (!baseCoords.TryGetValue(station, out var raw))
+            if (!traverseOnly.TryGetValue(station, out var raw))
+            {
+                project.PlanStationPositionOverrides[station] = new PlanStationPositionOverride(
+                    adjusted.X,
+                    adjusted.Y,
+                    adjusted.Z);
                 continue;
+            }
 
             var dx = adjusted.X - raw.X;
             var dy = adjusted.Y - raw.Y;
             var dz = adjusted.Z - raw.Z;
             if (Math.Abs(dx) < 1e-6 && Math.Abs(dy) < 1e-6 && Math.Abs(dz) < 1e-6)
-            {
-                project.PlanStationPositionOverrides.Remove(station);
                 continue;
-            }
 
             project.PlanStationPositionOverrides[station] = new PlanStationPositionOverride(
                 adjusted.X,

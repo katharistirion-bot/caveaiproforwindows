@@ -230,6 +230,14 @@ public sealed class CaveProjectDocument
     public int FieldCatalogEntryCount =>
         FieldCatalogEntries is { ValueKind: JsonValueKind.Array } arr ? arr.GetArrayLength() : 0;
 
+    /// <summary>Named plan/section cartography documents (Android <c>namedCartographyMaps</c>).</summary>
+    [JsonPropertyName("namedCartographyMaps")]
+    public JsonElement NamedCartographyMaps { get; set; }
+
+    /// <summary>Id of the open named cartography (Android <c>activeCartographyMapId</c>).</summary>
+    [JsonPropertyName("activeCartographyMapId")]
+    public string? ActiveCartographyMapId { get; set; }
+
     /// <summary>Any Gson members not listed above (forward-compatible with newer Android builds).</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }

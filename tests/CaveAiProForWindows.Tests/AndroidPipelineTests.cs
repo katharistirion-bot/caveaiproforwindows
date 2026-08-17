@@ -245,6 +245,7 @@ public sealed class AndroidPipelineTests
             },
         };
         ImportedStationCoordinatesBootstrap.TryApply(p);
+        Assert.IsFalse(p.ExtensionData!.ContainsKey("planStationPositionOverrides"));
         Assert.IsTrue(p.PlanStationPositionOverrides.TryGetValue("B2", out var b));
         Assert.AreEqual(12.3f, b.X, 1e-4f);
         Assert.AreEqual(-3.2f, b.Y, 1e-4f);

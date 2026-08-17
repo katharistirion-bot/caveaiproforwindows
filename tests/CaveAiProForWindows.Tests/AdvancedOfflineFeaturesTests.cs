@@ -65,6 +65,34 @@ public sealed class AdvancedOfflineFeaturesTests
     }
 
     [TestMethod]
+    public void ApplyToPlanOverrides_keepsManualOverrideOnStationsLoopDidNotMove()
+    {
+        var project = LoopProject();
+        project.Shots.Add(new ShotRecord
+        {
+            FromStation = "B",
+            ToStation = "E",
+            Distance = 5,
+            Azimuth = 45,
+            Clino = 0,
+            L = 1,
+            R = 1,
+            U = 1,
+            D = 1,
+        });
+        project.PlanStationPositionOverrides["E"] = new PlanStationPositionOverride(99, 98, 97);
+        project.Shots[3].Distance = 11;
+
+        var result = SurveyLoopClosureAdjuster.Adjust(project, LoopAdjustmentMethod.CompassRule);
+        SurveyLoopClosureAdjuster.ApplyToPlanOverrides(project, result);
+
+        Assert.IsTrue(project.PlanStationPositionOverrides.TryGetValue("E", out var kept));
+        Assert.AreEqual(99f, kept.X, 1e-4f);
+        Assert.AreEqual(98f, kept.Y, 1e-4f);
+        Assert.AreEqual(97f, kept.Z, 1e-4f);
+    }
+
+    [TestMethod]
     public void ObjMeshParser_reads_triangle()
     {
         var dir = Path.Combine(Path.GetTempPath(), "caveai_obj_" + Guid.NewGuid().ToString("N"));
