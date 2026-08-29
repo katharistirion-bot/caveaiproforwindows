@@ -139,4 +139,28 @@ public sealed class SubscriptionEntitlementTests
         Assert.IsFalse(result.IsEntitled);
         StringAssert.Contains(result.DenialReason!, "Unknown entitlementSource");
     }
+
+    [TestMethod]
+    public void AccountSessionState_Apply_then_Clear_drops_stale_grant()
+    {
+        AccountSessionState.Clear();
+        var grant = SubscriptionEntitlementService.ValidateDocument(
+            new UserEntitlementDocument(
+                "ACTIVE",
+                DateTimeOffset.UtcNow.AddDays(5),
+                "OWNER"));
+        Assert.IsTrue(grant.IsEntitled);
+        AccountSessionState.Apply(grant);
+        Assert.IsTrue(AccountSessionState.LastEntitlement?.IsEntitled == true);
+
+        var deny = SubscriptionEntitlementService.ValidateDocument(
+            new UserEntitlementDocument(
+                "ACTIVE",
+                DateTimeOffset.UtcNow.AddDays(5),
+                "SOMETHING_ELSE"));
+        Assert.IsFalse(deny.IsEntitled);
+        // RefreshEntitlementAsync clears on deny; mirror that contract here.
+        AccountSessionState.Clear();
+        Assert.IsNull(AccountSessionState.LastEntitlement);
+    }
 }

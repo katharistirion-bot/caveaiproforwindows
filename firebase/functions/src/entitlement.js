@@ -72,6 +72,10 @@ async function assertPremiumEntitlement(db, uid) {
     return { accessKind: "PaidPlaySubscription" };
   }
 
+  if (source === "OWNER") {
+    return { accessKind: "Owner" };
+  }
+
   if (source === "INSTALL_GRACE") {
     const graceDocId = data.graceDocId;
     if (!isValidGraceDocId(graceDocId)) {

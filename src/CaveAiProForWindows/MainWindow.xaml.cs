@@ -1195,6 +1195,27 @@ public partial class MainWindow : Window
             if (result == null || DataContext is not MainViewModel vm)
                 return;
 
+            if (!result.IsEntitled)
+            {
+                await FirebaseAuthSession.SignOutAsync().ConfigureAwait(true);
+                MessageBox.Show(
+                    this,
+                    "Your CaveAI Pro access is no longer active. Sign in again with an entitled Google account.",
+                    "Subscription required",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                var ok = AppLockBootstrapper.TryEnsureUnlocked();
+                if (!ok)
+                {
+                    Application.Current.Shutdown();
+                    return;
+                }
+
+                vm.RefreshAccountBannerFromSession();
+                vm.RefreshFooterStatus();
+                return;
+            }
+
             vm.RefreshAccountBannerFromSession();
             vm.RefreshFooterStatus();
         }

@@ -63,6 +63,8 @@ public static class AccountSessionState
             .ConfigureAwait(false);
         if (result.IsEntitled)
             Apply(result);
+        else
+            Clear();
         return result;
     }
 }
