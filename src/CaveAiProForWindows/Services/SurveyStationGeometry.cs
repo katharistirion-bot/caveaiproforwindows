@@ -181,6 +181,8 @@ public static class SurveyStationGeometry
         {
             if (el.ValueKind != System.Text.Json.JsonValueKind.Object)
                 continue;
+            if (IsWindowsAuthoredJson(el) || IsWindowsVectorLineType(el))
+                continue;
             if (!PassesViewModeFilter(el, requiredViewMode))
                 continue;
             var type = ResolveVectorLineTypeTag(el);
@@ -229,10 +231,12 @@ public static class SurveyStationGeometry
     {
         var list = new List<PlanVectorPolyline>();
         if (CaveProjectJsonBlobs.TryGetSketches(project, out var legacySketches))
-            AppendSketchPolylinesFromJson(legacySketches, list, preferSharpPolyline: false, defaultTypeTag: "sketch");
+            AppendSketchPolylinesFromJson(legacySketches, list, preferSharpPolyline: false, defaultTypeTag: "sketch",
+                skipWindowsAuthored: true);
 
         foreach (var root in EnumerateSupplementalPlanSketchArrays(project))
-            AppendSketchPolylinesFromJson(root, list, preferSharpPolyline: true, defaultTypeTag: "sketchLayer");
+            AppendSketchPolylinesFromJson(root, list, preferSharpPolyline: true, defaultTypeTag: "sketchLayer",
+                skipWindowsAuthored: true);
 
         return list;
     }
@@ -327,12 +331,12 @@ public static class SurveyStationGeometry
             {
                 if (!project.ExtensionData.TryGetValue(key, out var root) || root.ValueKind != JsonValueKind.Array)
                     continue;
-                AppendPlanMapSymbolsFromMixedMapObjectsArray(root, list, viewModeFilter);
+                AppendPlanMapSymbolsFromMixedMapObjectsArray(root, list, viewModeFilter, skipWindowsAuthored: true);
             }
         }
 
         if (project.MapObjects.ValueKind == JsonValueKind.Array)
-            AppendPlanMapSymbolsFromMixedMapObjectsArray(project.MapObjects, list, viewModeFilter);
+            AppendPlanMapSymbolsFromMixedMapObjectsArray(project.MapObjects, list, viewModeFilter, skipWindowsAuthored: true);
 
         return list;
     }
@@ -385,16 +389,42 @@ public static class SurveyStationGeometry
     /// <summary>
     /// <c>mapObjects</c> combines strokes and stamps — ignore entries that are clearly free-hand polylines (2+ vertices).
     /// </summary>
-    private static void AppendPlanMapSymbolsFromMixedMapObjectsArray(JsonElement root, List<PlanMapSymbol> list, int viewModeFilter)
+    private static void AppendPlanMapSymbolsFromMixedMapObjectsArray(
+        JsonElement root,
+        List<PlanMapSymbol> list,
+        int viewModeFilter,
+        bool skipWindowsAuthored = false)
     {
         foreach (var el in root.EnumerateArray())
         {
             if (el.ValueKind != JsonValueKind.Object)
                 continue;
+            if (skipWindowsAuthored && IsWindowsAuthoredJson(el))
+                continue;
             if (LooksLikeMapObjectStrokePolyline(el))
                 continue;
             TryAppendSinglePlanMapSymbol(el, list, viewModeFilter);
         }
+    }
+
+    private const string WindowsSourceClient = "CaveAiProForWindows";
+
+    private static bool IsWindowsAuthoredJson(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return false;
+        if (!el.TryGetProperty("sourceClient", out var sc) || sc.ValueKind != JsonValueKind.String)
+            return false;
+        return string.Equals(sc.GetString(), WindowsSourceClient, StringComparison.Ordinal);
+    }
+
+    private static bool IsWindowsVectorLineType(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return false;
+        if (!el.TryGetProperty("type", out var t) || t.ValueKind != JsonValueKind.String)
+            return false;
+        return t.GetString()?.StartsWith("WINDOWS_", StringComparison.Ordinal) == true;
     }
 
     private static bool LooksLikeMapObjectStrokePolyline(JsonElement el)
@@ -488,12 +518,17 @@ public static class SurveyStationGeometry
         JsonElement root,
         List<PlanVectorPolyline> list,
         bool preferSharpPolyline,
-        string defaultTypeTag)
+        string defaultTypeTag,
+        bool skipWindowsAuthored = false)
     {
         if (root.ValueKind != JsonValueKind.Array)
             return;
         foreach (var el in root.EnumerateArray())
+        {
+            if (skipWindowsAuthored && IsWindowsAuthoredJson(el))
+                continue;
             AppendSketchElement(el, list, preferSharpPolyline, defaultTypeTag);
+        }
     }
 
     private static void AppendSketchElement(

@@ -15,7 +15,7 @@ public sealed class OfflinePackAndSurveyCloudTests
             south: 40.0, west: 22.0, north: 40.05, east: 22.05,
             zoomMin: 11, zoomMax: 12);
         Assert.IsTrue(urls.Exists(u => u.Contains("tile.openstreetmap.org", StringComparison.Ordinal)));
-        Assert.IsTrue(urls.Exists(u => u.Contains("tiles.wmflabs.org/hillshading", StringComparison.Ordinal)));
+        Assert.IsTrue(urls.Exists(u => u.Contains("copernicus_dsm_glo30", StringComparison.Ordinal)));
         Assert.IsTrue(urls.Exists(u => u.Contains("elevation-tiles-prod/terrarium", StringComparison.Ordinal)));
         Assert.IsTrue(urls.Exists(u => u.Contains("demotiles.maplibre.org/font", StringComparison.Ordinal)));
         Assert.IsTrue(urls.Exists(u => u.EndsWith(".pbf", StringComparison.Ordinal)));
@@ -92,6 +92,8 @@ public sealed class OfflinePackAndSurveyCloudTests
         var png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0, 0, 0, 0, 0, 0, 0, 0 };
         Assert.IsTrue(
             SurfaceMapTileCacheService.IsValidCachedPayload("https://tile.openstreetmap.org/1/1/1.png", png));
+        Assert.IsFalse(
+            SurfaceMapTileCacheService.IsValidCachedPayload(glyph, png));
         Assert.IsFalse(
             SurfaceMapTileCacheService.IsValidCachedPayload(
                 "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/1/1/1.png",

@@ -2,18 +2,18 @@
 
 **Scope:** CaveAI Pro **Android**, **CAVE AI PRO (Windows)**, **Public Library (web/Firestore)**.
 
-Users must see on every cartography export whether the survey is a **cave (σπήλαιο)**, **mine (ορυχείο)**, **pothole (λάκκα)**, or **spring (πηγή)**.
+Users must see on every cartography export whether the survey is a **cave**, **mine**, **pothole**, or **spring**.
 
 ---
 
 ## Canonical values
 
-| Token (`surveySiteType` / normalized `KnownCave.type`) | English map label | Greek map label |
-|------------------------------------------------------|-------------------|-----------------|
-| `CAVE` | Cave | Σπήλαιο |
-| `MINE` | Mine | Ορύχειο |
-| `POTHOLE` | Pothole | Λάκκα |
-| `SPRING` | Spring | Πηγή |
+| Token (`surveySiteType` / normalized `KnownCave.type`) | English map label |
+|------------------------------------------------------|-------------------|
+| `CAVE` | Cave |
+| `MINE` | Mine |
+| `POTHOLE` | Pothole |
+| `SPRING` | Spring |
 
 Android UI may use title case (`"Cave"`, `"Mine"`, …) in Cave Library; **backup JSON must store uppercase tokens** after normalization.
 

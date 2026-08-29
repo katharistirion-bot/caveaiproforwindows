@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
@@ -236,7 +236,8 @@ public sealed class SurfaceMapTileCacheService : IDisposable
     {
         var urls = new List<string>();
         AppendXyzTiles(urls, "https://tile.openstreetmap.org/{z}/{x}/{y}.png", south, west, north, east, zoomMin, zoomMax);
-        AppendXyzTiles(urls, "https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png", south, west, north, east, zoomMin, Math.Min(zoomMax, 15));
+        AppendXyzTiles(urls, "https://tiles.maps.eox.at/wmts/1.0.0/terrain-light/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg", south, west, north, east, zoomMin, Math.Min(zoomMax, 15));
+        AppendXyzTiles(urls, "https://tiles.maps.eox.at/wmts/1.0.0/copernicus_dsm_glo30/default/GoogleMapsCompatible/{z}/{y}/{x}.png", south, west, north, east, zoomMin, Math.Min(zoomMax, 15));
         AppendXyzTiles(urls, "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png", south, west, north, east, zoomMin, Math.Min(zoomMax, 13));
         urls.AddRange(GlyphPrefetchUrls);
         return urls;
@@ -373,7 +374,12 @@ public sealed class SurfaceMapTileCacheService : IDisposable
 
         var ct = GuessContentType(uri);
         if (ct.Contains("protobuf", StringComparison.OrdinalIgnoreCase))
+        {
+            // Old misses cached EmptyPng (67 bytes, PNG magic) as .pbf and crash MapLibre.
+            if (bytes.Length >= 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
+                return false;
             return bytes.Length >= 16;
+        }
         if (ct.Contains("jpeg", StringComparison.OrdinalIgnoreCase))
             return bytes[0] == 0xFF && bytes[1] == 0xD8;
         if (ct.Contains("webp", StringComparison.OrdinalIgnoreCase))

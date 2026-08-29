@@ -18,9 +18,13 @@ public sealed class CloudPublishIntegrationTests
         Assert.IsNotNull(token);
 
         var handler = new RecordingHttpHandler();
+        // PublishAsync GETs Firestore first, then uploads ai_map, session data.json,
+        // published_caves/.../survey_project.json, survey_workspace.json, then PATCHes.
+        handler.Enqueue(HttpStatusCode.OK, """{"fields":{"ownerUid":{"stringValue":"uid123"},"caveName":{"stringValue":"Demo Cave"},"description":{"stringValue":"Existing"},"depth":{"doubleValue":5},"length":{"doubleValue":10},"imageUrls":{"arrayValue":{"values":[]}},"cartographyImageUrls":{"arrayValue":{"values":[]}}}}""");
         handler.Enqueue(HttpStatusCode.OK, """{"name":"users/uid123/desktop_publishes/s1/cave/ai_map.png","bucket":"b.appspot.com","downloadTokens":"tok1"}""");
         handler.Enqueue(HttpStatusCode.OK, """{"name":"users/uid123/desktop_publishes/s1/cave/data.json","bucket":"b.appspot.com","downloadTokens":"tok2"}""");
-        handler.Enqueue(HttpStatusCode.OK, """{"fields":{"caveName":{"stringValue":"Demo Cave"},"description":{"stringValue":"Existing"},"depth":{"doubleValue":5},"length":{"doubleValue":10},"imageUrls":{"arrayValue":{"values":[]}},"cartographyImageUrls":{"arrayValue":{"values":[]}}}}""");
+        handler.Enqueue(HttpStatusCode.OK, """{"name":"published_caves/uid123/caveDoc1/survey_project.json","bucket":"b.appspot.com","downloadTokens":"tok3"}""");
+        handler.Enqueue(HttpStatusCode.OK, """{"name":"published_caves/uid123/caveDoc1/survey_workspace.json","bucket":"b.appspot.com","downloadTokens":"tok4"}""");
         handler.Enqueue(HttpStatusCode.OK, "{}");
 
         var cache = new FirebaseAuthTokenCache();
@@ -39,13 +43,15 @@ public sealed class CloudPublishIntegrationTests
         var metadata = await service.PublishAsync(bundle, token!);
         Assert.AreEqual("caveDoc1", metadata.PublishedCaveDocId);
         Assert.IsTrue(metadata.CartographyImageUrls?[0].Contains("token=tok1", StringComparison.Ordinal));
-        Assert.AreEqual(4, handler.Requests.Count);
-        StringAssert.Contains(handler.Requests[0].Uri, "firebasestorage.googleapis.com");
-        StringAssert.Contains(handler.Requests[2].Uri, "published_caves/caveDoc1");
-        Assert.AreEqual("GET", handler.Requests[2].Method);
-        StringAssert.Contains(handler.Requests[3].Uri, "published_caves/caveDoc1");
-        Assert.AreEqual("PATCH", handler.Requests[3].Method);
-        var patchBody = await handler.Requests[3].ReadBodyAsync();
+        Assert.AreEqual(6, handler.Requests.Count);
+        StringAssert.Contains(handler.Requests[0].Uri, "published_caves/caveDoc1");
+        Assert.AreEqual("GET", handler.Requests[0].Method);
+        StringAssert.Contains(handler.Requests[1].Uri, "firebasestorage.googleapis.com");
+        StringAssert.Contains(handler.Requests[3].Uri, "published_caves%2Fuid123%2FcaveDoc1%2Fsurvey_project.json");
+        StringAssert.Contains(handler.Requests[4].Uri, "published_caves%2Fuid123%2FcaveDoc1%2Fsurvey_workspace.json");
+        StringAssert.Contains(handler.Requests[5].Uri, "published_caves/caveDoc1");
+        Assert.AreEqual("PATCH", handler.Requests[5].Method);
+        var patchBody = await handler.Requests[5].ReadBodyAsync();
         StringAssert.Contains(patchBody, "lastSyncedAtMs");
         StringAssert.Contains(patchBody, "surveyJsonUrl");
         Assert.IsFalse(patchBody.Contains("updatedAtMs", StringComparison.Ordinal));

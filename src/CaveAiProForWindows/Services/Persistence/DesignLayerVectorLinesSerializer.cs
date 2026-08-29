@@ -17,8 +17,11 @@ public static class DesignLayerVectorLinesSerializer
     {
         ArgumentNullException.ThrowIfNull(project);
         var windowsLines = new List<JsonElement>();
-        CollectStrokeVectorLines(project.MapObjects, windowsLines);
-        CollectStrokeVectorLines(project.Sketches, windowsLines);
+        // Prefer mapObjects (canonical DesignLayer persist). Sketches often duplicate the same strokes.
+        if (project.MapObjects.ValueKind == JsonValueKind.Array && project.MapObjects.GetArrayLength() > 0)
+            CollectStrokeVectorLines(project.MapObjects, windowsLines);
+        else
+            CollectStrokeVectorLines(project.Sketches, windowsLines);
         project.VectorLines = MergeWindowsVectorLines(project.VectorLines, JsonSerializer.SerializeToElement(windowsLines, CompactJson));
     }
 

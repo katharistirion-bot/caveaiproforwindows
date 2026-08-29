@@ -22,8 +22,8 @@ Updated: 2026-06-30 · **Prepare only** — no automated Store upload.
 ## Pre-submission checklist
 
 - [ ] `dotnet test` in repo root (400 tests)
-- [ ] Build unsigned MSIX: `tools/package-store-msix.ps1` → `_store_out\CaveAiProForWindows-1.5.14-Store-unsigned.msix`
-- [ ] Review MSIX (certification only): `tools/package-store-msix-review.ps1` → `_store_out\CaveAiProForWindows-1.5.14-Store-Review-unsigned.msix`
+- [ ] Build unsigned MSIX: `tools/package-store-msix.ps1` → `_store_out\CaveAiProForWindows-1.5.18-Store-unsigned.msix`
+- [ ] Review MSIX (certification only): `tools/package-store-msix-review.ps1` → `_store_out\CaveAiProForWindows-1.5.18-Store-Review-unsigned.msix`
 - [ ] Partner Center → Apps → CAVE AI PRO → Packages → upload new `.msix`
 - [ ] Store listing screenshots + privacy policy URL: `https://www.caveaipro.com/privacy`
 - [ ] Firestore rules deployed from **website** repo (`npm run deploy:rules`) — Windows repo rules are deny-all stub

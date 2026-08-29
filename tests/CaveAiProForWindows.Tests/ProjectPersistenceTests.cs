@@ -48,13 +48,22 @@ public sealed class ProjectPersistenceTests
             Assert.AreEqual(JsonValueKind.Array, project.Sketches.ValueKind);
             Assert.AreEqual(1, project.Sketches.GetArrayLength());
 
-            var sketches = SurveyStationGeometry.ParsePlanSketches(project).ToList();
-            Assert.AreEqual(2, sketches.Count);
-            Assert.AreEqual(3, sketches[0].Points.Count);
+            // SurveyCanvas parsers skip Windows-authored ink; DesignLayer hydrator restores stroke + stamp.
+            Assert.AreEqual(0, SurveyStationGeometry.ParsePlanSketches(project).Count);
+            Assert.AreEqual(0, SurveyStationGeometry.ParsePlanMapSymbols(project).Count);
 
-            var symbols = SurveyStationGeometry.ParsePlanMapSymbols(project).ToList();
-            Assert.AreEqual(1, symbols.Count);
-            Assert.AreEqual("rock", symbols[0].SymbolId);
+            var restored = new Canvas { Width = 400, Height = 400 };
+            var added = DesignLayerMapObjectsHydrator.TryHydrate(restored, layout, project);
+            Assert.AreEqual(2, added);
+            Assert.AreEqual(2, restored.Children.Count);
+            Assert.IsTrue(restored.Children.OfType<Polyline>().Any());
+            Assert.IsTrue(restored.Children.OfType<Viewbox>().Any());
+
+            var strokeObj = project.MapObjects.EnumerateArray()
+                .First(e => e.TryGetProperty("kind", out var k) && k.GetString() == "stroke");
+            Assert.AreEqual(3, strokeObj.GetProperty("points").GetArrayLength());
+            var symObj = project.MapObjects.EnumerateArray().First(e => e.TryGetProperty("symbolId", out _));
+            Assert.AreEqual("rock", symObj.GetProperty("symbolId").GetString());
         });
     }
 

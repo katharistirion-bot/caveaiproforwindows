@@ -7,8 +7,8 @@ using CaveAiProForWindows.Services.CloudPublish;
 namespace CaveAiProForWindows.Services.Auth;
 
 /// <summary>
-/// Reads <c>user_entitlements/{uid}</c> and validates paid Play subscriptions, Play free-trial phases,
-/// and the server-anchored 30-day install-grace trial (<c>INSTALL_GRACE</c>).
+/// Reads <c>user_entitlements/{uid}</c> and validates paid Play subscriptions, owner entitlements,
+/// Play free-trial phases, and the server-anchored 30-day install-grace trial (<c>INSTALL_GRACE</c>).
 /// </summary>
 public sealed class SubscriptionEntitlementService
 {
@@ -79,6 +79,10 @@ public sealed class SubscriptionEntitlementService
 
         if (string.Equals(doc.EntitlementSource, "PLAY_SUBSCRIPTION", StringComparison.Ordinal))
             return Grant(doc, SubscriptionAccessKind.PaidPlaySubscription);
+
+        // Parity with Android UserEntitlementFirestore / web premiumEntitlement.js.
+        if (string.Equals(doc.EntitlementSource, "OWNER", StringComparison.Ordinal))
+            return Grant(doc, SubscriptionAccessKind.Owner);
 
         if (string.Equals(doc.EntitlementSource, "INSTALL_GRACE", StringComparison.Ordinal))
         {

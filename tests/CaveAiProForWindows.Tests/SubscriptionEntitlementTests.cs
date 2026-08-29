@@ -114,4 +114,29 @@ public sealed class SubscriptionEntitlementTests
         Assert.IsTrue(result.IsEntitled);
         Assert.AreEqual(SubscriptionAccessKind.LegacyEntitlement, result.AccessKind);
     }
+
+    [TestMethod]
+    public void ValidateDocument_accepts_owner_entitlement()
+    {
+        var doc = new UserEntitlementDocument(
+            "ACTIVE",
+            DateTimeOffset.UtcNow.AddYears(50),
+            "OWNER");
+        var result = SubscriptionEntitlementService.ValidateDocument(doc);
+        Assert.IsTrue(result.IsEntitled);
+        Assert.AreEqual(SubscriptionAccessKind.Owner, result.AccessKind);
+        Assert.IsNull(result.DenialReason);
+    }
+
+    [TestMethod]
+    public void ValidateDocument_rejects_unknown_entitlement_source()
+    {
+        var doc = new UserEntitlementDocument(
+            "ACTIVE",
+            DateTimeOffset.UtcNow.AddDays(5),
+            "SOMETHING_ELSE");
+        var result = SubscriptionEntitlementService.ValidateDocument(doc);
+        Assert.IsFalse(result.IsEntitled);
+        StringAssert.Contains(result.DenialReason!, "Unknown entitlementSource");
+    }
 }

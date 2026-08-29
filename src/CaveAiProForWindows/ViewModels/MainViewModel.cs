@@ -34,8 +34,6 @@ public partial class MainViewModel : ObservableObject
     /// <summary>True when the open project has unsaved in-memory edits (pins, entrance, X-Ray bounds, …).</summary>
     [ObservableProperty] private bool _isDirty;
 
-    private string _windowTitleBase = "CAVE AI PRO — Survey workstation";
-
     /// <summary>Toolbar subtitle with assembly version (e.g. Survey workstation · v1.2.1).</summary>
     public string ToolbarVersionText { get; } = $"Survey workstation · v{AppMetadata.InformationalVersion}";
 
@@ -119,6 +117,16 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Cloud publish retry queue and local publish history.</summary>
     public CloudCommandsViewModel CloudCommands => _cloudCommands;
 
+    private readonly WorkspaceRecentFilesViewModel _workspaceRecent;
+
+    /// <summary>Recent backup paths (File menu and welcome sidebar).</summary>
+    public WorkspaceRecentFilesViewModel WorkspaceRecent => _workspaceRecent;
+
+    private readonly WorkspaceSessionViewModel _workspaceSession;
+
+    /// <summary>Dirty-session UX, discard-confirm, and workspace close/unload coordination.</summary>
+    public WorkspaceSessionViewModel WorkspaceSession => _workspaceSession;
+
     private string _pendingReleasePageUrl = "";
 
     [ObservableProperty] private int _collaborationUnreadCount;
@@ -179,7 +187,7 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Topology / traverse QC rows for the main SURVEY QC tab (populated via TraverseQcStats.BuildSurveyQcIssueRows).</summary>
     public ObservableCollection<SurveyQcIssueRow> SurveyQcIssueRows { get; } = new();
 
-    public ObservableCollection<string> RecentPaths { get; } = new();
+    public ObservableCollection<string> RecentPaths => _workspaceRecent.RecentPaths;
 
     private string? _zipPath;
     /// <summary>First .zip among opened paths when multiple files are loaded — used only to resolve embedded <c>maps/</c> paths (integrity UI still uses <see cref="_zipPath"/>).</summary>
@@ -277,8 +285,8 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         _cloudCommands = new CloudCommandsViewModel(this);
-        foreach (var p in RecentPathsStore.Load())
-            RecentPaths.Add(p);
+        _workspaceRecent = new WorkspaceRecentFilesViewModel(this);
+        _workspaceSession = new WorkspaceSessionViewModel(this);
         LegalTermsAccepted = LegalTermsAcceptanceStore.Load();
         MapAssetRows.CollectionChanged += (_, _) => ExportMapsReportCommand.NotifyCanExecuteChanged();
         HookProjectListViewFilter(Projects);
@@ -565,104 +573,27 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoProjects));
     }
 
-    /// <summary>Marks the session dirty and shows * in the window title until [ClearDirty] / successful save.</summary>
-    public void MarkDirty(string? statusHint = null)
-    {
-        if (!IsDirty)
-            IsDirty = true;
-        RefreshDirtyWindowTitle();
-        if (!string.IsNullOrWhiteSpace(statusHint))
-            StatusMessage = statusHint;
-        SaveProjectCommand.NotifyCanExecuteChanged();
-    }
+    /// <summary>Marks the session dirty and shows * in the window title until cleared / successful save.</summary>
+    public void MarkDirty(string? statusHint = null) => _workspaceSession.MarkDirty(statusHint);
 
-    public void ClearDirty()
-    {
-        if (!IsDirty)
-            return;
-        IsDirty = false;
-        RefreshDirtyWindowTitle();
-        SaveProjectCommand.NotifyCanExecuteChanged();
-    }
+    public void ClearDirty() => _workspaceSession.ClearDirty();
 
-    private void SetWindowTitleBase(string titleWithoutAsterisk)
-    {
-        _windowTitleBase = string.IsNullOrWhiteSpace(titleWithoutAsterisk)
-            ? "CAVE AI PRO — Survey workstation"
-            : titleWithoutAsterisk;
-        RefreshDirtyWindowTitle();
-    }
-
-    private void RefreshDirtyWindowTitle()
-    {
-        WindowTitle = IsDirty ? _windowTitleBase + " *" : _windowTitleBase;
-    }
+    private void SetWindowTitleBase(string titleWithoutAsterisk) =>
+        _workspaceSession.SetWindowTitleBase(titleWithoutAsterisk);
 
     /// <summary>
     /// Returns false if the user cancelled. On Yes, attempts save; if save is impossible, warns and returns false.
     /// </summary>
-    public bool ConfirmDiscardUnsavedChanges(string? contextLabel = null)
-    {
-        if (!IsDirty)
-            return true;
+    public bool ConfirmDiscardUnsavedChanges(string? contextLabel = null) =>
+        _workspaceSession.ConfirmDiscardUnsavedChanges(contextLabel);
 
-        var owner = Wpf.Application.Current.MainWindow;
-        var label = string.IsNullOrWhiteSpace(contextLabel) ? "this project" : contextLabel;
-        var result = Wpf.MessageBox.Show(
-            owner,
-            $"You have unsaved changes in {label}.\n\nSave before continuing?",
-            "Unsaved changes",
-            Wpf.MessageBoxButton.YesNoCancel,
-            Wpf.MessageBoxImage.Warning);
-
-        if (result == Wpf.MessageBoxResult.Cancel)
-            return false;
-
-        if (result == Wpf.MessageBoxResult.Yes)
-        {
-            if (!CanSaveProject())
-            {
-                UserErrorReporter.ShowWarning(
-                    owner,
-                    "Cannot save this project from here (need a writable .json/.zip source on disk and accepted legal terms). Use Save as / fix the source path, or choose Don't Save.",
-                    "Save project");
-                return false;
-            }
-
-            SaveProject();
-            return !IsDirty;
-        }
-
-        ClearDirty();
-        return true;
-    }
-
-    private bool CanCloseWorkspace() =>
-        Projects.Count > 0 ||
-        _knownCaveMaster.Count > 0 ||
-        _standaloneMapPaths.Count > 0 ||
-        !string.IsNullOrEmpty(_zipPath) ||
-        !string.IsNullOrEmpty(_primarySourcePath) ||
-        MapInventoryRows.Count > 0;
+    private bool CanCloseWorkspace() => _workspaceSession.CanCloseWorkspace();
 
     /// <summary>Unloads all opened backups, Cave Library snapshot, standalone maps, and ZIP browser state so files are no longer part of this session.</summary>
     [RelayCommand(CanExecute = nameof(CanCloseWorkspace))]
-    private void CloseWorkspace()
-    {
-        if (!CanCloseWorkspace())
-            return;
-        if (!ConfirmDiscardUnsavedChanges("the open workspace"))
-            return;
+    private void CloseWorkspace() => _workspaceSession.TryCloseWorkspace();
 
-        ClearWorkspaceDataCore();
-        ClearDirty();
-        SetWindowTitleBase("CAVE AI PRO — Survey workstation");
-        StatusMessage =
-            "Ready — open a CaveAI Pro backup (.json or .zip) for survey QC, Survex/Therion import, Loop closure (Compass/WLS), exports (Survex / Therion / DXF), and batch office workflows. Ctrl+O or drag-and-drop.";
-        NotifyWorkspaceCommandStateChanged();
-    }
-
-    private bool HasLoadedWorkspaceContent() =>
+    internal bool HasLoadedWorkspaceContentInternal() =>
         Projects.Count > 0 ||
         _knownCaveMaster.Count > 0 ||
         _standaloneMapPaths.Count > 0 ||
@@ -670,21 +601,9 @@ public partial class MainViewModel : ObservableObject
         !string.IsNullOrEmpty(_primarySourcePath) ||
         MapInventoryRows.Count > 0;
 
-    /// <summary>Auto-unload before opening a different backup so the previous session cannot leak into the new project.</summary>
-    /// <returns>False if the user cancelled leaving a dirty workspace.</returns>
-    private bool UnloadWorkspaceBeforeNewLoad()
-    {
-        if (!HasLoadedWorkspaceContent())
-            return true;
-        if (!ConfirmDiscardUnsavedChanges("the current workspace"))
-            return false;
+    private bool UnloadWorkspaceBeforeNewLoad() => _workspaceSession.UnloadWorkspaceBeforeNewLoad();
 
-        ClearWorkspaceDataCore();
-        ClearDirty();
-        return true;
-    }
-
-    private void ClearWorkspaceDataCore()
+    internal void ClearWorkspaceDataCore()
     {
         _loadCts?.Cancel();
 
@@ -739,7 +658,7 @@ public partial class MainViewModel : ObservableObject
         NotifyWorkspaceCommandStateChanged();
     }
 
-    private void NotifyWorkspaceCommandStateChanged()
+    internal void NotifyWorkspaceCommandStateChanged()
     {
         ExtractPhotosCommand.NotifyCanExecuteChanged();
         ExtractFullArchiveCommand.NotifyCanExecuteChanged();
@@ -1289,101 +1208,23 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenRecent(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return;
-        if (RecentPathFileOps.IsDirectory(path))
-        {
-            SnackbarService.RevealInExplorer(path);
-            return;
-        }
-
-        if (!File.Exists(path))
-            return;
-        LoadFromPath(path);
-    }
+    private void OpenRecent(string? path) => _workspaceRecent.OpenRecent(path);
 
     [RelayCommand]
-    private void RemoveRecent(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return;
-        RecentPathsStore.Remove(path);
-        RefreshRecentUi();
-    }
+    private void RemoveRecent(string? path) => _workspaceRecent.RemoveRecent(path);
 
     [RelayCommand]
-    private void RevealRecentPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path) || !RecentPathFileOps.Exists(path))
-            return;
-        SnackbarService.RevealInExplorer(path);
-    }
+    private void RevealRecentPath(string? path) => _workspaceRecent.RevealRecentPath(path);
 
     [RelayCommand]
-    private void RenameRecentPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return;
-        if (!RecentPathFileOps.Exists(path))
-        {
-            Wpf.MessageBox.Show(
-                GetOwnerWindow?.Invoke(),
-                "This path no longer exists — removing it from the list.",
-                "Recent files",
-                Wpf.MessageBoxButton.OK,
-                Wpf.MessageBoxImage.Information);
-            RecentPathsStore.Remove(path);
-            RefreshRecentUi();
-            return;
-        }
-
-        if (!RecentPathRenameWindow.TryPrompt(GetOwnerWindow?.Invoke(), path, out var newPath) ||
-            string.IsNullOrWhiteSpace(newPath))
-            return;
-
-        RecentPathsStore.ReplacePath(path, newPath);
-        ApplyRecentPathSessionUpdate(path, newPath);
-        RefreshRecentUi();
-        SnackbarService.Show($"Renamed to {Path.GetFileName(newPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))}");
-    }
+    private void RenameRecentPath(string? path) => _workspaceRecent.RenameRecentPath(path);
 
     [RelayCommand]
-    private void DeleteRecentPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return;
-        if (!RecentPathFileOps.Exists(path))
-        {
-            RecentPathsStore.Remove(path);
-            RefreshRecentUi();
-            return;
-        }
+    private void DeleteRecentPath(string? path) => _workspaceRecent.DeleteRecentPath(path);
 
-        var isDir = RecentPathFileOps.IsDirectory(path);
-        var message = isDir
-            ? $"Delete this folder and everything inside it?\n\n{path}"
-            : $"Delete this file permanently?\n\n{path}";
-        var owner = GetOwnerWindow?.Invoke();
-        if (Wpf.MessageBox.Show(owner, message, isDir ? "Delete folder" : "Delete file",
-                Wpf.MessageBoxButton.YesNo, Wpf.MessageBoxImage.Warning) != Wpf.MessageBoxResult.Yes)
-            return;
+    internal void LoadFromPathPublic(string path) => LoadFromPath(path);
 
-        if (!RecentPathFileOps.TryDelete(path, out var error))
-        {
-            Wpf.MessageBox.Show(owner, error ?? "Delete failed.", "Delete", Wpf.MessageBoxButton.OK,
-                Wpf.MessageBoxImage.Error);
-            return;
-        }
-
-        RecentPathsStore.Remove(path);
-        if (string.Equals(_primarySourcePath, path, StringComparison.OrdinalIgnoreCase))
-            CloseWorkspace();
-        RefreshRecentUi();
-        SnackbarService.Show(isDir ? "Folder deleted." : "File deleted.");
-    }
-
-    private void ApplyRecentPathSessionUpdate(string oldPath, string newPath)
+    internal void ApplyPrimarySourcePathRename(string oldPath, string newPath)
     {
         if (!string.Equals(_primarySourcePath, oldPath, StringComparison.OrdinalIgnoreCase))
             return;
@@ -1400,6 +1241,14 @@ public partial class MainViewModel : ObservableObject
         RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
         SaveProjectCommand.NotifyCanExecuteChanged();
     }
+
+    internal void CloseWorkspaceIfPrimary(string path)
+    {
+        if (string.Equals(_primarySourcePath, path, StringComparison.OrdinalIgnoreCase))
+            CloseWorkspace();
+    }
+
+    internal Wpf.Window? OwnerWindow => GetOwnerWindow?.Invoke();
 
     /// <summary>Opens a path from drag-and-drop or automation; only .json / .zip are accepted.</summary>
     public void OpenPath(string path)
@@ -1484,6 +1333,9 @@ public partial class MainViewModel : ObservableObject
             }
 
             var merged = work.Merged;
+            // Migrate unlabeled (pre-named-maps) projects so the cartography panel is always consistent.
+            foreach (var proj in merged)
+                NamedCartographyDocuments.EnsureNamedDocuments(proj);
             var libraryAccumulator = work.LibraryRecords;
             var orderedPaths = work.LoadedPaths;
 
@@ -1560,7 +1412,7 @@ public partial class MainViewModel : ObservableObject
             SourcePathDisplay = orderedPaths.Count <= 1
                 ? (orderedPaths.Count == 1 ? orderedPaths[0] : "")
                 : $"{orderedPaths.Count} files: " + string.Join("; ", orderedPaths.Take(3)) + (orderedPaths.Count > 3 ? " …" : "");
-            RefreshRecentUi();
+            _workspaceRecent.RefreshRecentUi();
 
             ApplyIntegrityUi();
             ApplySchemaNote();
@@ -1811,8 +1663,10 @@ public partial class MainViewModel : ObservableObject
         return Path.Combine(segments.ToArray());
     }
 
-    private bool HasSourceOnDisk() =>
+    internal bool HasSourceOnDisk() =>
         !string.IsNullOrWhiteSpace(_primarySourcePath) && File.Exists(_primarySourcePath);
+
+    internal int SourceFileCount => _sourceFileCount;
 
     private bool HasLastExtractRoot() =>
         !string.IsNullOrEmpty(_lastExtractRoot) && Directory.Exists(_lastExtractRoot!);
@@ -1838,46 +1692,12 @@ public partial class MainViewModel : ObservableObject
         });
     }
 
-    private bool CanSaveProject() =>
-        LegalTermsGateOpen() &&
-        SelectedProject != null &&
-        HasSourceOnDisk() &&
-        _sourceFileCount == 1 &&
-        AiRenderSavePathPolicy.CanWriteBesideSourceFile(_primarySourcePath) &&
-        (Path.GetExtension(_primarySourcePath!).Equals(".json", StringComparison.OrdinalIgnoreCase) ||
-         Path.GetExtension(_primarySourcePath!).Equals(".zip", StringComparison.OrdinalIgnoreCase));
+    private bool CanSaveProject() => _workspaceSession.CanSaveProject();
+
+    internal void NotifySaveProjectCanExecuteChanged() => SaveProjectCommand.NotifyCanExecuteChanged();
 
     [RelayCommand(CanExecute = nameof(CanSaveProject))]
-    private void SaveProject()
-    {
-        if (SelectedProject == null || string.IsNullOrEmpty(_primarySourcePath))
-            return;
-
-        try
-        {
-            ProjectPersistenceService.Save(new ProjectPersistenceService.SaveRequest
-            {
-                Projects = Projects.ToList(),
-                PrimarySourcePath = _primarySourcePath,
-                BeforeSerialize = p =>
-                {
-                    if (ReferenceEquals(p, SelectedProject))
-                        PersistProjectBeforeSave?.Invoke(p);
-                },
-            });
-
-            ClearDirty();
-            StatusMessage =
-                $"Saved {Projects.Count} project(s) — sketch mapObjects and metadata written to {Path.GetFileName(_primarySourcePath)}.";
-        }
-        catch (Exception ex)
-        {
-            UserErrorReporter.ShowWarning(
-                Wpf.Application.Current.MainWindow,
-                ex.Message,
-                "Save project");
-        }
-    }
+    private void SaveProject() => _workspaceSession.SaveProject();
 
     private bool CanPrintPreview() => SelectedProject != null;
 
@@ -2401,14 +2221,6 @@ public partial class MainViewModel : ObservableObject
             RepublishToCloudCommand.NotifyCanExecuteChanged();
             RepublishAllWithAiCommand.NotifyCanExecuteChanged();
         }
-    }
-
-
-    private void RefreshRecentUi()
-    {
-        RecentPaths.Clear();
-        foreach (var p in RecentPathsStore.Load())
-            RecentPaths.Add(p);
     }
 
     private void ApplyIntegrityUi()

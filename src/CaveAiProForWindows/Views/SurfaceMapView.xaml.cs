@@ -234,7 +234,7 @@ public partial class SurfaceMapView : UserControl
             foreach (var pattern in new[]
                      {
                          "https://tile.openstreetmap.org/*",
-                         "https://tiles.wmflabs.org/*",
+
                          "https://s3.amazonaws.com/elevation-tiles-prod/*",
                          "https://tiles.maps.eox.at/*",
                          "https://demotiles.maplibre.org/*",

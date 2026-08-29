@@ -16,6 +16,8 @@ public enum SubscriptionAccessKind
 {
     None,
     PaidPlaySubscription,
+    /// <summary>Server-issued owner/dev entitlement (<c>entitlementSource=OWNER</c>).</summary>
+    Owner,
     InstallGraceTrial,
     LegacyEntitlement,
 }

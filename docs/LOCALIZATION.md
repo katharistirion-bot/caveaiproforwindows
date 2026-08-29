@@ -17,4 +17,4 @@ The Desktop Companion ships **English-only UI** in v1.5.x. Legal text, menus, di
 
 ## Greek / other locales
 
-Field workflows on Android may use Greek; the Windows workstation intentionally stays English for publication, QC, and support consistency.
+Product UI is English-only across Android, Windows, and web for international users. Do not reintroduce locale packs without an explicit product decision.

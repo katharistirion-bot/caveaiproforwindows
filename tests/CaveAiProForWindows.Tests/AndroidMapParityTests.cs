@@ -257,20 +257,28 @@ public sealed class AndroidMapParityTests
             Assert.AreEqual(unchecked((int)0xFFAA5500),
                 SurveyStationGeometry.ResolveStrokeColorArgb(strokeObj));
 
-            var moOnly = new CaveProjectDocument
+            // Windows-authored ink is skipped by ParsePlanSketches (SurveyCanvas); DesignLayer hydrator restores it.
+            Assert.AreEqual(0, SurveyStationGeometry.ParsePlanSketches(new CaveProjectDocument
             {
                 Name = "StrokeColorRoundTrip",
                 MapObjects = project.MapObjects,
-            };
-            var reparsed = SurveyStationGeometry.ParsePlanSketches(moOnly).ToList();
-            Assert.AreEqual(1, reparsed.Count);
-            Assert.AreEqual(unchecked((int)0xFFAA5500), reparsed[0].StrokeColorArgb);
-            Assert.AreEqual(3, reparsed[0].Points.Count);
+            }).Count);
+
+            var restored = new System.Windows.Controls.Canvas { Width = 200, Height = 200 };
+            var added = DesignLayerMapObjectsHydrator.TryHydrate(restored, layout, project);
+            Assert.AreEqual(1, added);
+            Assert.AreEqual(1, restored.Children.Count);
+            Assert.IsInstanceOfType(restored.Children[0], typeof(System.Windows.Shapes.Polyline));
+            var restoredPoly = (System.Windows.Shapes.Polyline)restored.Children[0];
+            Assert.IsInstanceOfType(restoredPoly.Tag, typeof(DesignLayerInkMetadata));
+            var restoredMeta = (DesignLayerInkMetadata)restoredPoly.Tag!;
+            Assert.AreEqual(0xFFAA5500u, restoredMeta.StrokeColorArgb);
+            Assert.AreEqual(3, restoredPoly.Points.Count);
         });
     }
 
     [TestMethod]
-    public void DesignLayerMapObjectsSerializer_android_fields_reparse_via_ParsePlanMapSymbols()
+    public void DesignLayerMapObjectsSerializer_android_fields_reparse_via_DesignLayerHydrator()
     {
         SketchAssistTestsRunSta.Run(() =>
         {
@@ -299,10 +307,14 @@ public sealed class AndroidMapParityTests
             Assert.AreEqual("CaveAiProForWindows", symObj.GetProperty("sourceClient").GetString());
             Assert.AreEqual(1f, symObj.GetProperty("scale").GetSingle(), 1e-4f);
 
-            var parsed = SurveyStationGeometry.ParsePlanMapSymbols(project).ToList();
-            Assert.AreEqual(1, parsed.Count);
-            Assert.AreEqual("water", parsed[0].SymbolId);
-            Assert.AreEqual(1f, parsed[0].Scale, 1e-4f);
+            // ParsePlanMapSymbols skips Windows-authored stamps; hydrator restores them onto DesignLayer.
+            Assert.AreEqual(0, SurveyStationGeometry.ParsePlanMapSymbols(project).Count);
+
+            var restored = new System.Windows.Controls.Canvas { Width = 200, Height = 200 };
+            var added = DesignLayerMapObjectsHydrator.TryHydrate(restored, layout, project);
+            Assert.AreEqual(1, added);
+            Assert.AreEqual(1, restored.Children.Count);
+            Assert.IsInstanceOfType(restored.Children[0], typeof(System.Windows.Controls.Viewbox));
         });
     }
 }

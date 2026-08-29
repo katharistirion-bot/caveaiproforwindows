@@ -34,4 +34,21 @@ public sealed class AccountStatusFormatterTests
         StringAssert.StartsWith(banner, "Signed in");
         StringAssert.Contains(banner, "install trial");
     }
+
+    [TestMethod]
+    public void FormatAccessSummary_owner_does_not_mention_play()
+    {
+        var until = DateTimeOffset.UtcNow.AddYears(10);
+        var result = new SubscriptionEntitlementResult(
+            true,
+            null,
+            new UserEntitlementDocument("ACTIVE", until, "OWNER"),
+            SubscriptionAccessKind.Owner);
+
+        var text = AccountStatusFormatter.FormatAccessSummary(result);
+        StringAssert.Contains(text, "Owner access");
+        Assert.IsFalse(text.Contains("Play", StringComparison.OrdinalIgnoreCase));
+        var about = AccountStatusFormatter.FormatAboutSubscription(result);
+        Assert.IsFalse(about.Contains("Manage subscription", StringComparison.OrdinalIgnoreCase));
+    }
 }

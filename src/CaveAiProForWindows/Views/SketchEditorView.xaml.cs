@@ -133,6 +133,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     private ProceduralSketchViewModel? _proceduralSketch;
     private SketchEditorViewModel? _sketchPersistence;
     private CaveProjectDocument? _designLayerProjectScope;
+    private string? _designLayerActiveCartographyMapIdScope;
     private bool _designLayerHydrated;
     private PlanScene? _interactivePlanScene;
     private PlanCanvasSurveyLayout _surveyHitLayout;
@@ -325,9 +326,13 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     {
         if (DesignLayer == null)
             return;
-        if (ReferenceEquals(Project, _designLayerProjectScope))
+
+        var activeMapId = Project?.ActiveCartographyMapId?.Trim() ?? "";
+        if (ReferenceEquals(Project, _designLayerProjectScope) &&
+            string.Equals(activeMapId, _designLayerActiveCartographyMapIdScope, StringComparison.Ordinal))
             return;
         _designLayerProjectScope = Project;
+        _designLayerActiveCartographyMapIdScope = activeMapId;
         _designLayerHydrated = false;
         _cachedUnderlays = null;
         _interactivePlanScene = null;

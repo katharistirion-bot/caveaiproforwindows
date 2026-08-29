@@ -16,6 +16,7 @@ using System.Windows.Threading;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.ReferenceCatalog;
+using CaveAiProForWindows.Services.SketchAssist;
 using CaveAiProForWindows.ViewModels;
 
 namespace CaveAiProForWindows.Views;
@@ -1104,6 +1105,9 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
                 _surveyHitLayoutReady = PlanCanvasRenderer.TryComputeSurveyLayout(
                     scene, SurveyCanvas.Width, SurveyCanvas.Height, out _surveyHitLayout);
                 AndroidImportedSymbolPresenter.ClearImported(DesignLayer);
+                // Windows ink is filtered from SurveyCanvas (ParsePlanSketches); hydrate DesignLayer so it remains visible/editable.
+                if (_surveyHitLayoutReady)
+                    DesignLayerMapObjectsHydrator.TryHydrate(DesignLayer, _surveyHitLayout, p);
                 ApplyReferencePinsOverlay();
             }
             catch (Exception ex)
@@ -1542,7 +1546,19 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
     {
         if (NamedCartographyCombo == null)
             return;
+        var hasProject = Project != null;
         var summaries = NamedCartographyDocuments.List(Project);
+        var hasOpen = summaries.Any(item => item.IsOpen);
+        if (NamedCartographyBar != null)
+            NamedCartographyBar.Visibility = hasProject ? Visibility.Visible : Visibility.Collapsed;
+        if (NamedCartographyNewButton != null)
+            NamedCartographyNewButton.IsEnabled = hasProject;
+        if (NamedCartographySaveAsButton != null)
+            NamedCartographySaveAsButton.IsEnabled = hasProject;
+        if (NamedCartographyRenameButton != null)
+            NamedCartographyRenameButton.IsEnabled = hasProject && hasOpen;
+        if (NamedCartographyDeleteButton != null)
+            NamedCartographyDeleteButton.IsEnabled = hasProject && hasOpen;
         _applyingNamedCartographyCombo = true;
         try
         {
@@ -1577,9 +1593,138 @@ public partial class PlanView : System.Windows.Controls.UserControl, IMapSurface
             return;
         if (!NamedCartographyDocuments.TryOpen(Project, id))
             return;
-        Redraw();
+        NotifyNamedCartographyChanged("Named cartography opened — Ctrl+S to save");
+    }
+
+    private void NamedCartographyNew_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project == null)
+            return;
+        var suggested = string.IsNullOrWhiteSpace(Project.Name) ? "Plan" : Project.Name.Trim();
+        var name = PromptCartographyName("New cartography", "Name for the empty drawing:", suggested);
+        if (name == null)
+            return;
+        NamedCartographyDocuments.TryCreateEmpty(Project, name);
+        NotifyNamedCartographyChanged("Empty cartography created — Ctrl+S to save");
+    }
+
+    private void NamedCartographySaveAs_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project == null)
+            return;
+        var name = PromptCartographyName("Save cartography as", "Name for this drawing:", DefaultCartographyName());
+        if (name == null)
+            return;
+        NamedCartographyDocuments.TrySaveAs(Project, name);
+        NotifyNamedCartographyChanged("Cartography saved as a new document — Ctrl+S to save");
+    }
+
+    private void NamedCartographyRename_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project == null)
+            return;
+        var open = NamedCartographyDocuments.List(Project).FirstOrDefault(item => item.IsOpen);
+        if (string.IsNullOrWhiteSpace(open.Id))
+            return;
+        var name = PromptCartographyName("Rename cartography", "New name:", open.Name);
+        if (name == null)
+            return;
+        if (NamedCartographyDocuments.TryRename(Project, open.Id, name) == null)
+            return;
+        NotifyNamedCartographyChanged("Cartography renamed — Ctrl+S to save");
+    }
+
+    private void NamedCartographyDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project == null)
+            return;
+        var open = NamedCartographyDocuments.List(Project).FirstOrDefault(item => item.IsOpen);
+        if (string.IsNullOrWhiteSpace(open.Id))
+            return;
+        var owner = Window.GetWindow(this);
+        var confirm = MessageBox.Show(
+            owner,
+            $"Delete named cartography \"{open.Name}\"? This cannot be undone except by not saving.",
+            "Delete cartography",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+        if (NamedCartographyDocuments.TryDelete(Project, open.Id) == null)
+            return;
+        NotifyNamedCartographyChanged("Cartography deleted — Ctrl+S to save");
+    }
+
+    private string DefaultCartographyName()
+    {
+        var open = NamedCartographyDocuments.List(Project).FirstOrDefault(item => item.IsOpen);
+        if (!string.IsNullOrWhiteSpace(open.Name))
+            return open.Name;
+        return string.IsNullOrWhiteSpace(Project?.Name) ? "Plan" : Project.Name.Trim();
+    }
+
+    private void NotifyNamedCartographyChanged(string statusHint)
+    {
         if (Window.GetWindow(this)?.DataContext is MainViewModel vm)
+        {
+            vm.MarkDirty(statusHint);
             vm.NotifySurveyDataChanged();
+            return;
+        }
+
+        Redraw();
+    }
+
+    private string? PromptCartographyName(string title, string prompt, string initial)
+    {
+        var owner = Window.GetWindow(this);
+        var box = new TextBox
+        {
+            Text = initial,
+            Margin = new Thickness(12, 8, 12, 8),
+        };
+        var ok = new Button { Content = "OK", IsDefault = true, Width = 88, Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = "Cancel", IsCancel = true, Width = 88 };
+        string? result = null;
+        var win = new Window
+        {
+            Title = title,
+            Width = 380,
+            Height = 168,
+            WindowStartupLocation = owner != null
+                ? WindowStartupLocation.CenterOwner
+                : WindowStartupLocation.CenterScreen,
+            Owner = owner,
+            ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false,
+        };
+        ok.Click += (_, _) =>
+        {
+            result = box.Text;
+            win.DialogResult = true;
+        };
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(12, 0, 12, 12),
+        };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+        var panel = new DockPanel();
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        panel.Children.Add(buttons);
+        var promptBlock = new TextBlock { Text = prompt, Margin = new Thickness(12, 12, 12, 0) };
+        DockPanel.SetDock(promptBlock, Dock.Top);
+        panel.Children.Add(promptBlock);
+        panel.Children.Add(box);
+        win.Content = panel;
+        win.Loaded += (_, _) =>
+        {
+            box.Focus();
+            box.SelectAll();
+        };
+        return win.ShowDialog() == true ? result : null;
     }
 
     private MapExportQuality SelectedMapExportQuality()

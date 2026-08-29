@@ -127,7 +127,7 @@ public static class ExplorationAnalytics
         return arr.GetArrayLength();
     }
 
-    /// <summary>UTF-8 with BOM for Excel-friendly Greek/notes.</summary>
+    /// <summary>UTF-8 with BOM for Excel-friendly international notes.</summary>
     public static byte[] ExportShotsToCsvUtf8Bom(CaveProjectDocument p)
     {
         var sb = new StringBuilder();

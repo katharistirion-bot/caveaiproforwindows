@@ -8,7 +8,9 @@
   }
 
   const OSM_TILES = ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'];
-  const HILLSHADE_TILES = ['https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png'];
+  const HILLSHADE_TILES = [
+    'https://tiles.maps.eox.at/wmts/1.0.0/terrain-light/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg',
+  ];
   const DEM_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];
   /** EOX Sentinel ? Copernicus GLO-30 DSM hillshade (client-side, no proxy). */
   const COPERNICUS_DSM_TILES = [
@@ -390,7 +392,7 @@
       tiles: HILLSHADE_TILES,
       tileSize: 256,
       maxzoom: 15,
-      attribution: '\u00A9 Wikimedia maps',
+      attribution: '\u00A9 EOX / terrain-light',
     });
     map.addLayer({
       id: 'hillshade',

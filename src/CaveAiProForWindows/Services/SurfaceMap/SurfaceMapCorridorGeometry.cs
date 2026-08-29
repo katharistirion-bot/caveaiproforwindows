@@ -11,7 +11,7 @@ public static class SurfaceMapCorridorGeometry
     /// <summary>WGS84 equatorial radius — same as Android surface map geodesic steps.</summary>
     private const double EarthRadiusM = 6378137.0;
 
-    /// <summary>Preview anchor when entrance GPS is missing (Athens — keeps OSM tiles meaningful for Greek surveys).</summary>
+    /// <summary>Preview anchor when entrance GPS is missing (Athens — keeps OSM tiles meaningful for regional surveys).</summary>
     public const double DefaultPreviewAnchorLat = 37.9838;
     public const double DefaultPreviewAnchorLon = 23.7275;
 

@@ -126,6 +126,24 @@ public sealed class CloudPublishService
         string? surveyPath = null;
         string? surveyUrl = null;
 
+        progress?.Report("Reading published cave…");
+        ReferenceSurveyLinkService.TryGetLink(bundle.Project, out var refLink);
+        PublishedCaveDocument existing;
+        try
+        {
+            existing = await _rest.GetPublishedCaveDocumentAsync(
+                    bundle.PublishedCaveDocId.Trim(),
+                    token,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Could not read published cave {bundle.PublishedCaveDocId} for owner sync merge: {ex.Message}",
+                ex);
+        }
+
         if (bundle.AiMapPng is { Length: > 0 })
         {
             progress?.Report("Uploading AI map image…");
@@ -156,6 +174,45 @@ public sealed class CloudPublishService
                     cancellationToken)
                 .ConfigureAwait(false);
             surveyUrl = up.MediaUrl;
+
+            // Public Library / web workspace: object JSON under published_caves/…/survey_project.json
+            try
+            {
+                var ownerUid = (existing.OwnerUid ?? uid).Trim();
+                var docId = bundle.PublishedCaveDocId.Trim();
+                if (!string.IsNullOrEmpty(ownerUid) && !string.IsNullOrEmpty(docId))
+                {
+                    progress?.Report("Uploading Public Library survey archive…");
+                    var objectUtf8 = SerializeProjectObjectJsonUtf8(bundle.Project);
+                    var pubPath = $"published_caves/{ownerUid}/{docId}/survey_project.json";
+                    var pubUp = await _rest.UploadBytesAsync(
+                            token,
+                            pubPath,
+                            objectUtf8,
+                            "application/json; charset=utf-8",
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    surveyUrl = pubUp.MediaUrl;
+                    surveyPath = pubPath;
+
+                    var workspaceBytes = SurveyWorkspaceJsonBuilder.BuildBytes(objectUtf8);
+                    if (workspaceBytes is { Length: > 0 })
+                    {
+                        var wsPath = $"published_caves/{ownerUid}/{docId}/survey_workspace.json";
+                        _ = await _rest.UploadBytesAsync(
+                                token,
+                                wsPath,
+                                workspaceBytes,
+                                "application/json; charset=utf-8",
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"survey_project/workspace upload: {ex.Message}");
+            }
         }
 
         var galleryUrls = new List<string>();
@@ -174,22 +231,6 @@ public sealed class CloudPublishService
         }
 
         progress?.Report("Updating Firestore published cave…");
-        ReferenceSurveyLinkService.TryGetLink(bundle.Project, out var refLink);
-        PublishedCaveDocument existing;
-        try
-        {
-            existing = await _rest.GetPublishedCaveDocumentAsync(
-                    bundle.PublishedCaveDocId.Trim(),
-                    token,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException(
-                $"Could not read published cave {bundle.PublishedCaveDocId} for owner sync merge: {ex.Message}",
-                ex);
-        }
 
         var caveName = string.IsNullOrWhiteSpace(existing.CaveName)
             ? CaveProjectDisplayNames.GetDisplayName(bundle.Project)
@@ -266,6 +307,16 @@ public sealed class CloudPublishService
         if (string.IsNullOrWhiteSpace(project.SurveyArchiveSchemaVersion))
             project.SurveyArchiveSchemaVersion = "2";
         return System.Text.Encoding.UTF8.GetBytes(SurveyPortableZipExporter.SerializeSingleProjectArray(project));
+    }
+
+    /// <summary>Single-object project JSON for Public Library <c>survey_project.json</c> (web workspace).</summary>
+    public static byte[] SerializeProjectObjectJsonUtf8(CaveProjectDocument project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        CaveProjectJsonWriteNormalizer.Prepare(project);
+        if (string.IsNullOrWhiteSpace(project.SurveyArchiveSchemaVersion))
+            project.SurveyArchiveSchemaVersion = "2";
+        return System.Text.Encoding.UTF8.GetBytes(SurveyPortableZipExporter.SerializeSingleProjectObject(project));
     }
 
     /// <summary>Capture structure mask PNG from current sketch editor state.</summary>

@@ -4,7 +4,7 @@
 
 Desktop **survey workstation** for **CaveAI Pro (Android)**: import backups, QC traverse data, plan/section/3D/X-Ray views, sketch editor, reference catalog, field trip planner, cloud publish, and office exports (Survex, Therion, DXF, SVG, PDF, CSV).
 
-**Current version:** 1.5.14 (see `Directory.Build.props`, `CHANGELOG.md`).
+**Current version:** 1.5.18 (see `Directory.Build.props`, `CHANGELOG.md`).
 
 ### Distribution (Play Store vs PC)
 
@@ -147,7 +147,7 @@ See `docs/SECURITY.md` for Firebase config injection and `docs/INSTALL.md` for d
 - `Services/ClientErrorTelemetryService.cs` — anonymised error reports (signed-in Firestore upload).
 - `Views/PlanView.*`, `SketchEditorView.*`, `OfflineXRayView.*` — cartography UI.
 - `docs/cross-platform-contract.md`, `docs/sync-contract.md` — Android parity contracts.
-- `docs/LOCALIZATION.md` — English-primary UI; optional Greek menu chrome.
+- `docs/LOCALIZATION.md` — English-only UI worldwide.
 
 ## Roadmap status
 

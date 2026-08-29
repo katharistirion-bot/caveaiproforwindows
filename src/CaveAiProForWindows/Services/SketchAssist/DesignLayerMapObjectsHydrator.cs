@@ -24,9 +24,36 @@ public static class DesignLayerMapObjectsHydrator
             return 0;
 
         designLayer.Children.Clear();
+
+        // When a named cartography map is open, prefer hydrating from the named-map live layers
+        // (project.Sketches / project.MapSymbols). The base project.MapObjects can be stale and causes
+        // the "split brain" between named cartography and sketch editor ink.
+        var activeMapId = project.ActiveCartographyMapId?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(activeMapId))
+        {
+            var addedNamed = 0;
+
+            // 1) Strokes
+            var sketchEntries = new List<JsonElement>();
+            AppendWindowsSketchEntries(sketchEntries, project.Sketches);
+            foreach (var el in sketchEntries)
+            {
+                if (TryHydrateStroke(designLayer, layout, el))
+                    addedNamed++;
+            }
+
+            // 2) Symbols (Android mapSymbols schema: icon + x/y + viewMode)
+            addedNamed += HydrateSymbolsFromMapSymbols(designLayer, layout, project.MapSymbols);
+            return addedNamed;
+        }
+
+        // Fallback (no named map open): hydrate Windows-authored strokes/symbols only.
+        // Android / procedural ink stays on SurveyCanvas — avoids double-paint.
         var added = 0;
         foreach (var el in entries)
         {
+            if (!IsWindowsAuthored(el))
+                continue;
             if (TryHydrateStroke(designLayer, layout, el))
             {
                 added++;
@@ -40,6 +67,15 @@ public static class DesignLayerMapObjectsHydrator
         return added;
     }
 
+    private static bool IsWindowsAuthored(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return false;
+        if (!el.TryGetProperty("sourceClient", out var sc) || sc.ValueKind != JsonValueKind.String)
+            return false;
+        return string.Equals(sc.GetString(), "CaveAiProForWindows", StringComparison.Ordinal);
+    }
+
     private static List<JsonElement> CollectEntries(CaveProjectDocument project)
     {
         var list = new List<JsonElement>();
@@ -47,6 +83,55 @@ public static class DesignLayerMapObjectsHydrator
         if (list.Count == 0)
             AppendWindowsSketchEntries(list, project.Sketches);
         return list;
+    }
+
+    private static int HydrateSymbolsFromMapSymbols(Canvas canvas, PlanCanvasSurveyLayout layout, JsonElement mapSymbols)
+    {
+        if (mapSymbols.ValueKind != JsonValueKind.Array)
+            return 0;
+
+        var added = 0;
+        foreach (var el in mapSymbols.EnumerateArray())
+        {
+            if (el.ValueKind != JsonValueKind.Object)
+                continue;
+
+            if (!el.TryGetProperty("icon", out var iconEl) || iconEl.ValueKind != JsonValueKind.String)
+                continue;
+            if (!TryReadFloat(el, "x", out var x) || !TryReadFloat(el, "y", out var y))
+                continue;
+
+            var symbolId = iconEl.GetString();
+            if (string.IsNullOrWhiteSpace(symbolId))
+                continue;
+
+            var kind = SketchEditorSymbolKindExporter.FromSymbolId(symbolId);
+            var meta = DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx);
+            var stamp = new SketchSymbolStampModel { SurveyX = x, SurveyY = y, Kind = kind };
+            canvas.Children.Add(DesignLayerProceduralApplicator.CreateSymbolStamp(stamp, layout, meta));
+            added++;
+        }
+
+        return added;
+    }
+
+    private static bool TryReadFloat(JsonElement obj, string propertyName, out float value)
+    {
+        value = 0;
+        if (!obj.TryGetProperty(propertyName, out var el))
+            return false;
+
+        if (el.ValueKind == JsonValueKind.Number && el.TryGetSingle(out value))
+            return true;
+
+        if (el.ValueKind == JsonValueKind.String &&
+            float.TryParse(el.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+        {
+            value = parsed;
+            return true;
+        }
+
+        return false;
     }
 
     private static void AppendWindowsSketchEntries(List<JsonElement> list, JsonElement sketches)

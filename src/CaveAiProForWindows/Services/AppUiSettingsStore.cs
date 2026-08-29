@@ -28,7 +28,14 @@ public static class AppUiSettingsStore
             var json = File.ReadAllText(path);
             var m = JsonSerializer.Deserialize<AppUiSettingsModel>(json, JsonOptions);
             m ??= CreateFresh();
-            if (TryMigrate(m))
+            var changed = TryMigrate(m);
+            // Product is English-only worldwide — clear any legacy "el" UI language.
+            if (!string.Equals(m.UiLanguage, "en", StringComparison.OrdinalIgnoreCase))
+            {
+                m.UiLanguage = "en";
+                changed = true;
+            }
+            if (changed)
                 Save(m);
             return m;
         }

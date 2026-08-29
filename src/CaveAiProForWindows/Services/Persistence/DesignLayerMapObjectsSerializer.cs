@@ -122,12 +122,76 @@ public static class DesignLayerMapObjectsSerializer
 
         var (mapObjects, sketchStrokes) = BuildMapObjectsAndSketches(designLayer, layout, viewMode);
 
-        project.MapObjects = CaveProjectJsonWriteNormalizer.CloneElement(mapObjects);
+        // When a named cartography map is open, stamps go only to MapSymbols (Android parity).
+        // Keep MapObjects as strokes-only so ParsePlanMapSymbols does not double-count stamps.
+        var activeMapId = project.ActiveCartographyMapId?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(activeMapId))
+        {
+            project.MapObjects = CaveProjectJsonWriteNormalizer.CloneElement(
+                StripStampEntriesFromMapObjects(mapObjects));
+            var mapSymbols = BuildMapSymbolsFromStamps(designLayer, layout, viewMode);
+            project.MapSymbols = CaveProjectJsonWriteNormalizer.CloneElement(mapSymbols);
+        }
+        else
+        {
+            project.MapObjects = CaveProjectJsonWriteNormalizer.CloneElement(mapObjects);
+        }
+
         project.Sketches = CaveProjectJsonWriteNormalizer.CloneElement(
             MergeWindowsSketches(project.Sketches, sketchStrokes));
+
         EnsureSurveyArchiveSchemaVersion(project);
         TouchWindowsEditMetadata(project);
         return true;
+    }
+
+    private static JsonElement StripStampEntriesFromMapObjects(JsonElement mapObjects)
+    {
+        if (mapObjects.ValueKind != JsonValueKind.Array)
+            return mapObjects;
+        var strokesOnly = new List<JsonElement>();
+        foreach (var el in mapObjects.EnumerateArray())
+        {
+            if (el.ValueKind != JsonValueKind.Object)
+                continue;
+            if (el.TryGetProperty("symbolId", out _) || el.TryGetProperty("icon", out _))
+            {
+                // Stamp row — omit when MapSymbols carries the same stamps.
+                if (!el.TryGetProperty("kind", out var kind) ||
+                    kind.ValueKind != JsonValueKind.String ||
+                    !string.Equals(kind.GetString(), "stroke", StringComparison.OrdinalIgnoreCase))
+                    continue;
+            }
+            strokesOnly.Add(el.Clone());
+        }
+        return JsonSerializer.SerializeToElement(strokesOnly, CompactJson);
+    }
+
+    private static JsonElement BuildMapSymbolsFromStamps(
+        Canvas? designLayer,
+        PlanCanvasSurveyLayout layout,
+        int viewMode)
+    {
+        if (designLayer == null)
+            return JsonSerializer.SerializeToElement(new List<object>(), CompactJson);
+
+        var (_, stamps) = DesignLayerSurveyConverter.ExtractUserGeometry(designLayer, layout);
+
+        var list = new List<object>();
+        foreach (var stamp in stamps)
+        {
+            // Android MapSymbol: { icon: string, x: float, y: float, viewMode: int }
+            // We store the Windows symbolId slug as the Android `icon` key.
+            list.Add(new Dictionary<string, object?>
+            {
+                ["icon"] = SketchEditorSymbolKindExporter.ToSymbolId(stamp.Kind),
+                ["x"] = stamp.SurveyX,
+                ["y"] = stamp.SurveyY,
+                ["viewMode"] = viewMode,
+            });
+        }
+
+        return JsonSerializer.SerializeToElement(list, CompactJson);
     }
 
     private static void EnsureSurveyArchiveSchemaVersion(CaveProjectDocument project)

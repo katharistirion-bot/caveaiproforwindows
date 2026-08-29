@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## [1.5.18] - 2026-08-17
+
+### Added
+
+- **Named cartography CRUD** — Plan view New / Save as / Rename / Delete, aligned with Android named maps
+
+### Fixed
+
+- **Named maps persist** — sync live drawings into the open named map before JSON/ZIP/cloud write
+- **Glyph cache** — reject PNG bytes cached as MapLibre glyph protobuf
+
 ## [1.5.17] - 2026-08-10
 
 ### Fixed

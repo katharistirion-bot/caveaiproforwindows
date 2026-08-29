@@ -223,7 +223,7 @@ fun sha256Hex(bytes: ByteArray): String {
  * 1. Serialize projects to JSON (as today). For each project, **before** writing `data.json`:
  *    - Enumerate map-related URIs your app already knows (plan raster, TLS mesh OBJ, library
  *      cartography files, LIDAR rasters, sketches on disk — mirror what the PC collects from
- *      Gson keys: see caveaiproforwindows `MapAssetsCollector` / README "Χαρτογραφία").
+ *      Gson keys: see caveaiproforwindows `MapAssetsCollector` / README "Cartography").
  *    - For each local file, add a [MapBytesProvider] and call [bundleMapsForZipProject].
  *      Where the source is not already PNG/TIFF/JPEG/WebP/BMP/PDF, **decode and re-encode**
  *      (e.g. `Bitmap.compress(PNG)` / `PdfDocument` / your GIS pipeline) so the bytes written

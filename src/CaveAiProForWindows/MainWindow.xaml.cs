@@ -13,6 +13,7 @@ using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.Services.Localization;
 using CaveAiProForWindows.Services.Collaboration;
 using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.Persistence;
 using CaveAiProForWindows.ViewModels;
 using CaveAiProForWindows.Views;
 
@@ -80,6 +81,7 @@ public partial class MainWindow : Window
             {
                 if (ReferenceEquals(vm.SelectedProject, project))
                     SketchEditorControl.TryPersistSessionToProject(project);
+                DesignLayerVectorLinesSerializer.SyncWindowsInkToVectorLines(project);
             };
             WirePlanViewExportCallbacks(vm);
             vm.CaptureCloudPublishArtifacts = () => SketchEditorControl.TryCaptureCloudPublishArtifacts();

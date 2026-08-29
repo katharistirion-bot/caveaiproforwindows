@@ -13,6 +13,10 @@ public static class AccountStatusFormatter
                 $"Google Play subscription · active until {untilText}",
             SubscriptionAccessKind.PaidPlaySubscription =>
                 "Google Play subscription · active",
+            SubscriptionAccessKind.Owner when untilText != null =>
+                $"Owner access · until {untilText}",
+            SubscriptionAccessKind.Owner =>
+                "Owner access · active",
             SubscriptionAccessKind.InstallGraceTrial when until.HasValue && untilText != null =>
                 $"30-day install trial · {DaysRemaining(until.Value)} day(s) left (until {untilText})",
             SubscriptionAccessKind.InstallGraceTrial =>
@@ -44,6 +48,9 @@ public static class AccountStatusFormatter
         if (result.AccessKind == SubscriptionAccessKind.PaidPlaySubscription)
             return $"{summary} · Manage subscription on Google Play.";
 
+        if (result.AccessKind == SubscriptionAccessKind.Owner)
+            return summary;
+
         return $"{summary} · Manage subscription on Google Play (Android app).";
     }
 
@@ -59,6 +66,9 @@ public static class AccountStatusFormatter
             var days = DaysRemaining(until);
             return $"{summary}\n\nTrial: {days} day(s) remaining. Subscribe on Google Play (Android) with the same Google account.";
         }
+
+        if (result.AccessKind == SubscriptionAccessKind.Owner)
+            return summary;
 
         return $"{summary}\n\nManage subscription on Google Play (Android app required for billing).";
     }

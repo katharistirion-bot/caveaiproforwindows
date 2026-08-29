@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services;
 
 namespace CaveAiProForWindows.Services.Persistence;
 
@@ -12,6 +13,8 @@ internal static class CaveProjectJsonWriteNormalizer
     public static void Prepare(CaveProjectDocument project)
     {
         ArgumentNullException.ThrowIfNull(project);
+
+        NamedCartographyDocuments.SyncLiveIntoActive(project);
 
         project.Sketches = CoalesceArray(project.Sketches);
         project.SketchLayer = CoalesceArray(project.SketchLayer);
@@ -34,6 +37,8 @@ internal static class CaveProjectJsonWriteNormalizer
             project.Rocks = CoalesceArray(rocks);
         if (project.FieldCatalogEntries is { } fce)
             project.FieldCatalogEntries = CoalesceArray(fce);
+
+        project.NamedCartographyMaps = CoalesceArray(project.NamedCartographyMaps);
 
         if (project.ExtensionData == null)
             return;
