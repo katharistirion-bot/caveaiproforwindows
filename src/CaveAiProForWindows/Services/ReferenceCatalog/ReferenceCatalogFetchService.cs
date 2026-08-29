@@ -1,5 +1,4 @@
 using System.IO;
-using System.Net.Http;
 using System.Text.Json;
 using CaveAiProForWindows.Models;
 
@@ -7,10 +6,10 @@ namespace CaveAiProForWindows.Services.ReferenceCatalog;
 
 /// <summary>
 /// Fetches and caches the reference catalog search index (mirrors Android <c>ReferenceCatalogFetch.kt</c> stale detection).
+/// Network GETs use <see cref="ReferenceCatalogAuthorizedHttp"/> (Bearer on CDN-locked paths).
 /// </summary>
 public sealed class ReferenceCatalogFetchService
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(3) };
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private static ReferenceCatalogBrowseState? _memoryCache;
@@ -91,7 +90,7 @@ public sealed class ReferenceCatalogFetchService
     {
         try
         {
-            var json = await Http.GetStringAsync(ReferenceCatalogUrls.FeaturedCavesUrl, cancellationToken)
+            var json = await ReferenceCatalogAuthorizedHttp.GetStringAsync(ReferenceCatalogUrls.FeaturedCavesUrl, cancellationToken)
                 .ConfigureAwait(false);
             var file = JsonSerializer.Deserialize<FeaturedReferenceCavesFile>(json, JsonOptions);
             return file?.Caves?.Where(e => e.HasValidCoordinate()).ToList() ?? [];
@@ -147,7 +146,7 @@ public sealed class ReferenceCatalogFetchService
         try
         {
             var url = ReferenceCatalogUrls.MetaUrl + "?v=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var json = await Http.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
+            var json = await ReferenceCatalogAuthorizedHttp.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
             return JsonSerializer.Deserialize<ReferenceCatalogMeta>(json, JsonOptions);
         }
         catch
@@ -162,7 +161,7 @@ public sealed class ReferenceCatalogFetchService
         {
             var sep = url.Contains('?', StringComparison.Ordinal) ? "&" : "?";
             var fetchUrl = url + sep + "v=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var json = await Http.GetStringAsync(fetchUrl, cancellationToken).ConfigureAwait(false);
+            var json = await ReferenceCatalogAuthorizedHttp.GetStringAsync(fetchUrl, cancellationToken).ConfigureAwait(false);
             var index = JsonSerializer.Deserialize<ReferenceIndexFile>(json, JsonOptions);
             return index?.Entries.Count > 0 ? index : null;
         }

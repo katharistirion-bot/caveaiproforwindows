@@ -8,13 +8,17 @@ Site origin for share URLs: **`https://www.caveaipro.com`**
 
 ## Reference catalog CDN URLs
 
-| Resource | URL |
-|----------|-----|
-| Meta | `https://www.caveaipro.com/data/reference-catalog-meta.json` |
-| Search index | `https://www.caveaipro.com/data/reference-caves-search-index.json` |
-| Country shards manifest | `https://www.caveaipro.com/data/reference-shards/manifest.json` |
-| Country shard | `https://www.caveaipro.com/data/reference-shards/{country-slug}.json` |
-| Featured | `https://www.caveaipro.com/data/featured-reference-caves.json` |
+Production Hosting rewrites locked assets to Cloud Function `referenceCatalogAsset` (europe-west1). Clients must send `Authorization: Bearer <Firebase ID token>` for an entitled account. Meta and shard **manifest** stay public on Hosting.
+
+| Resource | URL | Auth |
+|----------|-----|------|
+| Meta | `https://www.caveaipro.com/data/reference-catalog-meta.json` | Public |
+| Search index | `https://www.caveaipro.com/data/reference-caves-search-index.json` | Bearer + premium |
+| Country shards manifest | `https://www.caveaipro.com/data/reference-shards/manifest.json` | Public |
+| Country shard | `https://www.caveaipro.com/data/reference-shards/{country-slug}.json` | Bearer + premium |
+| Featured | `https://www.caveaipro.com/data/featured-reference-caves.json` | Bearer + premium |
+
+Windows: `ReferenceCatalogAuthorizedHttp` · Android: `ReferenceCatalogFetch` · Web: `authorizedDataFetch`
 
 ---
 

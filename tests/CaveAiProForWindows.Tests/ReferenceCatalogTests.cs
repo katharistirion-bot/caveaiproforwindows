@@ -492,6 +492,23 @@ public class FieldTripExportTests
         AssertCrossPlatformVector(url, "view=explore", "preset=terrain", "lat=38.25", "lon=20.25", "zoom=10", "country=greece");
     }
 
+    [TestMethod]
+    public void AuthorizedHttp_LocksIndexShardsFeatured_NotMetaOrManifest()
+    {
+        Assert.IsTrue(ReferenceCatalogAuthorizedHttp.IsEntitlementLockedDataUrl(
+            "https://www.caveaipro.com/data/reference-caves-search-index.json"));
+        Assert.IsTrue(ReferenceCatalogAuthorizedHttp.IsEntitlementLockedDataUrl(
+            "https://www.caveaipro.com/data/featured-reference-caves.json"));
+        Assert.IsTrue(ReferenceCatalogAuthorizedHttp.IsEntitlementLockedDataUrl(
+            "https://www.caveaipro.com/data/reference-shards/greece.json?v=1"));
+        Assert.IsFalse(ReferenceCatalogAuthorizedHttp.IsEntitlementLockedDataUrl(
+            "https://www.caveaipro.com/data/reference-catalog-meta.json"));
+        Assert.IsFalse(ReferenceCatalogAuthorizedHttp.IsEntitlementLockedDataUrl(
+            "https://www.caveaipro.com/data/reference-shards/manifest.json"));
+        Assert.IsFalse(ReferenceCatalogAuthorizedHttp.IsEntitlementLockedDataUrl(
+            "https://caveaipro-5950e.web.app/data/reference-shards/manifest.json"));
+    }
+
     private static void AssertCrossPlatformVector(string url, params string[] needles)
     {
         foreach (var needle in needles)

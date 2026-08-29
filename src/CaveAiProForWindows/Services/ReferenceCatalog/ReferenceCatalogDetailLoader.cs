@@ -1,14 +1,15 @@
 using System.IO;
-using System.Net.Http;
 using System.Text.Json;
 using CaveAiProForWindows.Models;
 
 namespace CaveAiProForWindows.Services.ReferenceCatalog;
 
-/// <summary>Loads full reference cave detail via country shards (mirrors web <c>referenceCatalogDetailLoader.js</c>).</summary>
+/// <summary>
+/// Loads full reference cave detail via country shards (mirrors web <c>referenceCatalogDetailLoader.js</c>).
+/// Shard payloads use <see cref="ReferenceCatalogAuthorizedHttp"/> (Bearer); manifest stays public.
+/// </summary>
 public sealed class ReferenceCatalogDetailLoader
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(2) };
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private Dictionary<string, string>? _countrySlugMap;
@@ -93,7 +94,7 @@ public sealed class ReferenceCatalogDetailLoader
 
         try
         {
-            var json = await Http.GetStringAsync(ReferenceCatalogUrls.ShardManifestUrl, cancellationToken)
+            var json = await ReferenceCatalogAuthorizedHttp.GetStringAsync(ReferenceCatalogUrls.ShardManifestUrl, cancellationToken)
                 .ConfigureAwait(false);
             File.WriteAllText(ReferenceCatalogPaths.ShardManifestPath, json);
             var manifest = JsonSerializer.Deserialize<ReferenceShardManifest>(json, JsonOptions);
@@ -149,7 +150,7 @@ public sealed class ReferenceCatalogDetailLoader
         {
             try
             {
-                json = await Http.GetStringAsync(ReferenceCatalogUrls.ShardUrl(slug), cancellationToken)
+                json = await ReferenceCatalogAuthorizedHttp.GetStringAsync(ReferenceCatalogUrls.ShardUrl(slug), cancellationToken)
                     .ConfigureAwait(false);
                 ReferenceCatalogShardCache.TouchShard(slug, json);
             }
