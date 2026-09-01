@@ -19,6 +19,7 @@
             <Button Content="Refresh" Click="Refresh_Click" Padding="10,5" Margin="0,0,6,0" />
             <Separator />
             <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
+                       TextWrapping="Wrap"
                        Text="Browse the map and open a cave — the document id is detected from the URL." />
             <Separator />
             <Button x:Name="UseCaveButton" Content="Use this cave" Click="UseCave_Click"
@@ -28,6 +29,12 @@
                     ToolTip="Select the published_caves document id from the current map URL" />
             <Button Content="Cancel" Click="Cancel_Click" Padding="10,5" Margin="6,0,0,0" IsCancel="True" />
         </ToolBar>
+        <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="10,8" CornerRadius="6"
+                Background="{DynamicResource Cave.Surface}"
+                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+            <TextBlock x:Name="GuestLibraryLead" TextWrapping="Wrap"
+                       Foreground="{DynamicResource Cave.TextMuted}" />
+        </Border>
         <Border DockPanel.Dock="Bottom" Padding="8,6" Margin="0,8,0,0"
                 Background="{DynamicResource Cave.Surface}"
                 BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" CornerRadius="6">

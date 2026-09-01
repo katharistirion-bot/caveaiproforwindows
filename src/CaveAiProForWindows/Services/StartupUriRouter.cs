@@ -43,10 +43,9 @@ public static class StartupUriRouter
                     {
                         fieldTripUrl = NormalizeFieldTripUrl(arg, uri);
                     }
-                    else if (host.Equals("explore", StringComparison.OrdinalIgnoreCase) ||
-                        arg.Contains("view=explore", StringComparison.OrdinalIgnoreCase))
+                    else if (IsLibraryMapDeepLink(host, arg))
                     {
-                        exploreUrl = NormalizeExploreUrl(arg, uri);
+                        exploreUrl = PublicLibraryCatalog.EnsureWatchDefaultZoom(NormalizeLibraryMapUrl(arg, uri));
                     }
                     else if (host.Equals("open", StringComparison.OrdinalIgnoreCase))
                     {
@@ -72,22 +71,48 @@ public static class StartupUriRouter
         };
     }
 
-    private static string NormalizeExploreUrl(string raw, Uri uri)
+    internal static bool IsLibraryMapDeepLink(string host, string raw)
+    {
+        if (host.Equals("explore", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("watch", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("nearme", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return raw.Contains("view=explore", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains("view=watch", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains("view=nearme", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string MapViewFromLink(string host, string raw)
+    {
+        if (host.Equals("watch", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains("view=watch", StringComparison.OrdinalIgnoreCase))
+            return "watch";
+        if (host.Equals("nearme", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains("view=nearme", StringComparison.OrdinalIgnoreCase))
+            return "nearme";
+        return "explore";
+    }
+
+    /// <summary>
+    /// HTTPS share URLs keep their query (including <c>view=watch</c> / <c>view=nearme</c>).
+    /// Protocol links <c>caveaipro://explore|watch|nearme?…</c> become caveaipro.com/map URLs.
+    /// </summary>
+    private static string NormalizeLibraryMapUrl(string raw, Uri uri)
     {
         if (raw.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-            && raw.Contains("view=explore", StringComparison.OrdinalIgnoreCase))
-            return raw;
-
-        if (raw.Contains("view=explore", StringComparison.OrdinalIgnoreCase))
+            && IsLibraryMapDeepLink(uri.Host, raw))
             return raw;
 
         var query = uri.Query.TrimStart('?');
-        if (string.IsNullOrWhiteSpace(query))
-            return PublicLibraryCatalog.WebMapUrlEmbedded;
+        if (!string.IsNullOrWhiteSpace(query)
+            && query.Contains("view=", StringComparison.OrdinalIgnoreCase))
+            return $"{PublicLibraryCatalog.WebOrigin}/map?{query}";
 
-        return PublicLibraryCatalog.WebMapUrlEmbedded.Contains('?')
-            ? $"{PublicLibraryCatalog.WebMapUrlEmbedded}&{query}"
-            : $"{PublicLibraryCatalog.WebMapUrlEmbedded}?{query}";
+        var view = MapViewFromLink(uri.Host, raw);
+        var baseUrl = $"{PublicLibraryCatalog.WebOrigin}/map?view={view}";
+        if (string.IsNullOrWhiteSpace(query))
+            return baseUrl;
+        return $"{baseUrl}&{query}";
     }
 
     private static string NormalizeFieldTripUrl(string raw, Uri uri)

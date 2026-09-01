@@ -118,7 +118,7 @@ public static class AppStrings
         "Try the built-in certification demo survey, or skip and open your own Android backup later (File → Open).";
     public static string PostSignInStep2Title => "Reference catalog";
     public static string PostSignInStep2Body =>
-        "Browse 60k+ reference caves offline from Help → Public Cave Library. Filter by country, search by name, or plan a field trip.";
+        $"Browse {GuestLibraryCopy.CatalogScale} reference caves from Help → Public Cave Library — not a guest free library. Filter by country, search by name, or plan a field trip.";
     public static string PostSignInStep3Title => "You're ready";
     public static string PostSignInStep3Body =>
         "Replay the intro video anytime from Help → Intro video. Use Tools → Field Trip Planner to build an itinerary from reference caves.";
@@ -127,7 +127,7 @@ public static class AppStrings
 
     public static string LoginAccessDeniedPlayStore => "Get CaveAI Pro on Google Play";
 
-    public static string LoginAccessDeniedPublicLibrary => "Browse Public Library (free)";
+    public static string LoginAccessDeniedPublicLibrary => GuestLibraryCopy.SignInHeadingPanel;
 
     public static string LoginAccessDeniedPlayHint =>
         "CaveAI Pro subscriptions are purchased through Google Play on Android. After subscribing, sign in here with the same Google account.";

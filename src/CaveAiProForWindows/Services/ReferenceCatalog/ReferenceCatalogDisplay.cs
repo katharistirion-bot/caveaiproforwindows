@@ -32,6 +32,8 @@ public static class ReferenceCatalogDisplay
         if (!string.IsNullOrWhiteSpace(pin.Website)) return true;
         if (!string.IsNullOrWhiteSpace(pin.Wikipedia)) return true;
         if (!string.IsNullOrWhiteSpace(pin.RefCode)) return true;
+        if (!string.IsNullOrWhiteSpace(pin.Period) || !string.IsNullOrWhiteSpace(pin.Significance)) return true;
+        if (!string.IsNullOrWhiteSpace(pin.Finds) || !string.IsNullOrWhiteSpace(pin.Heritage)) return true;
         if (!string.IsNullOrWhiteSpace(pin.CaveType) &&
             !pin.CaveType.Equals("Cave entrance", StringComparison.OrdinalIgnoreCase))
         {
@@ -103,5 +105,20 @@ public static class ReferenceCatalogDisplay
             LengthM = pin.LengthM,
             ElevationM = pin.ElevationM,
         });
+    }
+
+    /// <summary>Structured archaeological notes (web referenceArchaeologicalNotes parity).</summary>
+    public static IReadOnlyList<(string Label, string Value)> ArchaeologicalNotes(ReferenceCavePin pin)
+    {
+        var notes = new List<(string Label, string Value)>();
+        if (!string.IsNullOrWhiteSpace(pin.Period))
+            notes.Add(("Period", pin.Period.Trim()));
+        if (!string.IsNullOrWhiteSpace(pin.Significance))
+            notes.Add(("Significance", pin.Significance.Trim()));
+        if (!string.IsNullOrWhiteSpace(pin.Finds))
+            notes.Add(("Key finds", pin.Finds.Trim()));
+        if (!string.IsNullOrWhiteSpace(pin.Heritage))
+            notes.Add(("Heritage", pin.Heritage.Trim()));
+        return notes;
     }
 }

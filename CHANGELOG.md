@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [1.5.20] - 2026-09-01
+
+### Fixed
+
+- **Guest library copy** — canonical Google-only strings on login, Public Library WebView, cave picker, native catalog empty/401, Near me empty, compare, and the open-library picker (not a guest free catalog; 76k+)
+- **Map deep links** — `view=watch` / `view=nearme` open the in-app WebView; watch URLs without zoom get zoom 13 (live-site fly-to parity)
+
+## [1.5.19] - 2026-08-29
+
+### Fixed
+
+- **Reference catalog CDN lock** — native catalog/index/shard downloads send Firebase Bearer tokens (parity with web and Android) so entitlement-gated Hosting rewrites succeed
+- **Guest library copy** — Google-only strings (`GuestLibraryCopy`); login no longer calls the Public Library “free”; onboarding uses 76k+
+- **Map deep links** — `view=watch` and `view=nearme` (https or `caveaipro://`) open the in-app Public Library WebView; an already-open window navigates to the new URL
+
 ## [1.5.18] - 2026-08-17
 
 ### Added

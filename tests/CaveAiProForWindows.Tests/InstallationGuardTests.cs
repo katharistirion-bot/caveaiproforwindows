@@ -71,6 +71,27 @@ public sealed class InstallationGuardTests
         var intent = StartupUriRouter.Parse(["caveaipro://explore?lat=40.1&lon=22.5&z=8"]);
         StringAssert.Contains(intent.ExploreMapUrl, "lat=40.1");
         StringAssert.Contains(intent.ExploreMapUrl, "lon=22.5");
+        StringAssert.Contains(intent.ExploreMapUrl, "view=explore");
+    }
+
+    [TestMethod]
+    public void StartupUriRouter_parses_https_surface_watch()
+    {
+        var intent = StartupUriRouter.Parse(
+            ["https://www.caveaipro.com/map?view=watch&lat=38.22&lon=20.62&name=Melissani"]);
+        StringAssert.Contains(intent.ExploreMapUrl, "view=watch");
+        StringAssert.Contains(intent.ExploreMapUrl, "lat=38.22");
+        StringAssert.Contains(intent.ExploreMapUrl, "lon=20.62");
+        StringAssert.Contains(intent.ExploreMapUrl, "zoom=13");
+    }
+
+    [TestMethod]
+    public void StartupUriRouter_parses_nearme_protocol()
+    {
+        var intent = StartupUriRouter.Parse(["caveaipro://nearme?lat=38.22&lon=20.62"]);
+        StringAssert.Contains(intent.ExploreMapUrl, "view=nearme");
+        StringAssert.Contains(intent.ExploreMapUrl, "lat=38.22");
+        StringAssert.Contains(intent.ExploreMapUrl, "lon=20.62");
     }
 
     [TestMethod]

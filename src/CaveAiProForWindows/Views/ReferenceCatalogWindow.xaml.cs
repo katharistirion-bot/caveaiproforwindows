@@ -17,7 +17,9 @@ using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.FieldTrip;
 
 using CaveAiProForWindows.Services.Favorites;
+using CaveAiProForWindows.Services.CloudPublish;
 using CaveAiProForWindows.Services.ReferenceCatalog;
+using CaveAiProForWindows.Services.Gemini;
 
 using System.Windows.Threading;
 
@@ -278,6 +280,16 @@ public partial class ReferenceCatalogWindow : Window
 
 
 
+            if (CloudPublishWebViewHost.TokenCache.TryGetUsableToken() == null)
+
+            {
+
+                await DesktopAuthWindow.AcquireTokenAsync(this, CloudPublishWebViewHost.TokenCache).ConfigureAwait(true);
+
+            }
+
+
+
             var state = await _fetch.LoadBrowseIndexAsync(forceRefresh, new Progress<string>(m => StatusText.Text = m));
 
             _allEntries = state.IndexEntries;
@@ -299,6 +311,12 @@ public partial class ReferenceCatalogWindow : Window
                     ? $"Offline — loaded from {state.Source}"
 
                     : $"Loaded from {state.Source}";
+
+            if (_allEntries.Count == 0)
+            {
+                HeaderText.Text = CaveAiProForWindows.Services.Auth.GuestLibraryCopy.SignInHeadingPanel;
+                StatusText.Text = CaveAiProForWindows.Services.Auth.GuestLibraryCopy.LeadPanel;
+            }
 
 
 
@@ -334,7 +352,8 @@ public partial class ReferenceCatalogWindow : Window
 
             OfflineBanner.Visibility = Visibility.Visible;
 
-            StatusText.Text = "Failed to load catalog: " + ex.Message;
+            StatusText.Text = CaveAiProForWindows.Services.Auth.GuestLibraryCopy.CatalogLoadFailure(ex);
+            HeaderText.Text = CaveAiProForWindows.Services.Auth.GuestLibraryCopy.SignInHeadingPanel;
 
         }
 
@@ -379,6 +398,13 @@ public partial class ReferenceCatalogWindow : Window
         if (nearMe)
 
         {
+
+            if (_allEntries.Count == 0)
+            {
+                StatusText.Text = CaveAiProForWindows.Services.Auth.GuestLibraryCopy.EmptyCatalogStatus;
+                ResultsGrid.ItemsSource = Array.Empty<ReferenceCatalogRow>();
+                return;
+            }
 
             if (nearMeLocating)
             {
@@ -716,6 +742,9 @@ public partial class ReferenceCatalogWindow : Window
 
             AddLine("Description", ReferenceCatalogDisplay.PinDescription(pin));
 
+            foreach (var note in ReferenceCatalogDisplay.ArchaeologicalNotes(pin))
+                AddLine(note.Label, note.Value);
+
             AddLine("Website", pin.Website);
 
             AddLine("Wikipedia", pin.Wikipedia);
@@ -956,6 +985,64 @@ public partial class ReferenceCatalogWindow : Window
         }
 
         OpenCaveAiWebForEntry(_selected);
+    }
+
+    private async void CaveAiSend_Click(object sender, RoutedEventArgs e)
+    {
+        var prompt = CaveAiPromptBox.Text?.Trim() ?? "";
+        if (prompt.Length < 2)
+        {
+            MessageBox.Show(this, "Enter a question (at least 2 characters).", "Cave AI", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (!GeminiProxyClient.IsConfigured())
+        {
+            MessageBox.Show(this, "Cloud AI is not configured on this build.", "Cave AI", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (CloudPublishWebViewHost.TokenCache.TryGetUsableToken() == null)
+        {
+            try
+            {
+                await DesktopAuthWindow.AcquireTokenAsync(this, CloudPublishWebViewHost.TokenCache).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Cave AI", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
+        var caveContext = _selected == null
+            ? "No specific reference cave is selected."
+            : $"Reference cave: {_selected.Name} ({_selected.Country}, {_selected.Region}). " +
+              $"Coordinates: {_selected.Lat:F5}, {_selected.Lon:F5}. Id: {_selected.Id}.";
+
+        var systemPrompt =
+            "You are Cave AI, a speleology assistant for CaveAI Pro. Answer briefly in English. " +
+            "Prefer catalog facts; say when data is uncertain. " + caveContext;
+
+        CaveAiSendButton.IsEnabled = false;
+        CaveAiResponseBox.Text = "Thinking…";
+        try
+        {
+            var body = GeminiProxyClient.BuildChatBody(GeminiProxyClient.DefaultModel, systemPrompt, prompt);
+            var raw = await GeminiProxyClient.PostGenerateContentAsync(body).ConfigureAwait(true);
+            var text = GeminiProxyClient.ExtractTextFromGenerateContentResponse(raw);
+            CaveAiResponseBox.Text = string.IsNullOrWhiteSpace(text)
+                ? "Cloud AI returned an empty response. Try rephrasing your question."
+                : text;
+        }
+        catch (Exception ex)
+        {
+            CaveAiResponseBox.Text = ex.Message;
+        }
+        finally
+        {
+            CaveAiSendButton.IsEnabled = true;
+        }
     }
 
     private static void OpenCaveAiWebForEntry(ReferenceCaveIndexEntry entry, ReferenceCavePin? detail = null)

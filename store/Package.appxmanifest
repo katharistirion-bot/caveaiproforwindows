@@ -140,9 +140,9 @@
 
     <Capability Name="internetClient" />
 
-    <DeviceCapability Name="location" />
-
     <rescap:Capability Name="runFullTrust" />
+
+    <DeviceCapability Name="location" />
 
   </Capabilities>
 

@@ -488,7 +488,8 @@ public partial class MainWindow : Window
         App.PendingExploreMapUrl = null;
         try
         {
-            PublicLibraryCatalog.RememberExploreMapViewportUrl(url);
+            if (url.Contains("view=explore", StringComparison.OrdinalIgnoreCase))
+                PublicLibraryCatalog.RememberExploreMapViewportUrl(url);
             PublicLibraryCatalog.ShowInAppWindow(this, url);
         }
         catch (Exception ex)

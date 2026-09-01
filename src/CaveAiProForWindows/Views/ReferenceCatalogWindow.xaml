@@ -71,7 +71,7 @@
                 <CheckBox x:Name="FavoritesOnlyCheck" Grid.Row="0" Grid.Column="4" Content="My favorites"
                           VerticalAlignment="Center" Margin="0,0,12,0"
                           Checked="FavoritesOnlyCheck_Changed" Unchecked="FavoritesOnlyCheck_Changed"
-                          ToolTip="Show only caves you starred (sign in with Google first)" />
+                          ToolTip="Show only caves you starred (sign in with Google first — catalog pins are not a guest free library)" />
 
                 <Button Grid.Row="0" Grid.Column="5" Content="Force refresh" Padding="12,6" Margin="0,0,8,0" Click="Refresh_Click"
 
@@ -173,6 +173,34 @@
             <TabItem Header="Featured">
 
                 <ListBox x:Name="FeaturedList" DisplayMemberPath="Name" SelectionChanged="FeaturedList_SelectionChanged" />
+
+            </TabItem>
+
+            <TabItem Header="Cave AI" x:Name="CaveAiTab">
+
+                <Grid Margin="0,4,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,8"
+                               Text="Ask about the selected reference cave or general speleology. Requires Google sign-in and active CaveAI Pro entitlement." />
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <TextBox x:Name="CaveAiResponseBox" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                                 MinHeight="220" VerticalScrollBarVisibility="Auto"
+                                 Text="Select a cave in Browse, then ask a question below." />
+                    </ScrollViewer>
+                    <Grid Grid.Row="2" Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="CaveAiPromptBox" Grid.Column="0" Padding="8,6" Margin="0,0,8,0"
+                                 ToolTip="Speleology questions only — uses secure geminiProxy with App Check" />
+                        <Button Grid.Column="1" x:Name="CaveAiSendButton" Content="Ask" Padding="16,6" Click="CaveAiSend_Click" />
+                    </Grid>
+                </Grid>
 
             </TabItem>
 

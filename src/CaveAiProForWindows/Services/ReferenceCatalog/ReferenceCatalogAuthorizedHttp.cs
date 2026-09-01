@@ -1,5 +1,7 @@
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.CloudPublish;
 
 namespace CaveAiProForWindows.Services.ReferenceCatalog;
@@ -52,14 +54,17 @@ public static class ReferenceCatalogAuthorizedHttp
             var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
             if (token == null || string.IsNullOrWhiteSpace(token.Raw))
             {
-                throw new HttpRequestException(
-                    "Reference catalog asset requires a signed-in Firebase ID token (CDN lock).");
+                throw new HttpRequestException(GuestLibraryCopy.SignInHeadingPanel);
             }
 
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Raw);
         }
 
         using var res = await Http.SendAsync(req, cancellationToken).ConfigureAwait(false);
+        if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            throw new HttpRequestException(GuestLibraryCopy.SignInHeadingPanel);
+        }
         res.EnsureSuccessStatusCode();
         return await res.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }

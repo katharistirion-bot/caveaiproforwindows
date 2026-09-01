@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.CloudPublish;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
@@ -17,6 +18,9 @@ public partial class PublicLibraryWebWindow : Window
     public PublicLibraryWebWindow()
     {
         InitializeComponent();
+        GuestLibraryHint.Text = GuestLibraryCopy.ToolbarHint;
+        GuestLibraryHeading.Text = GuestLibraryCopy.SignInHeadingMap;
+        GuestLibraryLead.Text = GuestLibraryCopy.LeadMap;
         Loaded += OnLoadedAsync;
         Closing += OnClosingPersistViewport;
     }
@@ -81,10 +85,10 @@ public partial class PublicLibraryWebWindow : Window
                 }
             };
 
-            var start = string.IsNullOrWhiteSpace(InitialUrl)
-                ? PublicLibraryCatalog.WebMapUrlEmbedded
-                : InitialUrl;
-            core.Navigate(start);
+            core.NavigationCompleted += (_, _) => UpdateGuestLibraryChromeVisibility();
+
+            core.Navigate(PublicLibraryCatalog.ResolveInAppStartUrl(InitialUrl));
+            UpdateGuestLibraryChromeVisibility();
         }
         catch (Exception ex)
         {
@@ -96,6 +100,15 @@ public partial class PublicLibraryWebWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
+    }
+
+    /// <summary>Reuse an already-open library window for a new map / watch / Near me URL.</summary>
+    public void NavigateTo(string url)
+    {
+        var target = PublicLibraryCatalog.ResolveInAppStartUrl(url);
+        InitialUrl = target;
+        if (LibraryWebView?.CoreWebView2 != null)
+            LibraryWebView.CoreWebView2.Navigate(target);
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
@@ -193,6 +206,14 @@ public partial class PublicLibraryWebWindow : Window
         {
             Title = "Public Cave Library — CaveAI Pro";
         }
+    }
+
+    private void UpdateGuestLibraryChromeVisibility()
+    {
+        var signedIn = CloudPublishWebViewHost.TokenCache.TryGetUsableToken() != null;
+        var showGuest = !signedIn;
+        GuestLibraryBanner.Visibility = showGuest ? Visibility.Visible : Visibility.Collapsed;
+        GuestLibraryHint.Visibility = showGuest ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static bool IsAllowedNavigation(string uri) =>

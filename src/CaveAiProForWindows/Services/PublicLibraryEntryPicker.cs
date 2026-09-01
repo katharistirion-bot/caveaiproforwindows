@@ -10,6 +10,7 @@ public static class PublicLibraryEntryPicker
     {
         var result = MessageBox.Show(
             owner,
+            Auth.GuestLibraryCopy.LeadPanel + "\n\n" +
             "Choose how to open the Public Library:\n\n" +
             "Yes = Native reference catalog (offline cache, favorites, field trip import)\n" +
             "No = Web map in app (WebView2, download backups)\n" +

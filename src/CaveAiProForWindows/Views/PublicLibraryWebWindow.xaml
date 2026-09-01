@@ -22,9 +22,21 @@
             <Button Content="Download as backup…" Click="DownloadBackup_Click" Padding="10,5" Margin="0,0,6,0"
                     ToolTip="Fetch surveyJsonUrl + cartography assets for the cave open on this page" />
             <Separator />
-            <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
-                       Text="Sign in with Google to browse published caves · same catalog as Android &amp; web" />
+            <TextBlock x:Name="GuestLibraryHint"
+                       VerticalAlignment="Center" Foreground="{DynamicResource Cave.TextMuted}"
+                       Text="Sign in with Google to browse caves · same catalog as Android &amp; web" />
         </ToolBar>
+        <Border x:Name="GuestLibraryBanner" DockPanel.Dock="Top" Margin="0,0,0,8" Padding="10,8" CornerRadius="6"
+                Background="{DynamicResource Cave.Surface}"
+                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1">
+            <StackPanel>
+                <TextBlock x:Name="GuestLibraryHeading" FontWeight="SemiBold" TextWrapping="Wrap"
+                           Text="Sign in with Google to unlock the cave map" />
+                <TextBlock x:Name="GuestLibraryLead" Margin="0,4,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource Cave.TextMuted}"
+                           Text="The basemap stays visible. Reference pins, community surveys, and Explore overlays load after you sign in with the Google account linked to CaveAI Pro on Android." />
+            </StackPanel>
+        </Border>
         <Border Background="{DynamicResource Cave.Surface}"
                 BorderBrush="{DynamicResource Cave.Border}"
                 BorderThickness="1"

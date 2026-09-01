@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.CloudPublish;
 using Microsoft.Web.WebView2.Core;
 
@@ -15,6 +16,7 @@ public partial class LibraryCavePickerWindow : Window
     public LibraryCavePickerWindow()
     {
         InitializeComponent();
+        GuestLibraryLead.Text = GuestLibraryCopy.LeadMap;
         Loaded += OnLoadedAsync;
     }
 

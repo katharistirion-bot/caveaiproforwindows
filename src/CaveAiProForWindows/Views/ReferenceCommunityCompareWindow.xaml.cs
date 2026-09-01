@@ -63,7 +63,7 @@ public partial class ReferenceCommunityCompareWindow : Window
         }
         catch (Exception ex)
         {
-            ResultText.Text = "Failed to load reference index: " + ex.Message;
+            ResultText.Text = Services.Auth.GuestLibraryCopy.CatalogLoadFailure(ex);
         }
     }
 

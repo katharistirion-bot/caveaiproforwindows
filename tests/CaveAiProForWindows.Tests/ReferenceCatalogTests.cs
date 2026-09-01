@@ -493,6 +493,30 @@ public class FieldTripExportTests
     }
 
     [TestMethod]
+    public void CrossPlatformVector_SurfaceWatchExpedition()
+    {
+        var url = ReferenceCatalogShareUrls.BuildSurfaceWatchUrl(38.22, 20.62, "Melissani Cave");
+        AssertCrossPlatformVector(url, "view=watch", "lat=38.22", "lon=20.62", "zoom=13", "name=Melissani");
+    }
+
+    [TestMethod]
+    public void ArchaeologicalNotes_FromPinShardFields()
+    {
+        var pin = new ReferenceCavePin
+        {
+            Id = "ref-arch",
+            Name = "Franchthi Cave",
+            Period = "Upper Palaeolithic",
+            Significance = "Long Mesolithic sequence",
+            Finds = "Marine shells",
+            Heritage = "Protected site",
+        };
+        var notes = ReferenceCatalogDisplay.ArchaeologicalNotes(pin);
+        Assert.AreEqual(4, notes.Count);
+        Assert.AreEqual("Period", notes[0].Label);
+    }
+
+    [TestMethod]
     public void AuthorizedHttp_LocksIndexShardsFeatured_NotMetaOrManifest()
     {
         Assert.IsTrue(ReferenceCatalogAuthorizedHttp.IsEntitlementLockedDataUrl(

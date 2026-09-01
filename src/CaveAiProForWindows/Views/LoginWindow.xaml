@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         xmlns:loc="clr-namespace:CaveAiProForWindows.Services.Localization"
+        xmlns:guest="clr-namespace:CaveAiProForWindows.Services.Auth"
         Title="Sign in — CAVE AI PRO"
         Height="720"
         Width="960"
@@ -19,6 +20,8 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" FontSize="15"
                        Text="Sign in with Google to unlock the Desktop Companion" />
+            <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}"
+                       Text="{x:Static guest:GuestLibraryCopy.LeadPanel}" />
             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}"
                        Text="An active CaveAI Pro monthly subscription (Google Play) is required. Your Firebase session is established securely in WebView2 — credentials are never stored in plain text on disk." />
             <TextBlock x:Name="CertificationHintText"
@@ -53,6 +56,11 @@
                                LineHeight="20"
                                Foreground="{DynamicResource Cave.Text}"
                                Text="{x:Null}" />
+                    <TextBlock Margin="0,10,0,0"
+                               TextWrapping="Wrap"
+                               FontSize="12"
+                               Foreground="{DynamicResource Cave.TextSubdued}"
+                               Text="{x:Static guest:GuestLibraryCopy.LeadPanel}" />
                     <TextBlock Margin="0,10,0,0"
                                TextWrapping="Wrap"
                                FontSize="12"

@@ -49,6 +49,29 @@ public static class PublicLibraryCatalog
 
     public static string WebExploreMapUrlEmbedded => WithEmbed(WebExploreMapUrl);
 
+    /// <summary>In-app WebView start URL — always <c>embed=windows</c> for Google OAuth inside WebView2.</summary>
+    public static string ResolveInAppStartUrl(string? startUrl)
+    {
+        var url = string.IsNullOrWhiteSpace(startUrl) ? WebMapUrl : startUrl.Trim();
+        url = EnsureWatchDefaultZoom(url);
+        return WithEmbed(url);
+    }
+
+    /// <summary>Live web Surface Watch default when lat/lon are present without zoom.</summary>
+    public const int SurfaceWatchDefaultZoom = 13;
+
+    public static string EnsureWatchDefaultZoom(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return url;
+        if (!url.Contains("view=watch", StringComparison.OrdinalIgnoreCase))
+            return url;
+        if (url.Contains("zoom=", StringComparison.OrdinalIgnoreCase))
+            return url;
+        var sep = url.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+        return url + sep + "zoom=" + SurfaceWatchDefaultZoom.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     /// <summary>Explore map URL — restores last viewport when persisted (offline re-open hint).</summary>
     public static string ResolveExploreMapOpenUrl()
     {
@@ -99,6 +122,8 @@ public static class PublicLibraryCatalog
             return;
         }
 
+        var target = ResolveInAppStartUrl(startUrl);
+
         if (_activeWindow != null)
         {
             try
@@ -107,6 +132,7 @@ public static class PublicLibraryCatalog
                 {
                     if (_activeWindow.WindowState == System.Windows.WindowState.Minimized)
                         _activeWindow.WindowState = System.Windows.WindowState.Normal;
+                    _activeWindow.NavigateTo(target);
                     _activeWindow.Show();
                     _activeWindow.Activate();
                     _activeWindow.Focus();
@@ -122,7 +148,7 @@ public static class PublicLibraryCatalog
         var window = new Views.PublicLibraryWebWindow
         {
             Owner = owner,
-            InitialUrl = startUrl ?? WebMapUrlEmbedded,
+            InitialUrl = target,
         };
         window.Closed += (_, _) =>
         {

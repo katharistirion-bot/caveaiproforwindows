@@ -40,6 +40,26 @@ public class PublicLibraryCatalogTests
     }
 
     [TestMethod]
+    public void ResolveInAppStartUrl_adds_embed_and_keeps_watch_view()
+    {
+        var url = PublicLibraryCatalog.ResolveInAppStartUrl(
+            "https://www.caveaipro.com/map?view=watch&lat=38.22&lon=20.62");
+        StringAssert.Contains(url, "view=watch");
+        StringAssert.Contains(url, "embed=windows");
+        StringAssert.Contains(url, "lat=38.22");
+        StringAssert.Contains(url, "zoom=13");
+    }
+
+    [TestMethod]
+    public void EnsureWatchDefaultZoom_skips_when_zoom_present()
+    {
+        var url = PublicLibraryCatalog.EnsureWatchDefaultZoom(
+            "https://www.caveaipro.com/map?view=watch&lat=38.22&lon=20.62&zoom=11");
+        StringAssert.Contains(url, "zoom=11");
+        Assert.IsFalse(url.Contains("zoom=13"));
+    }
+
+    [TestMethod]
     public void WebExploreMapUrlEmbedded_includes_embed_and_path()
     {
         var env = Environment.GetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN");

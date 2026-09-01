@@ -74,6 +74,24 @@ public static class ReferenceCatalogShareUrls
         return AppendFieldTripPackParams(url, valid, notes);
     }
 
+    /// <summary>Surface Watch / expedition overdue URL (Android FCM parity).</summary>
+    public static string BuildSurfaceWatchUrl(double lat, double lon, string? name = null)
+    {
+        if (!ReferenceCatalogGeolocation.IsValidCoordinate(lat, lon))
+            return PublicLibraryCatalog.WebMapUrl;
+        var baseUrl = $"{FieldTripShareCodec.SiteOrigin}/map";
+        var query = new List<string>
+        {
+            "view=watch",
+            $"lat={lat.ToString(CultureInfo.InvariantCulture)}",
+            $"lon={lon.ToString(CultureInfo.InvariantCulture)}",
+            $"zoom={PublicLibraryCatalog.SurfaceWatchDefaultZoom.ToString(CultureInfo.InvariantCulture)}",
+        };
+        if (!string.IsNullOrWhiteSpace(name))
+            query.Add($"name={Uri.EscapeDataString(name.Trim())}");
+        return $"{baseUrl}?{string.Join("&", query)}";
+    }
+
     /// <summary>
     /// Compact multi-stop pack params (<c>ft=lat,lon;…</c>, <c>stops=</c>, optional <c>notes=</c>) — web/Android handoff parity.
     /// </summary>

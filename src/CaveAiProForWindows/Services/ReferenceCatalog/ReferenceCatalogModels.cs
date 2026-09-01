@@ -97,6 +97,21 @@ public sealed class ReferenceCavePin
     [JsonPropertyName("region")]
     public string? Region { get; set; }
 
+    [JsonPropertyName("caveNameAlt")]
+    public string? CaveNameAlt { get; set; }
+
+    [JsonPropertyName("period")]
+    public string? Period { get; set; }
+
+    [JsonPropertyName("significance")]
+    public string? Significance { get; set; }
+
+    [JsonPropertyName("finds")]
+    public string? Finds { get; set; }
+
+    [JsonPropertyName("heritage")]
+    public string? Heritage { get; set; }
+
     [JsonPropertyName("depthM")]
     public double? DepthM { get; set; }
 
