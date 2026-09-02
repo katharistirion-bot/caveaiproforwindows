@@ -74,7 +74,7 @@ public static class ReferenceCatalogShareUrls
         return AppendFieldTripPackParams(url, valid, notes);
     }
 
-    /// <summary>Surface Watch / expedition overdue URL (Android FCM parity).</summary>
+    /// <summary>Surface Watch / expedition overdue URL (Android/web parity — omit zoom; clients default to 13).</summary>
     public static string BuildSurfaceWatchUrl(double lat, double lon, string? name = null)
     {
         if (!ReferenceCatalogGeolocation.IsValidCoordinate(lat, lon))
@@ -85,7 +85,6 @@ public static class ReferenceCatalogShareUrls
             "view=watch",
             $"lat={lat.ToString(CultureInfo.InvariantCulture)}",
             $"lon={lon.ToString(CultureInfo.InvariantCulture)}",
-            $"zoom={PublicLibraryCatalog.SurfaceWatchDefaultZoom.ToString(CultureInfo.InvariantCulture)}",
         };
         if (!string.IsNullOrWhiteSpace(name))
             query.Add($"name={Uri.EscapeDataString(name.Trim())}");

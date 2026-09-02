@@ -496,7 +496,8 @@ public class FieldTripExportTests
     public void CrossPlatformVector_SurfaceWatchExpedition()
     {
         var url = ReferenceCatalogShareUrls.BuildSurfaceWatchUrl(38.22, 20.62, "Melissani Cave");
-        AssertCrossPlatformVector(url, "view=watch", "lat=38.22", "lon=20.62", "zoom=13", "name=Melissani");
+        AssertCrossPlatformVector(url, "view=watch", "lat=38.22", "lon=20.62", "name=Melissani");
+        Assert.IsFalse(url.Contains("zoom=", StringComparison.OrdinalIgnoreCase));
     }
 
     [TestMethod]
