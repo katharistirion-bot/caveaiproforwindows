@@ -31,6 +31,9 @@ public static class CaveAiOfflineBrain
         if (IsTripNarrativeQuery(q))
             return TripEndNarrativeOffline.BuildOfflineTripNarrativeChatAnswer(project);
 
+        if (IsSurveyQcQuery(q))
+            return SurveyLoopQc.SurveyLoopQcSummary.BuildCopilotAnswer(project);
+
         if (IsOverviewStatusQuery(q))
         {
             var overviewDepth = ComputeMaxDepthBelowEntranceMeters(project);
@@ -266,6 +269,15 @@ public static class CaveAiOfflineBrain
         ContainsAny(q, "loop", "closure", "misclosure") ||
         q.Contains("loop closure") ||
         q.Contains("loop quality");
+
+    private static bool IsSurveyQcQuery(string q) =>
+        q.Contains("survey qc", StringComparison.Ordinal) ||
+        q.Contains("qc summary", StringComparison.Ordinal) ||
+        q.Contains("survey quality", StringComparison.Ordinal) ||
+        q.Contains("quality control", StringComparison.Ordinal) ||
+        ContainsAny(q, "remeasure", "re-measure", "reshoot", "re-shoot") ||
+        q.Contains("what should i fix", StringComparison.Ordinal) ||
+        q.Contains("next qc", StringComparison.Ordinal);
 
     private static bool IsTripNarrativeQuery(string q) =>
         (ContainsAny(q, "narrative", "report", "summary") &&

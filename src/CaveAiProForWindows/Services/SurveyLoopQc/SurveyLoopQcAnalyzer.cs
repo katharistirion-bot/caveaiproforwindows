@@ -240,4 +240,139 @@ public static class SurveyLoopQcSummary
         var loops = SurveyLoopQcAnalyzer.AnalyzeLoops(project);
         sb.AppendLine(BuildMisclosureSummary(loops));
     }
+
+    /// <summary>
+    /// Full Survey QC co-pilot narrative — mirrors Android <c>buildSurveyQcCopilotAnswer</c>
+    /// and web <c>buildSurveyQcSummary</c> (shared severity + next-action rules).
+    /// </summary>
+    public static string BuildCopilotAnswer(CaveProjectDocument project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var mains = project.Shots.Where(s => s.IsTraverseLeg).ToList();
+        var splays = project.Shots.Count - mains.Count;
+        var stations = project.Shots
+            .SelectMany(s => new[] { s.FromStation, s.ToStation })
+            .Where(id => !string.IsNullOrWhiteSpace(id) && !ShotRecord.IsSplayDestination(id))
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+        var loops = SurveyLoopQcAnalyzer.AnalyzeLoops(project);
+        var dup = FindDuplicateMainLegPair(mains);
+        var name = string.IsNullOrWhiteSpace(project.Name) ? "this project" : project.Name.Trim();
+        var sb = new StringBuilder();
+        sb.Append("Survey QC co-pilot for ").Append(name).AppendLine(":");
+        sb.Append("• ").Append(mains.Count).Append(" main legs, ")
+            .Append(splays).Append(" splays, ")
+            .Append(stations).AppendLine(" stations.");
+        if (dup is { } pair)
+        {
+            sb.Append("• Duplicate main ").Append(pair.From).Append('→')
+                .Append(pair.To).AppendLine(" — check for a typo before trusting loops.");
+        }
+        sb.Append("• ").AppendLine(BuildCopilotLoopLine(loops));
+        var actions = BuildNextActions(
+            mains.Count, stations, splays, loops, hasDuplicateMain: dup != null);
+        sb.AppendLine(FormatNextActions(actions));
+        sb.Append("Rules-based QC — same thresholds on Android, Windows, and web. Ask Cave AI online for a deeper narrative when entitled.");
+        return sb.ToString();
+    }
+
+    public static IReadOnlyList<string> BuildNextActions(
+        int mainCount,
+        int stationCount,
+        int splayCount,
+        IReadOnlyList<SurveyLoopInfo> loops,
+        bool hasDuplicateMain)
+    {
+        var outList = new List<string>();
+        if (mainCount < 1)
+        {
+            outList.Add("Open the HUD and log your first main leg (From→To, not a splay).");
+            return outList.Take(3).ToList();
+        }
+        if (hasDuplicateMain)
+            outList.Add("Resolve the duplicate From→To main before trusting loop QC.");
+        if (loops.Count == 0)
+        {
+            outList.Add("Close a loop: shoot back to a known station so misclosure can be measured.");
+            if (stationCount < 3)
+                outList.Add("Add at least one more unique station before a meaningful loop.");
+            if (splayCount >= 4 && mainCount > 0)
+                outList.Add("Tie trailing splays into a main — traverse QC ignores pure splay tails.");
+            return outList.Distinct().Take(3).ToList();
+        }
+
+        var worst = loops.OrderByDescending(l => l.MisclosureMeters).First();
+        var severity = SeverityLabel(worst.MisclosureMeters, worst.PathLengthMeters);
+        outList.AddRange(BuildLoopFocusedNextActions(worst, severity));
+        if (splayCount >= 6 && outList.Count < 3)
+            outList.Add("Review LRUD/splay density near junctions before publication.");
+        return outList.Distinct().Take(3).ToList();
+    }
+
+    private static IEnumerable<string> BuildLoopFocusedNextActions(SurveyLoopInfo worst, string severity)
+    {
+        var cycle = worst.StationCycle.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+        var focus = cycle.Count >= 2
+            ? $"{cycle[0]}↔{(cycle.Count >= 2 ? cycle[^2] : cycle[^1])}"
+            : "the closing leg";
+        return severity switch
+        {
+            "excellent" or "good" =>
+            [
+                $"Keep logging; re-check {focus} only if you add long chords.",
+                "Export a QC packet before the next office adjust session.",
+            ],
+            "review" =>
+            [
+                $"Re-measure the longest or steepest legs on cycle {string.Join("→", worst.StationCycle)}.",
+                "Verify station IDs match the sketch before another closing shot.",
+                "Preview Bowditch on Android; finish multi-loop Compass/WLS on Windows or web.",
+            ],
+            _ =>
+            [
+                $"Do not publish yet — re-shoot foresight/backsight around {string.Join("→", worst.StationCycle.Take(3))}.",
+                $"Check clino sign and tape stretch on the worst loop path (~{Math.Round(worst.PathLengthMeters).ToString(CultureInfo.InvariantCulture)} m).",
+                "Use Windows Loop closure / web Survey QC after field re-measurement.",
+            ],
+        };
+    }
+
+    private static string FormatNextActions(IReadOnlyList<string> actions)
+    {
+        if (actions.Count == 0)
+            return "Next actions: none — survey looks healthy for field use.";
+        var sb = new StringBuilder("Next actions:");
+        for (var i = 0; i < actions.Count; i++)
+            sb.Append('\n').Append(i + 1).Append(". ").Append(actions[i]);
+        return sb.ToString();
+    }
+
+    private static string BuildCopilotLoopLine(IReadOnlyList<SurveyLoopInfo> loops)
+    {
+        if (loops.Count == 0)
+            return "No traverse loops detected yet — log closing shots to known stations to measure misclosure.";
+        var worst = loops.OrderByDescending(l => l.MisclosureMeters).First();
+        var label = SeverityLabel(worst.MisclosureMeters, worst.PathLengthMeters);
+        var inv = CultureInfo.InvariantCulture;
+        var ppm = worst.PathLengthMeters > 0
+            ? (worst.MisclosureMeters / worst.PathLengthMeters) * 1_000_000
+            : 0;
+        var line =
+            $"{loops.Count} loop{(loops.Count == 1 ? "" : "s")} — worst |Δ|={worst.MisclosureMeters.ToString("0.##", inv)} m ({label}). Worst cycle: {string.Join("→", worst.StationCycle)}";
+        if (ppm > 0)
+            line += $" (~{Math.Round(ppm).ToString(inv)} ppm)";
+        return line + ".";
+    }
+
+    private static (string From, string To)? FindDuplicateMainLegPair(IReadOnlyList<ShotRecord> mains)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var s in mains)
+        {
+            var key = $"{s.FromStation}\0{s.ToStation}";
+            if (!seen.Add(key))
+                return (s.FromStation, s.ToStation);
+        }
+        return null;
+    }
 }

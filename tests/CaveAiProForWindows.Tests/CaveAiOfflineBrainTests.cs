@@ -214,6 +214,41 @@ public sealed class CaveAiOfflineBrainTests
         }
     }
 
+    [TestMethod]
+    public void Answer_surveyQc_returnsSharedCopilotNarrative()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "QC Demo",
+            Shots =
+            [
+                new ShotRecord { FromStation = "A", ToStation = "B", Distance = 10, Azimuth = 0, Clino = 0 },
+                new ShotRecord { FromStation = "B", ToStation = "C", Distance = 10, Azimuth = 90, Clino = 0 },
+            ],
+        };
+
+        var reply = CaveAiOfflineBrain.Answer(project, "survey quality control");
+        StringAssert.Contains(reply, "Survey QC co-pilot");
+        StringAssert.Contains(reply, "Rules-based QC");
+        StringAssert.Contains(reply, "Close a loop");
+    }
+
+    [TestMethod]
+    public void Answer_remeasure_routesToSurveyQcNotGenericNext()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "QC Demo",
+            Shots =
+            [
+                new ShotRecord { FromStation = "A", ToStation = "B", Distance = 10, Azimuth = 0, Clino = 0 },
+            ],
+        };
+
+        var reply = CaveAiOfflineBrain.Answer(project, "what should I remeasure?");
+        StringAssert.Contains(reply, "Survey QC co-pilot");
+    }
+
     private static CaveProjectDocument BuildProjectFromFixture(JsonElement projectEl)
     {
         var project = new CaveProjectDocument
