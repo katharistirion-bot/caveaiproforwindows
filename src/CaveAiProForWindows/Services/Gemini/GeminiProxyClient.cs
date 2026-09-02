@@ -45,7 +45,7 @@ public static class GeminiProxyClient
     public static async Task<string> PostGenerateContentAsync(JsonObject body, CancellationToken cancellationToken = default)
     {
         if (MicrosoftTestMode.IsActive)
-            MicrosoftTestMode.ThrowIfNetworkBlocked("Gemini proxy");
+            MicrosoftTestMode.ThrowIfNetworkBlocked("Cloud AI proxy");
 
         var idToken = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
         if (idToken == null || !idToken.IsUsable())
@@ -67,7 +67,7 @@ public static class GeminiProxyClient
         if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             throw new HttpRequestException(GuestLibraryCopy.SignInHeadingPanel);
         if (!res.IsSuccessStatusCode)
-            throw new HttpRequestException("Gemini proxy HTTP " + (int)res.StatusCode + ": " + Truncate(raw));
+            throw new HttpRequestException("Cloud AI HTTP " + (int)res.StatusCode + ": " + Truncate(raw));
 
         return raw;
     }

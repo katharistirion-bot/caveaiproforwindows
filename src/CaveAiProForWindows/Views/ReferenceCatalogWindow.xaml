@@ -197,7 +197,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBox x:Name="CaveAiPromptBox" Grid.Column="0" Padding="8,6" Margin="0,0,8,0"
-                                 ToolTip="Speleology questions only — uses secure geminiProxy with App Check" />
+                                 ToolTip="Speleology questions only — uses Cave AI cloud with App Check" />
                         <Button Grid.Column="1" x:Name="CaveAiSendButton" Content="Ask" Padding="16,6" Click="CaveAiSend_Click" />
                     </Grid>
                 </Grid>
