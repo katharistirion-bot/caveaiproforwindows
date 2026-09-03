@@ -1,0 +1,30 @@
+﻿<Window x:Class="CaveAiProForWindows.Views.SurveyPhoneQrWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Start survey on phone" Width="420" Height="530"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        Background="#1a1a2e">
+    <StackPanel Margin="20">
+        <TextBlock Text="Start Cave AI Pro survey on Android" FontSize="15" FontWeight="Bold"
+                   Foreground="White" TextWrapping="Wrap" Margin="0,0,0,10"/>
+        <TextBlock x:Name="CaveNameText" FontSize="13" Foreground="#a0c4ff"
+                   TextWrapping="Wrap" Margin="0,0,0,14"/>
+        <TextBlock Text="Scan with your phone camera or Cave AI Pro:" FontSize="12"
+                   Foreground="#cccccc" Margin="0,0,0,8"/>
+        <Border Background="White" Padding="10" HorizontalAlignment="Center" Margin="0,0,0,14">
+            <Image x:Name="QrImage" Width="220" Height="220" Stretch="Uniform"/>
+        </Border>
+        <TextBlock Text="Or copy the link:" FontSize="12" Foreground="#cccccc" Margin="0,0,0,4"/>
+        <TextBox x:Name="UrlBox" IsReadOnly="True" TextWrapping="Wrap" FontSize="11"
+                 Background="#2a2a3e" Foreground="#cccccc" BorderBrush="#555"
+                 Padding="6" MaxHeight="56" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button x:Name="CopyBtn" Content="Copy link" Padding="12,6" Margin="0,0,8,0"
+                    Click="CopyBtn_Click" Background="#0d6efd" Foreground="White" BorderThickness="0"/>
+            <Button Content="Open in browser" Padding="12,6" Margin="0,0,8,0"
+                    Click="OpenBrowser_Click" Background="#444" Foreground="White" BorderThickness="0"/>
+            <Button Content="Close" Padding="12,6"
+                    Click="Close_Click" Background="#444" Foreground="White" BorderThickness="0"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

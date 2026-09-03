@@ -972,7 +972,9 @@ public partial class ReferenceCatalogWindow : Window
         }
 
         var url = ReferenceCatalogShareUrls.BuildSurveyStartUrl(_selected);
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        var caveName = _selected.Name ?? _selected.Id ?? "Cave";
+        var qrWindow = new SurveyPhoneQrWindow(caveName, url) { Owner = this };
+        qrWindow.ShowDialog();
         ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
     }
 
