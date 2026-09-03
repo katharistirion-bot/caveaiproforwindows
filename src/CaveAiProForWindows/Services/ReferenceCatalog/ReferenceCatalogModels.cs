@@ -1,6 +1,32 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace CaveAiProForWindows.Models;
+
+/// <summary>
+/// Tolerant converter: accepts numeric osmId values and silently returns null for string values
+/// (curated catalog entries use refCode, not a numeric OSM id).
+/// </summary>
+internal sealed class OsmIdJsonConverter : JsonConverter<long?>
+{
+    public override long? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        return reader.TokenType switch
+        {
+            JsonTokenType.Null => null,
+            JsonTokenType.Number when reader.TryGetInt64(out long v) => v,
+            JsonTokenType.Number => (long?)reader.GetDouble(), // float fallback
+            JsonTokenType.String => null, // curated refCode string — ignore
+            _ => null,
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, long? value, JsonSerializerOptions options)
+    {
+        if (value.HasValue) writer.WriteNumberValue(value.Value);
+        else writer.WriteNullValue();
+    }
+}
 
 public sealed class ReferenceCatalogMeta
 {
@@ -65,6 +91,7 @@ public sealed class ReferenceCaveIndexEntry
     public string? OsmType { get; set; }
 
     [JsonPropertyName("osmId")]
+    [JsonConverter(typeof(OsmIdJsonConverter))]
     public long? OsmId { get; set; }
 
     [JsonPropertyName("preview")]
@@ -143,6 +170,7 @@ public sealed class ReferenceCavePin
     public string? OsmType { get; set; }
 
     [JsonPropertyName("osmId")]
+    [JsonConverter(typeof(OsmIdJsonConverter))]
     public long? OsmId { get; set; }
 
     [JsonPropertyName("rich")]
