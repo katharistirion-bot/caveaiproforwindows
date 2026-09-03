@@ -27,13 +27,18 @@ public partial class DesktopAuthWindow : Window
     }
 
     /// <summary>
-    /// Opens the auth window and returns when a usable token arrives or the user closes / cancels.
+    /// Returns a usable token: checks cache, attempts silent refresh, then falls back to WebView2 sign-in.
     /// </summary>
     public static async Task<FirebaseIdToken?> AcquireTokenAsync(Window? owner, FirebaseAuthTokenCache cache)
     {
         var existing = cache.TryGetUsableToken();
         if (existing != null)
             return existing;
+
+        // Try silent REST refresh before opening a WebView2 window
+        var refreshed = await cache.TrySilentRefreshAsync().ConfigureAwait(true);
+        if (refreshed != null)
+            return refreshed;
 
         var tcs = new TaskCompletionSource<FirebaseIdToken?>(TaskCreationOptions.RunContinuationsAsynchronously);
 

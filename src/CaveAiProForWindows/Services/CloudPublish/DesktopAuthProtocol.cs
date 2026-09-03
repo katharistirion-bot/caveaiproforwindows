@@ -116,8 +116,15 @@ public static class DesktopAuthProtocol
 
     /// <summary>Parses a WebView2 <see cref="Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs"/> payload.</summary>
     public static bool TryParseTokenMessage(string? json, out FirebaseIdToken? token)
+        => TryParseTokenMessage(json, out token, out _);
+
+    /// <summary>
+    /// Overload that also extracts an optional <c>refreshToken</c> field if the page sends it.
+    /// </summary>
+    public static bool TryParseTokenMessage(string? json, out FirebaseIdToken? token, out string? refreshToken)
     {
         token = null;
+        refreshToken = null;
         if (string.IsNullOrWhiteSpace(json))
             return false;
 
@@ -147,6 +154,14 @@ public static class DesktopAuthProtocol
                 return false;
 
             token = parsed;
+
+            if (root.TryGetProperty("refreshToken", out var rtEl)
+                && rtEl.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(rtEl.GetString()))
+            {
+                refreshToken = rtEl.GetString();
+            }
+
             return true;
         }
         catch (JsonException)

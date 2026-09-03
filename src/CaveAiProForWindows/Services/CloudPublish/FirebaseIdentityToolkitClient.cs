@@ -68,6 +68,14 @@ internal sealed class FirebaseIdentityToolkitClient : IDisposable
         if (!FirebaseIdTokenParser.TryParse(raw, out var token) || token == null)
             throw new FirebaseRestException("signInWithIdp returned an invalid idToken.", resp.StatusCode, body);
 
+        // Persist refresh token so subsequent app launches can silently re-issue ID tokens
+        if (doc.RootElement.TryGetProperty("refreshToken", out var rtEl)
+            && rtEl.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(rtEl.GetString()))
+        {
+            FirebaseAuthTokenStore.SaveWithRefreshToken(token, rtEl.GetString()!);
+        }
+
         return token;
     }
 

@@ -82,6 +82,40 @@ public sealed class FirebaseAuthTokenStoreTests
         Assert.IsFalse(File.Exists(Path.Combine(_tempDir!, "auth-token.json")));
     }
 
+    [TestMethod]
+    public void SaveWithRefreshToken_and_TryLoadRefreshToken_roundtrip()
+    {
+        var token = MakeUsableTestToken();
+        const string refreshToken = "AEu4IL0test_refresh_token_value";
+        FirebaseAuthTokenStore.SaveWithRefreshToken(token, refreshToken);
+
+        var loadedToken = FirebaseAuthTokenStore.TryLoad();
+        Assert.IsNotNull(loadedToken);
+        Assert.AreEqual(token.Raw, loadedToken!.Raw);
+
+        var loadedRefresh = FirebaseAuthTokenStore.TryLoadRefreshToken();
+        Assert.AreEqual(refreshToken, loadedRefresh);
+    }
+
+    [TestMethod]
+    public void TryLoadRefreshToken_returns_null_when_no_file()
+    {
+        Assert.IsNull(FirebaseAuthTokenStore.TryLoadRefreshToken());
+    }
+
+    [TestMethod]
+    public void TrySave_without_refresh_token_still_loads()
+    {
+        var token = MakeUsableTestToken();
+        FirebaseAuthTokenStore.TrySave(token);
+
+        var loaded = FirebaseAuthTokenStore.TryLoad();
+        Assert.IsNotNull(loaded);
+        // Refresh token may be null when saved via TrySave (no refresh token)
+        var refresh = FirebaseAuthTokenStore.TryLoadRefreshToken();
+        Assert.IsNull(refresh);
+    }
+
     private static FirebaseIdToken MakeUsableTestToken()
     {
         var exp = DateTimeOffset.UtcNow.AddHours(2).ToUnixTimeSeconds();

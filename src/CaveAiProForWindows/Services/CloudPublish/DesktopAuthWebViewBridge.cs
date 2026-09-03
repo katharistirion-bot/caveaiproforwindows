@@ -206,7 +206,7 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
                 return;
             }
 
-            if (!DesktopAuthProtocol.TryParseTokenMessage(json, out var token) || token == null)
+            if (!DesktopAuthProtocol.TryParseTokenMessage(json, out var token, out var refreshToken) || token == null)
             {
                 if (DesktopAuthProtocol.TryParseAppCheckTokenMessage(json, out var appCheckToken)
                     && appCheckToken != null
@@ -228,6 +228,10 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
                 $"email={token.Email ?? "?"} exp={token.ExpiresAtUtc:O} (JWT length={token.Raw.Length}).");
             App.WriteStartupLog(
                 "DesktopAuthBridge: token received for " + (token.Email ?? token.Subject ?? "?"));
+
+            // Persist refresh token when the web page includes it in the postMessage payload
+            if (!string.IsNullOrWhiteSpace(refreshToken))
+                FirebaseAuthTokenStore.SaveWithRefreshToken(token, refreshToken!);
 
             _cache.Update(token);
         }
@@ -327,12 +331,24 @@ public sealed class DesktopAuthWebViewBridge : IDisposable
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (!doc.RootElement.TryGetProperty("idToken", out var idEl)
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("idToken", out var idEl)
                 || idEl.ValueKind != JsonValueKind.String)
                 return false;
 
             var raw = idEl.GetString();
-            return FirebaseIdTokenParser.TryParse(raw, out token) && token != null;
+            if (!FirebaseIdTokenParser.TryParse(raw, out token) || token == null)
+                return false;
+
+            // Persist refresh token for future silent refresh (no WebView2 required)
+            if (root.TryGetProperty("refreshToken", out var rtEl)
+                && rtEl.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(rtEl.GetString()))
+            {
+                FirebaseAuthTokenStore.SaveWithRefreshToken(token, rtEl.GetString()!);
+            }
+
+            return true;
         }
         catch
         {

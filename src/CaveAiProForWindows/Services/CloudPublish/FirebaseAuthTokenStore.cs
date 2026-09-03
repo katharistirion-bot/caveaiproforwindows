@@ -132,8 +132,68 @@ public static class FirebaseAuthTokenStore
         }
     }
 
+    /// <summary>Returns the persisted refresh token (regardless of whether the ID token is still usable).</summary>
+    public static string? TryLoadRefreshToken()
+    {
+        try
+        {
+            // Try reading raw bytes to extract refresh token
+            if (!File.Exists(EncryptedStorePath))
+                return TryLoadRefreshTokenFromLegacy();
+
+            var protectedBytes = File.ReadAllBytes(EncryptedStorePath);
+            var json = UserScopedDpapiProtector.UnprotectUtf8(protectedBytes);
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+
+            var dto = JsonSerializer.Deserialize<StoredTokenDto>(json, JsonOpts);
+            return dto?.RefreshToken;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryLoadRefreshTokenFromLegacy()
+    {
+        if (!File.Exists(LegacyPlainStorePath))
+            return null;
+        try
+        {
+            var json = File.ReadAllText(LegacyPlainStorePath);
+            var dto = JsonSerializer.Deserialize<StoredTokenDto>(json, JsonOpts);
+            return dto?.RefreshToken;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static void SaveWithRefreshToken(FirebaseIdToken token, string refreshToken)
+    {
+        try
+        {
+            var dir = StoreDirectory;
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            var dto = new StoredTokenDto { Raw = token.Raw, RefreshToken = refreshToken };
+            var json = JsonSerializer.Serialize(dto, JsonOpts);
+            var protectedBytes = UserScopedDpapiProtector.ProtectUtf8(json);
+            File.WriteAllBytes(EncryptedStorePath, protectedBytes);
+            TryDeleteLegacyPlain();
+        }
+        catch
+        {
+            /* best-effort */
+        }
+    }
+
     private sealed class StoredTokenDto
     {
         public string? Raw { get; set; }
+        public string? RefreshToken { get; set; }
     }
 }
