@@ -1421,7 +1421,9 @@ public partial class SurfaceMapView : UserControl
         }
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            PublicLibraryCatalog.ShowInAppWindow(
+                Window.GetWindow(this) ?? Application.Current?.MainWindow,
+                url);
         }
         catch (Exception ex)
         {

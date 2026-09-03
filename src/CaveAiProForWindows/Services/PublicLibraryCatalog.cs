@@ -49,6 +49,37 @@ public static class PublicLibraryCatalog
 
     public static string WebExploreMapUrlEmbedded => WithEmbed(WebExploreMapUrl);
 
+    /// <summary>
+    /// Strip WebView-only query params so a real browser does not inherit
+    /// <c>embed=windows</c> (that forces redirect OAuth meant for WebView2).
+    /// </summary>
+    public static string ForExternalBrowser(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return WebMapUrl;
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+            return url.Trim();
+
+        var qs = uri.Query.TrimStart('?');
+        var kept = string.IsNullOrEmpty(qs)
+            ? Array.Empty<string>()
+            : qs.Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .Where(part =>
+                {
+                    var key = part.Split('=', 2)[0];
+                    return !key.Equals("embed", StringComparison.OrdinalIgnoreCase)
+                        && !key.Equals("desktopAuth", StringComparison.OrdinalIgnoreCase);
+                })
+                .ToArray();
+
+        var path = uri.GetLeftPart(UriPartial.Path);
+        if (kept.Length > 0)
+            path += "?" + string.Join('&', kept);
+        if (!string.IsNullOrEmpty(uri.Fragment))
+            path += uri.Fragment;
+        return path;
+    }
+
     /// <summary>In-app WebView start URL — always <c>embed=windows</c> for Google OAuth inside WebView2.</summary>
     public static string ResolveInAppStartUrl(string? startUrl)
     {
@@ -180,7 +211,7 @@ public static class PublicLibraryCatalog
             return;
         }
 
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(WebMapUrlEmbedded)
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(WebMapUrl)
         {
             UseShellExecute = true,
         });
@@ -202,7 +233,7 @@ public static class PublicLibraryCatalog
 
     public static void OpenCaveOnMap(string publishedDocId)
     {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(WithEmbed(BuildMapCaveUrl(publishedDocId)))
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(BuildMapCaveUrl(publishedDocId))
         {
             UseShellExecute = true,
         });

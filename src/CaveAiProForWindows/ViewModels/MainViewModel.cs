@@ -683,7 +683,7 @@ public partial class MainViewModel : ObservableObject
         new AboutWindow { Owner = owner }.ShowDialog();
     }
 
-    /// <summary>Opens web Cave AI in the default browser (context from linked reference pin when available).</summary>
+    /// <summary>Opens web Cave AI in the in-app Public Library WebView (embed=windows).</summary>
     [RelayCommand]
     private void OpenCaveAiWeb()
     {
@@ -694,12 +694,12 @@ public partial class MainViewModel : ObservableObject
             : CaveAiWebUrls.BaseUrl;
         try
         {
-            CaveAiWebUrls.OpenInDefaultBrowser(url);
-            StatusMessage = "Opened Cave AI on the web";
+            PublicLibraryCatalog.ShowInAppWindow(Wpf.Application.Current.MainWindow, url);
+            StatusMessage = "Opened Cave AI in Public Library";
         }
         catch (Exception ex)
         {
-            StatusMessage = "Could not open browser: " + ex.Message;
+            StatusMessage = "Could not open Cave AI: " + ex.Message;
         }
     }
 

@@ -130,7 +130,8 @@ public partial class PublicLibraryWebWindow : Window
     {
         var url = LibraryWebView?.Source?.ToString();
         if (string.IsNullOrWhiteSpace(url))
-            url = PublicLibraryCatalog.WebMapUrlEmbedded;
+            url = PublicLibraryCatalog.WebMapUrl;
+        url = PublicLibraryCatalog.ForExternalBrowser(url);
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url)

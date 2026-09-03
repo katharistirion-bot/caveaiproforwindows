@@ -60,6 +60,26 @@ public class PublicLibraryCatalogTests
     }
 
     [TestMethod]
+    public void ForExternalBrowser_strips_webview_embed_params()
+    {
+        var url = PublicLibraryCatalog.ForExternalBrowser(
+            "https://www.caveaipro.com/map?view=explore&embed=windows&desktopAuth=v1&lat=38.2");
+        StringAssert.Contains(url, "view=explore");
+        StringAssert.Contains(url, "lat=38.2");
+        Assert.IsFalse(url.Contains("embed=", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(url.Contains("desktopAuth=", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void ResolveInAppStartUrl_adds_embed_to_cave_ai_path()
+    {
+        var url = PublicLibraryCatalog.ResolveInAppStartUrl("https://www.caveaipro.com/ai?refId=abc");
+        StringAssert.Contains(url, "/ai");
+        StringAssert.Contains(url, "refId=abc");
+        StringAssert.Contains(url, "embed=windows");
+    }
+
+    [TestMethod]
     public void WebExploreMapUrlEmbedded_includes_embed_and_path()
     {
         var env = Environment.GetEnvironmentVariable("CAVEAIPRO_WEB_ORIGIN");

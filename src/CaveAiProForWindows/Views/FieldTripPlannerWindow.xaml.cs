@@ -562,7 +562,7 @@ public partial class FieldTripPlannerWindow : Window
                 "Field trip", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        PublicLibraryCatalog.ShowInAppWindow(this, url);
     }
 
     private void PreviewOnExploreTerrain_Click(object sender, RoutedEventArgs e)
@@ -576,7 +576,7 @@ public partial class FieldTripPlannerWindow : Window
         SaveCurrentTripFields();
         var url = PublicLibraryCatalog.WithEmbed(
             ReferenceCatalogShareUrls.BuildExploreTerrainUrlForStops(trip.Stops, notes: trip.Notes));
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        PublicLibraryCatalog.ShowInAppWindow(this, url);
     }
 
     private void WireOfflineUi()

@@ -1045,10 +1045,10 @@ public partial class ReferenceCatalogWindow : Window
         }
     }
 
-    private static void OpenCaveAiWebForEntry(ReferenceCaveIndexEntry entry, ReferenceCavePin? detail = null)
+    private void OpenCaveAiWebForEntry(ReferenceCaveIndexEntry entry, ReferenceCavePin? detail = null)
     {
         var url = CaveAiWebUrls.BuildFromReference(entry, detail);
-        CaveAiWebUrls.OpenInDefaultBrowser(url);
+        PublicLibraryCatalog.ShowInAppWindow(this, url);
     }
 
     private async void LinkToCurrentProject_Click(object sender, RoutedEventArgs e)
@@ -1153,9 +1153,9 @@ public partial class ReferenceCatalogWindow : Window
 
         {
 
-            var url = ReferenceCatalogShareUrls.BuildShareUrl(_selected);
+            var url = PublicLibraryCatalog.WithEmbed(ReferenceCatalogShareUrls.BuildShareUrl(_selected));
 
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            PublicLibraryCatalog.ShowInAppWindow(this, url);
 
             return;
 
@@ -1163,7 +1163,7 @@ public partial class ReferenceCatalogWindow : Window
 
 
 
-        PublicLibraryCatalog.OpenMap();
+        PublicLibraryCatalog.ShowMapInAppWindow(this);
 
     }
 
@@ -1179,7 +1179,7 @@ public partial class ReferenceCatalogWindow : Window
         }
 
         var url = PublicLibraryCatalog.WithEmbed(ReferenceCatalogShareUrls.BuildExploreHydrologyScoutUrl(_selected));
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        PublicLibraryCatalog.ShowInAppWindow(this, url);
         ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogExploreHydrologyScoutLink);
     }
 
@@ -1201,7 +1201,7 @@ public partial class ReferenceCatalogWindow : Window
 
         var url = PublicLibraryCatalog.WithEmbed(ReferenceCatalogShareUrls.BuildExploreTerrainUrl(_selected));
 
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        PublicLibraryCatalog.ShowInAppWindow(this, url);
 
         ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogExploreTerrainLink);
 
