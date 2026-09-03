@@ -782,7 +782,7 @@ public partial class ReferenceCatalogWindow : Window
                 {
                     Text = line,
                     TextDecorations = TextDecorations.Underline,
-                    Foreground = (Brush)FindResource("Cave.AccentBrush"),
+                    Foreground = (Brush)FindResource("Cave.Accent"),
                     Cursor = Cursors.Hand,
                     Margin = new Thickness(0, 0, 0, 4),
                     Tag = match.Entry,

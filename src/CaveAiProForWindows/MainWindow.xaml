@@ -219,14 +219,14 @@
                     </StackPanel.Style>
                     <TextBlock Text="💬" Margin="0,0,4,0" />
                     <TextBlock Text="{Binding CollaborationUnreadCount}" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Cave.AccentBrush}" ToolTip="Unread collaboration comments" />
+                               Foreground="{DynamicResource Cave.Accent}" ToolTip="Unread collaboration comments" />
                 </StackPanel>
             </StatusBarItem>
             <Separator />
             <StatusBarItem>
                 <TextBlock Text="{Binding AuthStatusChip}" TextTrimming="CharacterEllipsis" MaxWidth="320"
                            FontWeight="SemiBold" Cursor="Hand"
-                           Foreground="{DynamicResource Cave.AccentBrush}"
+                           Foreground="{DynamicResource Cave.Accent}"
                            ToolTip="Click: open sign-in or LEGAL &amp; SETTINGS when action is needed"
                            MouseLeftButtonUp="AuthStatusChip_Click" />
             </StatusBarItem>
