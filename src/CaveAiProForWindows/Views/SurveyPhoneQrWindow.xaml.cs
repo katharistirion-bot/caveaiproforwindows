@@ -12,10 +12,14 @@ public partial class SurveyPhoneQrWindow : Window
 {
     private readonly string _url;
 
-    public SurveyPhoneQrWindow(string caveName, string url)
+    public SurveyPhoneQrWindow(string caveName, string url, string? windowTitle = null, string? headline = null)
     {
         _url = url;
         InitializeComponent();
+        if (!string.IsNullOrWhiteSpace(windowTitle))
+            Title = windowTitle.Trim();
+        if (!string.IsNullOrWhiteSpace(headline))
+            HeadlineText.Text = headline.Trim();
         CaveNameText.Text = caveName;
         UrlBox.Text = url;
         LoadQrImage(url);

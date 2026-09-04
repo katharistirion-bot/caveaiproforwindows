@@ -17,5 +17,7 @@ public static class ReferenceCatalogPaths
     public static string ShardFilePath(string slug) =>
         Path.Combine(CacheRoot, "shards", $"{slug}.json");
 
+    public static string CacheVersionPath => Path.Combine(CacheRoot, ".cache-format-version");
+
     public static void EnsureCacheRoot() => Directory.CreateDirectory(CacheRoot);
 }

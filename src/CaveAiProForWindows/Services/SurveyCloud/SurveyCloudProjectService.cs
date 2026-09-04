@@ -88,7 +88,7 @@ public static class SurveyCloudProjectService
         var projectId = EnsureProjectId(project);
         project.SurveyArchivedAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         if (string.IsNullOrWhiteSpace(project.SurveyArchiveSchemaVersion))
-            project.SurveyArchiveSchemaVersion = "1";
+            project.SurveyArchiveSchemaVersion = "2";
 
         var json = SurveyZip.SerializeSingleProjectObject(project);
         var bytes = Encoding.UTF8.GetBytes(json);

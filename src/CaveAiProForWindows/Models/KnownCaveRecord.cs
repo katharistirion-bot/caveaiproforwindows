@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace CaveAiProForWindows.Models;
@@ -54,6 +55,16 @@ public sealed class KnownCaveRecord
     /// <summary>Gson enum name, e.g. <c>REMOTE_HIKE</c>, <c>UNSPECIFIED</c>.</summary>
     [JsonPropertyName("surfaceAccess")]
     public string? SurfaceAccess { get; set; }
+
+    /// <summary>Android <c>magneticHints</c> array — preserved for ZIP round-trip.</summary>
+    [JsonPropertyName("magneticHints")]
+    public JsonElement? MagneticHints { get; set; }
+
+    [JsonPropertyName("isReadyForPublish")]
+    public bool? IsReadyForPublish { get; set; }
+
+    [JsonPropertyName("savedMapUris")]
+    public List<string>? SavedMapUris { get; set; }
 
     /// <summary>Filled after parse from <c>magneticHints</c> array length (not stored as a JSON field).</summary>
     [JsonIgnore]

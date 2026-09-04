@@ -292,6 +292,7 @@ public partial class MainViewModel : ObservableObject
         HookProjectListViewFilter(Projects);
         RefreshSurveyQcIssueRows();
         NotifyLegalGateCommands();
+        CloudPublishWebViewHost.TokenCache.TokenUpdated += (_, _) => RefreshAuthStatusChip();
     }
 
     partial void OnLegalTermsAcceptedChanged(bool value)
@@ -332,6 +333,7 @@ public partial class MainViewModel : ObservableObject
         ExtractSelectedZipEntryToDiskCommand.NotifyCanExecuteChanged();
         ExtractMapAssetToDiskCommand.NotifyCanExecuteChanged();
         SaveProjectCommand.NotifyCanExecuteChanged();
+        SaveProjectAsCommand.NotifyCanExecuteChanged();
         PublishToCloudCommand.NotifyCanExecuteChanged();
     }
 
@@ -365,6 +367,7 @@ public partial class MainViewModel : ObservableObject
         ExportSurveyQcReportCommand.NotifyCanExecuteChanged();
         ExportUnifiedQcReportCommand.NotifyCanExecuteChanged();
         SaveProjectCommand.NotifyCanExecuteChanged();
+        SaveProjectAsCommand.NotifyCanExecuteChanged();
         PrintPreviewCommand.NotifyCanExecuteChanged();
         PublishToCloudCommand.NotifyCanExecuteChanged();
         _cloudCommands.NotifyPublishStateChanged();
@@ -665,6 +668,7 @@ public partial class MainViewModel : ObservableObject
         OpenLastExtractedFolderCommand.NotifyCanExecuteChanged();
         RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
         SaveProjectCommand.NotifyCanExecuteChanged();
+        SaveProjectAsCommand.NotifyCanExecuteChanged();
         ExportRegistryCsvCommand.NotifyCanExecuteChanged();
         NotifyZipEntryCommands();
         ExportMapsReportCommand.NotifyCanExecuteChanged();
@@ -1271,6 +1275,101 @@ public partial class MainViewModel : ObservableObject
 
     public void LoadFromPath(string path) => LoadFromPaths(new[] { path });
 
+    /// <summary>Opens a single in-memory project (e.g. started from Reference catalog).</summary>
+    public void LoadReferenceSurveyProject(CaveProjectDocument project, KnownCaveRecord? libraryCard = null)
+    {
+        if (!UnloadWorkspaceBeforeNewLoad())
+            return;
+
+        ProjectListFilter = "";
+        Projects = new ObservableCollection<CaveProjectDocument>(new[] { project });
+        NamedCartographyDocuments.EnsureNamedDocuments(project);
+        _knownCaveMaster.Clear();
+        if (libraryCard != null && !string.IsNullOrWhiteSpace(libraryCard.Id))
+            _knownCaveMaster.Add(libraryCard);
+        ApplyKnownCaveCatalogFilters();
+        OnPropertyChanged(nameof(SiteIdentityTooltip));
+        RefreshCaveRegistryAndCatalog(Projects.ToList());
+        SelectedProject = project;
+        _loadedSurveyFingerprint = SurveyContentFingerprint.Compute(project);
+        _primarySourcePath = null;
+        _sourceFileCount = 0;
+        _zipPath = null;
+        SourcePathDisplay = "Reference catalog";
+        SetWindowTitleBase($"CAVE AI PRO — {project.Name}");
+        AppUiSettingsStore.ApplyFullOverlaysAfterImport();
+        RefreshReferenceLinkSummary();
+        ApplyIntegrityUi();
+        OnPropertyChanged(nameof(ActiveZipPath));
+        OnPropertyChanged(nameof(ActiveZipPathForMaps));
+        var owner = Wpf.Application.Current.MainWindow;
+        SnackbarService.Show(owner, "Reference survey project created.");
+        MarkDirty($"Started survey “{project.Name}” from reference catalog — File → Save as… (Android backup ZIP).");
+        SaveProjectAsCommand.NotifyCanExecuteChanged();
+        CloseWorkspaceCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Android resume-if-same-pin: activate an already-open project with this reference id.</summary>
+    public bool TryResumeReferenceSurvey(string referenceId)
+    {
+        var existing = ReferenceSurveyLinkService.FindExistingProject(Projects, referenceId);
+        if (existing == null)
+            return false;
+
+        SelectedProject = existing;
+        StatusMessage = $"Resumed survey “{existing.Name}” (same reference pin).";
+        SnackbarService.Show(Wpf.Application.Current.MainWindow, "Resumed existing survey for this cave.");
+        return true;
+    }
+
+    /// <summary>
+    /// Reopens the last Android backup ZIP remembered for this reference pin and selects the matching project.
+    /// </summary>
+    public bool TryResumeReferenceSurveyFromDisk(string referenceId)
+    {
+        var path = ReferenceSurveyResumeStore.TryGetPath(referenceId);
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return false;
+        if (!UnloadWorkspaceBeforeNewLoad())
+            return true;
+
+        try
+        {
+            var projects = ExplorationDataLoader.LoadAuto(path).ToList();
+            var match = ReferenceSurveyLinkService.FindExistingProject(projects, referenceId);
+            if (match == null)
+                return false;
+
+            var library = path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                ? CaveLibraryJsonLoader.TryLoadFromZip(path)
+                : Array.Empty<KnownCaveRecord>();
+
+            ProjectListFilter = "";
+            Projects = new ObservableCollection<CaveProjectDocument>(projects);
+            foreach (var p in projects)
+                NamedCartographyDocuments.EnsureNamedDocuments(p);
+            _knownCaveMaster.Clear();
+            foreach (var k in library)
+                _knownCaveMaster.Add(k);
+            ApplyKnownCaveCatalogFilters();
+            OnPropertyChanged(nameof(SiteIdentityTooltip));
+            RefreshCaveRegistryAndCatalog(projects);
+            SelectedProject = match;
+            _loadedSurveyFingerprint = SurveyContentFingerprint.Compute(match);
+            AttachPrimarySourceAfterNewZip(path);
+            ClearDirty();
+            AppUiSettingsStore.ApplyFullOverlaysAfterImport();
+            RefreshReferenceLinkSummary();
+            StatusMessage = $"Resumed survey “{match.Name}” from {Path.GetFileName(path)}.";
+            SnackbarService.Show(Wpf.Application.Current.MainWindow, "Resumed survey from last backup.");
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Loads one or more JSON/ZIP files and merges all projects (heavy work runs off the UI thread).</summary>
     public void LoadFromPaths(IReadOnlyList<string> paths)
     {
@@ -1694,10 +1793,120 @@ public partial class MainViewModel : ObservableObject
 
     private bool CanSaveProject() => _workspaceSession.CanSaveProject();
 
-    internal void NotifySaveProjectCanExecuteChanged() => SaveProjectCommand.NotifyCanExecuteChanged();
+    private bool CanSaveProjectOrSaveAs() =>
+        CanSaveProject() || CanSaveProjectAs();
 
-    [RelayCommand(CanExecute = nameof(CanSaveProject))]
-    private void SaveProject() => _workspaceSession.SaveProject();
+    internal void NotifySaveProjectCanExecuteChanged()
+    {
+        SaveProjectCommand.NotifyCanExecuteChanged();
+        SaveProjectAsCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSaveProjectOrSaveAs))]
+    private void SaveProject()
+    {
+        if (CanSaveProject())
+            _workspaceSession.SaveProject();
+        else
+            TrySaveProjectAsAndroidBackup();
+    }
+
+    private bool CanSaveProjectAs() => LegalTermsGateOpen() && SelectedProject != null;
+
+    [RelayCommand(CanExecute = nameof(CanSaveProjectAs))]
+    private void SaveProjectAs() => TrySaveProjectAsAndroidBackup();
+
+    /// <summary>Writes an Android-shaped backup ZIP and makes it the Ctrl+S source.</summary>
+    public bool TrySaveProjectAsAndroidBackup()
+    {
+        if (SelectedProject == null || !LegalTermsAccepted)
+            return false;
+
+        var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Save as Android backup ZIP",
+            Filter = "CaveAI backup ZIP|*.zip",
+            FileName = $"CaveAI_Backup_{safe}.zip",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return false;
+
+        try
+        {
+            WriteAndroidBackupZip(dlg.FileName);
+            AttachPrimarySourceAfterNewZip(dlg.FileName);
+            ClearDirty();
+            StatusMessage = "Android backup ZIP saved: " + dlg.FileName;
+            SnackbarService.ShowFileSaved(dlg.FileName, "Android backup —");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                ex.Message,
+                "Save as failed",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Error);
+            return false;
+        }
+    }
+
+    private string? ActiveSourceZipForExport =>
+        string.Equals(Path.GetExtension(_primarySourcePath), ".zip", StringComparison.OrdinalIgnoreCase)
+            ? _primarySourcePath
+            : _zipPath;
+
+    private void WriteAndroidBackupZip(string zipPath)
+    {
+        PersistProjectBeforeSave?.Invoke(SelectedProject!);
+        AndroidBackupZipExporter.ExportSingleProject(
+            SelectedProject!,
+            zipPath,
+            ActiveSourceZipForExport,
+            PersistProjectBeforeSave,
+            _knownCaveMaster);
+    }
+
+    private void AttachPrimarySourceAfterNewZip(string zipPath)
+    {
+        _primarySourcePath = zipPath;
+        _sourceFileCount = 1;
+        _zipPath = zipPath;
+        if (File.Exists(zipPath))
+            _lastLoadedBackupWriteUtc = File.GetLastWriteTimeUtc(zipPath);
+        SourcePathDisplay = zipPath;
+        SetWindowTitleBase($"CAVE AI PRO — {Path.GetFileName(zipPath)}");
+        try
+        {
+            _integrityReport = IntegrityVerifier.VerifyZip(zipPath);
+        }
+        catch
+        {
+            _integrityReport = null;
+        }
+
+        ApplyIntegrityUi();
+        ApplySchemaNote();
+        RefreshArchivePanel();
+        NotifyZipEntryCommands();
+        OnPropertyChanged(nameof(ActiveZipPath));
+        OnPropertyChanged(nameof(ActiveZipPathForMaps));
+        RevealCurrentFileInExplorerCommand.NotifyCanExecuteChanged();
+        SaveProjectCommand.NotifyCanExecuteChanged();
+        SaveProjectAsCommand.NotifyCanExecuteChanged();
+        ExtractPhotosCommand.NotifyCanExecuteChanged();
+        ExtractFullArchiveCommand.NotifyCanExecuteChanged();
+        CloseWorkspaceCommand.NotifyCanExecuteChanged();
+
+        if (SelectedProject != null &&
+            ReferenceSurveyLinkService.TryGetLink(SelectedProject, out var link) &&
+            !string.IsNullOrWhiteSpace(link?.Id))
+        {
+            ReferenceSurveyResumeStore.Remember(link!.Id, zipPath);
+        }
+    }
 
     private bool CanPrintPreview() => SelectedProject != null;
 
@@ -2537,6 +2746,18 @@ public partial class MainViewModel : ObservableObject
             chips.Add("Subscription required");
 
         chips.Add(LegalTermsAccepted ? "Legal OK" : "Legal pending");
+
+        var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+        if (token != null)
+        {
+            var mins = (int)Math.Max(0, (token.ExpiresAtUtc - DateTimeOffset.UtcNow).TotalMinutes);
+            chips.Add(mins <= 5 ? $"Token {mins}m" : $"Token ~{mins}m");
+        }
+        else if (!string.IsNullOrWhiteSpace(FirebaseAuthSession.CurrentAccountEmail))
+        {
+            chips.Add(FirebaseAuthTokenStore.TryLoadRefreshToken() != null ? "Token refresh pending" : "Token needed");
+        }
+
         AuthStatusChip = string.Join(" · ", chips);
     }
 
@@ -2720,10 +2941,14 @@ public partial class MainViewModel : ObservableObject
             AndroidBackupZipExporter.ExportSingleProject(
                 SelectedProject,
                 dlg.FileName,
-                string.Equals(Path.GetExtension(_primarySourcePath), ".zip", StringComparison.OrdinalIgnoreCase)
-                    ? _primarySourcePath
-                    : _zipPath,
-                PersistProjectBeforeSave);
+                ActiveSourceZipForExport,
+                PersistProjectBeforeSave,
+                _knownCaveMaster);
+            if (!HasSourceOnDisk())
+            {
+                AttachPrimarySourceAfterNewZip(dlg.FileName);
+                ClearDirty();
+            }
             StatusMessage = "Android backup ZIP saved: " + dlg.FileName;
             SnackbarService.ShowFileSaved(dlg.FileName, "Android backup —");
         }

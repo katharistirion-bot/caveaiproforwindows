@@ -549,6 +549,29 @@ public partial class FieldTripPlannerWindow : Window
         MessageBox.Show(this, $"Imported {trip.Stops.Count} stop(s).", "Field trip", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    private async void ShareOnPhoneQr_Click(object sender, RoutedEventArgs e)
+    {
+        var trip = CurrentTrip();
+        if (trip == null || trip.Stops.Count == 0)
+            return;
+        var url = await FieldTripShareCodec.BuildShareUrlAsync(trip.Stops);
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            MessageBox.Show(this,
+                "Could not create a share link for this trip. Sign in to CaveAI Pro, then try again.",
+                "Field trip", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var title = string.IsNullOrWhiteSpace(trip.Name) ? "Field trip" : trip.Name.Trim();
+        var qrWindow = new SurveyPhoneQrWindow(
+            title,
+            url,
+            windowTitle: "Share field trip on phone",
+            headline: "Open this field trip on your phone");
+        qrWindow.Owner = this;
+        qrWindow.ShowDialog();
+    }
+
     private async void OpenShareOnWeb_Click(object sender, RoutedEventArgs e)
     {
         var trip = CurrentTrip();

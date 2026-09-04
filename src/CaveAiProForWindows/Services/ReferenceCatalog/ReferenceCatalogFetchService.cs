@@ -19,8 +19,14 @@ public sealed class ReferenceCatalogFetchService
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        EnsureCurrentCacheFormat();
+
         if (forceRefresh)
+        {
             _memoryCache = null;
+            ClearDiskCache();
+            File.WriteAllText(ReferenceCatalogPaths.CacheVersionPath, CacheFormatVersion.ToString());
+        }
 
         if (!forceRefresh && _memoryCache != null && _memoryCache.IndexEntries.Count > 0)
             return _memoryCache;
@@ -38,6 +44,9 @@ public sealed class ReferenceCatalogFetchService
 
         if (stale)
             progress?.Report("Reference catalog index is stale — refreshing…");
+
+        if (stale && !forceRefresh)
+            ClearDiskCache();
 
         var remoteMeta = await TryFetchMetaAsync(cancellationToken).ConfigureAwait(false);
         foreach (var url in new[] { ReferenceCatalogUrls.SearchIndexUrl, ReferenceCatalogUrls.SearchIndexFallbackUrl })
@@ -111,6 +120,12 @@ public sealed class ReferenceCatalogFetchService
         try
         {
             var json = File.ReadAllText(ReferenceCatalogPaths.SearchIndexPath);
+            if (IsCorruptIndexJson(json))
+            {
+                ClearDiskCache();
+                return false;
+            }
+
             disk = JsonSerializer.Deserialize<ReferenceIndexFile>(json, JsonOptions);
             if (disk == null || disk.Entries.Count == 0)
                 return false;
@@ -119,6 +134,11 @@ public sealed class ReferenceCatalogFetchService
             if (remoteMeta != null)
                 stale = IsDiskIndexStale(disk, remoteMeta);
             return true;
+        }
+        catch (JsonException)
+        {
+            ClearDiskCache();
+            return false;
         }
         catch
         {
@@ -189,6 +209,53 @@ public sealed class ReferenceCatalogFetchService
             return true;
 
         return false;
+    }
+
+    private const int CacheFormatVersion = 2;
+
+    private static void EnsureCurrentCacheFormat()
+    {
+        ReferenceCatalogPaths.EnsureCacheRoot();
+        var versionPath = ReferenceCatalogPaths.CacheVersionPath;
+        if (File.Exists(versionPath)
+            && int.TryParse(File.ReadAllText(versionPath).Trim(), out var v)
+            && v == CacheFormatVersion)
+            return;
+
+        ClearDiskCache();
+        File.WriteAllText(versionPath, CacheFormatVersion.ToString());
+    }
+
+    private static void ClearDiskCache()
+    {
+        try
+        {
+            if (!Directory.Exists(ReferenceCatalogPaths.CacheRoot))
+                return;
+
+            foreach (var file in Directory.EnumerateFiles(ReferenceCatalogPaths.CacheRoot, "*", SearchOption.AllDirectories))
+            {
+                try { File.Delete(file); }
+                catch { /* best effort */ }
+            }
+        }
+        catch
+        {
+            /* best effort */
+        }
+    }
+
+    internal static bool IsCorruptIndexJson(string json)
+    {
+        try
+        {
+            var disk = JsonSerializer.Deserialize<ReferenceIndexFile>(json, JsonOptions);
+            return disk == null || disk.Entries.Count == 0;
+        }
+        catch (JsonException)
+        {
+            return true;
+        }
     }
 
     private static ReferenceCatalogBrowseState ToState(

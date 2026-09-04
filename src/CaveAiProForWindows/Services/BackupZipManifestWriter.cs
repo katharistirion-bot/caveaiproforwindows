@@ -16,7 +16,9 @@ public static class BackupZipManifestWriter
     public static byte[] BuildBackupManifest(
         CaveProjectDocument project,
         bool includesMapInventory,
-        bool bundlesLocalMedia)
+        bool bundlesLocalMedia,
+        bool includesCaveLibrary = false,
+        int knownCaveCount = 0)
     {
         var now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         long? windowsEditedMs = null;
@@ -40,6 +42,8 @@ public static class BackupZipManifestWriter
             writer.WriteString("app_version", AppMetadata.InformationalVersion);
             writer.WriteBoolean("bundles_local_media", bundlesLocalMedia);
             writer.WriteBoolean("includes_map_inventory", includesMapInventory);
+            writer.WriteBoolean("includes_cave_library", includesCaveLibrary);
+            writer.WriteNumber("known_cave_count", knownCaveCount);
             writer.WriteString("target_app", "CaveAI Pro Android");
             writer.WriteString("handoff_kind", "single_project_round_trip");
 

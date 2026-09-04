@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.Favorites;
@@ -538,6 +539,124 @@ public class FieldTripExportTests
     {
         foreach (var needle in needles)
             StringAssert.Contains(url, needle);
+    }
+
+    [TestMethod]
+    public void OsmIdJsonConverter_ignores_string_values()
+    {
+        const string json = """{"caves":[{"id":"x","caveName":"Test","lat":38.2,"lon":20.6,"osmId":"GR-THESEAS-R1"}]}""";
+        var shard = JsonSerializer.Deserialize<ReferenceCountryShardFile>(json);
+        Assert.IsNotNull(shard);
+        Assert.AreEqual(1, shard!.Caves.Count);
+        Assert.IsNull(shard.Caves[0].OsmId);
+    }
+
+    [TestMethod]
+    public void ReferenceSurveyLinkService_create_survey_project_sets_link_and_coords()
+    {
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "ref-gr-test",
+            Name = "Melissani",
+            Lat = 38.22,
+            Lon = 20.62,
+            Country = "Greece",
+        };
+        var project = ReferenceSurveyLinkService.CreateSurveyProject(entry);
+        Assert.AreEqual("Melissani", project.Name);
+        Assert.AreEqual(38.22, project.Lat);
+        Assert.IsTrue(ReferenceSurveyLinkService.TryGetLink(project, out var link));
+        Assert.AreEqual("ref-gr-test", link!.Id);
+        Assert.AreEqual("2", project.SurveyArchiveSchemaVersion);
+        Assert.AreEqual("CAVE", project.SurveySiteType);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(project.LinkedLibraryCaveId));
+        Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(project.Date, @"^\d{2}/\d{2}/\d{4}$"));
+        Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(project.StartTime ?? "", @"^\d{2}:\d{2}$"));
+        Assert.AreEqual(false, project.RequireVehicleParkStep);
+
+        var mineEntry = new ReferenceCaveIndexEntry
+        {
+            Id = "ref-mine",
+            Name = "Old Mine",
+            Lat = 38,
+            Lon = 22,
+            CaveType = "historic mine",
+        };
+        var mine = ReferenceSurveyLinkService.CreateSurveyWorkspace(mineEntry);
+        Assert.AreEqual("MINE", mine.Project.SurveySiteType);
+        Assert.AreEqual(mine.Project.LinkedLibraryCaveId, mine.LibraryCard.Id);
+        Assert.AreEqual("MINE", mine.LibraryCard.Type);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(mine.Project.ProjectId));
+    }
+
+    [TestMethod]
+    public void FindExistingProject_matchesReferenceCatalogLinkId()
+    {
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "osm-node-42",
+            Name = "Resume Cave",
+            Lat = 38.2,
+            Lon = 20.6,
+            Country = "Greece",
+        };
+        var created = ReferenceSurveyLinkService.CreateSurveyWorkspace(entry);
+        var other = new CaveProjectDocument { Name = "Other" };
+        var found = ReferenceSurveyLinkService.FindExistingProject(
+            new[] { other, created.Project },
+            "OSM-NODE-42");
+        Assert.AreSame(created.Project, found);
+        Assert.IsNull(ReferenceSurveyLinkService.FindExistingProject(new[] { other }, "osm-node-42"));
+    }
+
+    [TestMethod]
+    public void CaveLibraryJson_roundTripsWorkspaceCard()
+    {
+        var entry = new ReferenceCaveIndexEntry
+        {
+            Id = "ref-card",
+            Name = "Card Cave",
+            Lat = 39.1,
+            Lon = 22.5,
+            Country = "Greece",
+            Region = "Thessaly",
+        };
+        var workspace = ReferenceSurveyLinkService.CreateSurveyWorkspace(entry);
+        var bytes = CaveLibraryJsonLoader.SerializeToUtf8(new[] { workspace.LibraryCard });
+        var json = System.Text.Encoding.UTF8.GetString(bytes);
+        var loaded = CaveLibraryJsonLoader.TryDeserializeKnownCaves(json);
+        Assert.AreEqual(1, loaded.Count);
+        Assert.AreEqual(workspace.LibraryCard.Id, loaded[0].Id);
+        Assert.AreEqual("Card Cave", loaded[0].Name);
+        Assert.AreEqual("Thessaly · Greece", loaded[0].Area);
+    }
+
+    [TestMethod]
+    public void Greece_shard_deserializes_from_website_data()
+    {
+        var websiteRoot = Environment.GetEnvironmentVariable("CAVEAIPRO_WEBSITE_ROOT")
+            ?? @"D:\CaveAIpro website";
+        var path = Path.Combine(websiteRoot, "public", "data", "reference-shards", "greece.json");
+        if (!File.Exists(path))
+        {
+            Assert.Inconclusive($"Greece shard not found at {path}");
+            return;
+        }
+
+        var json = File.ReadAllText(path);
+        var shard = JsonSerializer.Deserialize<ReferenceCountryShardFile>(json);
+        Assert.IsNotNull(shard);
+        Assert.IsTrue(shard!.Caves.Count > 500);
+        Assert.IsTrue(shard.Caves.All(c => c.OsmId == null || c.OsmId > 0));
+    }
+
+    [TestMethod]
+    public void IsCorruptIndexJson_detects_invalid_payload()
+    {
+        Assert.IsTrue(ReferenceCatalogFetchService.IsCorruptIndexJson("not json"));
+        Assert.IsTrue(ReferenceCatalogFetchService.IsCorruptIndexJson("{\"version\":2,\"entries\":[]}"));
+        Assert.IsFalse(ReferenceCatalogFetchService.IsCorruptIndexJson(
+            "{\"version\":2,\"entries\":[{\"id\":\"a\",\"name\":\"A\",\"lat\":38.2,\"lon\":20.6}]}"));
     }
 }
 

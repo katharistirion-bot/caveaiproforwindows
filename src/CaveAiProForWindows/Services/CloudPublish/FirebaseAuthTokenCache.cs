@@ -40,12 +40,20 @@ public sealed class FirebaseAuthTokenCache
             return null;
 
         using var client = new FirebaseTokenRefreshClient();
-        var token = await client.TryRefreshAsync(refreshToken!, cancellationToken).ConfigureAwait(false);
-        if (token == null)
+        var result = await client.TryRefreshAsync(refreshToken!, cancellationToken).ConfigureAwait(false);
+        if (result == null)
             return null;
 
-        Update(token);
-        return token;
+        var keepRefresh = !string.IsNullOrWhiteSpace(result.RotatedRefreshToken)
+            ? result.RotatedRefreshToken!
+            : refreshToken!;
+        FirebaseAuthTokenStore.SaveWithRefreshToken(result.Token, keepRefresh);
+
+        lock (_gate)
+            _current = result.Token;
+
+        TokenUpdated?.Invoke(this, result.Token);
+        return result.Token;
     }
 
     public void Update(FirebaseIdToken token)
@@ -59,6 +67,7 @@ public sealed class FirebaseAuthTokenCache
             _current = token;
         }
 
+        // TrySave preserves any existing refresh token on disk.
         FirebaseAuthTokenStore.TrySave(token);
         TokenUpdated?.Invoke(this, token);
     }

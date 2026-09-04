@@ -45,6 +45,7 @@ public partial class MainWindow : Window
         DataContext = vm;
         InputBindings.Add(new KeyBinding(vm.OpenFileCommand, Key.O, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(vm.SaveProjectCommand, Key.S, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(vm.SaveProjectAsCommand, Key.S, ModifierKeys.Control | ModifierKeys.Shift));
         InputBindings.Add(new KeyBinding(vm.CloseWorkspaceCommand, Key.W, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(vm.AboutCommand, new KeyGesture(Key.F1)));
         InputBindings.Add(new KeyBinding(vm.ShowCommandPaletteCommand, Key.K, ModifierKeys.Control));
@@ -435,8 +436,8 @@ public partial class MainWindow : Window
         box.Text = display;
         var valid = optional && string.IsNullOrWhiteSpace(path) || (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path));
         box.Foreground = valid
-            ? (System.Windows.Media.Brush)box.FindResource("Cave.Text")
-            : (System.Windows.Media.Brush)box.FindResource("Cave.Accent");
+            ? box.TryFindResource("Cave.Text") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.White
+            : box.TryFindResource("Cave.Accent") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.DarkOrange;
         box.ToolTip = valid
             ? display
             : $"{display} — folder not found on this PC";

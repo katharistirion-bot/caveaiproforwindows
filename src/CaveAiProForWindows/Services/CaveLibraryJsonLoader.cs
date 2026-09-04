@@ -2,6 +2,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CaveAiProForWindows.Models;
 
 namespace CaveAiProForWindows.Services;
@@ -11,12 +12,27 @@ public static class CaveLibraryJsonLoader
 {
     public const string CaveLibraryEntryName = "cave_library.json";
 
+    private static readonly UTF8Encoding Utf8Bom = new(encoderShouldEmitUTF8Identifier: true);
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
     };
+
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    /// <summary>UTF-8 BOM array matching Android Gson <c>cave_library.json</c>.</summary>
+    public static byte[] SerializeToUtf8(IReadOnlyList<KnownCaveRecord> cards)
+    {
+        var json = JsonSerializer.Serialize(cards ?? Array.Empty<KnownCaveRecord>(), WriteOptions);
+        return Utf8Bom.GetBytes(json);
+    }
 
     public static IReadOnlyList<KnownCaveRecord> TryLoadFromZip(string zipPath)
     {
@@ -76,7 +92,10 @@ public static class CaveLibraryJsonLoader
                 if (r == null || string.IsNullOrWhiteSpace(r.Name))
                     continue;
                 if (el.TryGetProperty("magneticHints", out var mh) && mh.ValueKind == JsonValueKind.Array)
+                {
+                    r.MagneticHints = mh.Clone();
                     r.MagneticHintsCount = mh.GetArrayLength();
+                }
                 if (!string.IsNullOrEmpty(loadedFromFile))
                     r.LoadedFromFile = loadedFromFile;
                 list.Add(r);

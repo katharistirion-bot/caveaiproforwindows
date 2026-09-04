@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CaveAiProForWindows.Serialization;
 
 namespace CaveAiProForWindows.Models;
 
@@ -130,6 +131,7 @@ public sealed class CaveProjectDocument
     public string? CartographyTlsMeshObjUri { get; set; }
 
     [JsonPropertyName("surveyArchiveSchemaVersion")]
+    [JsonConverter(typeof(SurveyArchiveSchemaVersionConverter))]
     public string? SurveyArchiveSchemaVersion { get; set; }
 
     [JsonPropertyName("surveyArchivedAtMs")]

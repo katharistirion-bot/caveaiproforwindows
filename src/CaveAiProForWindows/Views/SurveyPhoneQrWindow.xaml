@@ -5,7 +5,7 @@
         ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
         Background="#1a1a2e">
     <StackPanel Margin="20">
-        <TextBlock Text="Start Cave AI Pro survey on Android" FontSize="15" FontWeight="Bold"
+        <TextBlock x:Name="HeadlineText" Text="Start Cave AI Pro survey on Android" FontSize="15" FontWeight="Bold"
                    Foreground="White" TextWrapping="Wrap" Margin="0,0,0,10"/>
         <TextBlock x:Name="CaveNameText" FontSize="13" Foreground="#a0c4ff"
                    TextWrapping="Wrap" Margin="0,0,0,14"/>

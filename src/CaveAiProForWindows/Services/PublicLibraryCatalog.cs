@@ -199,6 +199,7 @@ public static class PublicLibraryCatalog
     public static void ShowNativeReferenceCatalog(System.Windows.Window? owner) =>
         Views.ReferenceCatalogWindow.ShowSingleton(owner);
 
+    /// <summary>Opens the public map in the system browser (no embed params). Prefer <see cref="ShowMapInAppWindow"/> from the running app.</summary>
     public static void OpenMap()
     {
         if (MicrosoftTestMode.IsActive)

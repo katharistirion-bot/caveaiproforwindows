@@ -32,6 +32,7 @@ public partial class CommandPaletteWindow : Window
         Add("File", "Import Survex…", () => _vm.ImportSurvexCommand.Execute(null), "svx", "survex", "import");
         Add("File", "Import Therion…", () => _vm.ImportTherionCommand.Execute(null), "th", "therion", "import");
         Add("File", "Save project", () => _vm.SaveProjectCommand.Execute(null), "save", "write");
+        Add("File", "Save as Android backup ZIP…", () => _vm.SaveProjectAsCommand.Execute(null), "save as", "android", "zip", "backup");
         Add("File", "Close workspace", () => _vm.CloseWorkspaceCommand.Execute(null), "close", "unload");
         Add("View", "Surface map tab", () => _vm.OpenSurfaceMapTabCommand.Execute(null), "surface", "terrain", "hillshade", "map");
         Add("Library", "Public Library…", () => _vm.OpenPublicLibraryWithPickerCommand.Execute(null), "catalog", "reference");

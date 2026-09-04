@@ -51,6 +51,14 @@ public static class FirebaseAuthTokenStore
     {
         try
         {
+            // Preserve an existing refresh token so Update()/silent refresh do not wipe desktop re-auth.
+            var existingRefresh = TryLoadRefreshToken();
+            if (!string.IsNullOrWhiteSpace(existingRefresh))
+            {
+                SaveWithRefreshToken(token, existingRefresh!);
+                return;
+            }
+
             var dir = StoreDirectory;
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);

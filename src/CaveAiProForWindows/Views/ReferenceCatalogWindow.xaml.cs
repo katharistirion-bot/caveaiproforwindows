@@ -690,7 +690,7 @@ public partial class ReferenceCatalogWindow : Window
 
                 Margin = new Thickness(0, 0, 0, 4),
 
-                Foreground = (Brush)FindResource("Cave.TextMuted"),
+                Foreground = TryFindResource("Cave.TextMuted") as Brush ?? Brushes.Gray,
 
             });
 
@@ -782,7 +782,7 @@ public partial class ReferenceCatalogWindow : Window
                 {
                     Text = line,
                     TextDecorations = TextDecorations.Underline,
-                    Foreground = (Brush)FindResource("Cave.Accent"),
+                    Foreground = TryFindResource("Cave.Accent") as Brush ?? Brushes.DarkOrange,
                     Cursor = Cursors.Hand,
                     Margin = new Thickness(0, 0, 0, 4),
                     Tag = match.Entry,
@@ -976,6 +976,54 @@ public partial class ReferenceCatalogWindow : Window
         var qrWindow = new SurveyPhoneQrWindow(caveName, url) { Owner = this };
         qrWindow.ShowDialog();
         ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
+    }
+
+    private async void StartSurveyHere_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected == null)
+        {
+            MessageBox.Show(this, "Select a reference cave first.", "Start survey", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (Application.Current.MainWindow?.DataContext is not MainViewModel vm)
+        {
+            MessageBox.Show(this, "Open the main Cave AI Pro window first.", "Start survey", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        ReferenceCavePin? detail = null;
+        try
+        {
+            detail = await _detailLoader.LoadByIdAsync(_selected.Id, _selected.Country).ConfigureAwait(true);
+        }
+        catch
+        {
+            /* optional shard detail */
+        }
+
+        if (vm.TryResumeReferenceSurvey(_selected.Id))
+        {
+            ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
+            Application.Current.MainWindow?.Activate();
+            Close();
+            return;
+        }
+
+        if (vm.TryResumeReferenceSurveyFromDisk(_selected.Id))
+        {
+            ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
+            Application.Current.MainWindow?.Activate();
+            Close();
+            return;
+        }
+
+        var project = ReferenceSurveyLinkService.CreateSurveyWorkspace(_selected, detail);
+        vm.LoadReferenceSurveyProject(project.Project, project.LibraryCard);
+        ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
+        Application.Current.MainWindow?.Activate();
+        Close();
+        vm.TrySaveProjectAsAndroidBackup();
     }
 
     private void AskCaveAiWeb_Click(object sender, RoutedEventArgs e)

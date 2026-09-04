@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## [1.5.22] - 2026-09-03
+
+### Fixed
+- Firebase refresh token no longer wiped after ID-token save / silent refresh (catalog CDN + field-trip cloud stay signed in)
+- `surveyArchiveSchemaVersion` written as JSON number for Android Gson import
+- Ctrl+S on unsaved reference surveys opens Save as Android backup ZIP
+- Reference catalog Start survey resumes last backup for the same pin (in-session + disk)
+- Survey Cloud upload defaults schema version to `2`; new reference surveys mint `projectId`
+
+### Added
+- Android-compatible ZIP export includes `cave_library.json` when library cards are in session
+- File → Save as Android backup ZIP (Ctrl+Shift+S)
+
+## [1.5.21] - 2026-09-03
+
+### Fixed
+- Reference catalog startup crash when curated pins had string `osmId` values (`OsmIdJsonConverter`)
+- `Cave.AccentBrush` → `Cave.Accent` resource key in Reference Catalog similar-caves links
+
+### Added
+- Catalog disk cache format version + auto-invalidation on corrupt/stale JSON
+- Silent Firebase token refresh (no WebView popup when refresh token is stored)
+- Survey start QR dialog (Reference Catalog + Field Trip Planner)
+- **Start survey here** — create empty desktop project from reference pin
+- Auth status chip shows token expiry / refresh state
+- In-app WebView routing for Cave AI web links (embed params preserved on website)
+
 ## [1.5.20] - 2026-09-01
 
 ### Fixed

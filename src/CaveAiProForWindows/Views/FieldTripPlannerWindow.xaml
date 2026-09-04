@@ -36,6 +36,8 @@
             <Button Content="Export PDF…" Padding="12,6" Margin="0,0,8,0" Click="ExportPdf_Click" />
             <Button Content="Copy text summary" Padding="12,6" Margin="0,0,8,0" Click="CopySummary_Click" />
             <Button Content="Copy share link" Padding="12,6" Margin="0,0,8,0" Click="CopyShareLink_Click" />
+            <Button Content="Share on phone (QR)" Padding="12,6" Margin="0,0,8,0" Click="ShareOnPhoneQr_Click"
+                    ToolTip="Show a QR code to open this field trip on your phone" />
             <Button Content="Import from link…" Padding="12,6" Margin="0,0,8,0" Click="ImportShareLink_Click" />
             <Button Content="Open on web" Padding="12,6" Margin="0,0,8,0" Click="OpenShareOnWeb_Click" />
             <Button Content="Preview on Explore terrain" Padding="12,6" Margin="0,0,8,0" Click="PreviewOnExploreTerrain_Click"

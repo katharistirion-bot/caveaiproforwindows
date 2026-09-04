@@ -211,6 +211,9 @@
             <Button Content="Link to current project" Padding="12,6" Margin="0,0,8,0" Click="LinkToCurrentProject_Click"
                     ToolTip="Sets referenceCatalogLink on the active survey project (same metadata Android writes when starting from this pin)." />
 
+            <Button Content="Start survey here" Padding="12,6" Margin="0,0,8,0" Click="StartSurveyHere_Click"
+                    ToolTip="Create a new empty survey project on this PC with entrance coords and referenceCatalogLink pre-filled." />
+
             <Button Content="Map on phone (Cave AI Pro)" Padding="12,6" Margin="0,0,8,0" Click="StartSurveyOnPhone_Click"
                     ToolTip="Opens a link to start field survey on Cave AI Pro for Android (same referenceCatalogLink in backup JSON for Windows QC)." />
 

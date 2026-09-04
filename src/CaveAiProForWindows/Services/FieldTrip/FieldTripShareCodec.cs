@@ -90,6 +90,15 @@ public static class FieldTripShareCodec
     private static bool IsCloudTripId(string? id) =>
         !string.IsNullOrWhiteSpace(id) && CloudTripIdRegex.IsMatch(id.Trim());
 
+    private static async Task<FirebaseIdToken?> ResolveUsableTokenAsync(CancellationToken ct)
+    {
+        var cache = CloudPublishWebViewHost.TokenCache;
+        var usable = cache.TryGetUsableToken();
+        if (usable != null)
+            return usable;
+        return await cache.TrySilentRefreshAsync(ct).ConfigureAwait(false);
+    }
+
     private static async Task<FieldTripSharePayloadV1?> FetchCloudPayloadAsync(string tripId, CancellationToken ct)
     {
         var id = tripId.Trim();
@@ -99,7 +108,7 @@ public static class FieldTripShareCodec
         try
         {
             using var rest = new FirebaseRestClient();
-            var token = FirebaseAuthTokenStore.TryLoad();
+            var token = await ResolveUsableTokenAsync(ct).ConfigureAwait(false);
             var body = await rest.GetDocumentJsonOptionalAuthAsync(
                     $"{FirestoreShareCollection}/{id}",
                     token,
@@ -133,7 +142,7 @@ public static class FieldTripShareCodec
         if (string.IsNullOrWhiteSpace(json))
             return null;
 
-        var token = FirebaseAuthTokenStore.TryLoad();
+        var token = await ResolveUsableTokenAsync(ct).ConfigureAwait(false);
         if (token == null || string.IsNullOrWhiteSpace(token.Subject) || string.IsNullOrWhiteSpace(token.Raw))
             return null;
 

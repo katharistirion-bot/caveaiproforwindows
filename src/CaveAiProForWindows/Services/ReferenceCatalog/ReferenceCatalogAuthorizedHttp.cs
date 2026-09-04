@@ -51,7 +51,9 @@ public static class ReferenceCatalogAuthorizedHttp
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         if (IsEntitlementLockedDataUrl(url))
         {
-            var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+            var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken()
+                ?? await CloudPublishWebViewHost.TokenCache.TrySilentRefreshAsync(cancellationToken)
+                    .ConfigureAwait(false);
             if (token == null || string.IsNullOrWhiteSpace(token.Raw))
             {
                 throw new HttpRequestException(GuestLibraryCopy.SignInHeadingPanel);

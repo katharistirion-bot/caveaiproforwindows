@@ -50,6 +50,8 @@
                 <Separator />
                 <MenuItem x:Name="MenuSave" Header="_Save project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S"
                           ToolTip="Write sketch mapObjects, AI assets, and all loaded projects back to the open .json or .zip file" />
+                <MenuItem Header="Save as Android backup _ZIP…" Command="{Binding SaveProjectAsCommand}" InputGestureText="Ctrl+Shift+S"
+                          ToolTip="Write data.json + cave_library.json as an Android-importable backup ZIP and use it for Ctrl+S" />
                 <Separator />
                 <MenuItem x:Name="MenuExit" Header="_Exit" Command="{Binding ExitCommand}" />
             </MenuItem>
@@ -82,7 +84,7 @@
                 <MenuItem Header="Cave _report (PDF)…" Command="{Binding ExportCaveReportPdfCommand}"
                           ToolTip="Plan + section + 3D + symbol inventory + traverse QC in one PDF" />
                 <MenuItem Header="Export _Android backup ZIP…" Command="{Binding ExportAndroidBackupZipCommand}"
-                          ToolTip="Single-project data.json + export_assets for Android import" />
+                          ToolTip="Single-project data.json + cave_library.json + export_assets for Android import" />
                 <MenuItem Header="Batch _maps to folder…" Command="{Binding ExportAllMapsToFolderCommand}"
                           ToolTip="Plan/Section/Long profile SVG + 3D PNG for every loaded project" />
                 <Separator />

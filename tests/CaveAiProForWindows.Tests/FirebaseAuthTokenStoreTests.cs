@@ -104,6 +104,20 @@ public sealed class FirebaseAuthTokenStoreTests
     }
 
     [TestMethod]
+    public void TrySave_preserves_existing_refresh_token()
+    {
+        var token = MakeUsableTestToken();
+        const string refreshToken = "AEu4IL0test_refresh_token_value";
+        FirebaseAuthTokenStore.SaveWithRefreshToken(token, refreshToken);
+
+        var refreshed = MakeUsableTestToken();
+        FirebaseAuthTokenStore.TrySave(refreshed);
+
+        Assert.AreEqual(refreshToken, FirebaseAuthTokenStore.TryLoadRefreshToken());
+        Assert.AreEqual(refreshed.Raw, FirebaseAuthTokenStore.TryLoad()!.Raw);
+    }
+
+    [TestMethod]
     public void TrySave_without_refresh_token_still_loads()
     {
         var token = MakeUsableTestToken();
@@ -111,7 +125,7 @@ public sealed class FirebaseAuthTokenStoreTests
 
         var loaded = FirebaseAuthTokenStore.TryLoad();
         Assert.IsNotNull(loaded);
-        // Refresh token may be null when saved via TrySave (no refresh token)
+        // Refresh token may be null when saved via TrySave with no prior refresh token
         var refresh = FirebaseAuthTokenStore.TryLoadRefreshToken();
         Assert.IsNull(refresh);
     }

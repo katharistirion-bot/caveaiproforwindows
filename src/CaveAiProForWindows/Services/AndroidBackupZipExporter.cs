@@ -18,7 +18,8 @@ public static class AndroidBackupZipExporter
         CaveProjectDocument project,
         string zipPath,
         string? sourceZipPath = null,
-        Action<CaveProjectDocument>? beforeSerialize = null)
+        Action<CaveProjectDocument>? beforeSerialize = null,
+        IReadOnlyList<KnownCaveRecord>? libraryCards = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         if (string.IsNullOrWhiteSpace(zipPath))
@@ -40,6 +41,11 @@ public static class AndroidBackupZipExporter
         var mapInventoryBytes = TryCopyMapInventoryFromSource(sourceZipPath);
         var includesMapInventory = mapInventoryBytes != null;
         var bundlesLocalMedia = assetEntries.Count > 0 || copiedExportAssets.Count > 0;
+        var libraryList = libraryCards?
+            .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Name))
+            .ToList() ?? [];
+        var includesCaveLibrary = libraryList.Count > 0;
+        var libraryBytes = includesCaveLibrary ? CaveLibraryJsonLoader.SerializeToUtf8(libraryList) : null;
 
         var fileHashes = new Dictionary<string, string>(StringComparer.Ordinal);
         var stagedEntries = new List<(string Path, byte[] Bytes)>();
@@ -50,16 +56,24 @@ public static class AndroidBackupZipExporter
             fileHashes[path] = BackupZipManifestWriter.Sha256Hex(bytes);
         }
 
-        var manifestBytes = BackupZipManifestWriter.BuildBackupManifest(project, includesMapInventory, bundlesLocalMedia);
+        var manifestBytes = BackupZipManifestWriter.BuildBackupManifest(
+            project,
+            includesMapInventory,
+            bundlesLocalMedia,
+            includesCaveLibrary,
+            libraryList.Count);
         Stage("backup_manifest.json", manifestBytes);
 
         var readme = Encoding.UTF8.GetBytes(
             "CAVE AI PRO — Android backup export (Windows)\r\n" +
             "- backup_manifest.json / integrity_manifest.json — same layout as CaveAI Pro Android export.\r\n" +
             "- data.json: single CaveProject in Gson-compatible JSON array.\r\n" +
+            "- cave_library.json: Cave Library cards when the Windows session has them (linkedLibraryCaveId).\r\n" +
             "- export_assets/: bundled map/photo assets when available.\r\n");
         Stage("README.txt", readme);
         Stage("data.json", jsonBytes);
+        if (libraryBytes != null)
+            Stage(CaveLibraryJsonLoader.CaveLibraryEntryName, libraryBytes);
 
         foreach (var (entryPath, bytes) in assetEntries)
             Stage(entryPath, bytes);

@@ -24,8 +24,9 @@ internal sealed class FirebaseTokenRefreshClient : IDisposable
     /// <summary>
     /// Exchanges a refresh token for a new Firebase ID token.
     /// Returns null on any network or parse failure.
+    /// When Firebase rotates the refresh token, <see cref="RefreshResult.RotatedRefreshToken"/> is set.
     /// </summary>
-    public async Task<FirebaseIdToken?> TryRefreshAsync(
+    public async Task<RefreshResult?> TryRefreshAsync(
         string refreshToken,
         CancellationToken cancellationToken = default)
     {
@@ -64,7 +65,16 @@ internal sealed class FirebaseTokenRefreshClient : IDisposable
             if (!FirebaseIdTokenParser.TryParse(raw, out var token) || token == null)
                 return null;
 
-            return token;
+            string? rotated = null;
+            if (root.TryGetProperty("refresh_token", out var rtEl) &&
+                rtEl.ValueKind == JsonValueKind.String)
+            {
+                var candidate = rtEl.GetString();
+                if (!string.IsNullOrWhiteSpace(candidate))
+                    rotated = candidate;
+            }
+
+            return new RefreshResult(token, rotated);
         }
         catch
         {
@@ -74,3 +84,5 @@ internal sealed class FirebaseTokenRefreshClient : IDisposable
 
     public void Dispose() => _http.Dispose();
 }
+
+internal sealed record RefreshResult(FirebaseIdToken Token, string? RotatedRefreshToken);

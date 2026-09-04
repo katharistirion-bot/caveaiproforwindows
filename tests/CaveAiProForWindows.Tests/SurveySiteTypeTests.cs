@@ -24,4 +24,14 @@ public sealed class SurveySiteTypeTests
         Assert.AreEqual(SurveySiteTypeKind.Mine, SurveySiteType.Parse("mine"));
         Assert.AreEqual(SurveySiteTypeKind.Unknown, SurveySiteType.Parse(null));
     }
+
+    [TestMethod]
+    public void InferFromCatalogLabel_mapsOsmLabels()
+    {
+        Assert.AreEqual("MINE", SurveySiteType.InferFromCatalogLabel("historic mine"));
+        Assert.AreEqual("SPRING", SurveySiteType.InferFromCatalogLabel("Karst spring"));
+        Assert.AreEqual("POTHOLE", SurveySiteType.InferFromCatalogLabel("sink hole"));
+        Assert.AreEqual("CAVE", SurveySiteType.InferFromCatalogLabel("show cave"));
+        Assert.AreEqual("CAVE", SurveySiteType.InferFromCatalogLabel(null));
+    }
 }

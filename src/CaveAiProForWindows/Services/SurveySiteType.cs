@@ -50,6 +50,19 @@ public static class SurveySiteType
             _ => "",
         };
 
+    /// <summary>Infer token from OSM / reference catalog free-text <c>caveType</c> labels (Android <c>SurveySiteType.inferFromCatalogLabel</c>).</summary>
+    public static string InferFromCatalogLabel(string? caveType)
+    {
+        var t = (caveType ?? "").Trim().ToLowerInvariant();
+        if (t.Contains("spring", StringComparison.Ordinal))
+            return "SPRING";
+        if (t.Contains("mine", StringComparison.Ordinal))
+            return "MINE";
+        if (t.Contains("pothole", StringComparison.Ordinal) || t.Contains("sink", StringComparison.Ordinal))
+            return "POTHOLE";
+        return "CAVE";
+    }
+
     /// <summary>Canonical tokens for site-type pickers (matches Android <c>SurveySiteType.pickerTokens</c>).</summary>
     public static IReadOnlyList<string> PickerTokens { get; } =
         ["CAVE", "MINE", "POTHOLE", "SPRING"];

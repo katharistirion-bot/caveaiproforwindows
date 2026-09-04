@@ -83,17 +83,20 @@ public sealed partial class WorkspaceSessionViewModel : ObservableObject
 
         if (result == Wpf.MessageBoxResult.Yes)
         {
-            if (!CanSaveProject())
+            if (CanSaveProject())
             {
-                UserErrorReporter.ShowWarning(
-                    owner,
-                    "Cannot save this project from here (need a writable .json/.zip source on disk and accepted legal terms). Use Save as / fix the source path, or choose Don't Save.",
-                    "Save project");
-                return false;
+                SaveProject();
+                return !_host.IsDirty;
             }
 
-            SaveProject();
-            return !_host.IsDirty;
+            if (_host.TrySaveProjectAsAndroidBackup())
+                return !_host.IsDirty;
+
+            UserErrorReporter.ShowWarning(
+                owner,
+                "Cannot save this project in place (need a writable .json/.zip on disk and accepted legal terms). Use File → Save as… for an Android backup ZIP, or choose Don't Save.",
+                "Save project");
+            return false;
         }
 
         ClearDirty();
