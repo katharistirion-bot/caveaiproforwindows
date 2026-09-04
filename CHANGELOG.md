@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- Reference catalog Start survey: cancel on the unsaved-workspace prompt keeps the catalog open and does not create a new empty survey
+
 ## [1.5.22] - 2026-09-03
 
 ### Fixed

@@ -1010,16 +1010,20 @@ public partial class ReferenceCatalogWindow : Window
             return;
         }
 
-        if (vm.TryResumeReferenceSurveyFromDisk(_selected.Id))
+        switch (vm.TryResumeReferenceSurveyFromDisk(_selected.Id))
         {
-            ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
-            Application.Current.MainWindow?.Activate();
-            Close();
-            return;
+            case ReferenceSurveyResumeFromDiskResult.Resumed:
+                ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
+                Application.Current.MainWindow?.Activate();
+                Close();
+                return;
+            case ReferenceSurveyResumeFromDiskResult.Cancelled:
+                return;
         }
 
         var project = ReferenceSurveyLinkService.CreateSurveyWorkspace(_selected, detail);
-        vm.LoadReferenceSurveyProject(project.Project, project.LibraryCard);
+        if (!vm.LoadReferenceSurveyProject(project.Project, project.LibraryCard))
+            return;
         ReferenceCatalogLightAnalytics.Increment(ReferenceCatalogLightAnalytics.Events.CatalogSurveyStartLink);
         Application.Current.MainWindow?.Activate();
         Close();

@@ -27,6 +27,13 @@ using Wpf = System.Windows;
 
 namespace CaveAiProForWindows.ViewModels;
 
+public enum ReferenceSurveyResumeFromDiskResult
+{
+    NotFound,
+    Cancelled,
+    Resumed,
+}
+
 public partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private string _windowTitle = "CAVE AI PRO — Survey workstation";
@@ -1276,10 +1283,11 @@ public partial class MainViewModel : ObservableObject
     public void LoadFromPath(string path) => LoadFromPaths(new[] { path });
 
     /// <summary>Opens a single in-memory project (e.g. started from Reference catalog).</summary>
-    public void LoadReferenceSurveyProject(CaveProjectDocument project, KnownCaveRecord? libraryCard = null)
+    /// <returns>False if the user cancelled leaving a dirty workspace.</returns>
+    public bool LoadReferenceSurveyProject(CaveProjectDocument project, KnownCaveRecord? libraryCard = null)
     {
         if (!UnloadWorkspaceBeforeNewLoad())
-            return;
+            return false;
 
         ProjectListFilter = "";
         Projects = new ObservableCollection<CaveProjectDocument>(new[] { project });
@@ -1307,6 +1315,7 @@ public partial class MainViewModel : ObservableObject
         MarkDirty($"Started survey “{project.Name}” from reference catalog — File → Save as… (Android backup ZIP).");
         SaveProjectAsCommand.NotifyCanExecuteChanged();
         CloseWorkspaceCommand.NotifyCanExecuteChanged();
+        return true;
     }
 
     /// <summary>Android resume-if-same-pin: activate an already-open project with this reference id.</summary>
@@ -1325,20 +1334,20 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// Reopens the last Android backup ZIP remembered for this reference pin and selects the matching project.
     /// </summary>
-    public bool TryResumeReferenceSurveyFromDisk(string referenceId)
+    public ReferenceSurveyResumeFromDiskResult TryResumeReferenceSurveyFromDisk(string referenceId)
     {
         var path = ReferenceSurveyResumeStore.TryGetPath(referenceId);
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-            return false;
+            return ReferenceSurveyResumeFromDiskResult.NotFound;
         if (!UnloadWorkspaceBeforeNewLoad())
-            return true;
+            return ReferenceSurveyResumeFromDiskResult.Cancelled;
 
         try
         {
             var projects = ExplorationDataLoader.LoadAuto(path).ToList();
             var match = ReferenceSurveyLinkService.FindExistingProject(projects, referenceId);
             if (match == null)
-                return false;
+                return ReferenceSurveyResumeFromDiskResult.NotFound;
 
             var library = path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
                 ? CaveLibraryJsonLoader.TryLoadFromZip(path)
@@ -1362,11 +1371,11 @@ public partial class MainViewModel : ObservableObject
             RefreshReferenceLinkSummary();
             StatusMessage = $"Resumed survey “{match.Name}” from {Path.GetFileName(path)}.";
             SnackbarService.Show(Wpf.Application.Current.MainWindow, "Resumed survey from last backup.");
-            return true;
+            return ReferenceSurveyResumeFromDiskResult.Resumed;
         }
         catch
         {
-            return false;
+            return ReferenceSurveyResumeFromDiskResult.NotFound;
         }
     }
 
