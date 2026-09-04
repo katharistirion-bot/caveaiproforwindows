@@ -55,9 +55,10 @@ Firestore collections: `shared_projects/{id}`, `shared_projects/{id}/comments/{i
 > ```bash
 > # DO NOT RUN — would break website, Android Public Library, and install grace:
 > firebase deploy --only firestore:rules
+> pwsh ../tools/block-firestore-rules-deploy.ps1   # always exits 1
 > ```
 >
-> Canonical rules live in **`D:\CaveAIpro website\firebase\`** (or `D:\caveaipro\firebase\` — byte-identical). Deploy from there:
+> `firebase.json` in this folder has **no firestore deploy target**. CI runs `tools/verify-firestore-rules-stub.ps1`, which fails if a firestore target is added. Canonical rules live in **`D:\CaveAIpro website\firebase\`** (or `D:\CaveAIPro\firebase\` — byte-identical). Deploy from there:
 >
 > ```bash
 > cd "D:\CaveAIpro website"

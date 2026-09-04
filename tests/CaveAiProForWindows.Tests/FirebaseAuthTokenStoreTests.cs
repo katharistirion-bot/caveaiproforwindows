@@ -118,6 +118,24 @@ public sealed class FirebaseAuthTokenStoreTests
     }
 
     [TestMethod]
+    public void TrySave_preserves_refresh_token_from_legacy_when_encrypted_has_none()
+    {
+        var token = MakeUsableTestToken();
+        FirebaseAuthTokenStore.TrySave(token);
+        Assert.IsNull(FirebaseAuthTokenStore.TryLoadRefreshToken());
+
+        const string refreshToken = "AEu4IL0legacy_refresh_token_value";
+        var legacyPath = Path.Combine(_tempDir!, "auth-token.json");
+        File.WriteAllText(legacyPath, $"{{\"Raw\":\"{token.Raw}\",\"RefreshToken\":\"{refreshToken}\"}}");
+
+        var refreshed = MakeUsableTestToken();
+        FirebaseAuthTokenStore.TrySave(refreshed);
+
+        Assert.AreEqual(refreshToken, FirebaseAuthTokenStore.TryLoadRefreshToken());
+        Assert.IsFalse(File.Exists(legacyPath));
+    }
+
+    [TestMethod]
     public void TrySave_without_refresh_token_still_loads()
     {
         var token = MakeUsableTestToken();

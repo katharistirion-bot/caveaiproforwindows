@@ -85,7 +85,11 @@ public partial class PublicLibraryWebWindow : Window
                 }
             };
 
-            core.NavigationCompleted += (_, _) => UpdateGuestLibraryChromeVisibility();
+            core.NavigationCompleted += (_, _) =>
+            {
+                UpdateGuestLibraryChromeVisibility();
+                MaybeRestampEmbed(core);
+            };
 
             core.Navigate(PublicLibraryCatalog.ResolveInAppStartUrl(InitialUrl));
             UpdateGuestLibraryChromeVisibility();
@@ -119,7 +123,21 @@ public partial class PublicLibraryWebWindow : Window
 
     private void Refresh_Click(object sender, RoutedEventArgs e)
     {
-        LibraryWebView?.CoreWebView2?.Reload();
+        var core = LibraryWebView?.CoreWebView2;
+        if (core == null)
+            return;
+        var restamped = PublicLibraryCatalog.TryRestampEmbed(core.Source);
+        if (restamped != null)
+            core.Navigate(restamped);
+        else
+            core.Reload();
+    }
+
+    private static void MaybeRestampEmbed(CoreWebView2 core)
+    {
+        var restamped = PublicLibraryCatalog.TryRestampEmbed(core.Source);
+        if (restamped != null)
+            core.Navigate(restamped);
     }
 
     /// <summary>Sniffed Firebase Auth token from this WebView session (null until user signs in and Firestore loads).</summary>

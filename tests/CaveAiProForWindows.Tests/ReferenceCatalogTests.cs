@@ -681,4 +681,10 @@ public sealed class CaveFavoriteIdMergeTests
     {
         Assert.AreEqual(0, CaveFavoriteIdMerge.Merge(Array.Empty<string>(), Array.Empty<string>()).Count);
     }
+
+    [TestMethod]
+    public void Catalog_load_failure_must_not_count_as_publish_confirmation()
+    {
+        Assert.IsFalse(ReferencePublishMatchDialog.ShouldProceedWhenCatalogLoadFails());
+    }
 }

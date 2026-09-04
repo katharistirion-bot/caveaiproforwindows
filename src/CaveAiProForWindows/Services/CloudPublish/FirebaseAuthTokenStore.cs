@@ -145,17 +145,21 @@ public static class FirebaseAuthTokenStore
     {
         try
         {
-            // Try reading raw bytes to extract refresh token
-            if (!File.Exists(EncryptedStorePath))
-                return TryLoadRefreshTokenFromLegacy();
+            if (File.Exists(EncryptedStorePath))
+            {
+                var protectedBytes = File.ReadAllBytes(EncryptedStorePath);
+                var json = UserScopedDpapiProtector.UnprotectUtf8(protectedBytes);
+                if (!string.IsNullOrWhiteSpace(json))
+                {
+                    var dto = JsonSerializer.Deserialize<StoredTokenDto>(json, JsonOpts);
+                    if (!string.IsNullOrWhiteSpace(dto?.RefreshToken))
+                        return dto.RefreshToken;
+                }
+            }
 
-            var protectedBytes = File.ReadAllBytes(EncryptedStorePath);
-            var json = UserScopedDpapiProtector.UnprotectUtf8(protectedBytes);
-            if (string.IsNullOrWhiteSpace(json))
-                return null;
-
-            var dto = JsonSerializer.Deserialize<StoredTokenDto>(json, JsonOpts);
-            return dto?.RefreshToken;
+            // Encrypted store may exist without a refresh token (silent ID-token refresh).
+            // Still read legacy auth-token.json so Gemini/silent refresh cannot wipe it.
+            return TryLoadRefreshTokenFromLegacy();
         }
         catch
         {

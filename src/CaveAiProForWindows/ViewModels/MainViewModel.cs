@@ -3465,9 +3465,16 @@ public partial class MainViewModel : ObservableObject
                 project,
                 state.IndexEntries);
         }
-        catch
+        catch (Exception ex)
         {
-            return true;
+            Wpf.MessageBox.Show(
+                GetOwnerWindow?.Invoke(),
+                "Could not load the reference catalog. Publish was cancelled so the OSM/reference match step is not skipped.\n\n" +
+                ex.Message,
+                "Reference catalog unavailable",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Warning);
+            return ReferencePublishMatchDialog.ShouldProceedWhenCatalogLoadFails();
         }
     }
 

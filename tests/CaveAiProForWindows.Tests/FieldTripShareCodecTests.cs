@@ -31,6 +31,7 @@ public sealed class FieldTripShareCodecTests
         };
 
         var url = FieldTripShareCodec.BuildShareUrl(stops);
+        Assert.IsNotNull(url);
         StringAssert.Contains(url, "https://www.caveaipro.com/map?view=fieldtrip#trip=");
         StringAssert.Contains(url, "#trip=");
 
@@ -63,5 +64,21 @@ public sealed class FieldTripShareCodecTests
         var stop = FieldTripStopImporter.TryParseInput("uid_community_42");
         Assert.IsNotNull(stop);
         Assert.AreEqual("uid_community_42", stop!.CommunityDocId);
+    }
+
+    [TestMethod]
+    public void BuildShareUrl_oversized_returns_null()
+    {
+        var stops = Enumerable.Range(0, 80)
+            .Select(i => new FieldTripStop
+            {
+                ReferenceId = $"ref-osm-{i}-xxxxxxxxxxxxxxxxxxxxxxxx",
+                Name = $"Cave site with a reasonably long display name {i}",
+                Lat = 39.0 + (i * 0.001),
+                Lon = 21.8 + (i * 0.001),
+                Country = "Greece",
+            })
+            .ToList();
+        Assert.IsNull(FieldTripShareCodec.BuildShareUrl(stops));
     }
 }

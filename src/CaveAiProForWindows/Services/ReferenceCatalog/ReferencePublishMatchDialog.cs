@@ -35,4 +35,9 @@ public static class ReferencePublishMatchDialog
 
         return result == MessageBoxResult.Yes;
     }
+
+    /// <summary>
+    /// Catalog fetch failure must abort publish. Never treat an exception as user confirmation.
+    /// </summary>
+    public static bool ShouldProceedWhenCatalogLoadFails() => false;
 }

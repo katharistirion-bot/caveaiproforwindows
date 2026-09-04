@@ -23,7 +23,11 @@ public static class FieldTripShareCodec
             Stops = EncodeStops(stops),
         };
 
-    public static string BuildShareUrl(IReadOnlyList<FieldTripStop> stops, string? origin = null)
+    /// <summary>
+    /// Inline share URL only. Oversized trips return null — callers must use
+    /// <see cref="BuildShareUrlAsync"/> (cloud <c>tripId</c>) instead of treating a bare field-trip URL as success.
+    /// </summary>
+    public static string? BuildShareUrl(IReadOnlyList<FieldTripStop> stops, string? origin = null)
     {
         var baseUrl = (origin ?? SiteOrigin).TrimEnd('/');
         var json = JsonSerializer.Serialize(BuildPayload(stops));
@@ -33,8 +37,7 @@ public static class FieldTripShareCodec
             return $"{baseUrl}/map?view=fieldtrip#trip={encoded}";
         }
 
-        throw new InvalidOperationException(
-            "This trip is too large for an inline link. Sign in and use BuildShareUrlAsync so it can be saved to the cloud.");
+        return null;
     }
 
     /// <summary>

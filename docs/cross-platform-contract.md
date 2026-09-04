@@ -78,7 +78,7 @@ https://www.caveaipro.com/cave/ref/{id}?action=survey&country={country-slug}
 
 - Android App Link / intent filter opens **Cave AI Pro** and creates or resumes a survey project with `referenceCatalogLink` set to `{id}`.
 - Windows **Reference catalog** window opens this URL in the default browser for phone handoff (`ReferenceCatalogShareUrls.BuildSurveyStartUrl`).
-- Web reference detail page exposes the same link as **Map with Cave AI Pro**.
+- Web reference detail page: when `action=survey` is present, show a visible Android/queue handoff (not an in-browser editor). **Map with Cave AI Pro** remains the always-on share link.
 
 Map deep link (legacy, still supported on Android):
 

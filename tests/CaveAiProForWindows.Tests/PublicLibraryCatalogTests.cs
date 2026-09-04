@@ -7,6 +7,48 @@ namespace CaveAiProForWindows.Tests;
 public class PublicLibraryCatalogTests
 {
     [TestMethod]
+    public void WithEmbed_inserts_query_before_fragment()
+    {
+        var url = PublicLibraryCatalog.WithEmbed(
+            "https://www.caveaipro.com/map?view=fieldtrip#trip=abc");
+        StringAssert.Contains(url, "embed=windows");
+        StringAssert.Contains(url, "#trip=abc");
+        Assert.IsTrue(url.IndexOf("embed=windows", StringComparison.Ordinal) < url.IndexOf("#trip=", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void TryRestampEmbed_stamps_own_site_without_desktopAuth()
+    {
+        var next = PublicLibraryCatalog.TryRestampEmbed(PublicLibraryCatalog.WebOrigin + "/map?view=browse");
+        Assert.IsNotNull(next);
+        StringAssert.Contains(next, "embed=windows");
+        Assert.IsFalse(next!.Contains("desktopAuth=", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void TryRestampEmbed_returns_null_when_already_embedded()
+    {
+        var url = PublicLibraryCatalog.WebMapUrlEmbedded;
+        Assert.IsNull(PublicLibraryCatalog.TryRestampEmbed(url));
+    }
+
+    [TestMethod]
+    public void TryRestampEmbed_skips_firebase_auth_handler()
+    {
+        Assert.IsNull(PublicLibraryCatalog.TryRestampEmbed(
+            "https://www.caveaipro.com/__/auth/handler?state=abc"));
+        Assert.IsNull(PublicLibraryCatalog.TryRestampEmbed(
+            PublicLibraryCatalog.FirebaseHostingOrigin + "/__/auth/handler"));
+    }
+
+    [TestMethod]
+    public void TryRestampEmbed_skips_google_oauth()
+    {
+        Assert.IsNull(PublicLibraryCatalog.TryRestampEmbed("https://accounts.google.com/o/oauth2/v2/auth"));
+        Assert.IsFalse(PublicLibraryCatalog.IsOwnSiteUrl("https://accounts.google.com/o/oauth2/v2/auth"));
+    }
+
+    [TestMethod]
     public void WithEmbed_appends_query_param()
     {
         var url = PublicLibraryCatalog.WithEmbed("https://example.com/map");

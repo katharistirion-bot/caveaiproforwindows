@@ -71,7 +71,11 @@ public partial class LibraryCavePickerWindow : Window
             };
 
             core.SourceChanged += (_, _) => UpdateDetectedId(core.Source);
-            core.NavigationCompleted += (_, _) => UpdateDetectedId(core.Source);
+            core.NavigationCompleted += (_, _) =>
+            {
+                UpdateDetectedId(core.Source);
+                MaybeRestampEmbed(core);
+            };
 
             core.Navigate(PublicLibraryCatalog.WebMapUrlEmbedded);
         }
@@ -116,8 +120,24 @@ public partial class LibraryCavePickerWindow : Window
             PickerWebView.CoreWebView2.GoBack();
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e) =>
-        PickerWebView?.CoreWebView2?.Reload();
+    private void Refresh_Click(object sender, RoutedEventArgs e)
+    {
+        var core = PickerWebView?.CoreWebView2;
+        if (core == null)
+            return;
+        var restamped = PublicLibraryCatalog.TryRestampEmbed(core.Source);
+        if (restamped != null)
+            core.Navigate(restamped);
+        else
+            core.Reload();
+    }
+
+    private static void MaybeRestampEmbed(CoreWebView2 core)
+    {
+        var restamped = PublicLibraryCatalog.TryRestampEmbed(core.Source);
+        if (restamped != null)
+            core.Navigate(restamped);
+    }
 
     private void TryOpenExternal(string uri)
     {

@@ -39,10 +39,76 @@ public static class PublicLibraryCatalog
     {
         if (string.IsNullOrWhiteSpace(url))
             return WithEmbed(WebMapUrl);
-        if (url.Contains("embed=", StringComparison.OrdinalIgnoreCase))
+
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            var qs = uri.Query.TrimStart('?');
+            var parts = string.IsNullOrEmpty(qs)
+                ? Array.Empty<string>()
+                : qs.Split('&', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Any(p => p.StartsWith("embed=", StringComparison.OrdinalIgnoreCase)))
+                return url;
+
+            var path = uri.GetLeftPart(UriPartial.Path);
+            var newQs = parts.Length == 0 ? "embed=windows" : string.Join('&', parts) + "&embed=windows";
+            var result = path + "?" + newQs;
+            if (!string.IsNullOrEmpty(uri.Fragment))
+                result += uri.Fragment;
+            return result;
+        }
+
+        var hash = url.IndexOf('#');
+        var before = hash >= 0 ? url[..hash] : url;
+        var frag = hash >= 0 ? url[hash..] : "";
+        if (before.Contains("embed=", StringComparison.OrdinalIgnoreCase))
             return url;
-        var sep = url.Contains('?', StringComparison.Ordinal) ? "&" : "?";
-        return url + sep + "embed=windows";
+        var sep = before.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+        return before + sep + "embed=windows" + frag;
+    }
+
+    /// <summary>
+    /// True for CaveAI Pro site hosts (custom domain, Firebase Hosting, localhost).
+    /// Google OAuth hosts are excluded so embed restamp cannot interrupt sign-in.
+    /// </summary>
+    public static bool IsOwnSiteUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+            return false;
+        if (uri.Scheme is not ("http" or "https"))
+            return false;
+
+        var host = uri.Host;
+        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.Equals(host, "www.caveaipro.com", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(host, "caveaipro.com", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (Uri.TryCreate(WebOrigin, UriKind.Absolute, out var origin)
+            && string.Equals(host, origin.Host, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (Uri.TryCreate(FirebaseHostingOrigin, UriKind.Absolute, out var firebase)
+            && string.Equals(host, firebase.Host, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    /// <summary>
+    /// If this is our site and <c>embed=</c> is missing, return a restamped URL.
+    /// Does not add <c>desktopAuth=v1</c> — that would collapse library chrome to the login shell.
+    /// Returns null when no navigation is needed.
+    /// </summary>
+    public static string? TryRestampEmbed(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || !IsOwnSiteUrl(url))
+            return null;
+        var candidate = url.Trim();
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri))
+            return null;
+        if (uri.AbsolutePath.StartsWith("/__/", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var stamped = WithEmbed(candidate);
+        return string.Equals(stamped, candidate, StringComparison.Ordinal) ? null : stamped;
     }
 
     public static string WebMapUrlEmbedded => WithEmbed(WebMapUrl);
