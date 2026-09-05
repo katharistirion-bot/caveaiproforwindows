@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+## [1.5.23] - 2026-09-05
+
 ### Fixed
 - Reference catalog Start survey: cancel on the unsaved-workspace prompt keeps the catalog open and does not create a new empty survey
+- Catalog publish and oversized field-trip share links fail closed
+- In-app WebView Back/Reload keep `embed=windows` instead of collapsing to the login shell
 
 ## [1.5.22] - 2026-09-03
 
