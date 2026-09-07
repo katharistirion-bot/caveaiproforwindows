@@ -41,6 +41,7 @@ public partial class CommandPaletteWindow : Window
         Add("Survey", "Survey compare…", () => _vm.CompareSurveysCommand.Execute(null), "diff", "compare");
         Add("Survey", "Compare backups…", () => _vm.CompareBackupsCommand.Execute(null), "diff", "files");
         Add("Survey", "Field trip planner…", () => _vm.OpenFieldTripPlannerCommand.Execute(null), "route", "gpx");
+        Add("Tools", "Android Bluetooth companion…", OpenAndroidBluetoothFromPalette, "bluetooth", "android", "peer", "rfcomm", "phone");
         Add("Cloud", "Push to Cloud", () => _vm.PublishToCloudCommand.Execute(null), "publish", "upload");
         Add("Cloud", "Retry failed cloud publish", () => _vm.CloudCommands.RetryCommand.Execute(null), "retry", "queue");
         Add("Export", "Export plan SVG…", () => _vm.ExportPlanSvgCommand.Execute(null), "svg", "plan");
@@ -49,6 +50,15 @@ public partial class CommandPaletteWindow : Window
         Add("Help", "Keyboard shortcuts", () => _vm.ShowKeyboardShortcutsCommand.Execute(null), "keys", "hotkeys");
         Add("Help", "About", () => _vm.AboutCommand.Execute(null), "version");
         ApplyFilter();
+    }
+
+    private void OpenAndroidBluetoothFromPalette()
+    {
+        Close();
+        if (Owner is CaveAiProForWindows.MainWindow mw)
+            mw.OpenAndroidBluetoothPeer();
+        else if (Application.Current.MainWindow is CaveAiProForWindows.MainWindow main)
+            main.OpenAndroidBluetoothPeer();
     }
 
     private void ApplyFilter()

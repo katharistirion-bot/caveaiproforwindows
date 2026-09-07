@@ -22,6 +22,7 @@ Normative summary for data exchanged between **CaveAI Pro (Android)** and **CAVE
 | Backup ZIP maps | `export_assets/maps/…`, `map_inventory.json` | [MapsWindowsSync.md](../android-reference/MapsWindowsSync.md) |
 | Anomaly / QC thresholds | `SurveyAnomalyThresholds` (both apps) | [SurveyAnomalyThresholdsContract.md](../android-reference/SurveyAnomalyThresholdsContract.md) |
 | Desktop folder sync | Android backup folder ↔ PC | [AndroidDesktopAutoSync.md](../android-reference/AndroidDesktopAutoSync.md) |
+| Bluetooth lean peer (optional) | RFCOMM UUID `3d2e2d9e-0e3a-4e5f-8c7a-2b3b0c6c9b10` | Same Android Share survey data protocol (JSON lines + ACK). No photos/ZIP. ZIP + Survey Cloud stay primary. |
 
 ## ZIP layout (backup)
 

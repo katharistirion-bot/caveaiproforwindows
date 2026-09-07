@@ -130,7 +130,7 @@ Optional script overrides (use the same values as Product identity):
 - [ ] Package identity / PFN aligned with manifest
 - [ ] Store listing — description, screenshots (1920×1080), privacy policy URL
 - [ ] Age rating (IARC)
-- [ ] Capabilities — `internetClient`, `runFullTrust` (full-trust desktop)
+- [ ] Capabilities — `internetClient`, `runFullTrust` (full-trust desktop), `bluetooth` (optional Android RFCOMM companion)
 - [ ] **runFullTrust approval** — declare the restricted capability in Partner Center before submission: **Product management → your app → App capabilities** (or **App setup → Capabilities**), add **Run full trust**, and submit for Microsoft review if prompted. The manifest includes `<rescap:Capability Name="runFullTrust" />`; Partner Center shows a **WARNING** until this is declared and approved.
 - [ ] WebView2 — note runtime dependency in certification notes (Evergreen WebView2; not a separate user install for most Windows 11 PCs)
 - [ ] **.NET runtime** — Store MSIX must be **self-contained** (bundled runtime). Verify with `verify-store-publish.ps1` before upload. No separate .NET Desktop Runtime install is required when `includedFrameworks` is present in publish output.

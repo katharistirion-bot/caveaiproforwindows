@@ -144,6 +144,8 @@
 
     <DeviceCapability Name="location" />
 
+    <DeviceCapability Name="bluetooth" />
+
   </Capabilities>
 
 </Package>

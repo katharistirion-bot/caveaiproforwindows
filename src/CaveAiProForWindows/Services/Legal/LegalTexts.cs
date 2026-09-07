@@ -62,7 +62,7 @@ public static class LegalTexts
 
         12. PROHIBITED CONDUCT: You may not reverse engineer, decompile, or disassemble the Software except where mandatory law allows; circumvent technical measures; remove legal notices; use the Software to violate law; redistribute the Software outside authorised channels; or use the Developer’s name or marks in a misleading way.
 
-        13. DESKTOP COMPANION: The Windows edition is a survey workstation companion to CaveAI Pro (Android). It is not sold through Google Play. Optional network features (Public Library, Push to Cloud, Reference Catalog, collaboration, update checks) operate only when you initiate them and where an active subscription or trial applies. Field recording and live BLE survey instruments are Android-only; Windows imports and processes backups you export from mobile.
+        13. DESKTOP COMPANION: The Windows edition is a survey workstation companion to CaveAI Pro (Android). It is not sold through Google Play. Optional network features (Public Library, Push to Cloud, Reference Catalog, collaboration, update checks) operate only when you initiate them and where an active subscription or trial applies. Field recording and live BLE survey instruments are Android-only. Windows imports and processes backups you export from mobile, and may optionally exchange lean survey JSON (no photos or ZIP archives) over Bluetooth Classic when you start Tools → Android Bluetooth companion.
 
         13A. PUSH TO CLOUD / PUBLIC LIBRARY: If you publish survey data or images to Firebase or the Public Library, you are solely responsible for lawfulness, accuracy, rights, permissions, and safety of published content. Do not publish confidential or safety-sensitive information without authority and consent.
 

@@ -22,6 +22,7 @@ namespace CaveAiProForWindows;
 public partial class MainWindow : Window
 {
     private AndroidBackupZipWatcher? _androidBackupZipWatcher;
+    private AndroidBluetoothPeerWindow? _androidBluetoothPeerWindow;
     private ProjectAutosaveService? _autosave;
     private PlanView? _planView;
     private PlanView? _model3DView;
@@ -867,6 +868,40 @@ public partial class MainWindow : Window
             DataContext = DataContext,
         };
         w.Show();
+    }
+
+    private void OpenAndroidBluetoothPeer_Click(object sender, RoutedEventArgs e) =>
+        OpenAndroidBluetoothPeer();
+
+    public void OpenAndroidBluetoothPeer()
+    {
+        if (DataContext is MainViewModel vmBt && !vmBt.LegalTermsAccepted)
+        {
+            MessageBox.Show(
+                this,
+                "Please open the LEGAL & SETTINGS tab and accept the terms and conditions before using Android Bluetooth.",
+                "Terms required",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            SelectLegalSettingsTab();
+            return;
+        }
+
+        if (_androidBluetoothPeerWindow != null)
+        {
+            _androidBluetoothPeerWindow.Activate();
+            return;
+        }
+
+        if (DataContext is not MainViewModel vm)
+            return;
+
+        _androidBluetoothPeerWindow = new AndroidBluetoothPeerWindow(vm)
+        {
+            Owner = this,
+        };
+        _androidBluetoothPeerWindow.Closed += (_, _) => _androidBluetoothPeerWindow = null;
+        _androidBluetoothPeerWindow.Show();
     }
 
     public void SelectLegalSettingsTab()

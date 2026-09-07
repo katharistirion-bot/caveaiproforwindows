@@ -117,6 +117,9 @@
                 <MenuItem Header="{x:Static loc:AppStrings.MenuFieldTripPlanner}" Command="{Binding OpenFieldTripPlannerCommand}" />
                 <MenuItem Header="Open shared field trip link…" Click="OpenSharedFieldTripLink_Click" />
                 <MenuItem Header="{x:Static loc:AppStrings.MenuBatchSurveyQc}" Command="{Binding BatchSurveyQcCommand}" />
+                <Separator />
+                <MenuItem Header="{x:Static loc:AppStrings.MenuAndroidBluetooth}" Click="OpenAndroidBluetoothPeer_Click"
+                          ToolTip="Pair the phone in Windows Settings, then exchange lean survey JSON (no photos) with Android Share survey data. ZIP Desktop Sync and Survey Cloud are unchanged." />
             </MenuItem>
             <MenuItem x:Name="MenuHelp" Header="_Help">
                 <MenuItem Header="{x:Static loc:AppStrings.MenuReferenceCatalog}" Command="{Binding OpenPublicLibraryWithPickerCommand}"

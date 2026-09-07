@@ -1,0 +1,91 @@
+<Window x:Class="CaveAiProForWindows.Views.AndroidBluetoothPeerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Android Bluetooth companion"
+        Width="560" Height="640"
+        MinWidth="480" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Cave.Background}"
+        Foreground="{DynamicResource Cave.Text}"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        Closed="Window_Closed">
+    <DockPanel Margin="16">
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,12" Opacity="0.9"
+                   Text="Lean survey JSON over Bluetooth Classic — the same Share survey data protocol as phone-to-phone. Pair the phone in Windows Settings first. Photos and ZIP backups still use Desktop Sync or Survey Cloud."/>
+
+        <Border DockPanel.Dock="Top" Padding="12" Margin="0,0,0,12"
+                Background="{DynamicResource Cave.Surface}"
+                BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1" CornerRadius="4">
+            <StackPanel>
+                <TextBlock Text="Status" FontSize="11" Opacity="0.7"/>
+                <TextBlock x:Name="StatusText" Text="Disconnected" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Button x:Name="DisconnectButton" Content="Disconnect" Click="Disconnect_Click"
+                    Style="{DynamicResource Cave.ButtonBase}" Margin="0,0,0,8" Visibility="Collapsed"/>
+            <Button Content="Close" Click="Close_Click" Style="{DynamicResource Cave.ButtonBase}"/>
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <StackPanel x:Name="DisconnectedPanel">
+                    <UniformGrid Columns="2" Margin="0,0,0,10">
+                        <Button x:Name="ListenButton" Content="Listen for Android" Click="Listen_Click"
+                                Style="{DynamicResource Cave.ButtonBase}" Margin="0,0,6,0"/>
+                        <Button Content="Refresh paired devices" Click="RefreshPaired_Click"
+                                Style="{DynamicResource Cave.ButtonBase}" Margin="6,0,0,0"/>
+                    </UniformGrid>
+                    <TextBlock Text="Paired devices" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <ListBox x:Name="PairedList" Height="160"
+                             Background="{DynamicResource Cave.Surface}"
+                             Foreground="{DynamicResource Cave.Text}"
+                             BorderBrush="{DynamicResource Cave.Border}"
+                             DisplayMemberPath="Name"/>
+                    <Button Content="Connect to selected phone" Click="Connect_Click"
+                            Style="{DynamicResource Cave.ButtonBase}" Margin="0,8,0,0"/>
+                    <TextBlock TextWrapping="Wrap" Margin="0,10,0,0" Opacity="0.75" FontSize="12"
+                               Text="On Android: ☰ → Share survey data. Either START LISTENING (then Connect here) or Connect to this PC while Listen for Android is active."/>
+                </StackPanel>
+
+                <StackPanel x:Name="ConnectedPanel" Visibility="Collapsed">
+                    <TextBlock Text="Send / receive" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <UniformGrid Columns="2" Margin="0,0,0,10">
+                        <Button Content="Send safety update" Click="SendSafety_Click"
+                                Style="{DynamicResource Cave.ButtonBase}" Margin="0,0,6,0"/>
+                        <Button x:Name="SendSessionButton" Content="Send full session" Click="SendSession_Click"
+                                Style="{DynamicResource Cave.ButtonBase}" Margin="6,0,0,0"/>
+                    </UniformGrid>
+
+                    <Border x:Name="PendingPanel" Visibility="Collapsed" Padding="12" Margin="0,0,0,12"
+                            Background="{DynamicResource Cave.Surface}"
+                            BorderBrush="{DynamicResource Cave.Accent}" BorderThickness="1" CornerRadius="4">
+                        <StackPanel>
+                            <TextBlock Text="PENDING ANDROID SESSION" FontWeight="Bold"
+                                       Foreground="{DynamicResource Cave.Accent}"/>
+                            <TextBlock x:Name="PendingSummary" TextWrapping="Wrap" Margin="0,6,0,8"/>
+                            <UniformGrid Columns="3">
+                                <Button Content="Open as workspace" Click="OpenIncoming_Click"
+                                        Style="{DynamicResource Cave.ButtonBase}" Margin="0,0,4,0"/>
+                                <Button Content="Merge new shots" Click="MergeIncoming_Click"
+                                        Style="{DynamicResource Cave.ButtonBase}" Margin="4,0,4,0"/>
+                                <Button Content="Dismiss" Click="DismissIncoming_Click"
+                                        Style="{DynamicResource Cave.ButtonBase}" Margin="4,0,0,0"/>
+                            </UniformGrid>
+                            <TextBlock TextWrapping="Wrap" Margin="0,8,0,0" FontSize="12" Opacity="0.8"
+                                       Text="Open replaces the current workspace (save prompt if dirty). Merge adds only shots with new ids — existing legs are not overwritten."/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Safety log" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <ListBox x:Name="SafetyLog" Height="180"
+                             Background="{DynamicResource Cave.Surface}"
+                             Foreground="{DynamicResource Cave.Text}"
+                             BorderBrush="{DynamicResource Cave.Border}"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

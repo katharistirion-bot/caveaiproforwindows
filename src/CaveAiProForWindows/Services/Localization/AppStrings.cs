@@ -107,6 +107,7 @@ public static class AppStrings
     public static string MenuExploreMap => "Explore _map…";
     public static string MenuFieldTripPlanner => "Field _Trip Planner…";
     public static string MenuBatchSurveyQc => "Batch survey _QC…";
+    public static string MenuAndroidBluetooth => "Android _Bluetooth companion…";
     public static string MenuExportDiagnosticBundle => "Export _diagnostic bundle…";
 
     public static string PostSignInStep0Title => "Android sync folder";

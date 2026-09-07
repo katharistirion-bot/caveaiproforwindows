@@ -14,6 +14,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.AndroidBluetooth;
 using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.CloudPublish;
 using CaveAiProForWindows.Services.Legal;
@@ -1316,6 +1317,58 @@ public partial class MainViewModel : ObservableObject
         SaveProjectAsCommand.NotifyCanExecuteChanged();
         CloseWorkspaceCommand.NotifyCanExecuteChanged();
         return true;
+    }
+
+    /// <summary>
+    /// Opens a lean Bluetooth peer snapshot as a new in-memory workspace.
+    /// Prompts to save if dirty. Does not change ZIP folder watchers or Survey Cloud state.
+    /// </summary>
+    public bool TryOpenBluetoothPeerProject(CaveProjectDocument project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (!UnloadWorkspaceBeforeNewLoad())
+            return false;
+
+        AndroidBluetoothPeerProjectCodec.StripMedia(project);
+        ProjectListFilter = "";
+        Projects = new ObservableCollection<CaveProjectDocument>(new[] { project });
+        NamedCartographyDocuments.EnsureNamedDocuments(project);
+        RefreshCaveRegistryAndCatalog(Projects.ToList());
+        SelectedProject = project;
+        _loadedSurveyFingerprint = SurveyContentFingerprint.Compute(project);
+        _primarySourcePath = null;
+        _sourceFileCount = 0;
+        _zipPath = null;
+        SourcePathDisplay = "Android Bluetooth";
+        SetWindowTitleBase($"CAVE AI PRO — {project.Name}");
+        AppUiSettingsStore.ApplyFullOverlaysAfterImport();
+        RefreshReferenceLinkSummary();
+        ApplyIntegrityUi();
+        OnPropertyChanged(nameof(ActiveZipPath));
+        OnPropertyChanged(nameof(ActiveZipPathForMaps));
+        MarkDirty($"Opened “{project.Name}” from Android Bluetooth — File → Save as… (Android backup ZIP).");
+        SaveProjectAsCommand.NotifyCanExecuteChanged();
+        CloseWorkspaceCommand.NotifyCanExecuteChanged();
+        SnackbarService.Show(OwnerWindow ?? Wpf.Application.Current.MainWindow, "Android Bluetooth session opened.");
+        return true;
+    }
+
+    /// <summary>Adds incoming shots whose ids are not already present. Never overwrites existing legs.</summary>
+    public int MergeBluetoothPeerShotsIntoSelected(CaveProjectDocument incoming)
+    {
+        ArgumentNullException.ThrowIfNull(incoming);
+        if (SelectedProject is null)
+            return TryOpenBluetoothPeerProject(incoming) ? incoming.Shots.Count : 0;
+
+        var added = AndroidBluetoothPeerProjectCodec.MergeShotsOnly(SelectedProject, incoming);
+        if (added > 0)
+        {
+            RefreshCaveRegistryAndCatalog(Projects.ToList());
+            OnSelectedProjectChanged(SelectedProject);
+            MarkDirty($"Merged {added} shot(s) from Android Bluetooth.");
+        }
+
+        return added;
     }
 
     /// <summary>Android resume-if-same-pin: activate an already-open project with this reference id.</summary>
