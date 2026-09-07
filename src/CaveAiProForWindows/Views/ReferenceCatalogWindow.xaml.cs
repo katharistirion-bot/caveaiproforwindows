@@ -385,7 +385,7 @@ public partial class ReferenceCatalogWindow : Window
 
         var nearMeLocating = _nearMeLocating;
 
-        var nearMeOrigin = _nearMeOrigin ?? TryGetProjectNearMeOrigin();
+        var nearMeOrigin = _nearMeOrigin;
 
 
 
@@ -416,7 +416,7 @@ public partial class ReferenceCatalogWindow : Window
             if (nearMeOrigin == null)
             {
                 StatusText.Text = _nearMeStatusMessage
-                    ?? "Near me: allow location access or open a survey project with entrance GPS.";
+                    ?? "Near me: allow precise Windows location, then try again.";
                 ResultsGrid.ItemsSource = Array.Empty<ReferenceCatalogRow>();
                 return;
             }
@@ -543,15 +543,6 @@ public partial class ReferenceCatalogWindow : Window
 
     }
 
-
-
-    private ReferenceCatalogGeolocation.NearMeOrigin? TryGetProjectNearMeOrigin()
-    {
-        if (Application.Current.MainWindow?.DataContext is MainViewModel vm)
-            return ReferenceCatalogGeolocation.TryGetProjectEntrance(vm.SelectedProject);
-        return null;
-    }
-
     private async Task ResolveNearMeOriginAsync()
     {
         if (NearMeCheck.IsChecked != true)
@@ -570,22 +561,9 @@ public partial class ReferenceCatalogWindow : Window
                 _nearMeOrigin = origin;
                 _nearMeStatusMessage = device.Warning;
             }
-            else if (TryGetProjectNearMeOrigin() is { } projectOrigin)
-            {
-                var validated = ReferenceCatalogGeolocation.ValidateNearMeOrigin(projectOrigin);
-                if (validated.Ok && validated.Origin is { } okOrigin)
-                {
-                    _nearMeOrigin = okOrigin;
-                    _nearMeStatusMessage = validated.Warning ?? "Using project entrance (no GPS fix).";
-                }
-                else
-                {
-                    _nearMeStatusMessage = validated.Error ?? device.Error ?? "Near me unavailable.";
-                }
-            }
             else
             {
-                _nearMeStatusMessage = device.Error ?? "Near me unavailable.";
+                _nearMeStatusMessage = device.Error ?? "Near me unavailable — precise GPS is required.";
             }
         }
         finally

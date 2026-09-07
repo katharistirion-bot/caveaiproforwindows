@@ -3,7 +3,7 @@ using Windows.Devices.Geolocation;
 
 namespace CaveAiProForWindows.Services.ReferenceCatalog;
 
-/// <summary>Resolves Near me origin for the reference catalog (device GPS, then optional project entrance).</summary>
+/// <summary>Resolves Near me origin from high-accuracy device GPS only.</summary>
 public static class ReferenceCatalogGeolocation
 {
     public const double NearMeMaxAcceptableAccuracyM = 100;
@@ -21,7 +21,7 @@ public static class ReferenceCatalogGeolocation
     public static NearMeLocationResult ValidateNearMeOrigin(NearMeOrigin? origin)
     {
         if (origin is null)
-            return new NearMeLocationResult(false, null, "GPS location unavailable — allow location access or use project entrance.", null);
+            return new NearMeLocationResult(false, null, "GPS location unavailable — allow precise Windows location and try Near me again.", null);
 
         if (!IsValidCoordinate(origin.Lat, origin.Lon))
             return new NearMeLocationResult(false, null, "Invalid GPS coordinates — try again in open sky.", null);

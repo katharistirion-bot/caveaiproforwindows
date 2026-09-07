@@ -79,6 +79,40 @@ public class ReferenceCatalogTests
     }
 
     [TestMethod]
+    public void Geolocation_ValidateNearMeOrigin_rejectsPoorAccuracy()
+    {
+        var origin = new ReferenceCatalogGeolocation.NearMeOrigin(38.22, 20.62, "test", 250);
+        var result = ReferenceCatalogGeolocation.ValidateNearMeOrigin(origin);
+        Assert.IsFalse(result.Ok);
+        StringAssert.Contains(result.Error, "poor");
+    }
+
+    [TestMethod]
+    public void Geolocation_ValidateNearMeOrigin_acceptsHighAccuracy()
+    {
+        var origin = new ReferenceCatalogGeolocation.NearMeOrigin(38.22, 20.62, "Windows location (high accuracy)", 18);
+        var result = ReferenceCatalogGeolocation.ValidateNearMeOrigin(origin);
+        Assert.IsTrue(result.Ok);
+        Assert.AreEqual(origin, result.Origin);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Search_NearMe_FiltersByRadiusAndSortsNearestFirst()
+    {
+        var entries = new List<ReferenceCaveIndexEntry>
+        {
+            new() { Id = "far", Name = "Far Cave", Country = "Greece", Lat = 40.0, Lon = 22.0 },
+            new() { Id = "near", Name = "Near Cave", Country = "Greece", Lat = 38.23, Lon = 20.63 },
+            new() { Id = "mid", Name = "Mid Cave", Country = "Greece", Lat = 38.40, Lon = 20.80 },
+        };
+        var hits = ReferenceCatalogSearch.Filter(entries, null, null, 38.22, 20.62, nearRadiusKm: 50);
+        Assert.AreEqual(2, hits.Count);
+        Assert.AreEqual("near", hits[0].Id);
+        Assert.AreEqual("mid", hits[1].Id);
+    }
+
+    [TestMethod]
     public void ShareUrl_IncludesCountrySlug()
     {
         var entry = new ReferenceCaveIndexEntry { Id = "abc-123", Country = "Greece", Lat = 1, Lon = 2 };
