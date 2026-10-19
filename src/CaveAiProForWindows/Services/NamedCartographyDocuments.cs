@@ -192,16 +192,56 @@ public static class NamedCartographyDocuments
         {
             if (!string.Equals(ReadString(map, "id"), openId, StringComparison.Ordinal))
                 continue;
-            CopyArray(map, "sketches", value => project.Sketches = value);
-            CopyArray(map, "sectionSketches", value => project.SectionSketches = value);
-            CopyArray(map, "mapSymbols", value => project.MapSymbols = value);
-            CopyArray(map, "vectorLines", value => project.VectorLines = value);
-            CopyArray(map, "brackets", value => project.Brackets = value);
-            CopyArray(map, "depthSpanAnnotations", value => project.DepthSpanAnnotations = value);
+            CopyStoredOnceLayer(map, "sketches", project.Sketches, value => project.Sketches = value);
+            CopyStoredOnceLayer(map, "sectionSketches", project.SectionSketches, value => project.SectionSketches = value);
+            CopyStoredOnceLayer(map, "mapSymbols", project.MapSymbols, value => project.MapSymbols = value);
+            CopyStoredOnceLayer(map, "vectorLines", project.VectorLines ?? EmptyArray, value => project.VectorLines = value);
+            CopyStoredOnceLayer(map, "brackets", project.Brackets, value => project.Brackets = value);
+            CopyStoredOnceLayer(map, "depthSpanAnnotations", project.DepthSpanAnnotations, value => project.DepthSpanAnnotations = value);
             return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Drops the open sheet's layer arrays. The same ink already lives on the project fields.
+    /// Call only around serialization, then restore the previous <see cref="CaveProjectDocument.NamedCartographyMaps"/>.
+    /// </summary>
+    public static void OmitDuplicatedOpenSheet(CaveProjectDocument project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var openId = project.ActiveCartographyMapId?.Trim() ?? "";
+        if (openId.Length == 0 || !TryGetMaps(project, out var maps))
+            return;
+
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartArray();
+            foreach (var map in maps.EnumerateArray())
+            {
+                if (!string.Equals(ReadString(map, "id"), openId, StringComparison.Ordinal))
+                {
+                    map.WriteTo(writer);
+                    continue;
+                }
+
+                writer.WriteStartObject();
+                foreach (var prop in map.EnumerateObject())
+                {
+                    if (LayerNames.Contains(prop.Name) &&
+                        !string.Equals(prop.Name, "updatedAtEpochMs", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    prop.WriteTo(writer);
+                }
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+        }
+
+        using var doc = JsonDocument.Parse(stream.ToArray());
+        project.NamedCartographyMaps = doc.RootElement.Clone();
     }
 
     /// <summary>Captures the open map, then starts a blank named document.</summary>
@@ -453,6 +493,28 @@ public static class NamedCartographyDocuments
     {
         if (map.TryGetProperty(name, out var el) && el.ValueKind is JsonValueKind.Array or JsonValueKind.Object)
             assign(el.Clone());
+        else
+            assign(EmptyArray.Clone());
+    }
+
+    /// <summary>
+    /// Named ink wins. When the open sheet was stored without those arrays, keep the live ink instead of blanking it.
+    /// An intentionally empty sheet still clears the canvas when the live layer is empty too.
+    /// </summary>
+    private static void CopyStoredOnceLayer(JsonElement map, string name, JsonElement live, Action<JsonElement> assign)
+    {
+        if (map.TryGetProperty(name, out var el) &&
+            el.ValueKind == JsonValueKind.Array &&
+            el.GetArrayLength() > 0)
+        {
+            assign(el.Clone());
+            return;
+        }
+        if (live.ValueKind == JsonValueKind.Array && live.GetArrayLength() > 0)
+            return;
+        if (map.TryGetProperty(name, out var present) &&
+            present.ValueKind is JsonValueKind.Array or JsonValueKind.Object)
+            assign(present.Clone());
         else
             assign(EmptyArray.Clone());
     }

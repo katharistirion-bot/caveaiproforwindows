@@ -60,7 +60,7 @@ public static class SurveyPortableZipExporter
     {
         ArgumentNullException.ThrowIfNull(project);
         CaveProjectJsonWriteNormalizer.Prepare(project);
-        return JsonSerializer.Serialize(project, WriteJson);
+        return SerializeRestoringOpenSheet(project);
     }
 
     /// <summary>Serializes one or more projects as a Gson-compatible JSON array.</summary>
@@ -68,6 +68,51 @@ public static class SurveyPortableZipExporter
     {
         ArgumentNullException.ThrowIfNull(projects);
         CaveProjectJsonWriteNormalizer.PrepareAll(projects);
-        return JsonSerializer.Serialize(projects, WriteJson);
+        return SerializeRestoringOpenSheets(projects);
+    }
+
+    /// <summary>
+    /// The file stores the open sheet once. Memory keeps both copies so the open canvas does not go blank.
+    /// </summary>
+    private static string SerializeRestoringOpenSheet(CaveProjectDocument project)
+    {
+        var held = CloneMaps(project);
+        try
+        {
+            NamedCartographyDocuments.OmitDuplicatedOpenSheet(project);
+            return JsonSerializer.Serialize(project, WriteJson);
+        }
+        finally
+        {
+            if (held.ValueKind != JsonValueKind.Undefined)
+                project.NamedCartographyMaps = held;
+        }
+    }
+
+    private static string SerializeRestoringOpenSheets(IReadOnlyList<CaveProjectDocument> projects)
+    {
+        var held = new JsonElement[projects.Count];
+        for (var i = 0; i < projects.Count; i++)
+            held[i] = CloneMaps(projects[i]);
+        try
+        {
+            foreach (var project in projects)
+                NamedCartographyDocuments.OmitDuplicatedOpenSheet(project);
+            return JsonSerializer.Serialize(projects, WriteJson);
+        }
+        finally
+        {
+            for (var i = 0; i < projects.Count; i++)
+            {
+                if (held[i].ValueKind != JsonValueKind.Undefined)
+                    projects[i].NamedCartographyMaps = held[i];
+            }
+        }
+    }
+
+    private static JsonElement CloneMaps(CaveProjectDocument project)
+    {
+        var maps = project.NamedCartographyMaps;
+        return maps.ValueKind == JsonValueKind.Undefined ? default : maps.Clone();
     }
 }

@@ -217,4 +217,53 @@ public sealed class NamedCartographyDocumentsTests
         Assert.AreEqual(0, project.Sketches.GetArrayLength());
         Assert.AreEqual(0, NamedCartographyDocuments.List(project).Count);
     }
+
+    [TestMethod]
+    public void Serialize_stores_open_sheet_once_and_keeps_it_in_memory()
+    {
+        var json = """
+            {
+              "name": "Xtenia",
+              "activeCartographyMapId": "a",
+              "sketches": [[[4,4],[5,5]]],
+              "namedCartographyMaps": [
+                {"id":"a","name":"Plan","updatedAtEpochMs":40,"sketches":[[[4,4],[5,5]]]},
+                {"id":"b","name":"Flood","sketches":[[[9,9]]]}
+              ]
+            }
+            """;
+        var project = JsonSerializer.Deserialize<CaveProjectDocument>(json);
+        Assert.IsNotNull(project);
+        var saved = SurveyPortableZipExporter.SerializeSingleProjectObject(project!);
+        using var doc = JsonDocument.Parse(saved);
+        var open = doc.RootElement.GetProperty("namedCartographyMaps")[0];
+        var other = doc.RootElement.GetProperty("namedCartographyMaps")[1];
+        Assert.IsFalse(open.TryGetProperty("sketches", out _));
+        Assert.AreEqual("Plan", open.GetProperty("name").GetString());
+        Assert.IsTrue(open.TryGetProperty("updatedAtEpochMs", out _));
+        Assert.AreEqual(1, other.GetProperty("sketches").GetArrayLength());
+        Assert.AreEqual(1, doc.RootElement.GetProperty("sketches").GetArrayLength());
+
+        using var memory = JsonDocument.Parse(project!.NamedCartographyMaps.GetRawText());
+        Assert.IsTrue(memory.RootElement[0].TryGetProperty("sketches", out _));
+    }
+
+    [TestMethod]
+    public void CopyActive_keeps_live_ink_when_open_sheet_was_stored_once()
+    {
+        var json = """
+            {
+              "name": "Xtenia",
+              "activeCartographyMapId": "a",
+              "sketches": [[[4,4],[5,5]]],
+              "namedCartographyMaps": [
+                {"id":"a","name":"Plan","updatedAtEpochMs":40}
+              ]
+            }
+            """;
+        var project = JsonSerializer.Deserialize<CaveProjectDocument>(json);
+        Assert.IsTrue(NamedCartographyDocuments.CopyActiveDocumentToLive(project!));
+        Assert.AreEqual(1, project!.Sketches.GetArrayLength());
+        Assert.AreEqual(4, project.Sketches[0][0][0].GetInt32());
+    }
 }

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [1.5.25] - 2026-10-19
+
+### Fixed
+- Saving a survey now stores the open cartography sheet once. The same ink stays on the live drawing, and the named sheet no longer carries a second copy.
+
 ## [1.5.24] - 2026-10-19
 
 ### Fixed
