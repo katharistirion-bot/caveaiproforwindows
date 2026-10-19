@@ -175,43 +175,47 @@ public sealed class CloudPublishService
                 .ConfigureAwait(false);
             surveyUrl = up.MediaUrl;
 
-            // Public Library / web workspace: object JSON under published_caves/…/survey_project.json
+            // Public Library / web workspace: fail-closed — never PATCH published_caves if
+            // survey_project.json or survey_workspace.json did not land (Android PUBLISH_ABORTED_ROLLBACK).
+            var ownerUid = (existing.OwnerUid ?? uid).Trim();
+            var docId = bundle.PublishedCaveDocId.Trim();
+            AssertPublicLibrarySurveyUploadTargets(ownerUid, docId);
             try
             {
-                var ownerUid = (existing.OwnerUid ?? uid).Trim();
-                var docId = bundle.PublishedCaveDocId.Trim();
-                if (!string.IsNullOrEmpty(ownerUid) && !string.IsNullOrEmpty(docId))
-                {
-                    progress?.Report("Uploading Public Library survey archive…");
-                    var objectUtf8 = SerializeProjectObjectJsonUtf8(bundle.Project);
-                    var pubPath = $"published_caves/{ownerUid}/{docId}/survey_project.json";
-                    var pubUp = await _rest.UploadBytesAsync(
-                            token,
-                            pubPath,
-                            objectUtf8,
-                            "application/json; charset=utf-8",
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    surveyUrl = pubUp.MediaUrl;
-                    surveyPath = pubPath;
+                progress?.Report("Uploading Public Library survey archive…");
+                var objectUtf8 = SerializeProjectObjectJsonUtf8(bundle.Project);
+                var pubPath = $"published_caves/{ownerUid}/{docId}/survey_project.json";
+                var pubUp = await _rest.UploadBytesAsync(
+                        token,
+                        pubPath,
+                        objectUtf8,
+                        "application/json; charset=utf-8",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                surveyUrl = pubUp.MediaUrl;
+                surveyPath = pubPath;
 
-                    var workspaceBytes = SurveyWorkspaceJsonBuilder.BuildBytes(objectUtf8);
-                    if (workspaceBytes is { Length: > 0 })
-                    {
-                        var wsPath = $"published_caves/{ownerUid}/{docId}/survey_workspace.json";
-                        _ = await _rest.UploadBytesAsync(
-                                token,
-                                wsPath,
-                                workspaceBytes,
-                                "application/json; charset=utf-8",
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    }
+                var workspaceBytes = SurveyWorkspaceJsonBuilder.BuildBytes(objectUtf8);
+                if (workspaceBytes is not { Length: > 0 })
+                {
+                    throw new InvalidOperationException(
+                        "PUBLISH_ABORTED_ROLLBACK: survey_workspace.json could not be built.");
                 }
+
+                var wsPath = $"published_caves/{ownerUid}/{docId}/survey_workspace.json";
+                _ = await _rest.UploadBytesAsync(
+                        token,
+                        wsPath,
+                        workspaceBytes,
+                        "application/json; charset=utf-8",
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                System.Diagnostics.Debug.WriteLine($"survey_project/workspace upload: {ex.Message}");
+                throw new InvalidOperationException(
+                    "PUBLISH_ABORTED_ROLLBACK: " + ex.Message,
+                    ex);
             }
         }
 
@@ -297,6 +301,19 @@ public sealed class CloudPublishService
         };
         progress?.Report("Publish complete.");
         return metadata;
+    }
+
+    /// <summary>
+    /// Public Library archive paths require both owner uid and document id.
+    /// Missing either must abort before Firestore PATCH (no swallowed upload).
+    /// </summary>
+    public static void AssertPublicLibrarySurveyUploadTargets(string? ownerUid, string? publishedCaveDocId)
+    {
+        if (string.IsNullOrWhiteSpace(ownerUid) || string.IsNullOrWhiteSpace(publishedCaveDocId))
+        {
+            throw new InvalidOperationException(
+                "PUBLISH_ABORTED_ROLLBACK: missing ownerUid or published cave id; survey_project.json was not uploaded.");
+        }
     }
 
     /// <summary>Build survey JSON bytes using the same exporter as portable ZIP (normalized for publish).</summary>

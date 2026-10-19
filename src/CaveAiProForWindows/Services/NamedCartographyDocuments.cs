@@ -178,6 +178,32 @@ public static class NamedCartographyDocuments
         return false;
     }
 
+    /// <summary>
+    /// Copies the open named map onto live plan/section layers without writing live ink back into the document.
+    /// Used after Bluetooth ALL_NO_MEDIA merge.
+    /// </summary>
+    public static bool CopyActiveDocumentToLive(CaveProjectDocument project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var openId = project.ActiveCartographyMapId?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(openId) || !TryGetMaps(project, out var maps))
+            return false;
+        foreach (var map in maps.EnumerateArray())
+        {
+            if (!string.Equals(ReadString(map, "id"), openId, StringComparison.Ordinal))
+                continue;
+            CopyArray(map, "sketches", value => project.Sketches = value);
+            CopyArray(map, "sectionSketches", value => project.SectionSketches = value);
+            CopyArray(map, "mapSymbols", value => project.MapSymbols = value);
+            CopyArray(map, "vectorLines", value => project.VectorLines = value);
+            CopyArray(map, "brackets", value => project.Brackets = value);
+            CopyArray(map, "depthSpanAnnotations", value => project.DepthSpanAnnotations = value);
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>Captures the open map, then starts a blank named document.</summary>
     public static SaveResult TryCreateEmpty(CaveProjectDocument project, string name)
     {

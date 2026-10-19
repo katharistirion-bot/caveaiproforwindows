@@ -1354,21 +1354,44 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>Adds incoming shots whose ids are not already present. Never overwrites existing legs.</summary>
-    public int MergeBluetoothPeerShotsIntoSelected(CaveProjectDocument incoming)
+    public int MergeBluetoothPeerShotsIntoSelected(CaveProjectDocument incoming) =>
+        MergeBluetoothPeerIntoSelected(incoming, AndroidBluetoothPeerMergeMode.ShotsOnly).ShotsAdded;
+
+    /// <summary>Android SHOTS_ONLY / SHOTS_AND_BRACKETS / ALL_NO_MEDIA. Incoming media URIs are dropped.</summary>
+    public AndroidBluetoothPeerMergeResult MergeBluetoothPeerIntoSelected(
+        CaveProjectDocument incoming,
+        AndroidBluetoothPeerMergeMode mode)
     {
         ArgumentNullException.ThrowIfNull(incoming);
         if (SelectedProject is null)
-            return TryOpenBluetoothPeerProject(incoming) ? incoming.Shots.Count : 0;
+        {
+            var opened = TryOpenBluetoothPeerProject(incoming);
+            return opened
+                ? new AndroidBluetoothPeerMergeResult(incoming.Shots.Count, 0, 0, 0)
+                : default;
+        }
 
-        var added = AndroidBluetoothPeerProjectCodec.MergeShotsOnly(SelectedProject, incoming);
-        if (added > 0)
+        var result = AndroidBluetoothPeerProjectCodec.Merge(SelectedProject, incoming, mode);
+        if (result.ShotsAdded + result.BracketsAdded + result.DepthSpansAdded + result.RocksAdded > 0)
         {
             RefreshCaveRegistryAndCatalog(Projects.ToList());
             OnSelectedProjectChanged(SelectedProject);
-            MarkDirty($"Merged {added} shot(s) from Android Bluetooth.");
+            MarkDirty(MergeDirtyMessage(result, mode));
         }
 
-        return added;
+        return result;
+    }
+
+    private static string MergeDirtyMessage(AndroidBluetoothPeerMergeResult result, AndroidBluetoothPeerMergeMode mode)
+    {
+        return mode switch
+        {
+            AndroidBluetoothPeerMergeMode.ShotsAndBrackets =>
+                $"Merged {result.ShotsAdded} shot(s) and {result.BracketsAdded + result.DepthSpansAdded} annotation(s) from Android Bluetooth.",
+            AndroidBluetoothPeerMergeMode.AllNoMedia =>
+                $"Merged {result.ShotsAdded} shot(s), {result.BracketsAdded + result.DepthSpansAdded} annotation(s), {result.RocksAdded} rock(s) from Android Bluetooth (no media).",
+            _ => $"Merged {result.ShotsAdded} shot(s) from Android Bluetooth.",
+        };
     }
 
     /// <summary>Android resume-if-same-pin: activate an already-open project with this reference id.</summary>

@@ -26,15 +26,15 @@ public sealed class SubscriptionEntitlementTests
     }
 
     [TestMethod]
-    public void ValidateDocument_accepts_trialing_play_subscription()
+    public void ValidateDocument_rejects_trialing_status()
     {
         var doc = new UserEntitlementDocument(
             "TRIALING",
             DateTimeOffset.UtcNow.AddDays(25),
             "PLAY_SUBSCRIPTION");
         var result = SubscriptionEntitlementService.ValidateDocument(doc);
-        Assert.IsTrue(result.IsEntitled);
-        Assert.AreEqual(SubscriptionAccessKind.PaidPlaySubscription, result.AccessKind);
+        Assert.IsFalse(result.IsEntitled);
+        StringAssert.Contains(result.DenialReason!, "expected ACTIVE");
     }
 
     [TestMethod]

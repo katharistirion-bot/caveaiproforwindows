@@ -84,6 +84,8 @@ public partial class MainWindow : Window
                 if (ReferenceEquals(vm.SelectedProject, project))
                     SketchEditorControl.TryPersistSessionToProject(project);
                 DesignLayerVectorLinesSerializer.SyncWindowsInkToVectorLines(project);
+                NamedCartographyDocuments.EnsureNamedDocuments(project);
+                NamedCartographyDocuments.SyncLiveIntoActive(project);
             };
             WirePlanViewExportCallbacks(vm);
             vm.CaptureCloudPublishArtifacts = () => SketchEditorControl.TryCaptureCloudPublishArtifacts();

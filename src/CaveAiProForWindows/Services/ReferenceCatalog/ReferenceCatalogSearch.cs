@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using CaveAiProForWindows.Models;
@@ -41,8 +42,11 @@ public static class ReferenceCatalogSearch
             q = q.Where(ReferenceCatalogDisplay.HasRichMetadata);
         }
 
-        var tokens = Tokenize(searchText);
-        var hasNear = nearLat.HasValue && nearLon.HasValue;
+        var searchOrigin = TryParseSearchCoordinates(searchText);
+        var tokens = searchOrigin is null ? Tokenize(searchText) : [];
+        var effectiveLat = searchOrigin?.Lat ?? nearLat;
+        var effectiveLon = searchOrigin?.Lon ?? nearLon;
+        var hasNear = effectiveLat.HasValue && effectiveLon.HasValue;
 
         if (tokens.Count == 0 && !hasNear)
             return q.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).Take(maxResults).ToList();
@@ -59,7 +63,7 @@ public static class ReferenceCatalogSearch
         if (hasNear)
         {
             q = q
-                .Select(e => (Entry: e, Dist: GeoHaversine.DistanceKm(nearLat!.Value, nearLon!.Value, e.Lat, e.Lon)))
+                .Select(e => (Entry: e, Dist: GeoHaversine.DistanceKm(effectiveLat!.Value, effectiveLon!.Value, e.Lat, e.Lon)))
                 .Where(x => x.Dist <= nearRadiusKm)
                 .OrderBy(x => x.Dist)
                 .Select(x => x.Entry);
@@ -90,8 +94,150 @@ public static class ReferenceCatalogSearch
     public static bool ShouldRunSearch(string? searchText, string? countryFilter, bool nearMe, bool richMetadataOnly = false) =>
         nearMe ||
         richMetadataOnly ||
+        TryParseSearchCoordinates(searchText) is not null ||
         !string.IsNullOrWhiteSpace(countryFilter) && !string.Equals(countryFilter, "All", StringComparison.OrdinalIgnoreCase) ||
         Tokenize(searchText).Any(t => t.Length >= 2);
+
+    public readonly record struct SearchLatLon(double Lat, double Lon);
+
+    /// <summary>Parse catalog search text as WGS84 lat/lon. Fail closed on garbage / 0,0.</summary>
+    public static SearchLatLon? TryParseSearchCoordinates(string? raw)
+    {
+        try
+        {
+            var q = Regex.Replace((raw ?? "").Trim(), @"[()\[\]]", " ");
+            q = Regex.Replace(q, @"\s+", " ");
+            if (q.Length == 0)
+                return null;
+
+            var hemAfter = Regex.Match(
+                q,
+                @"^([+-]?\d+(?:[.,]\d+)?)\s*°?\s*([NnSs])\s*[,;\s]+\s*([+-]?\d+(?:[.,]\d+)?)\s*°?\s*([EeWw])\s*$");
+            if (hemAfter.Success)
+            {
+                return FinishPair(
+                    ParseDecimalToken(hemAfter.Groups[1].Value),
+                    hemAfter.Groups[2].Value,
+                    ParseDecimalToken(hemAfter.Groups[3].Value),
+                    hemAfter.Groups[4].Value);
+            }
+
+            var hemBefore = Regex.Match(
+                q,
+                @"^([NnSs])\s*([+-]?\d+(?:[.,]\d+)?)\s*[,;\s]+\s*([EeWw])\s*([+-]?\d+(?:[.,]\d+)?)\s*$");
+            if (hemBefore.Success)
+            {
+                return FinishPair(
+                    ParseDecimalToken(hemBefore.Groups[2].Value),
+                    hemBefore.Groups[1].Value,
+                    ParseDecimalToken(hemBefore.Groups[4].Value),
+                    hemBefore.Groups[3].Value);
+            }
+
+            if (Regex.IsMatch(q, @"[A-Za-z]"))
+                return null;
+
+            string left;
+            string right;
+            if (q.Contains(';'))
+            {
+                var parts = q.Split(';');
+                if (parts.Length != 2)
+                    return null;
+                left = parts[0];
+                right = parts[1];
+            }
+            else if (Regex.IsMatch(q, @"^[+-]?\d+\.\d+\s*,\s*[+-]?\d+\.\d+$"))
+            {
+                var parts = q.Split(',');
+                left = parts[0];
+                right = parts[1];
+            }
+            else if (Regex.IsMatch(q, @"^[+-]?\d+,\d+\s+[+-]?\d+,\d+$"))
+            {
+                var parts = q.Split(' ');
+                left = parts[0];
+                right = parts[1];
+            }
+            else if (Regex.IsMatch(q, @"^[+-]?\d+\.\d+\s+[+-]?\d+\.\d+$"))
+            {
+                var parts = q.Split(' ');
+                left = parts[0];
+                right = parts[1];
+            }
+            else if (Regex.IsMatch(q, @"^[+-]?\d{1,2},\d+\s*,\s*[+-]?\d{1,3},\d+$"))
+            {
+                var m = Regex.Match(q, @"^([+-]?\d{1,2},\d+)\s*,\s*([+-]?\d{1,3},\d+)$");
+                if (!m.Success)
+                    return null;
+                left = m.Groups[1].Value;
+                right = m.Groups[2].Value;
+            }
+            else if (Regex.IsMatch(q, @"^[+-]?\d+(?:\.\d+)?\s+[+-]?\d+(?:\.\d+)?$"))
+            {
+                var parts = q.Split(' ');
+                left = parts[0];
+                right = parts[1];
+            }
+            else if (Regex.IsMatch(q, @"^[+-]?\d+(?:\.\d+)?\s*,\s+[+-]?\d+(?:\.\d+)?$"))
+            {
+                var parts = q.Split(',');
+                if (parts.Length != 2)
+                    return null;
+                left = parts[0];
+                right = parts[1];
+            }
+            else
+            {
+                return null;
+            }
+
+            if (!PairHasDecimalPrecision(left, right))
+                return null;
+            return FinishPair(ParseDecimalToken(left), null, ParseDecimalToken(right), null);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool PairHasDecimalPrecision(string left, string right)
+    {
+        static bool HasDecimal(string token) =>
+            token.Trim().Contains('.') || token.Trim().Contains(',');
+        return HasDecimal(left) || HasDecimal(right);
+    }
+
+    private static double? ParseDecimalToken(string? token)
+    {
+        var t = (token ?? "").Trim();
+        if (t.Length == 0 || t.Any(ch => "0123456789+-.,".IndexOf(ch) < 0))
+            return null;
+        var hasDot = t.Contains('.');
+        var hasComma = t.Contains(',');
+        if (hasDot && hasComma)
+            return null;
+        var normalized = hasComma ? t.Replace(',', '.') : t;
+        if (!double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out var n))
+            return null;
+        return n;
+    }
+
+    private static SearchLatLon? FinishPair(double? lat, string? latHem, double? lon, string? lonHem)
+    {
+        if (lat is null || lon is null)
+            return null;
+        var la = lat.Value;
+        var lo = lon.Value;
+        if (latHem is "S" or "s") la = -Math.Abs(la);
+        else if (latHem is "N" or "n") la = Math.Abs(la);
+        if (lonHem is "W" or "w") lo = -Math.Abs(lo);
+        else if (lonHem is "E" or "e") lo = Math.Abs(lo);
+        if (!ReferenceCatalogGeolocation.IsValidCoordinate(la, lo))
+            return null;
+        return new SearchLatLon(la, lo);
+    }
 
     private static List<string> Tokenize(string? searchText)
     {

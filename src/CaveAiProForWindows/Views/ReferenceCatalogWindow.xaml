@@ -56,9 +56,13 @@
 
                 </Grid.RowDefinitions>
 
-                <TextBox x:Name="SearchBox" Grid.Row="0" Grid.Column="0" Padding="8,6" Margin="0,0,8,0"
-
-                         ToolTip="Multi-token search (2+ chars) — all tokens must match" />
+                <Grid Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
+                    <TextBox x:Name="SearchBox" Padding="8,6"
+                             ToolTip="Search by name or coordinates (38.123, 23.456). EU decimals: 38,123; 23,456" />
+                    <TextBlock x:Name="SearchHint" IsHitTestVisible="False" Margin="12,8,0,0"
+                               VerticalAlignment="Center" Opacity="0.55"
+                               Text="Search by name or coordinates (38.12, 23.45)…" />
+                </Grid>
 
                 <ComboBox x:Name="CountryCombo" Grid.Row="0" Grid.Column="1" Margin="0,0,8,0" Padding="6,4" />
 

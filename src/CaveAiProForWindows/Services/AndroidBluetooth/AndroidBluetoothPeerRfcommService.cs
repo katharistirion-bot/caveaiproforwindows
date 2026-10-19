@@ -62,9 +62,14 @@ public sealed class AndroidBluetoothPeerRfcommService : IDisposable
 
             _listener = new StreamSocketListener();
             _listener.ConnectionReceived += OnConnectionReceived;
+            // WinRT has no BluetoothEncryptionRequired. Android listenUsingRfcommWithServiceRecord /
+            // createRfcommSocketToServiceRecord already uses a bonded encrypted authenticated SPP
+            // channel; the companion UI requires pairing in Windows Settings first. The strongest
+            // Bluetooth SocketProtectionLevel that matches that is BluetoothEncryptionWithAuthentication
+            // (AllowNullAuthentication would accept unauthenticated Just-Works links).
             await _listener.BindServiceNameAsync(
                 _provider.ServiceId.AsString(),
-                SocketProtectionLevel.BluetoothEncryptionAllowNullAuthentication);
+                SocketProtectionLevel.BluetoothEncryptionWithAuthentication);
             _provider.StartAdvertising(_listener);
 
             IsListening = true;
@@ -134,7 +139,10 @@ public sealed class AndroidBluetoothPeerRfcommService : IDisposable
 
                 service = services.Services[0];
                 socket = new StreamSocket();
-                await socket.ConnectAsync(service.ConnectionHostName, service.ConnectionServiceName);
+                await socket.ConnectAsync(
+                    service.ConnectionHostName,
+                    service.ConnectionServiceName,
+                    SocketProtectionLevel.BluetoothEncryptionWithAuthentication);
                 AttachSocket(socket, device.Name);
                 socket = null;
                 return;

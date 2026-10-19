@@ -66,16 +66,22 @@
                             <TextBlock Text="PENDING ANDROID SESSION" FontWeight="Bold"
                                        Foreground="{DynamicResource Cave.Accent}"/>
                             <TextBlock x:Name="PendingSummary" TextWrapping="Wrap" Margin="0,6,0,8"/>
-                            <UniformGrid Columns="3">
+                            <UniformGrid Columns="2" Margin="0,0,0,8">
                                 <Button Content="Open as workspace" Click="OpenIncoming_Click"
                                         Style="{DynamicResource Cave.ButtonBase}" Margin="0,0,4,0"/>
-                                <Button Content="Merge new shots" Click="MergeIncoming_Click"
-                                        Style="{DynamicResource Cave.ButtonBase}" Margin="4,0,4,0"/>
                                 <Button Content="Dismiss" Click="DismissIncoming_Click"
                                         Style="{DynamicResource Cave.ButtonBase}" Margin="4,0,0,0"/>
                             </UniformGrid>
+                            <UniformGrid Columns="2" Margin="0,0,0,8">
+                                <Button Content="Merge shots only" Click="MergeShotsOnly_Click"
+                                        Style="{DynamicResource Cave.ButtonBase}" Margin="0,0,4,0"/>
+                                <Button Content="Merge shots + brackets" Click="MergeShotsAndBrackets_Click"
+                                        Style="{DynamicResource Cave.ButtonBase}" Margin="4,0,0,0"/>
+                            </UniformGrid>
+                            <Button Content="Merge all except media" Click="MergeAllNoMedia_Click"
+                                    Style="{DynamicResource Cave.ButtonBase}"/>
                             <TextBlock TextWrapping="Wrap" Margin="0,8,0,0" FontSize="12" Opacity="0.8"
-                                       Text="Open replaces the current workspace (save prompt if dirty). Merge adds only shots with new ids — existing legs are not overwritten."/>
+                                       Text="Same three modes as Android Share survey data. Open replaces the workspace (save prompt if dirty). Merges never overwrite existing shot ids and never keep peer photo/audio URIs."/>
                         </StackPanel>
                     </Border>
 

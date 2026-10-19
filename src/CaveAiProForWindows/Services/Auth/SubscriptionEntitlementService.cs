@@ -8,7 +8,7 @@ namespace CaveAiProForWindows.Services.Auth;
 
 /// <summary>
 /// Reads <c>user_entitlements/{uid}</c> and validates paid Play subscriptions, owner entitlements,
-/// Play free-trial phases, and the server-anchored 30-day install-grace trial (<c>INSTALL_GRACE</c>).
+/// and the server-anchored 30-day install-grace trial (<c>INSTALL_GRACE</c>). Status must be <c>ACTIVE</c>.
 /// </summary>
 public sealed class SubscriptionEntitlementService
 {
@@ -66,7 +66,7 @@ public sealed class SubscriptionEntitlementService
         if (!SubscriptionEntitlementPolicy.IsAllowedStatus(doc.Status))
         {
             return Deny(
-                $"Subscription status is '{doc.Status ?? "unknown"}' (expected ACTIVE or TRIALING).",
+                $"Subscription status is '{doc.Status ?? "unknown"}' (expected ACTIVE).",
                 doc);
         }
 

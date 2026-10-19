@@ -41,6 +41,34 @@ public sealed class SurveyWorkspaceJsonBuilderTests
     }
 
     [TestMethod]
+    public void BuildBytes_drops_duplicated_ink_on_the_open_sheet_only()
+    {
+        var full = """
+            {
+              "name": "Xtenia",
+              "activeCartographyMapId": "a",
+              "sketches": [[{"first": 1.0, "second": 2.0}]],
+              "namedCartographyMaps": [
+                {"id":"a","name":"Plan","sketches":[[{"first":1.0,"second":2.0}]],"vectorLines":[{"type":"WALL"}]},
+                {"id":"b","name":"Flood","sketches":[[{"first":9.0,"second":9.0}]]}
+              ]
+            }
+            """;
+
+        var bytes = SurveyWorkspaceJsonBuilder.BuildBytes(Encoding.UTF8.GetBytes(full));
+        using var doc = JsonDocument.Parse(bytes);
+        var maps = doc.RootElement.GetProperty("namedCartographyMaps");
+        var open = maps[0];
+        var other = maps[1];
+
+        Assert.AreEqual("Plan", open.GetProperty("name").GetString());
+        Assert.IsFalse(open.TryGetProperty("sketches", out _));
+        Assert.IsFalse(open.TryGetProperty("vectorLines", out _));
+        Assert.IsTrue(other.TryGetProperty("sketches", out _));
+        Assert.AreEqual(1, doc.RootElement.GetProperty("sketches").GetArrayLength());
+    }
+
+    [TestMethod]
     public void BuildBytes_filters_empty_publicLibraryCartographyUris()
     {
         var full = """

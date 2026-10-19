@@ -25,6 +25,17 @@ public static class SurveyWorkspaceJsonBuilder
         "namedCartographyMaps", "activeCartographyMapId", "depthSpanAnnotations",
     };
 
+    /// <summary>The open sheet is already stored on the live sketch/vector fields.</summary>
+    private static readonly HashSet<string> OpenCartographyLayerKeys = new(StringComparer.Ordinal)
+    {
+        "sketches",
+        "sectionSketches",
+        "mapSymbols",
+        "vectorLines",
+        "brackets",
+        "depthSpanAnnotations",
+    };
+
     private static readonly HashSet<string> ShotKeys = new(StringComparer.Ordinal)
     {
         "fromStation", "toStation", "from", "to", "azimuth", "clino", "distance",
@@ -54,6 +65,8 @@ public static class SurveyWorkspaceJsonBuilder
                         WriteSlimShots(writer, prop.Value);
                     else if (prop.Name == "publicLibraryCartographyUris" && prop.Value.ValueKind == JsonValueKind.Array)
                         WriteSlimUriList(writer, prop.Value);
+                    else if (prop.Name == "namedCartographyMaps" && prop.Value.ValueKind == JsonValueKind.Array)
+                        WriteSlimNamedCartographyMaps(writer, doc.RootElement, prop.Value);
                     else
                         prop.Value.WriteTo(writer);
                 }
@@ -88,6 +101,46 @@ public static class SurveyWorkspaceJsonBuilder
             writer.WriteStartObject();
             foreach (var prop in kept)
             {
+                writer.WritePropertyName(prop.Name);
+                prop.Value.WriteTo(writer);
+            }
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+    }
+
+    /// <summary>
+    /// Drop the open sheet's duplicated ink. Other named maps stay complete so the viewer can switch.
+    /// </summary>
+    private static void WriteSlimNamedCartographyMaps(Utf8JsonWriter writer, JsonElement root, JsonElement maps)
+    {
+        var openId = "";
+        if (root.TryGetProperty("activeCartographyMapId", out var idEl) && idEl.ValueKind == JsonValueKind.String)
+            openId = idEl.GetString()?.Trim() ?? "";
+
+        writer.WriteStartArray();
+        foreach (var item in maps.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object || openId.Length == 0)
+            {
+                item.WriteTo(writer);
+                continue;
+            }
+
+            var id = "";
+            if (item.TryGetProperty("id", out var mapId) && mapId.ValueKind == JsonValueKind.String)
+                id = mapId.GetString()?.Trim() ?? "";
+            if (!string.Equals(id, openId, StringComparison.Ordinal))
+            {
+                item.WriteTo(writer);
+                continue;
+            }
+
+            writer.WriteStartObject();
+            foreach (var prop in item.EnumerateObject())
+            {
+                if (OpenCartographyLayerKeys.Contains(prop.Name))
+                    continue;
                 writer.WritePropertyName(prop.Name);
                 prop.Value.WriteTo(writer);
             }

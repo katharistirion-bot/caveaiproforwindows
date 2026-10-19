@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services.AndroidBluetooth;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -93,6 +94,87 @@ public sealed class AndroidBluetoothPeerProtocolTests
         Assert.AreEqual("A1", target.Shots[0].FromStation);
         Assert.AreEqual(1f, target.Shots[0].Distance);
         Assert.AreEqual("new", target.Shots[1].Id);
+        Assert.AreEqual(0, target.Shots[1].Photos.Count);
+    }
+
+    [TestMethod]
+    public void Merge_shots_only_strips_foreign_content_uris()
+    {
+        var target = new CaveProjectDocument { Name = "Office" };
+        var incoming = new CaveProjectDocument
+        {
+            Name = "Field",
+            Shots =
+            [
+                new ShotRecord
+                {
+                    Id = "new",
+                    FromStation = "A2",
+                    ToStation = "A3",
+                    Photos = ["content://media/external/images/1"],
+                    AudioMemoUri = "content://media/external/audio/9",
+                },
+            ],
+        };
+
+        var added = AndroidBluetoothPeerProjectCodec.MergeShotsOnly(target, incoming);
+        Assert.AreEqual(1, added);
+        Assert.AreEqual(0, target.Shots[0].Photos.Count);
+        Assert.IsTrue(string.IsNullOrEmpty(target.Shots[0].AudioMemoUri));
+    }
+
+    [TestMethod]
+    public void Merge_shots_and_brackets_appends_new_annotation_ids()
+    {
+        var target = new CaveProjectDocument
+        {
+            Name = "Office",
+            Shots = [new ShotRecord { Id = "keep", FromStation = "A1", ToStation = "A2" }],
+            Brackets = JsonDocument.Parse("""[{"id":"b0","x":1,"y":2}]""").RootElement.Clone(),
+        };
+        var incoming = new CaveProjectDocument
+        {
+            Name = "Field",
+            Shots = [new ShotRecord { Id = "new", FromStation = "A2", ToStation = "A3" }],
+            Brackets = JsonDocument.Parse("""[{"id":"b0","x":9},{"id":"b1","x":3,"y":4}]""").RootElement.Clone(),
+            DepthSpanAnnotations = JsonDocument.Parse("""[{"id":"d1","depthMeters":12}]""").RootElement.Clone(),
+        };
+
+        var result = AndroidBluetoothPeerProjectCodec.Merge(
+            target, incoming, AndroidBluetoothPeerMergeMode.ShotsAndBrackets);
+        Assert.AreEqual(1, result.ShotsAdded);
+        Assert.AreEqual(1, result.BracketsAdded);
+        Assert.AreEqual(1, result.DepthSpansAdded);
+        Assert.AreEqual(2, target.Brackets.GetArrayLength());
+        Assert.AreEqual(1, target.DepthSpanAnnotations.GetArrayLength());
+        Assert.AreEqual("A1", target.Shots[0].FromStation);
+    }
+
+    [TestMethod]
+    public void Merge_all_no_media_merges_rocks_without_image_uris()
+    {
+        var target = new CaveProjectDocument
+        {
+            Name = "Office",
+            Rocks = JsonDocument.Parse("""[{"id":"r0","imageUri":"keep","station":"A1"}]""").RootElement.Clone(),
+        };
+        var incoming = new CaveProjectDocument
+        {
+            Name = "Field",
+            Shots = [new ShotRecord { Id = "s1", Photos = ["content://x"] }],
+            Rocks = JsonDocument.Parse(
+                """[{"id":"r0","imageUri":"content://peer"},{"id":"r1","imageUri":"content://new","station":"A2"}]""")
+                .RootElement.Clone(),
+        };
+
+        var result = AndroidBluetoothPeerProjectCodec.Merge(
+            target, incoming, AndroidBluetoothPeerMergeMode.AllNoMedia);
+        Assert.AreEqual(1, result.ShotsAdded);
+        Assert.AreEqual(1, result.RocksAdded);
+        Assert.AreEqual(2, target.Rocks!.Value.GetArrayLength());
+        Assert.AreEqual("keep", target.Rocks.Value[0].GetProperty("imageUri").GetString());
+        Assert.AreEqual("", target.Rocks.Value[1].GetProperty("imageUri").GetString());
+        Assert.AreEqual(0, target.Shots[0].Photos.Count);
     }
 
     [TestMethod]

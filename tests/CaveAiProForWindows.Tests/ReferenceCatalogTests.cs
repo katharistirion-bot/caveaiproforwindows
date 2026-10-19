@@ -98,6 +98,62 @@ public class ReferenceCatalogTests
     }
 
     [TestMethod]
+    public void ParseSearchCoordinates_AcceptsCommonFormats()
+    {
+        var dotted = ReferenceCatalogSearch.TryParseSearchCoordinates("38.123, 23.456");
+        Assert.IsNotNull(dotted);
+        Assert.AreEqual(38.123, dotted!.Value.Lat, 1e-9);
+        Assert.AreEqual(23.456, dotted.Value.Lon, 1e-9);
+
+        var space = ReferenceCatalogSearch.TryParseSearchCoordinates("38.123 23.456");
+        Assert.IsNotNull(space);
+
+        var eu = ReferenceCatalogSearch.TryParseSearchCoordinates("38,123; 23,456");
+        Assert.IsNotNull(eu);
+        Assert.AreEqual(38.123, eu!.Value.Lat, 1e-9);
+
+        var hem = ReferenceCatalogSearch.TryParseSearchCoordinates("38.123N 23.456E");
+        Assert.IsNotNull(hem);
+        Assert.AreEqual(38.123, hem!.Value.Lat, 1e-9);
+        Assert.AreEqual(23.456, hem.Value.Lon, 1e-9);
+    }
+
+    [TestMethod]
+    public void ParseSearchCoordinates_RejectsNullIslandAndGarbage()
+    {
+        Assert.IsNull(ReferenceCatalogSearch.TryParseSearchCoordinates("0, 0"));
+        Assert.IsNull(ReferenceCatalogSearch.TryParseSearchCoordinates("Melissani"));
+        Assert.IsNull(ReferenceCatalogSearch.TryParseSearchCoordinates("38,123"));
+        Assert.IsNull(ReferenceCatalogSearch.TryParseSearchCoordinates("999, 999"));
+        Assert.IsNull(ReferenceCatalogSearch.TryParseSearchCoordinates("hello 38.123, 23.456"));
+        Assert.IsNull(ReferenceCatalogSearch.TryParseSearchCoordinates("38 23"));
+        Assert.IsNull(ReferenceCatalogSearch.TryParseSearchCoordinates("38, 23"));
+        Assert.IsNull(ReferenceCatalogSearch.TryParseSearchCoordinates("38,23"));
+        var mixed = ReferenceCatalogSearch.TryParseSearchCoordinates("38.12 23");
+        Assert.IsNotNull(mixed);
+        Assert.AreEqual(38.12, mixed!.Value.Lat, 1e-9);
+        var hem = ReferenceCatalogSearch.TryParseSearchCoordinates("38N 23E");
+        Assert.IsNotNull(hem);
+        Assert.AreEqual(38.0, hem!.Value.Lat, 1e-9);
+        Assert.AreEqual(23.0, hem.Value.Lon, 1e-9);
+    }
+
+    [TestMethod]
+    public void Search_CoordinateQuery_RanksByDistanceWithoutNameTokens()
+    {
+        var entries = new List<ReferenceCaveIndexEntry>
+        {
+            new() { Id = "far", Name = "Far Cave", Country = "Greece", Lat = 40.0, Lon = 22.0 },
+            new() { Id = "near", Name = "Near Cave", Country = "Greece", Lat = 38.23, Lon = 20.63 },
+            new() { Id = "named", Name = "38.22 token cave", Country = "Greece", Lat = 41.0, Lon = 24.0 },
+        };
+        Assert.IsTrue(ReferenceCatalogSearch.ShouldRunSearch("38.22, 20.62", null, false));
+        var hits = ReferenceCatalogSearch.Filter(entries, "38.22, 20.62", null, null, null, nearRadiusKm: 50);
+        Assert.AreEqual(1, hits.Count);
+        Assert.AreEqual("near", hits[0].Id);
+    }
+
+    [TestMethod]
     public void Search_NearMe_FiltersByRadiusAndSortsNearestFirst()
     {
         var entries = new List<ReferenceCaveIndexEntry>

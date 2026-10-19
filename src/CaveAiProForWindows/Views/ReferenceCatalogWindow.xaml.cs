@@ -81,6 +81,10 @@ public partial class ReferenceCatalogWindow : Window
 
         {
 
+            SearchHint.Visibility = string.IsNullOrWhiteSpace(SearchBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
             _searchDebounceTimer.Stop();
 
             _searchDebounceTimer.Start();
@@ -375,6 +379,8 @@ public partial class ReferenceCatalogWindow : Window
 
         var searchText = SearchBox.Text;
 
+        var searchOrigin = ReferenceCatalogSearch.TryParseSearchCoordinates(searchText);
+
         var radiusKm = RadiusSlider.Value;
 
         var favoritesOnly = FavoritesOnlyCheck.IsChecked == true;
@@ -389,13 +395,15 @@ public partial class ReferenceCatalogWindow : Window
 
 
 
-        DistanceColumn.Visibility = nearMe ? Visibility.Visible : Visibility.Collapsed;
+        var useSearchPoint = searchOrigin is not null;
+        var useNear = nearMe || useSearchPoint;
+        DistanceColumn.Visibility = useNear ? Visibility.Visible : Visibility.Collapsed;
 
         RadiusLabel.Text = $"{radiusKm:0} km";
 
 
 
-        if (nearMe)
+        if (nearMe && !useSearchPoint)
 
         {
 
@@ -429,11 +437,13 @@ public partial class ReferenceCatalogWindow : Window
 
 
 
-        if (!ReferenceCatalogSearch.ShouldRunSearch(searchText, country, nearMe, richMetadataOnly))
+        if (!ReferenceCatalogSearch.ShouldRunSearch(searchText, country, useNear, richMetadataOnly))
 
         {
 
-            ResultsGrid.ItemsSource = BuildRows(entries.Take(200).ToList(), nearMeOrigin?.Lat, nearMeOrigin?.Lon, nearMe);
+            var previewLat = searchOrigin?.Lat ?? nearMeOrigin?.Lat;
+            var previewLon = searchOrigin?.Lon ?? nearMeOrigin?.Lon;
+            ResultsGrid.ItemsSource = BuildRows(entries.Take(200).ToList(), previewLat, previewLon, useNear);
 
             if (MainTabs.SelectedIndex == 1)
 
@@ -449,6 +459,10 @@ public partial class ReferenceCatalogWindow : Window
 
         {
 
+            var originLat = searchOrigin?.Lat ?? (nearMe ? nearMeOrigin?.Lat : null);
+
+            var originLon = searchOrigin?.Lon ?? (nearMe ? nearMeOrigin?.Lon : null);
+
             var filtered = ReferenceCatalogSearch.Filter(
 
                 entries,
@@ -457,9 +471,9 @@ public partial class ReferenceCatalogWindow : Window
 
                 country,
 
-                nearMe ? nearMeOrigin?.Lat : null,
+                originLat,
 
-                nearMe ? nearMeOrigin?.Lon : null,
+                originLon,
 
                 nearRadiusKm: radiusKm,
 
@@ -469,9 +483,9 @@ public partial class ReferenceCatalogWindow : Window
 
                 filtered = filtered.Where(e => favIds.Contains(e.Id)).ToList();
 
-            var rows = BuildRows(filtered, nearMeOrigin?.Lat, nearMeOrigin?.Lon, nearMe);
+            var rows = BuildRows(filtered, originLat, originLon, useNear);
 
-            return (rows, filtered.Count, nearMe, nearMeOrigin, radiusKm);
+            return (rows, filtered.Count, useNear, nearMeOrigin, radiusKm);
 
         }).ContinueWith(t =>
 

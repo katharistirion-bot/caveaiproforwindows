@@ -165,14 +165,32 @@ public partial class AndroidBluetoothPeerWindow : Window
         StatusText.Text = "Opened Android Bluetooth session — File → Save as… to keep a ZIP.";
     }
 
-    private void MergeIncoming_Click(object sender, RoutedEventArgs e)
+    private void MergeShotsOnly_Click(object sender, RoutedEventArgs e) =>
+        MergeIncoming(AndroidBluetoothPeerMergeMode.ShotsOnly);
+
+    private void MergeShotsAndBrackets_Click(object sender, RoutedEventArgs e) =>
+        MergeIncoming(AndroidBluetoothPeerMergeMode.ShotsAndBrackets);
+
+    private void MergeAllNoMedia_Click(object sender, RoutedEventArgs e) =>
+        MergeIncoming(AndroidBluetoothPeerMergeMode.AllNoMedia);
+
+    private void MergeIncoming(AndroidBluetoothPeerMergeMode mode)
     {
         if (_pendingProject is null) return;
-        var added = _main.MergeBluetoothPeerShotsIntoSelected(_pendingProject);
+        var result = _main.MergeBluetoothPeerIntoSelected(_pendingProject, mode);
         ClearPending();
-        StatusText.Text = added == 0
-            ? "No new shots to merge (all ids already present)."
-            : $"Merged {added} new shot(s) from Android. Existing legs were not changed.";
+        var total = result.ShotsAdded + result.BracketsAdded + result.DepthSpansAdded + result.RocksAdded;
+        StatusText.Text = total == 0
+            ? "Nothing new to merge (ids already present)."
+            : mode switch
+            {
+                AndroidBluetoothPeerMergeMode.ShotsAndBrackets =>
+                    $"Merged {result.ShotsAdded} shot(s) and {result.BracketsAdded + result.DepthSpansAdded} annotation(s). Existing legs were not changed.",
+                AndroidBluetoothPeerMergeMode.AllNoMedia =>
+                    $"Merged {result.ShotsAdded} shot(s), {result.BracketsAdded + result.DepthSpansAdded} annotation(s), {result.RocksAdded} rock(s). Media URIs were not kept.",
+                _ =>
+                    $"Merged {result.ShotsAdded} new shot(s) from Android. Existing legs were not changed.",
+            };
     }
 
     private void DismissIncoming_Click(object sender, RoutedEventArgs e) => ClearPending();

@@ -10,8 +10,7 @@ const INSTALL_GRACE_PERIOD_MS = INSTALL_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
 const GRACE_DOC_ID_PATTERN = /^[0-9a-f]{64}$/;
 
 function isAllowedStatus(status) {
-  if (!status) return false;
-  return status === "ACTIVE" || status.toUpperCase() === "TRIALING";
+  return status === "ACTIVE";
 }
 
 function isValidGraceDocId(graceDocId) {
@@ -48,7 +47,7 @@ async function assertPremiumEntitlement(db, uid) {
   const status = data.status || "";
   if (!isAllowedStatus(status)) {
     const err = new Error(
-      `Subscription status is '${status || "unknown"}' (expected ACTIVE or TRIALING).`,
+      `Subscription status is '${status || "unknown"}' (expected ACTIVE).`,
     );
     err.code = "permission-denied";
     throw err;

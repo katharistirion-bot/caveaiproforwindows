@@ -10,7 +10,7 @@ Secure middleman between CaveAI Pro Windows and the Replicate API. The Windows a
 
 | Field | Type | Notes |
 |-------|------|--------|
-| `status` | string | Must be `ACTIVE` or `TRIALING` |
+| `status` | string | Must be `ACTIVE` (same as Android / website / `firestore.rules`) |
 | `premiumCloudUntil` | timestamp | Must be in the future |
 | `entitlementSource` | string | `PLAY_SUBSCRIPTION`, `INSTALL_GRACE`, or empty (legacy) |
 | `graceDocId` | string | Required when `entitlementSource` is `INSTALL_GRACE` — 64-char lowercase hex |

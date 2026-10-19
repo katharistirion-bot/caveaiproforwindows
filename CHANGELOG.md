@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [1.5.24] - 2026-10-19
+
+### Fixed
+- Survey workspace JSON no longer stores the open cartography sheet a second time inside the named drawing. Large surveys stay under the size limit and reopen with their map.
+
 ## [1.5.23] - 2026-09-05
 
 ### Fixed

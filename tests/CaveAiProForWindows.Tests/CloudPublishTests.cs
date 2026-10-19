@@ -235,4 +235,14 @@ public sealed class CloudPublishTests
         Assert.IsTrue(loaded.HillshadeEnabled);
         Assert.IsTrue(loaded.CopernicusDsmEnabled);
     }
+
+    [TestMethod]
+    public void AssertPublicLibrarySurveyUploadTargets_fails_closed_when_owner_or_doc_missing()
+    {
+        Assert.ThrowsException<InvalidOperationException>(
+            () => CloudPublishService.AssertPublicLibrarySurveyUploadTargets("", "doc-1"));
+        Assert.ThrowsException<InvalidOperationException>(
+            () => CloudPublishService.AssertPublicLibrarySurveyUploadTargets("uid", "  "));
+        CloudPublishService.AssertPublicLibrarySurveyUploadTargets("uid", "doc-1");
+    }
 }
