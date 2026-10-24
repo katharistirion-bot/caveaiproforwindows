@@ -15,6 +15,8 @@ public sealed class SketchEditorPersistenceHost
 
     public required Func<bool> IsSurveyLayoutReady { get; init; }
 
+    public required Func<int> GetSheetViewMode { get; init; }
+
     public required Func<byte[]?> CaptureStructureMask { get; init; }
 
     public required Func<string?> GetPrimarySourcePath { get; init; }

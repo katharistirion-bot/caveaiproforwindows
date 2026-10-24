@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.SketchAssist;
 
 namespace CaveAiProForWindows.Services;
 
@@ -47,6 +48,8 @@ public static class LongProfileSceneBuilder
         var maxY = projected.Values.Max(c => c.Y);
 
         var wallPolys = SurveyLrudWallGeometry.BuildLongProfileLrudRibbonPolylines(p.Shots, projected).ToList();
+        foreach (var sheetStroke in SectionSheetInk.ReadStrokes(p))
+            wallPolys.Add(SectionSheetInk.ToWallPolyline(sheetStroke));
         var traverseLegs = p.Shots.Where(s => s.IsTraverseLeg).ToList();
         var vectorPolys = new List<SurveyStationGeometry.PlanVectorPolyline>();
         foreach (var v in SurveyStationGeometry.ParseVectorLinesForViewMode(
@@ -59,6 +62,7 @@ public static class LongProfileSceneBuilder
                 vectorPolys.Add(t);
         }
 
+        var sheetSymbols = SectionSheetInk.ReadMapSymbols(p);
         foreach (var pl in wallPolys.Concat(vectorPolys))
         {
             foreach (var (x, y) in pl.Points)
@@ -68,6 +72,14 @@ public static class LongProfileSceneBuilder
                 minY = Math.Min(minY, y);
                 maxY = Math.Max(maxY, y);
             }
+        }
+
+        foreach (var sym in sheetSymbols)
+        {
+            minX = Math.Min(minX, sym.X);
+            maxX = Math.Max(maxX, sym.X);
+            minY = Math.Min(minY, sym.Y);
+            maxY = Math.Max(maxY, sym.Y);
         }
 
         Debug.WriteLine(
@@ -83,7 +95,7 @@ public static class LongProfileSceneBuilder
             TraverseSegments = segs,
             WallPolylines = wallPolys,
             VectorPolylines = vectorPolys,
-            Symbols = Array.Empty<SurveyStationGeometry.PlanMapSymbol>(),
+            Symbols = sheetSymbols,
             StationAttachedImages = Array.Empty<StationAttachedImageRef>(),
             SplaySegments = Array.Empty<(float, float, float, float)>(),
             FieldCatalogPins = FieldCatalogMapPinCollector.Collect(p),

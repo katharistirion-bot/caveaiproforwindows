@@ -50,6 +50,11 @@ public partial class SketchEditorViewModel : ObservableObject
         _history.PushRemoved(element, index);
     }
 
+    public void RecordInkMoved(UIElement element, double dx, double dy)
+    {
+        _history.PushMoved(element, dx, dy);
+    }
+
     [RelayCommand(CanExecute = nameof(CanUndo))]
     private void Undo()
     {
@@ -85,6 +90,8 @@ public partial class SketchEditorViewModel : ObservableObject
 
         var layout = _host.GetSurveyLayout();
         var designLayer = _host.GetDesignLayer();
+        if (_host.GetSheetViewMode() == SurveyStationGeometry.AndroidViewModeSection)
+            return SectionSheetInk.TryApply(project, designLayer, layout);
         return DesignLayerMapObjectsSerializer.TryApplyDesignLayerToProject(project, designLayer, layout);
     }
 

@@ -13,6 +13,9 @@ public sealed class ProceduralSketchOptions
 
     /// <summary>When true, adds LRUD / radial splay segments as dashed procedural strokes.</summary>
     public bool IncludeSplayOutlines { get; init; }
+
+    /// <summary>Plan (0) or extended section (1). Section uses ceiling and floor along developed distance.</summary>
+    public int ViewMode { get; init; } = SurveyStationGeometry.AndroidViewModePlan;
 }
 
 public sealed class ProceduralSketchResult
@@ -38,10 +41,12 @@ public static class ProceduralSketchGenerator
         options ??= new ProceduralSketchOptions();
         result = new ProceduralSketchResult();
 
-        var scene = PlanSceneBuilder.TryBuild(
-            project,
-            SurveyStationGeometry.AndroidViewModePlan,
-            SurveyVisualizationMode.Standard);
+        var scene = options.ViewMode == SurveyStationGeometry.AndroidViewModeSection
+            ? SectionSceneBuilder.TryBuild(project, SurveyVisualizationMode.Standard)
+            : PlanSceneBuilder.TryBuild(
+                project,
+                SurveyStationGeometry.AndroidViewModePlan,
+                SurveyVisualizationMode.Standard);
         if (scene == null)
             return false;
 

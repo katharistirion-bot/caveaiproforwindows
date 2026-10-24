@@ -23,6 +23,21 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           Padding="0">
                 <StackPanel Margin="5">
+                    <TextBlock Text="Sheet" FontWeight="SemiBold"
+                               FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                               Foreground="{DynamicResource Cave.Text}"
+                               Margin="0,0,0,8" />
+                    <RadioButton x:Name="SketchSheetPlan" GroupName="SketchEditorSheet" IsChecked="True"
+                                 FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                 Content="Plan" Checked="SketchSheetPlan_Checked"
+                                 ToolTip="Design the plan. Left/right walls come from LRUD."
+                                 Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
+                    <RadioButton x:Name="SketchSheetSection" GroupName="SketchEditorSheet"
+                                 FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                 Content="Section" Checked="SketchSheetSection_Checked"
+                                 ToolTip="Design the extended section. Ceiling and floor come from Up/Down."
+                                 Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,8" />
+
                     <TextBlock Text="Drawing mode" FontWeight="SemiBold"
                                FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                Foreground="{DynamicResource Cave.Text}"
@@ -34,6 +49,7 @@
                     <RadioButton x:Name="SketchToolSelect" GroupName="SketchEditorTools"
                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                  Content="Select" Checked="SketchToolSelect_Checked"
+                                 ToolTip="Click a stroke or symbol, then drag it into place (Ctrl+2)"
                                  Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
                     <RadioButton x:Name="SketchToolDraw" GroupName="SketchEditorTools"
                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
@@ -48,6 +64,14 @@
                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                  Content="Insert symbol" Checked="SketchToolSymbol_Checked"
                                  Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
+                    <RadioButton x:Name="SketchToolText" GroupName="SketchEditorTools"
+                                 FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
+                                 Content="Text label" Checked="SketchToolText_Checked"
+                                 ToolTip="Type a label, then click the sheet to place it"
+                                 Foreground="{DynamicResource Cave.Text}" Margin="0,0,0,6" />
+                    <TextBox x:Name="SketchLabelBox" Margin="0,0,0,6" Padding="6,4"
+                             ToolTip="Label placed by the Text tool"
+                             Text="Label" />
                     <RadioButton x:Name="SketchToolErase" GroupName="SketchEditorTools"
                                  FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                  Content="Erase" Checked="SketchToolErase_Checked"
@@ -98,7 +122,7 @@
                     <StackPanel x:Name="SketchEditToolsPanel" Orientation="Horizontal" Margin="0,0,0,6">
                         <Button Content="Undo" Padding="10,6" Margin="0,0,6,0"
                                 Command="{Binding UndoCommand}"
-                                ToolTip="Undo last sketch edit (Ctrl+Z)" />
+                                ToolTip="Undo last sketch edit, including a move (Ctrl+Z)" />
                         <Button Content="Redo" Padding="10,6"
                                 Command="{Binding RedoCommand}"
                                 ToolTip="Redo (Ctrl+Y)" />
@@ -113,20 +137,26 @@
                                FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                Foreground="{DynamicResource Cave.Text}"
                                Margin="0,0,0,6" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <Button Content="Select all ink" Padding="8,6" Margin="0,0,6,0"
+                    <WrapPanel Margin="0,0,0,6">
+                        <Button Content="Select top" Padding="8,6" Margin="0,0,6,6"
                                 Click="SketchSelectAllInk_Click"
-                                ToolTip="Select the topmost sketch stroke or symbol (shows layer count in status bar)" />
-                        <Button Content="Fit survey" Padding="8,6" Margin="0,0,6,0"
+                                ToolTip="Select the topmost sketch stroke or symbol, then drag it (shows layer count in status bar)" />
+                        <Button Content="Fit survey" Padding="8,6" Margin="0,0,6,6"
                                 Click="SketchFitSurvey_Click"
                                 ToolTip="Zoom/pan to frame traverse bounds (Ctrl+F)" />
-                        <Button Content="Duplicate" Padding="8,6" Margin="0,0,6,0"
+                        <Button Content="Duplicate" Padding="8,6" Margin="0,0,6,6"
                                 Click="SketchDuplicateInk_Click"
                                 ToolTip="Duplicate selected ink (Ctrl+D)" />
-                        <Button Content="Clear all" Padding="8,6"
+                        <Button Content="Smaller" Padding="8,6" Margin="0,0,6,6"
+                                Click="SketchSymbolSmaller_Click"
+                                ToolTip="Shrink the selected symbol" />
+                        <Button Content="Larger" Padding="8,6" Margin="0,0,6,6"
+                                Click="SketchSymbolLarger_Click"
+                                ToolTip="Enlarge the selected symbol" />
+                        <Button Content="Clear all" Padding="8,6" Margin="0,0,0,6"
                                 Click="SketchClearAllInk_Click"
                                 ToolTip="Remove all user sketch ink from the design layer" />
-                    </StackPanel>
+                    </WrapPanel>
                     <Button Content="Export plan PNG…" Margin="0,0,0,10" Padding="10,6"
                             FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                             Click="SketchExportPng_Click"
@@ -174,59 +204,73 @@
                             <ToggleButton x:Name="SymbolPaletteFlow" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Flowstone / curtain" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Fl" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphFlow}" />
                             <ToggleButton x:Name="SymbolPaletteSand" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Sand / mud floor" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Sd" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphSand}" />
                             <ToggleButton x:Name="SymbolPalettePit" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Shaft / pit" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Pt" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphPit}" />
                             <ToggleButton x:Name="SymbolPaletteAid" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Rope / ladder / fixed aid" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Ld" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphAid}" />
                             <ToggleButton x:Name="SymbolPaletteChoke" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Choke / constriction" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Ch" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphChoke}" />
                             <ToggleButton x:Name="SymbolPaletteBreakdown" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Breakdown / boulder pile" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Br" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphBreakdown}" />
                             <ToggleButton x:Name="SymbolPaletteColumn" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Column / pillar" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Co" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphColumn}" />
                             <ToggleButton x:Name="SymbolPaletteHelictite" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Helictite / eccentric speleothem (UIS helictite)" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="He" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphHelictite}" />
                             <ToggleButton x:Name="SymbolPaletteAven" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Aven / shaft up (UIS aven)" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Av" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphAven}" />
                             <ToggleButton x:Name="SymbolPaletteStream" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Subterranean stream (UIS stream)" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Sr" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphStream}" />
                             <ToggleButton x:Name="SymbolPaletteMud" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Mud deposit (UIS mud)" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Md" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphMud}" />
                             <ToggleButton x:Name="SymbolPaletteArchaeology" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Bones / archaeology (UIS bones)" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Ar" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphArchaeology}" />
                             <ToggleButton x:Name="SymbolPaletteGuano" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Bat guano (UIS guano)" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Bn" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphGuano}" />
                             <ToggleButton x:Name="SymbolPaletteCrack" Width="40" Height="36" Margin="0,0,4,4"
                                           ToolTip="Crack / fissure (estimated passage edge)" Padding="2" Background="Transparent"
                                           BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                          Checked="SymbolPalette_Checked" Content="Cr" FontSize="11" />
+                                          Checked="SymbolPalette_Checked"
+                                          Content="{DynamicResource SketchGlyphCrack}" />
                         </WrapPanel>
                     </Border>
 
@@ -246,7 +290,7 @@
                         <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
                                    FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                    Foreground="{DynamicResource Cave.TextMuted}"
-                                   Text="W — straight line · Delete — remove selected ink · Ctrl+D duplicate · Ctrl+F fit survey · Ctrl+Z/Y undo/redo&#x0a;Ctrl+1 Pan · 2 Select · 3 Draw · 4 Symbol · 5 Erase · 6 Line · Wheel zoom · double-click reset view." />
+                                   Text="Select, then drag to move a stroke or symbol · W — straight line · Delete — remove selected ink · Ctrl+D duplicate · Ctrl+F fit survey · Ctrl+Z/Y undo/redo&#x0a;Ctrl+1 Pan · 2 Select · 3 Draw · 4 Symbol · 5 Erase · 6 Line · Wheel zoom · double-click reset view." />
                     </Expander>
 
                     <Separator Margin="0,0,0,10" />
@@ -314,12 +358,12 @@
 
                     <Expander Header="Procedural Assist" IsExpanded="False" Margin="0,0,0,6">
                     <StackPanel x:Name="ProceduralAssistPanel" Margin="0,6,0,0">
-                        <TextBlock TextWrapping="Wrap"
+                        <TextBlock x:Name="ProceduralAssistHint" TextWrapping="Wrap"
                                    FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                    Foreground="{DynamicResource Cave.TextMuted}"
                                    Margin="0,0,0,8"
-                                   Text="Auto-draw LRUD wall outlines and place survey/catalog symbols on the design layer from traverse data." />
-                        <CheckBox Content="LRUD wall outlines" Margin="0,0,0,6"
+                                   Text="Auto-draw passage walls from the survey onto this sheet. Plan uses left/right LRUD. Section uses up/down along the extended section." />
+                        <CheckBox Content="Passage walls" Margin="0,0,0,6"
                                   FontSize="{DynamicResource Cave.ToolSidebarFontSize}"
                                   IsChecked="{Binding IncludeWallOutlines}"
                                   Foreground="{DynamicResource Cave.Text}" />

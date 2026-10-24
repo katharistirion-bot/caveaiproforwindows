@@ -135,6 +135,8 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     private CaveProjectDocument? _designLayerProjectScope;
     private string? _designLayerActiveCartographyMapIdScope;
     private bool _designLayerHydrated;
+    private int _sheetViewMode = SurveyStationGeometry.AndroidViewModePlan;
+    private bool _sheetEventsWired;
     private PlanScene? _interactivePlanScene;
     private PlanCanvasSurveyLayout _surveyHitLayout;
     private bool _surveyHitLayoutReady;
@@ -276,6 +278,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                 () => _inkStrokeWidthPx,
                 () => _inkDashedStrokes,
                 () => _inkWallProfile);
+            _editor.LabelText = () => SketchLabelBox?.Text ?? "";
         }
 
         PopulateSymbolLegend();
@@ -294,11 +297,14 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             _editor.DesignLayerModified = SyncDesignLayerToInMemoryProject;
             _editor.InkAdded = OnInkAdded;
             _editor.InkRemoved = OnInkRemoved;
+            _editor.InkMoved = OnInkMoved;
         }
 
         if (SketchEditToolsPanel != null)
             SketchEditToolsPanel.DataContext = _sketchPersistence;
         ResetPropertiesPanelToSummary();
+        _sheetEventsWired = true;
+        UpdateProceduralAssistHint();
         RedrawImmediate();
         UpdateEditorStatusBar();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
@@ -634,6 +640,8 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                 SketchToolDraw.IsChecked = _currentTool == MapCanvasEditorTool.DrawFreehand;
                 SketchToolLine.IsChecked = _currentTool == MapCanvasEditorTool.DrawLine;
                 SketchToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
+                if (SketchToolText != null)
+                    SketchToolText.IsChecked = _currentTool == MapCanvasEditorTool.PlaceText;
                 SketchToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
             }
         }
@@ -731,7 +739,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     private PlanCanvasDrawOptions SketchDrawOptions()
     {
         var intensity = CartographicIntensityParser.Parse(AppUiSettingsStore.LoadOrDefault().CartographicIntensity);
-        return PlanCanvasDrawOptions.ForPlan(
+        var options = PlanCanvasDrawOptions.ForPlan(
             SketchStationNamesCheck?.IsChecked != false,
             SketchCartographyOverlayCheck?.IsChecked != false,
             VisualizationMode,
@@ -743,6 +751,44 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             SketchDepthSpanAnnotationsCheck?.IsChecked != false,
             SketchBracketMarkersCheck?.IsChecked != false,
             showPersistedSketchInk: false);
+        return IsSectionSheet ? options with { CanvasKind = SurveyCanvasKind.Section } : options;
+    }
+
+    private bool IsSectionSheet => _sheetViewMode == SurveyStationGeometry.AndroidViewModeSection;
+
+    private void SketchSheetPlan_Checked(object sender, RoutedEventArgs e) =>
+        SwitchSheet(SurveyStationGeometry.AndroidViewModePlan);
+
+    private void SketchSheetSection_Checked(object sender, RoutedEventArgs e) =>
+        SwitchSheet(SurveyStationGeometry.AndroidViewModeSection);
+
+    private void SwitchSheet(int viewMode)
+    {
+        if (!_sheetEventsWired || _sheetViewMode == viewMode)
+            return;
+
+        SyncDesignLayerToInMemoryProject();
+        _sheetViewMode = viewMode;
+        _designLayerHydrated = false;
+        _cachedUnderlays = null;
+        _interactivePlanScene = null;
+        _surveyHitLayoutReady = false;
+        if (DesignLayer != null)
+            DesignLayer.Children.Clear();
+        _editor?.OnDesignLayerCleared();
+        _sketchPersistence?.ClearHistory();
+        _proceduralSketch?.NotifySheetChanged();
+        UpdateProceduralAssistHint();
+        Redraw();
+    }
+
+    private void UpdateProceduralAssistHint()
+    {
+        if (ProceduralAssistHint == null)
+            return;
+        ProceduralAssistHint.Text = IsSectionSheet
+            ? "Auto-draw ceiling and floor from Up/Down along the extended section, then edit the dashed preview."
+            : "Auto-draw passage walls from the survey onto this sheet. Plan uses left/right LRUD. Section uses up/down along the extended section.";
     }
 
     private void SyncCartographicIntensityCombo(string? persisted)
@@ -881,8 +927,12 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
 
             try
             {
-                var underlays = PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
-                var scene = PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModePlan, VisualizationMode);
+                var underlays = IsSectionSheet
+                    ? Array.Empty<PlanRasterUnderlay>()
+                    : PlanMapUnderlayLoader.TryLoadRasterUnderlays(p, ZipPath, MapRows, MapInventory);
+                var scene = IsSectionSheet
+                    ? SectionSceneBuilder.TryBuild(p, VisualizationMode)
+                    : PlanSceneBuilder.TryBuild(p, SurveyStationGeometry.AndroidViewModePlan, VisualizationMode);
                 if (scene == null)
                 {
                     if (underlays.Count > 0)
@@ -901,9 +951,10 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                         return;
                     }
 
-                    AddMessage(
-                        "No plan data yet — add traverse shots (to ≠ \"-\") and/or wall sketches or vectors in CaveAI Pro (Android), then re-export. "
-                        + "If cartography paths resolve to raster files inside the opened .zip, an underlay can appear here even without traverse.");
+                    AddMessage(IsSectionSheet
+                        ? "No section yet — add traverse shots (to ≠ \"-\"), then Generate from survey for ceiling and floor."
+                        : "No plan data yet — add traverse shots (to ≠ \"-\") and/or wall sketches or vectors in CaveAI Pro (Android), then re-export. "
+                          + "If cartography paths resolve to raster files inside the opened .zip, an underlay can appear here even without traverse.");
                     AndroidImportedSymbolPresenter.ClearImported(DesignLayer);
                     InvalidateSurveyPickState(true);
                     return;
@@ -1036,10 +1087,11 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         var toolLabel = _currentTool switch
         {
             MapCanvasEditorTool.PanZoom => "Pan / zoom",
-            MapCanvasEditorTool.Select => "Select",
+            MapCanvasEditorTool.Select => "Select · drag to move",
             MapCanvasEditorTool.DrawFreehand => $"Freehand · {WallProfileLabel(_inkWallProfile)}",
             MapCanvasEditorTool.DrawLine => $"Wall line · {WallProfileLabel(_inkWallProfile)}",
             MapCanvasEditorTool.PlaceSymbol => $"Symbol: {SketchSymbolPaletteCatalog.GetUisDisplayName(_stampKind)}",
+            MapCanvasEditorTool.PlaceText => "Text label",
             MapCanvasEditorTool.Erase => "Erase",
             _ => _currentTool.ToString(),
         };
@@ -1048,8 +1100,9 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             ? " · Dashed"
             : "";
         var lrud = !string.IsNullOrWhiteSpace(_cursorLrudHint) ? $" · {_cursorLrudHint}" : "";
+        var sheet = IsSectionSheet ? "Section" : "Plan";
         EditorStatusText.Text =
-            $"{toolLabel} · {snap} · Width {_inkStrokeWidthPx.ToString("0.##", CultureInfo.InvariantCulture)} px{dash}{lrud}";
+            $"{sheet} · {toolLabel} · {snap} · Width {_inkStrokeWidthPx.ToString("0.##", CultureInfo.InvariantCulture)} px{dash}{lrud}";
     }
 
     private void UpdateCursorLrudHint(Point canvasPoint)
@@ -1100,7 +1153,9 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         if (_designLayerHydrated || DesignLayer == null || !_surveyHitLayoutReady)
             return;
         _designLayerHydrated = true;
-        var added = DesignLayerMapObjectsHydrator.TryHydrate(DesignLayer, _surveyHitLayout, project);
+        var added = IsSectionSheet
+            ? DesignLayerMapObjectsHydrator.TryHydrateSection(DesignLayer, _surveyHitLayout, project)
+            : DesignLayerMapObjectsHydrator.TryHydrate(DesignLayer, _surveyHitLayout, project);
         if (added > 0)
             _sketchPersistence?.ClearHistory();
     }
@@ -1240,6 +1295,27 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         SyncSymbolPaletteEnabled();
         PersistSketchTab();
         UpdateEditorStatusBar();
+    }
+
+    private void SketchToolText_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { IsChecked: true })
+            _currentTool = MapCanvasEditorTool.PlaceText;
+        SyncSymbolPaletteEnabled();
+        PersistSketchTab();
+        UpdateEditorStatusBar();
+    }
+
+    private void SketchSymbolSmaller_Click(object sender, RoutedEventArgs e)
+    {
+        if (_editor?.ResizeSelectedSymbol(0.8) == true)
+            OnSketchEditStateChanged();
+    }
+
+    private void SketchSymbolLarger_Click(object sender, RoutedEventArgs e)
+    {
+        if (_editor?.ResizeSelectedSymbol(1.25) == true)
+            OnSketchEditStateChanged();
     }
 
     private void SketchToolErase_Checked(object sender, RoutedEventArgs e)
@@ -1608,6 +1684,8 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
                 SketchToolLine.IsChecked = _currentTool == MapCanvasEditorTool.DrawLine;
             if (SketchToolSymbol != null)
                 SketchToolSymbol.IsChecked = _currentTool == MapCanvasEditorTool.PlaceSymbol;
+            if (SketchToolText != null)
+                SketchToolText.IsChecked = _currentTool == MapCanvasEditorTool.PlaceText;
             if (SketchToolErase != null)
                 SketchToolErase.IsChecked = _currentTool == MapCanvasEditorTool.Erase;
         }
@@ -1653,8 +1731,14 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
     }
 
     /// <summary>Flushes design-layer strokes/symbols and AI assets onto <paramref name="project"/> before disk save.</summary>
-    public bool TryPersistSessionToProject(CaveProjectDocument project) =>
-        _sketchPersistence?.TryPersistSessionToProject(project) ?? false;
+    public bool TryPersistSessionToProject(CaveProjectDocument project)
+    {
+        var active = project.ActiveCartographyMapId?.Trim() ?? "";
+        var scope = _designLayerActiveCartographyMapIdScope?.Trim() ?? "";
+        if (!string.Equals(active, scope, StringComparison.Ordinal))
+            return false;
+        return _sketchPersistence?.TryPersistSessionToProject(project) ?? false;
+    }
 
     /// <summary>After cartography — focus Procedural Assist and optionally generate LRUD preview.</summary>
     public void BeginDesignFromSurvey(bool runProceduralAssist)
@@ -1723,6 +1807,20 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
         _sketchPersistence?.RecordInkRemoved(element, index);
     }
 
+    private void OnInkMoved(UIElement element, double dx, double dy)
+    {
+        EnsureSketchPersistenceViewModel();
+        _sketchPersistence?.RecordInkMoved(element, dx, dy);
+    }
+
+    private void OnSketchEditStateChanged()
+    {
+        var hadSelection = _editor?.SelectedInk != null;
+        _editor?.RefreshSelectionFrame();
+        if (hadSelection && _editor?.SelectedInk == null)
+            ResetPropertiesPanelToSummary();
+    }
+
     private void UpdatePropertiesPanelForInk(UIElement? ink)
     {
         if (PropertySelectionStatusText == null
@@ -1751,7 +1849,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             case Polyline poly:
                 PropertySelectionStatusText.Text = "Selected freehand stroke";
                 PropertyStationLegNameText.Text = "Design-layer stroke";
-                PropertyCoordinatesText.Text = $"{poly.Points.Count} canvas points · press Delete to remove";
+                PropertyCoordinatesText.Text = $"{poly.Points.Count} canvas points · drag to move · Delete to remove";
                 PropertySurveyDataText.Text = "Saved to mapObjects on next sync / Save project";
                 PropertyWallDimensionsText.Text = "Use Erase mode or Undo (Ctrl+Z) to revert edits";
                 SetPropertyAndroidPayloadText("—");
@@ -1759,9 +1857,17 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             case Viewbox:
                 PropertySelectionStatusText.Text = "Selected symbol stamp";
                 PropertyStationLegNameText.Text = "Design-layer symbol";
-                PropertyCoordinatesText.Text = "Press Delete to remove this stamp";
+                PropertyCoordinatesText.Text = "Drag to move · Smaller / Larger change the stamp · Delete to remove";
                 PropertySurveyDataText.Text = "Saved to mapObjects on next sync / Save project";
                 PropertyWallDimensionsText.Text = "Use Erase mode or Undo (Ctrl+Z) to revert edits";
+                SetPropertyAndroidPayloadText("—");
+                break;
+            case TextBlock label:
+                PropertySelectionStatusText.Text = "Selected text label";
+                PropertyStationLegNameText.Text = label.Text;
+                PropertyCoordinatesText.Text = "Drag to move · Delete to remove";
+                PropertySurveyDataText.Text = "Saved with the plan symbols on next Save project";
+                PropertyWallDimensionsText.Text = "—";
                 SetPropertyAndroidPayloadText("—");
                 break;
             default:
@@ -1788,6 +1894,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             GetDesignLayer = () => DesignLayer,
             GetSurveyLayout = () => _surveyHitLayout,
             IsSurveyLayoutReady = () => _surveyHitLayoutReady && Project != null,
+            GetSheetViewMode = () => _sheetViewMode,
             CaptureStructureMask = () =>
             {
                 var p = Project;
@@ -1801,6 +1908,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             },
             GetPrimarySourcePath = () => _wiredMainVm?.PrimarySourceFilePath,
         });
+        _sketchPersistence.EditStateChanged += OnSketchEditStateChanged;
     }
 
     private void EnsureCloudPublishViewModel()
@@ -1839,6 +1947,7 @@ public partial class SketchEditorView : UserControl, IMapSurfaceShortcuts
             IsSurveyLayoutReady = () => _surveyHitLayoutReady && Project != null,
             GetSurveyLayout = () => _surveyHitLayout,
             GetDesignLayer = () => DesignLayer,
+            GetSheetViewMode = () => _sheetViewMode,
             OnDesignLayerChanged = () =>
             {
                 SyncDesignLayerToInMemoryProject();

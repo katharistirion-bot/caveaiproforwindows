@@ -67,6 +67,61 @@ public static class DesignLayerMapObjectsHydrator
         return added;
     }
 
+    /// <summary>Rebuilds the section sheet from extended-elevation vector lines and symbols.</summary>
+    public static int TryHydrateSection(Canvas designLayer, PlanCanvasSurveyLayout layout, CaveProjectDocument project)
+    {
+        ArgumentNullException.ThrowIfNull(designLayer);
+        ArgumentNullException.ThrowIfNull(project);
+        if (layout.Scale <= 0 || double.IsNaN(layout.Scale))
+            return 0;
+
+        designLayer.Children.Clear();
+        var added = 0;
+        foreach (var stroke in SectionSheetInk.ReadStrokes(project))
+        {
+            if (stroke.Points.Count < 2)
+                continue;
+            var model = new SketchStrokeModel
+            {
+                Closed = stroke.Closed,
+                Source = stroke.Metadata.Source,
+                Metadata = stroke.Metadata,
+                Points = stroke.Points,
+            };
+            var poly = DesignLayerProceduralApplicator.CreatePolyline(model, layout, stroke.Metadata);
+            if (stroke.Closed && poly.Points.Count >= 3)
+                poly.StrokeLineJoin = PenLineJoin.Round;
+            designLayer.Children.Add(poly);
+            added++;
+        }
+
+        foreach (var sym in SectionSheetInk.ReadSymbols(project))
+        {
+            if (sym.IsLabel)
+            {
+                if (string.IsNullOrWhiteSpace(sym.Label))
+                    continue;
+                designLayer.Children.Add(DesignLayerSurveyConverter.CreateLabel(sym.Label, sym.X, sym.Y, layout));
+                added++;
+                continue;
+            }
+
+            var kind = SketchEditorSymbolKindExporter.FromSymbolId(sym.SymbolId);
+            var stamp = new SketchSymbolStampModel
+            {
+                SurveyX = sym.X,
+                SurveyY = sym.Y,
+                Kind = kind,
+                Scale = sym.Scale > 0 ? sym.Scale : 1f,
+            };
+            var meta = DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx);
+            designLayer.Children.Add(DesignLayerProceduralApplicator.CreateSymbolStamp(stamp, layout, meta));
+            added++;
+        }
+
+        return added;
+    }
+
     private static bool IsWindowsAuthored(JsonElement el)
     {
         if (el.ValueKind != JsonValueKind.Object)
@@ -105,9 +160,25 @@ public static class DesignLayerMapObjectsHydrator
             if (string.IsNullOrWhiteSpace(symbolId))
                 continue;
 
+            if (string.Equals(symbolId, DesignLayerSurveyConverter.LabelIcon, StringComparison.Ordinal))
+            {
+                var text = el.TryGetProperty("label", out var labelEl) && labelEl.ValueKind == JsonValueKind.String
+                    ? labelEl.GetString()
+                    : null;
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    canvas.Children.Add(DesignLayerSurveyConverter.CreateLabel(text, x, y, layout));
+                    added++;
+                }
+                continue;
+            }
+
+            var scale = 1f;
+            if (TryReadFloat(el, "scale", out var readScale) && readScale > 0)
+                scale = readScale;
             var kind = SketchEditorSymbolKindExporter.FromSymbolId(symbolId);
             var meta = DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx);
-            var stamp = new SketchSymbolStampModel { SurveyX = x, SurveyY = y, Kind = kind };
+            var stamp = new SketchSymbolStampModel { SurveyX = x, SurveyY = y, Kind = kind, Scale = scale };
             canvas.Children.Add(DesignLayerProceduralApplicator.CreateSymbolStamp(stamp, layout, meta));
             added++;
         }
@@ -196,11 +267,24 @@ public static class DesignLayerMapObjectsHydrator
         var symbolId = el.TryGetProperty("symbolId", out var sid) && sid.ValueKind == JsonValueKind.String
             ? sid.GetString()
             : null;
+        if (string.Equals(symbolId, DesignLayerSurveyConverter.LabelIcon, StringComparison.Ordinal))
+        {
+            var text = el.TryGetProperty("label", out var labelEl) && labelEl.ValueKind == JsonValueKind.String
+                ? labelEl.GetString()
+                : null;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+            canvas.Children.Add(DesignLayerSurveyConverter.CreateLabel(text, sx, sy, layout));
+            return true;
+        }
         var kind = SketchEditorSymbolKindExporter.FromSymbolId(symbolId);
         var meta = SketchStrokeStyleMerger.TryParseFromJson(el)
             ?? DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx);
 
-        var stamp = new SketchSymbolStampModel { SurveyX = sx, SurveyY = sy, Kind = kind };
+        var objectScale = 1f;
+        if (TryReadFloat(el, "scale", out var parsedScale) && parsedScale > 0)
+            objectScale = parsedScale;
+        var stamp = new SketchSymbolStampModel { SurveyX = sx, SurveyY = sy, Kind = kind, Scale = objectScale };
         canvas.Children.Add(DesignLayerProceduralApplicator.CreateSymbolStamp(stamp, layout, meta));
         return true;
     }

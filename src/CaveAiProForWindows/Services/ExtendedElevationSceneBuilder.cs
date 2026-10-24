@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services.SketchAssist;
 using StationCoords = CaveAiProForWindows.Services.SurveyStationGeometry.StationPlanCoords;
 
 namespace CaveAiProForWindows.Services;
@@ -57,6 +58,9 @@ public static class ExtendedElevationSceneBuilder
 
         if (!visualization.ShowSplayXRayGeometry())
             wallPolys.AddRange(SurveyLrudWallGeometry.BuildLongProfileLrudRibbonPolylines(p.Shots, elev));
+
+        foreach (var sheetStroke in SectionSheetInk.ReadStrokes(p))
+            wallPolys.Add(SectionSheetInk.ToWallPolyline(sheetStroke));
 
         var splaySegs = new List<(float x1, float y1, float x2, float y2)>();
         if (visualization == SurveyVisualizationMode.Plan2Tone)
@@ -142,7 +146,8 @@ public static class ExtendedElevationSceneBuilder
             Consider(x2, y2);
         }
 
-        var sectionSymbols = ProjectPlanSymbolsToProfile(p, traverseLegs, planCoords, chainage);
+        var sectionSymbols = ProjectPlanSymbolsToProfile(p, traverseLegs, planCoords, chainage).ToList();
+        sectionSymbols.AddRange(SectionSheetInk.ReadMapSymbols(p));
         foreach (var sym in sectionSymbols)
             Consider(sym.X, sym.Y);
 

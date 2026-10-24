@@ -170,6 +170,41 @@ public static class SurveyStationGeometry
     /// <summary>Long profile / developed distance view (Android viewMode 3).</summary>
     public const int AndroidViewModeLongProfile = 3;
 
+    /// <summary>
+    /// Vector-line <c>type</c> for Sketch Editor section ink. Android draws it with the matching
+    /// <c>viewMode</c>. The <c>WINDOWS_</c> prefix keeps the plan-frame vector parser from projecting it.
+    /// </summary>
+    public const string WindowsSectionVectorLineType = "WINDOWS_SECTION";
+
+    /// <summary>Points are developed chainage (X) and elevation relative to the entrance (Y).</summary>
+    public const string ExtendedElevationCoordinateFrame = "extendedElevation";
+
+    public static float EntranceAltitudeMetres(CaveProjectDocument project)
+    {
+        var alt = project.Alt;
+        if (double.IsNaN(alt) || double.IsInfinity(alt))
+            return 0f;
+        return (float)alt;
+    }
+
+    public static bool IsWindowsSectionVectorLine(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return false;
+        if (!el.TryGetProperty("type", out var typeEl) || typeEl.ValueKind != JsonValueKind.String)
+            return false;
+        return string.Equals(typeEl.GetString(), WindowsSectionVectorLineType, StringComparison.Ordinal);
+    }
+
+    /// <summary>Section-sheet stamps written in extended-elevation metres. Plan parsers must leave them alone.</summary>
+    public static bool IsExtendedElevationCartography(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return false;
+        return el.TryGetProperty("coordinateFrame", out var frame)
+               && frame.ValueKind == JsonValueKind.String
+               && string.Equals(frame.GetString(), ExtendedElevationCoordinateFrame, StringComparison.Ordinal);
+    }
     /// <summary>Parses <c>vectorLines</c> for a given Android <c>viewMode</c>.</summary>
     public static IReadOnlyList<PlanVectorPolyline> ParseVectorLinesForViewMode(JsonElement? vectorLinesRoot, int requiredViewMode)
     {
@@ -437,6 +472,8 @@ public static class SurveyStationGeometry
 
     private static void TryAppendSinglePlanMapSymbol(JsonElement el, List<PlanMapSymbol> list, int viewModeFilter)
     {
+        if (IsExtendedElevationCartography(el))
+            return;
         if (!PassesViewModeFilter(el, viewModeFilter))
             return;
         if (!TryReadSurveyXY(el, out var x, out var y))

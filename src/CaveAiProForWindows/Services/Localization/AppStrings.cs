@@ -20,10 +20,10 @@ public static class AppStrings
     public static string MenuLoopClosure => "Loop closure assistant…";
     public static string MenuDesignPlanFromSurvey => "Design plan from survey…";
     public static string DesignAfterMappingSnackbar =>
-        "Survey loaded — open Sketch Editor to design the plan (LRUD walls and symbols from traverse).";
+        "Survey loaded — open Sketch Editor to design the plan or the section (walls and symbols from the traverse).";
     public static string DesignAfterMappingSnackbarAction => "Design now";
     public static string DesignFromSurveyStatus =>
-        "Sketch Editor — use Procedural Assist to generate LRUD walls, then edit and Save project.";
+        "Sketch Editor — Plan or Section. Procedural Assist generates walls from the traverse, then edit and Save project.";
     public static string MenuRepublish => "Re-publish to Public Library…";
     public static string MenuDownloadLibrary => "Download from Public Library…";
     public static string ToolbarOpen => "Open";
@@ -45,8 +45,7 @@ public static class AppStrings
         "PLAN and SECTION tabs show traverse, LRUD walls, and symbols (read-only). Use Survey Intelligence as your QC hub — loop closure, integrity, and expedition metrics.";
     public static string OnboardingStep3Title => "Sketch Editor — design after mapping";
     public static string OnboardingStep3Body =>
-        "After cartography (PLAN / SECTION / QC), open SKETCH EDITOR or Tools → Design plan from survey. " +
-        "Procedural Assist draws LRUD walls and symbols from traverse data; edit, Save project, then export or publish.";
+        "Open SKETCH EDITOR and choose Plan or Section. Procedural Assist draws walls and symbols from the traverse; edit, Save project, then export or publish.";
     public static string OnboardingStep4Title => "3D labels & publication";
     public static string OnboardingStep4Body =>
         "Use the 3D MODEL tab for labeled overviews, then Tools → Publication sheet for composite plan, " +

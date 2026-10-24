@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Windows.Controls;
 using CaveAiProForWindows.Models;
-using CaveAiProForWindows.Services.SketchAssist;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.SketchAssist;
 
 namespace CaveAiProForWindows.Services.Persistence;
 
@@ -56,6 +56,19 @@ public static class DesignLayerMapObjectsSerializer
                 sketchEntries.Add(ToAndroidSketchEntry(strokeObj));
             }
 
+            foreach (var label in DesignLayerSurveyConverter.ExtractLabels(designLayer, layout))
+            {
+                entries.Add(new Dictionary<string, object?>
+                {
+                    ["symbolId"] = DesignLayerSurveyConverter.LabelIcon,
+                    ["label"] = label.Text,
+                    ["surveyX"] = label.X,
+                    ["surveyY"] = label.Y,
+                    ["viewMode"] = viewMode,
+                    ["sourceClient"] = WindowsSourceClient,
+                });
+            }
+
             foreach (var stamp in stamps)
             {
                 var entry = new Dictionary<string, object?>
@@ -64,7 +77,7 @@ public static class DesignLayerMapObjectsSerializer
                     ["surveyY"] = stamp.SurveyY,
                     ["symbolId"] = SketchEditorSymbolKindExporter.ToSymbolId(stamp.Kind),
                     ["viewMode"] = viewMode,
-                    ["scale"] = 1f,
+                    ["scale"] = stamp.Scale > 0 ? stamp.Scale : 1f,
                     ["sourceClient"] = WindowsSourceClient,
                 };
                 entries.Add(entry);
@@ -130,7 +143,8 @@ public static class DesignLayerMapObjectsSerializer
             project.MapObjects = CaveProjectJsonWriteNormalizer.CloneElement(
                 StripStampEntriesFromMapObjects(mapObjects));
             var mapSymbols = BuildMapSymbolsFromStamps(designLayer, layout, viewMode);
-            project.MapSymbols = CaveProjectJsonWriteNormalizer.CloneElement(mapSymbols);
+            project.MapSymbols = CaveProjectJsonWriteNormalizer.CloneElement(
+                SectionSheetInk.PreserveExtendedElevationSymbols(project.MapSymbols, mapSymbols));
         }
         else
         {
@@ -187,6 +201,19 @@ public static class DesignLayerMapObjectsSerializer
                 ["icon"] = SketchEditorSymbolKindExporter.ToSymbolId(stamp.Kind),
                 ["x"] = stamp.SurveyX,
                 ["y"] = stamp.SurveyY,
+                ["viewMode"] = viewMode,
+                ["scale"] = stamp.Scale > 0 ? stamp.Scale : 1f,
+            });
+        }
+
+        foreach (var label in DesignLayerSurveyConverter.ExtractLabels(designLayer, layout))
+        {
+            list.Add(new Dictionary<string, object?>
+            {
+                ["icon"] = DesignLayerSurveyConverter.LabelIcon,
+                ["label"] = label.Text,
+                ["x"] = label.X,
+                ["y"] = label.Y,
                 ["viewMode"] = viewMode,
             });
         }

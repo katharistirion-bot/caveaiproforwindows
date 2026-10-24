@@ -69,11 +69,11 @@
                             <Border Margin="0,0,0,10" Padding="8,6" CornerRadius="4"
                                     Background="{DynamicResource Cave.BannerTint}"
                                     BorderBrush="{DynamicResource Cave.Border}" BorderThickness="1"
-                                    ToolTip="Section vectors are read-only here — edit section cartography in SKETCH EDITOR">
+                                    ToolTip="Section view is the check sheet. Draw ceiling, floor, and symbols in Sketch Editor → Section.">
                                 <TextBlock TextWrapping="Wrap"
                                            FontSize="{DynamicResource Cave.ToolSidebarHintFontSize}"
                                            Foreground="{DynamicResource Cave.TextMuted}"
-                                           Text="Section view is read-only (pan/zoom and display options). Draw walls, symbols, and ink in the SKETCH EDITOR tab." />
+                                           Text="Section view is read-only (pan/zoom and display options). Draw this sheet in Sketch Editor → Section." />
                             </Border>
 
                             <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"

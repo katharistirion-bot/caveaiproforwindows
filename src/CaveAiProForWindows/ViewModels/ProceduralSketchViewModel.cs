@@ -18,6 +18,8 @@ public sealed class ProceduralSketchEditorHost
 
     public required Func<System.Windows.Controls.Canvas?> GetDesignLayer { get; init; }
 
+    public required Func<int> GetSheetViewMode { get; init; }
+
     public Action? OnDesignLayerChanged { get; init; }
 }
 
@@ -55,21 +57,29 @@ public partial class ProceduralSketchViewModel : ObservableObject
         var canvas = _host.GetDesignLayer();
         if (project == null || canvas == null || !_host.IsSurveyLayoutReady())
         {
-            StatusMessage = "Load a project with plan survey data first.";
+            StatusMessage = _host.GetSheetViewMode() == SurveyStationGeometry.AndroidViewModeSection
+                ? "Load a project with traverse data first."
+                : "Load a project with plan survey data first.";
             return;
         }
 
+        var sectionSheet = _host.GetSheetViewMode() == SurveyStationGeometry.AndroidViewModeSection;
         var options = new ProceduralSketchOptions
         {
             IncludeWallOutlines = IncludeWallOutlines,
             IncludeMapSymbols = IncludeMapSymbols,
             IncludeFieldCatalogPins = IncludeFieldCatalogPins,
             IncludeSplayOutlines = IncludeSplayOutlines,
+            ViewMode = sectionSheet
+                ? SurveyStationGeometry.AndroidViewModeSection
+                : SurveyStationGeometry.AndroidViewModePlan,
         };
 
         if (!ProceduralSketchGenerator.TryGenerate(project, options, out var result))
         {
-            StatusMessage = "No procedural geometry could be derived from this survey.";
+            StatusMessage = sectionSheet
+                ? "No ceiling or floor could be derived from this survey."
+                : "No procedural geometry could be derived from this survey.";
             HasProceduralPreview = false;
             return;
         }
@@ -78,7 +88,9 @@ public partial class ProceduralSketchViewModel : ObservableObject
         var added = DesignLayerProceduralApplicator.Apply(canvas, layout, result);
         HasProceduralPreview = added > 0;
         StatusMessage = added > 0
-            ? $"Placed {result.Strokes.Count} LRUD wall stroke(s) and {result.SymbolStamps.Count} symbol(s) — dashed = procedural preview (Accept to keep)."
+            ? sectionSheet
+                ? $"Placed {result.Strokes.Count} ceiling/floor stroke(s) and {result.SymbolStamps.Count} symbol(s) — dashed = procedural preview (Accept to keep)."
+                : $"Placed {result.Strokes.Count} LRUD wall stroke(s) and {result.SymbolStamps.Count} symbol(s) — dashed = procedural preview (Accept to keep)."
             : result.HasContent
                 ? "Nothing new was added — existing design ink or LRUD preview may already be on the layer."
                 : "Nothing was added to the design layer.";
@@ -150,6 +162,15 @@ public partial class ProceduralSketchViewModel : ObservableObject
     public void NotifyProjectChanged()
     {
         HasProceduralPreview = false;
+        GenerateProceduralCommand.NotifyCanExecuteChanged();
+    }
+
+    public void NotifySheetChanged()
+    {
+        HasProceduralPreview = false;
+        StatusMessage = _host.GetSheetViewMode() == SurveyStationGeometry.AndroidViewModeSection
+            ? "Generate ceiling and floor from Up/Down along the extended section (dashed preview)."
+            : "Generate LRUD wall outlines and survey symbols onto the design layer (dashed preview).";
         GenerateProceduralCommand.NotifyCanExecuteChanged();
     }
 }

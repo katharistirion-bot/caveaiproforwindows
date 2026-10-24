@@ -10,6 +10,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.SketchAssist;
 
 using CaveAiProForWindows.Services.Visualization;
 
@@ -1353,6 +1354,22 @@ public static class PlanCanvasRenderer
         {
             if (!opt.ShowPersistedSketchInk)
                 continue;
+            if (string.Equals(sym.SymbolId, DesignLayerSurveyConverter.LabelIcon, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(sym.Label))
+            {
+                var labelPt = planLayout.WorldToCanvas(sym.X, sym.Y);
+                var label = new TextBlock
+                {
+                    Text = sym.Label,
+                    Foreground = sty.Legend,
+                    FontSize = 13,
+                };
+                Canvas.SetLeft(label, labelPt.X);
+                Canvas.SetTop(label, labelPt.Y);
+                AddVectorElement(label);
+                continue;
+            }
+
             var symEl = AndroidMapSymbolVisualFactory.CreateVisual(sym, planLayout, highContrast);
             AddVectorElement(symEl);
         }
