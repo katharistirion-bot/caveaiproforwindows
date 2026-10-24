@@ -48,6 +48,7 @@ public static class DesignLayerInkHitTest
         {
             Polyline poly => poly.Points.Count >= 2,
             Viewbox => true,
+            TextBlock block => !string.IsNullOrWhiteSpace(block.Text),
             Ellipse => false,
             _ => false,
         };
@@ -91,6 +92,18 @@ public static class DesignLayerInkHitTest
                     h = SketchSymbolDefinitions.StampDisplaySize;
                 return new Rect(left - paddingDip, top - paddingDip, w + paddingDip * 2, h + paddingDip * 2);
             }
+            case TextBlock block:
+            {
+                var left = Canvas.GetLeft(block);
+                var top = Canvas.GetTop(block);
+                if (double.IsNaN(left))
+                    left = 0;
+                if (double.IsNaN(top))
+                    top = 0;
+                var w = block.ActualWidth > 0 ? block.ActualWidth : 48;
+                var h = block.ActualHeight > 0 ? block.ActualHeight : 18;
+                return new Rect(left - paddingDip, top - paddingDip, w + paddingDip * 2, h + paddingDip * 2);
+            }
             default:
                 return Rect.Empty;
         }
@@ -102,6 +115,7 @@ public static class DesignLayerInkHitTest
         {
             Polyline poly => HitTestPolyline(poly, pt, toleranceSquared),
             Viewbox vb => HitTestViewbox(vb, pt, toleranceSquared),
+            TextBlock block => HitTestViewboxBounds(GetInkBounds(block, 0), pt, toleranceSquared),
             _ => false,
         };
     }
@@ -126,7 +140,11 @@ public static class DesignLayerInkHitTest
 
     private static bool HitTestViewbox(Viewbox vb, Point pt, double toleranceSquared)
     {
-        var bounds = GetInkBounds(vb, 0);
+        return HitTestViewboxBounds(GetInkBounds(vb, 0), pt, toleranceSquared);
+    }
+
+    private static bool HitTestViewboxBounds(Rect bounds, Point pt, double toleranceSquared)
+    {
         if (bounds.IsEmpty)
             return false;
 

@@ -6,7 +6,7 @@ public enum MapCanvasEditorTool
     /// <summary>Left- or middle-drag pan, mouse-wheel zoom — default.</summary>
     PanZoom,
 
-    /// <summary>Click to place a highlight marker (foundation for station / segment hit testing).</summary>
+    /// <summary>Click to select user ink, then drag it into place.</summary>
     Select,
 
     /// <summary>Left-drag freehand polyline on the design layer.</summary>
@@ -17,6 +17,9 @@ public enum MapCanvasEditorTool
 
     /// <summary>Left-click to drop a simple cave-symbol marker.</summary>
     PlaceSymbol,
+
+    /// <summary>Left-click to drop a text label from the sidebar field.</summary>
+    PlaceText,
 
     /// <summary>Click or drag to erase user ink (stroke-level hit testing).</summary>
     Erase,

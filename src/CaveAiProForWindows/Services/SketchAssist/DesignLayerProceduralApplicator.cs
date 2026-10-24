@@ -87,7 +87,8 @@ public static class DesignLayerProceduralApplicator
         DesignLayerInkMetadata meta)
     {
         var ink = SketchSymbolDefinitions.Get(stamp.Kind);
-        var size = SketchSymbolDefinitions.StampDisplaySize;
+        var scale = stamp.Scale > 0 ? stamp.Scale : 1f;
+        var size = SketchSymbolDefinitions.StampDisplaySize * Math.Clamp(scale, 0.4f, 4f);
         var center = DesignLayerSurveyConverter.SurveyPointToCanvas(stamp.SurveyX, stamp.SurveyY, layout);
         var vb = new Viewbox
         {

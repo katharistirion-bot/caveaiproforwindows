@@ -24,4 +24,7 @@ public sealed class SketchSymbolStampModel
     public float SurveyY { get; init; }
 
     public SketchEditorSymbolKind Kind { get; init; }
+
+    /// <summary>1 = palette size. Clamped when stamped and when read back.</summary>
+    public float Scale { get; init; } = 1f;
 }

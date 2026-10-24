@@ -12,6 +12,47 @@ namespace CaveAiProForWindows.Services.SketchAssist;
 /// </summary>
 public static class DesignLayerSurveyConverter
 {
+    public const string LabelIcon = "label";
+
+    public static List<(float X, float Y, string Text)> ExtractLabels(Canvas? designLayer, PlanCanvasSurveyLayout layout)
+    {
+        var labels = new List<(float X, float Y, string Text)>();
+        if (designLayer == null)
+            return labels;
+        foreach (UIElement child in designLayer.Children)
+        {
+            if (child is not TextBlock block || string.IsNullOrWhiteSpace(block.Text))
+                continue;
+            var left = Canvas.GetLeft(block);
+            var top = Canvas.GetTop(block);
+            if (double.IsNaN(left))
+                left = 0;
+            if (double.IsNaN(top))
+                top = 0;
+            var (wx, wy) = CanvasPointToSurvey(left, top, layout);
+            if (!IsFinite(wx) || !IsFinite(wy))
+                continue;
+            labels.Add((wx, wy, block.Text.Trim()));
+        }
+
+        return labels;
+    }
+
+    public static TextBlock CreateLabel(string text, float surveyX, float surveyY, PlanCanvasSurveyLayout layout)
+    {
+        var canvas = SurveyPointToCanvas(surveyX, surveyY, layout);
+        var block = new TextBlock
+        {
+            Text = text.Trim(),
+            FontSize = 14,
+            Foreground = Brushes.Black,
+            Tag = DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx),
+        };
+        Canvas.SetLeft(block, canvas.X);
+        Canvas.SetTop(block, canvas.Y);
+        return block;
+    }
+
     /// <summary>
     /// Extracts user freehand polylines and symbol stamps from <paramref name="designLayer"/>.
     /// Skips Android-imported symbols (<see cref="AndroidImportedSymbolPresenter.ImportedChildTag"/>).
@@ -115,11 +156,15 @@ public static class DesignLayerSurveyConverter
         if (!IsFinite(wx) || !IsFinite(wy))
             return false;
 
+        var scale = (float)(w / SketchSymbolDefinitions.StampDisplaySize);
+        if (float.IsNaN(scale) || scale <= 0)
+            scale = 1f;
         stamp = new SketchSymbolStampModel
         {
             SurveyX = wx,
             SurveyY = wy,
             Kind = ResolveSymbolKind(vb),
+            Scale = Math.Clamp(scale, 0.4f, 4f),
         };
         return true;
     }

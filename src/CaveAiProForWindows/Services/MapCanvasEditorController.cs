@@ -24,6 +24,9 @@ public sealed class MapCanvasEditorController
     private readonly Func<bool> _getDashedStrokes;
     private readonly Func<string> _getWallProfile;
 
+    /// <summary>Sidebar label used by <see cref="MapCanvasEditorTool.PlaceText"/>.</summary>
+    public Func<string>? LabelText { get; set; }
+
     private bool _isPanning;
     private MouseButton _panButton;
     private Point _panMouseStart;
@@ -37,6 +40,12 @@ public sealed class MapCanvasEditorController
     private UIElement? _selectedInk;
     private UIElement? _lastErasedInk;
     private bool _isErasing;
+    private bool _isDraggingInk;
+    private Point _dragLastCanvas;
+    private double _dragTotalDx;
+    private double _dragTotalDy;
+
+    private const double InkDragCommitDip = 1.0;
 
     /// <summary>Invoked when the user finishes a freehand stroke or places a symbol stamp.</summary>
     public Action? DesignLayerModified { get; set; }
@@ -46,6 +55,9 @@ public sealed class MapCanvasEditorController
 
     /// <summary>Invoked after ink is removed (element, index before removal).</summary>
     public Action<UIElement, int>? InkRemoved { get; set; }
+
+    /// <summary>Invoked once when a drag of selected ink is committed (element, total dx, total dy).</summary>
+    public Action<UIElement, double, double>? InkMoved { get; set; }
 
     public UIElement? SelectedInk => _selectedInk;
 
@@ -103,16 +115,18 @@ public sealed class MapCanvasEditorController
         switch (tool)
         {
             case MapCanvasEditorTool.Select:
-                if (TrySelectInkAt(pt))
+                var raw = e.GetPosition(_designCanvas);
+                if (TrySelectInkAt(raw))
                 {
+                    BeginInkDrag(raw);
                     e.Handled = true;
                     break;
                 }
 
                 ClearInkSelection();
                 EnsureSelectMarker();
-                Canvas.SetLeft(_selectMarker!, pt.X - 6);
-                Canvas.SetTop(_selectMarker!, pt.Y - 6);
+                Canvas.SetLeft(_selectMarker!, raw.X - 6);
+                Canvas.SetTop(_selectMarker!, raw.Y - 6);
                 _selectMarker!.Visibility = Visibility.Visible;
                 e.Handled = true;
                 break;
@@ -138,6 +152,11 @@ public sealed class MapCanvasEditorController
                 StampSketchSymbol(pt);
                 e.Handled = true;
                 break;
+            case MapCanvasEditorTool.PlaceText:
+                ClearInkSelection();
+                PlaceLabel(pt);
+                e.Handled = true;
+                break;
             case MapCanvasEditorTool.Erase:
                 _isErasing = true;
                 _lastErasedInk = null;
@@ -156,6 +175,22 @@ public sealed class MapCanvasEditorController
             var now = e.GetPosition(_scrollHost);
             _pan.X = _panStartX + (now.X - _panMouseStart.X);
             _pan.Y = _panStartY + (now.Y - _panMouseStart.Y);
+            return;
+        }
+
+        if (_isDraggingInk && _selectedInk != null && e.LeftButton == MouseButtonState.Pressed)
+        {
+            var now = e.GetPosition(_designCanvas);
+            var dx = now.X - _dragLastCanvas.X;
+            var dy = now.Y - _dragLastCanvas.Y;
+            if (DesignLayerInkMover.TryTranslate(_selectedInk, dx, dy))
+            {
+                _dragTotalDx += dx;
+                _dragTotalDy += dy;
+                _dragLastCanvas = now;
+                UpdateInkSelectionFrame(_selectedInk);
+            }
+
             return;
         }
 
@@ -196,6 +231,9 @@ public sealed class MapCanvasEditorController
     {
         if (_isPanning && _panButton == MouseButton.Left)
             EndPan();
+
+        if (_isDraggingInk && e.LeftButton == MouseButtonState.Released)
+            FinishInkDrag();
 
         if (_isErasing && e.LeftButton == MouseButtonState.Released)
         {
@@ -254,6 +292,8 @@ public sealed class MapCanvasEditorController
     public void OnMouseLeave(object sender, MouseEventArgs e)
     {
         EndPan();
+        if (_isDraggingInk && Mouse.LeftButton != MouseButtonState.Pressed)
+            FinishInkDrag();
         if (_isErasing)
         {
             _isErasing = false;
@@ -354,7 +394,11 @@ public sealed class MapCanvasEditorController
         _activeLine = null;
         _isPanning = false;
         _isErasing = false;
+        _isDraggingInk = false;
+        _dragTotalDx = 0;
+        _dragTotalDy = 0;
         _lastErasedInk = null;
+        _designCanvas.Cursor = null;
     }
 
     private void SelectInk(UIElement element)
@@ -427,8 +471,62 @@ public sealed class MapCanvasEditorController
         if (!_isPanning)
             return;
         _isPanning = false;
-        if (_designCanvas.IsMouseCaptured && _activeDraw == null && _activeLine == null && !_isErasing)
+        if (_designCanvas.IsMouseCaptured && _activeDraw == null && _activeLine == null && !_isErasing && !_isDraggingInk)
             _designCanvas.ReleaseMouseCapture();
+    }
+
+    private void BeginInkDrag(Point canvasPoint)
+    {
+        _isDraggingInk = true;
+        _dragLastCanvas = canvasPoint;
+        _dragTotalDx = 0;
+        _dragTotalDy = 0;
+        _designCanvas.Cursor = Cursors.SizeAll;
+        _designCanvas.CaptureMouse();
+    }
+
+    private void FinishInkDrag()
+    {
+        if (!_isDraggingInk)
+            return;
+
+        _isDraggingInk = false;
+        _designCanvas.Cursor = null;
+        if (_designCanvas.IsMouseCaptured && _activeDraw == null && _activeLine == null && !_isErasing && !_isPanning)
+            _designCanvas.ReleaseMouseCapture();
+
+        var moved = _selectedInk;
+        var dx = _dragTotalDx;
+        var dy = _dragTotalDy;
+        _dragTotalDx = 0;
+        _dragTotalDy = 0;
+        if (moved == null)
+            return;
+        if (Math.Abs(dx) < InkDragCommitDip && Math.Abs(dy) < InkDragCommitDip)
+        {
+            DesignLayerInkMover.TryTranslate(moved, -dx, -dy);
+            RefreshSelectionFrame();
+            return;
+        }
+
+        InkMoved?.Invoke(moved, dx, dy);
+        DesignLayerModified?.Invoke();
+    }
+
+    /// <summary>Keeps the dashed frame on the selected ink after undo, redo, or an external move.</summary>
+    public void RefreshSelectionFrame()
+    {
+        if (_selectedInk == null)
+            return;
+        if (!_designCanvas.Children.Contains(_selectedInk))
+        {
+            ClearInkSelection();
+            return;
+        }
+
+        EnsureInkSelectionFrame();
+        UpdateInkSelectionFrame(_selectedInk);
+        _inkSelectionFrame!.Visibility = Visibility.Visible;
     }
 
     private Point MaybeSnap(Point canvasPoint)
@@ -524,5 +622,49 @@ public sealed class MapCanvasEditorController
         _designCanvas.Children.Add(vb);
         InkAdded?.Invoke(vb);
         DesignLayerModified?.Invoke();
+    }
+
+    private void PlaceLabel(Point anchor)
+    {
+        var text = LabelText?.Invoke()?.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+        var block = new TextBlock
+        {
+            Text = text,
+            FontSize = 14,
+            Foreground = Brushes.Black,
+            Tag = DesignLayerInkMetadata.ForUserStroke(SketchStrokeStyleDefaults.DefaultStrokeWidthPx),
+        };
+        Canvas.SetLeft(block, anchor.X);
+        Canvas.SetTop(block, anchor.Y);
+        _designCanvas.Children.Add(block);
+        InkAdded?.Invoke(block);
+        DesignLayerModified?.Invoke();
+    }
+
+    /// <summary>Grows or shrinks the selected symbol, keeping its center.</summary>
+    public bool ResizeSelectedSymbol(double factor)
+    {
+        if (_selectedInk is not Viewbox vb || factor <= 0)
+            return false;
+        var w = vb.Width > 0 ? vb.Width : SketchSymbolDefinitions.StampDisplaySize;
+        var h = vb.Height > 0 ? vb.Height : SketchSymbolDefinitions.StampDisplaySize;
+        var next = Math.Clamp(w * factor, SketchSymbolDefinitions.StampDisplaySize * 0.4, SketchSymbolDefinitions.StampDisplaySize * 4);
+        var left = Canvas.GetLeft(vb);
+        var top = Canvas.GetTop(vb);
+        if (double.IsNaN(left))
+            left = 0;
+        if (double.IsNaN(top))
+            top = 0;
+        var cx = left + w * 0.5;
+        var cy = top + h * 0.5;
+        vb.Width = next;
+        vb.Height = next;
+        Canvas.SetLeft(vb, cx - next * 0.5);
+        Canvas.SetTop(vb, cy - next * 0.5);
+        DesignLayerModified?.Invoke();
+        RefreshSelectionFrame();
+        return true;
     }
 }

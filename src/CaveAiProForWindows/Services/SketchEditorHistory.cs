@@ -38,6 +38,16 @@ public sealed class SketchEditorHistory
         Changed?.Invoke();
     }
 
+    public void PushMoved(UIElement element, double dx, double dy)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (Math.Abs(dx) < 1e-6 && Math.Abs(dy) < 1e-6)
+            return;
+        _undo.Push(new MoveInkAction(element, dx, dy));
+        _redo.Clear();
+        Changed?.Invoke();
+    }
+
     public bool TryUndo(Canvas canvas)
     {
         if (!CanUndo)
@@ -90,6 +100,24 @@ public sealed class SketchEditorHistory
             else
                 canvas.Children.Add(_element);
         }
+    }
+
+    private sealed class MoveInkAction : ISketchHistoryAction
+    {
+        private readonly UIElement _element;
+        private readonly double _dx;
+        private readonly double _dy;
+
+        public MoveInkAction(UIElement element, double dx, double dy)
+        {
+            _element = element;
+            _dx = dx;
+            _dy = dy;
+        }
+
+        public void Undo(Canvas canvas) => DesignLayerInkMover.TryTranslate(_element, -_dx, -_dy);
+
+        public void Redo(Canvas canvas) => DesignLayerInkMover.TryTranslate(_element, _dx, _dy);
     }
 
     private sealed class RemoveInkAction : ISketchHistoryAction
