@@ -12,7 +12,10 @@ namespace CaveAiProForWindows.Services;
 /// </summary>
 public static class ExtendedElevationSceneBuilder
 {
-    public static PlanScene? TryBuild(CaveProjectDocument p, SurveyVisualizationMode visualization)
+    public static PlanScene? TryBuild(
+        CaveProjectDocument p,
+        SurveyVisualizationMode visualization,
+        bool includeSectionSheetInk = true)
     {
         var planCoords = SurveyStationGeometry.CalculatePlanCoordinates(p);
         if (planCoords.Count == 0)
@@ -59,8 +62,11 @@ public static class ExtendedElevationSceneBuilder
         if (!visualization.ShowSplayXRayGeometry())
             wallPolys.AddRange(SurveyLrudWallGeometry.BuildLongProfileLrudRibbonPolylines(p.Shots, elev));
 
-        foreach (var sheetStroke in SectionSheetInk.ReadStrokes(p))
-            wallPolys.Add(SectionSheetInk.ToWallPolyline(sheetStroke));
+        if (includeSectionSheetInk)
+        {
+            foreach (var sheetStroke in SectionSheetInk.ReadStrokes(p))
+                wallPolys.Add(SectionSheetInk.ToWallPolyline(sheetStroke));
+        }
 
         var splaySegs = new List<(float x1, float y1, float x2, float y2)>();
         if (visualization == SurveyVisualizationMode.Plan2Tone)
@@ -147,7 +153,8 @@ public static class ExtendedElevationSceneBuilder
         }
 
         var sectionSymbols = ProjectPlanSymbolsToProfile(p, traverseLegs, planCoords, chainage).ToList();
-        sectionSymbols.AddRange(SectionSheetInk.ReadMapSymbols(p));
+        if (includeSectionSheetInk)
+            sectionSymbols.AddRange(SectionSheetInk.ReadMapSymbols(p));
         foreach (var sym in sectionSymbols)
             Consider(sym.X, sym.Y);
 

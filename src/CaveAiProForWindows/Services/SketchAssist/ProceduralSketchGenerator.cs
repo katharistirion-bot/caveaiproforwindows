@@ -42,7 +42,10 @@ public static class ProceduralSketchGenerator
         result = new ProceduralSketchResult();
 
         var scene = options.ViewMode == SurveyStationGeometry.AndroidViewModeSection
-            ? SectionSceneBuilder.TryBuild(project, SurveyVisualizationMode.Standard)
+            ? SectionSceneBuilder.TryBuild(
+                project,
+                SurveyVisualizationMode.Standard,
+                includeSectionSheetInk: false)
             : PlanSceneBuilder.TryBuild(
                 project,
                 SurveyStationGeometry.AndroidViewModePlan,

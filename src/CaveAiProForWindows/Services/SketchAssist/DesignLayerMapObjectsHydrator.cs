@@ -150,6 +150,9 @@ public static class DesignLayerMapObjectsHydrator
         {
             if (el.ValueKind != JsonValueKind.Object)
                 continue;
+            // Section-sheet stamps share mapSymbols but live in extended chainage, not plan metres.
+            if (SurveyStationGeometry.IsExtendedElevationCartography(el))
+                continue;
 
             if (!el.TryGetProperty("icon", out var iconEl) || iconEl.ValueKind != JsonValueKind.String)
                 continue;

@@ -193,6 +193,73 @@ public sealed class SectionSheetInkTests
         Assert.AreEqual(2.5f, SectionSheetChainage.ToExtendedX(project, 5f), 0.05f);
         Assert.AreEqual(10f, SectionSheetChainage.ToSlopeX(project, 5f), 0.05f);
     }
+    [TestMethod]
+    public void Plan_sheet_skips_extended_elevation_symbols()
+    {
+        SketchAssistTestsRunSta.Run(() =>
+        {
+            var project = Traverse();
+            project.Alt = 80;
+            project.ActiveCartographyMapId = "map-1";
+            project.MapObjects = JsonSerializer.SerializeToElement(new object[]
+            {
+                new { kind = "note" },
+            });
+            project.MapSymbols = JsonSerializer.SerializeToElement(new object[]
+            {
+                new { icon = "water", x = 1f, y = 2f, viewMode = 0 },
+                new
+                {
+                    icon = "rock",
+                    x = 4f,
+                    y = 5f,
+                    viewMode = SurveyStationGeometry.AndroidViewModeLongProfile,
+                    coordinateFrame = SurveyStationGeometry.ExtendedElevationCoordinateFrame,
+                },
+            });
+
+            var layout = new PlanCanvasSurveyLayout(0, 20, 70, 120, 0, 0, 10);
+            var canvas = new Canvas { Width = 400, Height = 400 };
+            var added = DesignLayerMapObjectsHydrator.TryHydrate(canvas, layout, project);
+            Assert.AreEqual(1, added);
+        });
+    }
+
+    [TestMethod]
+    public void Procedural_section_does_not_copy_sheet_symbols()
+    {
+        var project = Traverse();
+        project.Alt = 80;
+        project.MapSymbols = JsonSerializer.SerializeToElement(new object[]
+        {
+            new
+            {
+                icon = "rock",
+                x = 4f,
+                y = 5f,
+                viewMode = SurveyStationGeometry.AndroidViewModeLongProfile,
+                coordinateFrame = SurveyStationGeometry.ExtendedElevationCoordinateFrame,
+            },
+        });
+
+        var scene = SectionSceneBuilder.TryBuild(project, SurveyVisualizationMode.Standard);
+        Assert.IsNotNull(scene);
+        Assert.IsTrue(scene!.Symbols.Any(sym =>
+            string.Equals(sym.SymbolId, "rock", StringComparison.Ordinal)));
+
+        var ok = ProceduralSketchGenerator.TryGenerate(
+            project,
+            new ProceduralSketchOptions
+            {
+                IncludeWallOutlines = false,
+                IncludeMapSymbols = true,
+                IncludeFieldCatalogPins = false,
+                ViewMode = SurveyStationGeometry.AndroidViewModeSection,
+            },
+            out var result);
+        Assert.IsFalse(ok);
+        Assert.AreEqual(0, result.SymbolStamps.Count);
+    }
     private static CaveProjectDocument Traverse() =>
         new()
         {
