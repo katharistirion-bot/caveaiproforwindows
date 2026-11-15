@@ -13,20 +13,26 @@ Generated: 2026-11-15 · Survey Cloud save, instrument legs, LiDAR outline, retu
 
 Microsoft re-signs on upload — **do not sign locally**.
 
+Build locally:
+
+```powershell
+.\tools\package-store-msix.ps1
+.\tools\package-store-msix-review.ps1
+```
+
+Or download the CI artifact **CaveAiProForWindows-store-msix** from the green `store-msix-pack` job on `chore/initial-repository-import`.
+
 ## GitHub sideload (parallel channel)
 
-Velopack installer on GitHub: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.5.29
+Publish tag **v1.5.29** when ready (Velopack Setup.exe). Until that release exists, use Partner Center MSIX for Store users only.
 
-Use Store MSIX for Microsoft Store listing; GitHub Setup.exe for sideload + auto-update.
+Checklist:
 
----
-
-## Partner Center — production update
-
-1. Sign in to [Partner Center](https://partner.microsoft.com/dashboard) → **Apps and games** → **CAVE AI PRO**.
-2. **Packages** → **Upload new package** → select **`CaveAiProForWindows-1.5.29-Store-unsigned.msix`**.
-3. Confirm identity matches Product identity (`GeorgiosKourentzis.CaveAIPro`, publisher CN from manifest).
-4. Paste release notes (below) → **Submit for certification** (or publish if auto-approval).
+- [ ] Production MSIX built or downloaded from CI
+- [ ] Partner Center → Packages → upload `CaveAiProForWindows-1.5.29-Store-unsigned.msix`
+- [ ] Release notes pasted (below)
+- [ ] After Store is live, create GitHub Release `v1.5.29` for sideload (optional parallel channel)
+- [ ] Do **not** deploy Firestore rules from this repo (stub only — deploy from website)
 
 ### Release notes (English)
 
@@ -37,24 +43,5 @@ Use Store MSIX for Microsoft Store listing; GitHub Setup.exe for sideload + auto
 • Tools → Return to entrance shows live Windows GPS bearing and optional local alarm.
 • Explore with no network opens the cached surface pack.
 ```
-
----
-
-## Partner Center — review / certification package
-
-1. Build with `.\tools\package-store-msix-review.ps1`.
-2. Upload **`CaveAiProForWindows-1.5.29-Store-Review-unsigned.msix`** to **Packages**.
-3. Paste notes from `docs/MICROSOFT-STORE-CERTIFICATION-NOTES.md`.
-4. After cert passes, replace with the production MSIX from `package-store-msix.ps1` — **do not** ship the review build.
-
----
-
-## Checklist
-
-- [ ] Production MSIX built (`package-store-msix.ps1`)
-- [ ] Review MSIX built (`package-store-msix-review.ps1`)
-- [ ] GitHub Release v1.5.29 published (sideload channel)
-- [ ] Partner Center upload (manual)
-- [ ] Firestore rules deployed from website/Android (`npm run deploy:rules`)
 
 See also: `docs/STORE_UPLOAD_CHECKLIST.md`, `docs/MICROSOFT-STORE-CERTIFICATION-NOTES.md`, website `docs/ECOSYSTEM_STORE_RELEASE.md`.
