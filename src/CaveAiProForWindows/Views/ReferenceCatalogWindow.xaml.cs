@@ -1042,6 +1042,13 @@ public partial class ReferenceCatalogWindow : Window
             return;
         }
 
+        var usage = WindowsUsageGuide.TryAnswer(prompt);
+        if (usage != null)
+        {
+            CaveAiResponseBox.Text = usage;
+            return;
+        }
+
         if (!GeminiProxyClient.IsConfigured())
         {
             MessageBox.Show(this, "Cloud AI is not configured on this build.", "Cave AI", MessageBoxButton.OK, MessageBoxImage.Warning);

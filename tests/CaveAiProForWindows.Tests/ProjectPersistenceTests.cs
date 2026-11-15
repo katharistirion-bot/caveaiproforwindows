@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -99,6 +101,36 @@ public sealed class ProjectPersistenceTests
     }
 
     [TestMethod]
+    public void SyncWindowsInkToVectorLines_keeps_section_sheet_for_the_phone()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Section",
+            VectorLines = JsonDocument.Parse(
+                """
+                [
+                  {"type":"WATER","viewMode":0,"points":[{"first":0,"second":0},{"first":1,"second":0}]},
+                  {"type":"WINDOWS_SECTION","viewMode":3,"sourceClient":"CaveAiProForWindows","coordinateFrame":"extendedElevation","closed":false,"points":[{"first":4,"second":5},{"first":8,"second":6}]}
+                ]
+                """).RootElement.Clone(),
+            MapObjects = JsonDocument.Parse(
+                """
+                [{"kind":"stroke","viewMode":0,"closed":false,"points":[[2,2],[3,3]],"sourceClient":"CaveAiProForWindows"}]
+                """).RootElement.Clone(),
+        };
+
+        DesignLayerVectorLinesSerializer.SyncWindowsInkToVectorLines(project);
+        var lines = project.VectorLines!.Value.EnumerateArray().ToList();
+        Assert.AreEqual(3, lines.Count);
+        var section = lines.Single(el => el.GetProperty("type").GetString() == "WINDOWS_SECTION");
+        Assert.AreEqual(3, section.GetProperty("viewMode").GetInt32());
+        Assert.AreEqual(4, section.GetProperty("points")[0].GetProperty("first").GetDouble(), 0.01);
+        Assert.AreEqual(5, section.GetProperty("points")[0].GetProperty("second").GetDouble(), 0.01);
+        Assert.AreEqual("WATER", lines[0].GetProperty("type").GetString());
+        Assert.IsTrue(lines.Any(el => el.GetProperty("type").GetString() == "WINDOWS_SKETCH"));
+    }
+
+    [TestMethod]
     public void MergeWindowsSketches_preserves_android_strokes()
     {
         var existing = JsonDocument.Parse(
@@ -156,5 +188,56 @@ public sealed class ProjectPersistenceTests
             if (Directory.Exists(dir))
                 Directory.Delete(dir, true);
         }
+    }
+
+    [TestMethod]
+    public void ProjectPersistenceService_rewrites_zip_integrity_manifest()
+    {
+        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "caveai_zip_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var zipPath = System.IO.Path.Combine(dir, "survey.zip");
+        try
+        {
+            var stale = Encoding.UTF8.GetBytes("{\"name\":\"Old\"}");
+            var notes = Encoding.UTF8.GetBytes("keep");
+            var hashes = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["data.json"] = BackupZipManifestWriter.Sha256Hex(stale),
+                ["notes.txt"] = BackupZipManifestWriter.Sha256Hex(notes),
+            };
+            using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                WriteZipEntry(zip, "data.json", stale);
+                WriteZipEntry(zip, "notes.txt", notes);
+                WriteZipEntry(zip, "integrity_manifest.json", BackupZipManifestWriter.BuildIntegrityManifest(hashes));
+            }
+
+            var project = new CaveProjectDocument
+            {
+                Name = "SaveTest",
+                Shots = [new ShotRecord { FromStation = "A", ToStation = "B", Distance = 1, Azimuth = 0, Clino = 0 }],
+            };
+            ProjectPersistenceService.Save(new ProjectPersistenceService.SaveRequest
+            {
+                Projects = [project],
+                PrimarySourcePath = zipPath,
+            });
+
+            var report = IntegrityVerifier.VerifyZip(zipPath);
+            Assert.IsTrue(report.IsCompleteSuccess, string.Join("\n", report.Mismatches));
+            Assert.IsTrue(report.FilesChecked >= 2);
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
+    }
+
+    private static void WriteZipEntry(ZipArchive zip, string name, byte[] bytes)
+    {
+        var entry = zip.CreateEntry(name);
+        using var stream = entry.Open();
+        stream.Write(bytes, 0, bytes.Length);
     }
 }

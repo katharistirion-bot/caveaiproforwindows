@@ -132,7 +132,7 @@
         "pendingGeoSamples": 0,
         "entranceGpsLocked": true
       },
-      "expectedContains": ["HUD", "main leg"]
+      "expectedContains": ["Android", "main leg"]
     },
     {
       "intentId": "last_leg",

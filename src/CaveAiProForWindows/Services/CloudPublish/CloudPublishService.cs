@@ -196,7 +196,8 @@ public sealed class CloudPublishService
                 surveyPath = pubPath;
 
                 var workspaceBytes = SurveyWorkspaceJsonBuilder.BuildBytes(objectUtf8);
-                if (workspaceBytes is not { Length: > 0 })
+                if (workspaceBytes is not { Length: > 0 } ||
+                    SurveyWorkspaceJsonBuilder.IsFallbackMarker(workspaceBytes))
                 {
                     throw new InvalidOperationException(
                         "PUBLISH_ABORTED_ROLLBACK: survey_workspace.json could not be built.");

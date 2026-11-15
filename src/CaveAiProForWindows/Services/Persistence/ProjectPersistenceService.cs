@@ -2,6 +2,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services;
 
 namespace CaveAiProForWindows.Services.Persistence;
 
@@ -47,7 +48,19 @@ public static class ProjectPersistenceService
     private static void SaveJson(SaveRequest request)
     {
         var json = SurveyPortableZipExporter.SerializeProjectArray(request.Projects);
-        File.WriteAllText(request.PrimarySourcePath, json, Utf8Bom);
+        var target = Path.GetFullPath(request.PrimarySourcePath);
+        var tempPath = target + ".saving";
+        try
+        {
+            File.WriteAllText(tempPath, json, Utf8Bom);
+            File.Move(tempPath, target, overwrite: true);
+        }
+        catch
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+            throw;
+        }
     }
 
     private static void SaveZip(SaveRequest request)
@@ -60,23 +73,54 @@ public static class ProjectPersistenceService
         {
             using (var zip = ZipFile.Open(tempPath, ZipArchiveMode.Update))
             {
-                RemoveEntry(zip, "data.json");
-                RemoveEntry(zip, "DATA.JSON");
-
-                var jsonBytes = Utf8Bom.GetBytes(SurveyPortableZipExporter.SerializeProjectArray(request.Projects));
-                WriteEntryBytes(zip, "data.json", jsonBytes);
-
+                var pendingAssets = new List<(string Path, byte[] Bytes)>();
                 foreach (var project in request.Projects)
                 {
                     var staged = ProjectAiAssetPersistence.TakeStagedBytes(project);
                     var (ai, mask) = ProjectAiAssetPersistence.ResolveAssetsForZipSave(project, zipPath, staged);
-
                     foreach (var (entryPath, bytes) in ProjectAiAssetPersistence.CollectZipAssetEntries(project, ai, mask))
-                    {
-                        RemoveEntry(zip, entryPath);
-                        WriteEntryBytes(zip, entryPath, bytes);
-                    }
+                        pendingAssets.Add((entryPath.Replace('\\', '/'), bytes));
                 }
+
+                var jsonBytes = Utf8Bom.GetBytes(SurveyPortableZipExporter.SerializeProjectArray(request.Projects));
+                var skip = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "data.json",
+                    "DATA.JSON",
+                    "integrity_manifest.json",
+                };
+                foreach (var (path, _) in pendingAssets)
+                    skip.Add(path);
+
+                var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
+                var entries = new List<ZipArchiveEntry>();
+                foreach (var entry in zip.Entries)
+                    entries.Add(entry);
+                foreach (var entry in entries)
+                {
+                    var name = entry.FullName.Replace('\\', '/');
+                    if (string.IsNullOrEmpty(entry.Name) || skip.Contains(name))
+                        continue;
+                    using var input = entry.Open();
+                    using var ms = new MemoryStream();
+                    input.CopyTo(ms);
+                    hashes[name] = BackupZipManifestWriter.Sha256Hex(ms.ToArray());
+                }
+
+                RemoveEntry(zip, "data.json");
+                RemoveEntry(zip, "DATA.JSON");
+                WriteEntryBytes(zip, "data.json", jsonBytes);
+                hashes["data.json"] = BackupZipManifestWriter.Sha256Hex(jsonBytes);
+
+                foreach (var (entryPath, bytes) in pendingAssets)
+                {
+                    RemoveEntry(zip, entryPath);
+                    WriteEntryBytes(zip, entryPath, bytes);
+                    hashes[entryPath] = BackupZipManifestWriter.Sha256Hex(bytes);
+                }
+
+                RemoveEntry(zip, "integrity_manifest.json");
+                WriteEntryBytes(zip, "integrity_manifest.json", BackupZipManifestWriter.BuildIntegrityManifest(hashes));
             }
 
             File.Move(tempPath, zipPath, overwrite: true);

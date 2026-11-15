@@ -51,17 +51,46 @@ public static class ProjectAiAssetPersistence
     private static string StageKey(CaveProjectDocument project) =>
         $"{project.Name}|{project.Date}|{project.Shots?.Count ?? 0}";
 
-    /// <summary>Legacy hook — generative AI render removed; no new AI assets are written.</summary>
+    /// <summary>Writes a cloud-rendered plan beside the project and into the open ZIP when there is one.</summary>
     public static void AttachSessionAssets(
         CaveProjectDocument project,
         string sourceFilePath,
         byte[]? aiCartographyPng,
         byte[]? structureMaskPng)
     {
-        _ = project;
-        _ = sourceFilePath;
-        _ = aiCartographyPng;
+        if (aiCartographyPng is { Length: > 0 })
+            StoreGeneratedMap(project, sourceFilePath, aiCartographyPng);
         _ = structureMaskPng;
+    }
+
+    public static void StoreGeneratedMap(CaveProjectDocument project, string? zipOrFile, byte[] png)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (png.Length == 0)
+            throw new ArgumentException("The plan image is empty.", nameof(png));
+        StageBytesForZipEmbed(project, png, null);
+        EnsureExtensionPathsForZipEmbed(project, png, null);
+        var rel = TryReadAiMapRelativePath(project);
+        if (!string.IsNullOrWhiteSpace(zipOrFile) &&
+            File.Exists(zipOrFile) &&
+            zipOrFile.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(rel))
+        {
+            using var zip = ZipFile.Open(zipOrFile, ZipArchiveMode.Update);
+            zip.GetEntry(rel.Replace('\\', '/'))?.Delete();
+            var entry = zip.CreateEntry(rel.Replace('\\', '/'), CompressionLevel.Optimal);
+            using var stream = entry.Open();
+            stream.Write(png, 0, png.Length);
+            return;
+        }
+
+        var dir = string.IsNullOrWhiteSpace(zipOrFile)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+            : Directory.Exists(zipOrFile)
+                ? zipOrFile
+                : Path.GetDirectoryName(zipOrFile) ?? ".";
+        Directory.CreateDirectory(dir);
+        File.WriteAllBytes(Path.Combine(dir, "ai_cartography.png"), png);
     }
 
     public static string? TryReadAiMapRelativePath(CaveProjectDocument project) =>

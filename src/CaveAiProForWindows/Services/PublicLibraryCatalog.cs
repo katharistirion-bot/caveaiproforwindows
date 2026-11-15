@@ -206,7 +206,7 @@ public static class PublicLibraryCatalog
 
     private static Views.PublicLibraryWebWindow? _activeWindow;
 
-    public static void ShowInAppWindow(System.Windows.Window? owner, string? startUrl = null)
+    public static void ShowInAppWindow(System.Windows.Window? owner, string? startUrl = null, Action? onOffline = null)
     {
         if (MicrosoftTestMode.IsActive)
         {
@@ -229,6 +229,7 @@ public static class PublicLibraryCatalog
                 {
                     if (_activeWindow.WindowState == System.Windows.WindowState.Minimized)
                         _activeWindow.WindowState = System.Windows.WindowState.Normal;
+                    _activeWindow.OfflineNavigationFailed = onOffline;
                     _activeWindow.NavigateTo(target);
                     _activeWindow.Show();
                     _activeWindow.Activate();
@@ -246,6 +247,7 @@ public static class PublicLibraryCatalog
         {
             Owner = owner,
             InitialUrl = target,
+            OfflineNavigationFailed = onOffline,
         };
         window.Closed += (_, _) =>
         {

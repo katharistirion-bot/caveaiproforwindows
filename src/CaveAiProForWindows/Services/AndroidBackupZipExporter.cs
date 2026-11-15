@@ -79,6 +79,8 @@ public static class AndroidBackupZipExporter
             Stage(entryPath, bytes);
         foreach (var (entryPath, bytes) in copiedExportAssets)
             Stage(entryPath, bytes);
+        foreach (var (entryPath, bytes) in SurfaceDemImport.TakeStaged(project))
+            Stage(entryPath, bytes);
         if (mapInventoryBytes != null)
             Stage("map_inventory.json", mapInventoryBytes);
 

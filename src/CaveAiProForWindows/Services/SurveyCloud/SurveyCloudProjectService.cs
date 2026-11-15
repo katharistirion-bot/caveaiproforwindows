@@ -74,6 +74,71 @@ public static class SurveyCloudProjectService
     /// Upload selected project JSON to Storage <c>survey_projects/{uid}/{projectId}/project.json</c>
     /// and upsert Firestore <c>survey_projects/{projectId}</c> (Android contract, <c>platformOrigin=windows</c>).
     /// </summary>
+    /// <summary>Reads one Survey Cloud manifest. Null when the document does not exist.</summary>
+    public static async Task<SurveyCloudProjectMeta?> TryGetProjectMetaAsync(
+        FirebaseIdToken token,
+        string? projectId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        var id = projectId?.Trim();
+        if (string.IsNullOrWhiteSpace(id) || !ProjectIdRegex.IsMatch(id))
+            return null;
+
+        using var rest = new FirebaseRestClient();
+        var json = await rest.GetDocumentJsonAsync(token, $"survey_projects/{id}", cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("fields", out var fields))
+            return null;
+
+        var owner = ReadFirestoreString(fields, "ownerUid");
+        var uid = token.Subject?.Trim();
+        if (!string.IsNullOrWhiteSpace(owner) &&
+            !string.IsNullOrWhiteSpace(uid) &&
+            !string.Equals(owner, uid, StringComparison.Ordinal))
+            return null;
+
+        var storagePath = ReadFirestoreString(fields, "projectJsonStoragePath");
+        if (string.IsNullOrWhiteSpace(storagePath) && !string.IsNullOrWhiteSpace(uid))
+            storagePath = $"survey_projects/{uid}/{id}/project.json";
+
+        return new SurveyCloudProjectMeta
+        {
+            ProjectId = ReadFirestoreString(fields, "projectId") ?? id,
+            CaveName = ReadFirestoreString(fields, "caveName") ?? "Survey",
+            UpdatedAtMs = ReadFirestoreLong(fields, "updatedAtMs"),
+            ShotCount = (int)ReadFirestoreLong(fields, "shotCount"),
+            ProjectJsonStoragePath = storagePath ?? "",
+            PlatformOrigin = ReadFirestoreString(fields, "platformOrigin") ?? "android",
+        };
+    }
+
+    private static string? ReadFirestoreString(JsonElement fields, string name)
+    {
+        if (!fields.TryGetProperty(name, out var field))
+            return null;
+        if (field.TryGetProperty("stringValue", out var text))
+            return text.GetString();
+        return null;
+    }
+
+    private static long ReadFirestoreLong(JsonElement fields, string name)
+    {
+        if (!fields.TryGetProperty(name, out var field))
+            return 0;
+        if (field.TryGetProperty("integerValue", out var integer) &&
+            long.TryParse(integer.GetString(), out var parsed))
+            return parsed;
+        if (field.TryGetProperty("doubleValue", out var floating) &&
+            floating.TryGetDouble(out var number))
+            return (long)number;
+        return 0;
+    }
+
     public static async Task<SurveyCloudProjectMeta> UploadProjectAsync(
         FirebaseIdToken token,
         CaveProjectDocument project,
@@ -127,15 +192,24 @@ public static class SurveyCloudProjectService
         var fields = FirestoreFieldBuilder.BuildFields(pairs);
         var existing = await rest.GetDocumentJsonAsync(token, $"survey_projects/{projectId}", cancellationToken)
             .ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(existing))
+        try
         {
-            await rest.CreateDocumentWithIdAsync(token, "survey_projects", projectId, fields, cancellationToken)
-                .ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(existing))
+            {
+                await rest.CreateDocumentWithIdAsync(token, "survey_projects", projectId, fields, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await rest.PatchDocumentAsync(token, $"survey_projects/{projectId}", fields, cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
-        else
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            await rest.PatchDocumentAsync(token, $"survey_projects/{projectId}", fields, cancellationToken)
-                .ConfigureAwait(false);
+            throw new InvalidOperationException(
+                "The survey file reached Survey Cloud, but the cloud time was not updated. Save again to finish.",
+                ex);
         }
 
         return new SurveyCloudProjectMeta

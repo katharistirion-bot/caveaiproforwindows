@@ -35,6 +35,8 @@
                           ToolTip="Open a Survex .svx centerline (from to tape compass clino) as a CaveAI project — round-trip with Export → Survex." />
                 <MenuItem Header="Import T_herion…" Command="{Binding ImportTherionCommand}"
                           ToolTip="Open a Therion .th centerline as a CaveAI project — round-trip with Export → Therion." />
+                <MenuItem Header="Import _legacy centerline…" Command="{Binding ImportLegacyCenterlineCommand}"
+                          ToolTip="Compass .dat, Walls .srv or .wpj, or Visual Topo .tro. Feet and grads become metres and degrees. Flags, backsights, equates, and fixed stations are kept." />
                 <MenuItem Header="_Close workspace" Command="{Binding CloseWorkspaceCommand}" InputGestureText="Ctrl+W"
                           ToolTip="Unload all opened backups, Cave Library snapshot, standalone maps, and ZIP list (so this session no longer references those files)." />
                 <MenuItem Header="Open standalone _map(s)…" Command="{Binding OpenStandaloneMapsCommand}"
@@ -71,6 +73,8 @@
                           ToolTip="Project summary + traverse statistics and QC hints (UTF-8 BOM) for the selected cave." />
                 <MenuItem Header="Unified _QC report packet…" Command="{Binding ExportUnifiedQcReportCommand}"
                           ToolTip="Summary TXT + anomalies CSV + loops CSV + integrity/manifest (when ZIP loaded) in one folder." />
+                <MenuItem Header="E_xpedition QC packet (TXT)…" Command="{Binding ExportExpeditionQcPacketCommand}"
+                          ToolTip="One file for this cave: raw legs, adjusted station coordinates, and loop closure." />
                 <MenuItem Header="Export _all projects to folder…" Command="{Binding ExportAllProjectsToFolderCommand}"
                           ToolTip="For every loaded project: shots CSV; if traverse exists also Survex .svx, Therion .th, stations x,y,z CSV." />
                 <Separator />
@@ -101,8 +105,10 @@
                 <MenuItem Header="_Compare two backups…" Command="{Binding CompareBackupsCommand}" />
                 <MenuItem Header="Survey _diff (legs/stations)…" Command="{Binding CompareSurveysCommand}" />
                 <MenuItem Header="_Loop closure assistant…" Command="{Binding ShowLoopClosureAssistantCommand}" />
+                <MenuItem Header="Network _anchors…" Command="{Binding ShowNetworkAnchorsCommand}"
+                          ToolTip="Station equates and fixed XYZ for network least-squares (Walls #equate / #fix)." />
                 <MenuItem Header="{x:Static loc:AppStrings.MenuDesignPlanFromSurvey}" Command="{Binding OpenDesignFromSurveyCommand}"
-                          ToolTip="Open Sketch Editor and generate LRUD wall outlines + symbols from traverse (cartography → plan design)" />
+                          ToolTip="Open Sketch Editor. Plan generates left/right walls. Section generates ceiling and floor from Up/Down. Save project so the phone can open that drawing on Profile." />
                 <Separator />
                 <MenuItem Header="Publication _sheet…" Command="{Binding OpenPublicationSheetCommand}"
                           ToolTip="Composite survey presentation (elevation + plan + optional 3D) in a separate window — does not change existing map tabs." />
@@ -117,6 +123,15 @@
                 <MenuItem Header="{x:Static loc:AppStrings.MenuFieldTripPlanner}" Command="{Binding OpenFieldTripPlannerCommand}" />
                 <MenuItem Header="Open shared field trip link…" Click="OpenSharedFieldTripLink_Click" />
                 <MenuItem Header="{x:Static loc:AppStrings.MenuBatchSurveyQc}" Command="{Binding BatchSurveyQcCommand}" />
+                <Separator />
+                <MenuItem Header="Survey _instrument…" Command="{Binding OpenSurveyInstrumentCommand}"
+                          ToolTip="Record a leg from a paired DistoX, CaveBLE, or BRIC." />
+                <MenuItem Header="_LiDAR scanner…" Command="{Binding OpenLidarScannerCommand}"
+                          ToolTip="Import OBJ, XYZ, or LAS, or connect a scanner, and put the wall outline on the plan." />
+                <MenuItem Header="_Return to entrance…" Command="{Binding OpenFieldReturnCommand}"
+                          ToolTip="Live Windows GPS bearing back to the entrance, with a local alarm." />
+                <MenuItem Header="Cloud _plan…" Command="{Binding RenderCloudPlanCommand}"
+                          ToolTip="Ask Cloud AI for a plan image from the centerline. Save afterward so the phone receives it." />
                 <Separator />
                 <MenuItem Header="{x:Static loc:AppStrings.MenuAndroidBluetooth}" Click="OpenAndroidBluetoothPeer_Click"
                           ToolTip="Pair the phone in Windows Settings, then exchange lean survey JSON (no photos) with Android Share survey data. ZIP Desktop Sync and Survey Cloud are unchanged." />
@@ -581,10 +596,10 @@
                                 <DockPanel Grid.Row="2" Margin="0,0,0,8">
                                     <Button DockPanel.Dock="Right" Content="Ask" Padding="12,6" Margin="8,0,0,0"
                                             Command="{Binding AskCaveAiCommand}"
-                                            ToolTip="On-device Cave AI — answers from the open survey only" />
+                                            ToolTip="On-device Cave AI. How-to questions use the usage guide. Depth, shots, and loops use the open survey." />
                                     <TextBox Text="{Binding CaveAiQueryText, UpdateSourceTrigger=PropertyChanged}"
                                              Padding="8,6"
-                                             ToolTip="Ask about depth, traverse, loops, volume, or next step"
+                                             ToolTip="Ask how to use the app, or ask about depth, traverse, loops, volume, or next step"
                                              Background="{DynamicResource Cave.Surface}"
                                              Foreground="{DynamicResource Cave.Text}"
                                              BorderBrush="{DynamicResource Cave.Border}" />

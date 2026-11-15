@@ -18,7 +18,8 @@ public static class AppStrings
     public static string MenuCompareBackups => "Compare two backups…";
     public static string MenuSurveyCompare => "Survey diff (legs/stations)…";
     public static string MenuLoopClosure => "Loop closure assistant…";
-    public static string MenuDesignPlanFromSurvey => "Design plan from survey…";
+    public static string MenuNetworkAnchors => "Network anchors…";
+    public static string MenuDesignPlanFromSurvey => "Design plan or section from survey…";
     public static string DesignAfterMappingSnackbar =>
         "Survey loaded — open Sketch Editor to design the plan or the section (walls and symbols from the traverse).";
     public static string DesignAfterMappingSnackbarAction => "Design now";
@@ -40,12 +41,12 @@ public static class AppStrings
     public static string OnboardingStep1Body =>
         "File → Open, or drag a CaveAI Pro backup (.json or .zip) from your phone or sync folder. " +
         "Full ZIP archives include photos, maps, and integrity manifests.";
-    public static string OnboardingStep2Title => "Plan & Section — view only";
+    public static string OnboardingStep2Title => "Plan & Section — check sheets";
     public static string OnboardingStep2Body =>
-        "PLAN and SECTION tabs show traverse, LRUD walls, and symbols (read-only). Use Survey Intelligence as your QC hub — loop closure, integrity, and expedition metrics.";
-    public static string OnboardingStep3Title => "Sketch Editor — design after mapping";
+        "PLAN and SECTION tabs are check sheets: pan, zoom, and display. Draw walls and symbols in Sketch Editor. Survey Intelligence remains the QC hub — loop closure, integrity, and expedition metrics.";
+    public static string OnboardingStep3Title => "Sketch Editor — plan and section";
     public static string OnboardingStep3Body =>
-        "Open SKETCH EDITOR and choose Plan or Section. Procedural Assist draws walls and symbols from the traverse; edit, Save project, then export or publish.";
+        "Open SKETCH EDITOR and choose Plan or Section. Generate from survey uses left/right LRUD on Plan, and Up/Down ceiling and floor along the traverse on Section. Edit, then Save project. The phone opens that section drawing on Profile (long profile).";
     public static string OnboardingStep4Title => "3D labels & publication";
     public static string OnboardingStep4Body =>
         "Use the 3D MODEL tab for labeled overviews, then Tools → Publication sheet for composite plan, " +

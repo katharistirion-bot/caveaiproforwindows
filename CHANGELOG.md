@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+## [1.5.29] - 2026-11-07
+
+### Added
+- A signed-in save uploads the private survey to Survey Cloud. A newer cloud copy is not replaced. Push to Cloud still publishes the public catalog.
+- Tools → Survey instrument records a leg from a paired DistoX, CaveBLE, or BRIC.
+- Tools → LiDAR scanner puts a wall outline on the plan from OBJ, ASCII XYZ, uncompressed LAS, or a live scanner.
+- Tools → Return to entrance shows a live Windows GPS bearing to the entrance and can sound a local alarm.
+- Tools → Cloud plan asks Cloud AI for a plan image from the centerline and stores it on the project.
+- Surface map → Import DEM stores a north-up raster with its corners.
+- Explore with no network opens the cached surface pack.
+
+## [1.5.28] - 2026-10-24
+
+### Added
+- Data inspector → Shots → Add leg appends the next station. Edit distance, azimuth, and clino, then save.
+- Survex and Therion export lock adjusted stations with fix.
+- Export → Expedition QC packet writes one text file: raw legs, adjusted stations, and loop closure.
+- Survey Cloud upload lists the legs that differ before it replaces a newer cloud copy.
+- A DistoX fit stored on the project (gravity error, compass error, good / usable / weak) shows in the summary and QC tab.
+
+### Fixed
+- Saving a ZIP rewrites integrity_manifest.json.
+- If Survey Cloud uploads but the file on disk does not save, the message says so.
+
+## [1.5.27] - 2026-10-21
+
+### Added
+- Tools → Network anchors: station equates and fixed east/north/up for network least squares.
+- Data inspector columns for backsight azimuth, backsight clino, and leg flags.
+- Survex and Therion import keep equates, fixed stations, and leg flags (surface, duplicate, splay, no-plot, hold).
+- Survex and Therion export write those same anchors and flags.
+
+### Fixed
+- No-plot legs stay in the network and are left off the plan, X-ray, and surface corridor.
+
+## [1.5.26] - 2026-10-20
+
+### Added
+- Drag a selected stroke or symbol into place, with undo.
+- Text labels on the plan. Click Text label, type the words, then click the sheet.
+- Palette buttons show the cave symbols. Smaller and Larger change the selected stamp.
+
+### Fixed
+- Switching to another named drawing no longer writes the previous ink onto the new sheet.
+- Publish stops when the slim survey workspace cannot be built, instead of uploading an empty marker.
+- Loop check uses the same detector as traverse QC.
+- Section view no longer says section ink can be drawn in Sketch Editor. That editor draws the plan.
+
 ## [1.5.25] - 2026-10-19
 
 ### Fixed

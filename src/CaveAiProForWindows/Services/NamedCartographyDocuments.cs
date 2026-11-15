@@ -172,6 +172,7 @@ public static class NamedCartographyDocuments
             CopyArray(map, "brackets", value => project.Brackets = value);
             CopyArray(map, "depthSpanAnnotations", value => project.DepthSpanAnnotations = value);
             project.ActiveCartographyMapId = id;
+            project.MapObjects = EmptyArray.Clone();
             return true;
         }
 
@@ -457,6 +458,7 @@ public static class NamedCartographyDocuments
         project.VectorLines = EmptyArray.Clone();
         project.Brackets = EmptyArray.Clone();
         project.DepthSpanAnnotations = EmptyArray.Clone();
+        project.MapObjects = EmptyArray.Clone();
     }
 
     private static long ReadUpdatedAt(JsonElement map)

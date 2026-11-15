@@ -56,6 +56,8 @@
             <Button Content="Fit entrance" Padding="10,6" Margin="0,0,6,6" Click="FitEntrance_Click" />
             <Button Content="Locate me" Padding="10,6" Margin="0,0,6,6" Click="LocateMe_Click"
                     ToolTip="Center map on Windows GPS (works offline with satellite fix)" />
+            <Button Content="Import DEM" Padding="10,6" Margin="0,0,6,6" Click="ImportDem_Click"
+                    ToolTip="North-up GeoTIFF, PNG, or JPEG with southwest and northeast corners. Saved into the backup for the phone." />
             <Button Content="Export PNG" Padding="10,6" Margin="0,0,6,6" Click="ExportPng_Click"
                     Style="{StaticResource Cave.AccentButton}" />
             <Button Content="Export package" Padding="10,6" Margin="0,0,6,6" Click="ExportPackage_Click" />

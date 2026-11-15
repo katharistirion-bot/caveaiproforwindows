@@ -65,6 +65,20 @@ public sealed class AdvancedOfflineFeaturesTests
     }
 
     [TestMethod]
+    public void CompassRule_misclosed_square_holds_entrance_and_shrinks_worst_leg()
+    {
+        var project = LoopProject();
+        project.Shots[3].Distance = 11;
+        var result = SurveyLoopClosureAdjuster.Adjust(project, LoopAdjustmentMethod.CompassRule);
+        Assert.IsTrue(result.TotalMisclosureBefore > 0.5, $"before {result.TotalMisclosureBefore}");
+        Assert.IsTrue(
+            result.TotalMisclosureAfter < result.TotalMisclosureBefore,
+            $"after {result.TotalMisclosureAfter} before {result.TotalMisclosureBefore}");
+        Assert.IsTrue(result.AdjustedCoordinates.TryGetValue("A", out var entrance));
+        Assert.IsTrue(Math.Abs(entrance.X) < 0.05f && Math.Abs(entrance.Y) < 0.05f, $"A {entrance.X},{entrance.Y}");
+    }
+
+    [TestMethod]
     public void ApplyToPlanOverrides_keepsManualOverrideOnStationsLoopDidNotMove()
     {
         var project = LoopProject();

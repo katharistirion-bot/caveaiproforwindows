@@ -14,7 +14,12 @@ public static class SurveyStationGeometry
 
     /// <summary>Reduction from shots plus any in-memory <see cref="CaveProjectDocument.PlanStationPositionOverrides"/>.</summary>
     public static Dictionary<string, StationPlanCoords> CalculatePlanCoordinates(CaveProjectDocument project) =>
-        CalculatePlanCoordinates(project.Shots, (float)project.Alt, project.PlanStationPositionOverrides);
+        CalculatePlanCoordinates(
+            project.Shots,
+            (float)project.Alt,
+            project.PlanStationPositionOverrides,
+            project.FixedStationPositions,
+            project.StationEquates);
 
     /// <param name="entranceAlt">Android uses <c>project.alt</c> (entrance altitude, metres).</param>
     public static Dictionary<string, StationPlanCoords> CalculatePlanCoordinates(
@@ -26,15 +31,18 @@ public static class SurveyStationGeometry
     public static Dictionary<string, StationPlanCoords> CalculatePlanCoordinates(
         IReadOnlyList<ShotRecord> shots,
         float entranceAlt,
-        IReadOnlyDictionary<string, PlanStationPositionOverride>? planStationPositionOverrides)
+        IReadOnlyDictionary<string, PlanStationPositionOverride>? planStationPositionOverrides,
+        IReadOnlyDictionary<string, PlanStationPositionOverride>? fixedStationPositions = null,
+        IReadOnlyList<StationEquate>? stationEquates = null)
     {
         var coords = new Dictionary<string, StationPlanCoords>(StringComparer.Ordinal);
         var stationComponent = new Dictionary<string, int>(StringComparer.Ordinal);
+        var derivedFrom = new Dictionary<string, StationDerivation>(StringComparer.OrdinalIgnoreCase);
         var nextComponentId = 0;
         if (shots.Count == 0)
             return coords;
 
-        var unresolved = shots.Where(s => s.IsTraverseLeg).ToList();
+        var unresolved = shots.Where(s => s.IsNetworkLeg).ToList();
         var componentIndex = 0;
         const float componentSpacing = 60f;
 
@@ -73,12 +81,10 @@ public static class SurveyStationGeometry
                     var shot = unresolved[i];
                     coords.TryGetValue(shot.FromStation, out var fromC);
                     coords.TryGetValue(shot.ToStation, out var toC);
-                    var azRad = shot.Azimuth * (Math.PI / 180.0);
-                    var clRad = shot.Clino * (Math.PI / 180.0);
-                    var hDist = shot.Distance * (float)Math.Cos(clRad);
-                    var dx = hDist * (float)Math.Sin(azRad);
-                    var dy = hDist * (float)Math.Cos(azRad);
-                    var dz = shot.Distance * (float)Math.Sin(clRad);
+                    var (dxD, dyD, dzD) = SurveyLegGeometry.Delta(shot);
+                    var dx = (float)dxD;
+                    var dy = (float)dyD;
+                    var dz = (float)dzD;
 
                     switch (fromC, toC)
                     {
@@ -92,6 +98,7 @@ public static class SurveyStationGeometry
                                 from.Y + dy,
                                 from.Z + dz);
                             stationComponent[shot.ToStation] = cid;
+                            derivedFrom.TryAdd(shot.ToStation, new StationDerivation(shot.FromStation, dx, dy, dz));
                             unresolved.RemoveAt(i);
                             progressed = true;
                             break;
@@ -106,6 +113,7 @@ public static class SurveyStationGeometry
                                 to.Y - dy,
                                 to.Z - dz);
                             stationComponent[shot.FromStation] = cid;
+                            derivedFrom.TryAdd(shot.FromStation, new StationDerivation(shot.ToStation, -dx, -dy, -dz));
                             unresolved.RemoveAt(i);
                             progressed = true;
                             break;
@@ -144,8 +152,109 @@ public static class SurveyStationGeometry
             }
         }
 
+        ApplyStationEquates(coords, stationComponent, stationEquates);
+        ApplyFixedStationAnchors(coords, stationComponent, fixedStationPositions);
         ApplyPlanStationPositionOverrides(coords, planStationPositionOverrides);
+        ReseatDerivedStations(coords, derivedFrom, planStationPositionOverrides, fixedStationPositions);
         return coords;
+    }
+
+    private readonly record struct StationDerivation(string ParentKey, float Dx, float Dy, float Dz);
+
+    private static string? FindStationKey(Dictionary<string, StationPlanCoords> coords, string name)
+    {
+        foreach (var key in coords.Keys)
+        {
+            if (key.Equals(name, StringComparison.OrdinalIgnoreCase))
+                return key;
+        }
+
+        return null;
+    }
+
+    private static void ApplyStationEquates(
+        Dictionary<string, StationPlanCoords> coords,
+        Dictionary<string, int> stationComponent,
+        IReadOnlyList<StationEquate>? equates)
+    {
+        if (equates == null || equates.Count == 0)
+            return;
+        foreach (var eq in equates)
+        {
+            var aName = eq.StationA?.Trim() ?? "";
+            var bName = eq.StationB?.Trim() ?? "";
+            if (aName.Length == 0 || bName.Length == 0)
+                continue;
+            var ka = FindStationKey(coords, aName);
+            var kb = FindStationKey(coords, bName);
+            var ca = 0;
+            var cb = 0;
+            var hasA = ka != null && stationComponent.TryGetValue(ka, out ca);
+            var hasB = kb != null && stationComponent.TryGetValue(kb, out cb);
+            if (hasA && hasB && ca != cb && ka != null && kb != null)
+            {
+                var anchor = coords[ka];
+                var moved = coords[kb];
+                var ox = anchor.X - moved.X;
+                var oy = anchor.Y - moved.Y;
+                var oz = anchor.Z - moved.Z;
+                var names = coords.Keys.Where(n => stationComponent.GetValueOrDefault(n) == cb).ToList();
+                foreach (var name in names)
+                {
+                    if (!coords.TryGetValue(name, out var c))
+                        continue;
+                    coords[name] = c with { X = c.X + ox, Y = c.Y + oy, Z = c.Z + oz };
+                    stationComponent[name] = ca;
+                }
+            }
+            else if (ka != null && kb == null && stationComponent.TryGetValue(ka, out var cidA))
+            {
+                var src = coords[ka];
+                coords[bName] = src with { Name = bName };
+                stationComponent[bName] = cidA;
+            }
+            else if (kb != null && ka == null && stationComponent.TryGetValue(kb, out var cidB))
+            {
+                var src = coords[kb];
+                coords[aName] = src with { Name = aName };
+                stationComponent[aName] = cidB;
+            }
+        }
+    }
+
+    private static void ApplyFixedStationAnchors(
+        Dictionary<string, StationPlanCoords> coords,
+        Dictionary<string, int> stationComponent,
+        IReadOnlyDictionary<string, PlanStationPositionOverride>? fixes)
+    {
+        if (fixes == null || fixes.Count == 0)
+            return;
+        foreach (var kv in fixes)
+        {
+            var key = FindStationKey(coords, kv.Key);
+            if (key == null)
+            {
+                var next = stationComponent.Count == 0 ? 0 : stationComponent.Values.Max() + 1;
+                coords[kv.Key] = new StationPlanCoords(kv.Key, kv.Value.X, kv.Value.Y, kv.Value.Z);
+                stationComponent[kv.Key] = next;
+                continue;
+            }
+
+            if (!stationComponent.TryGetValue(key, out var cid) || !coords.TryGetValue(key, out var current))
+                continue;
+            var ox = kv.Value.X - current.X;
+            var oy = kv.Value.Y - current.Y;
+            var oz = kv.Value.Z - current.Z;
+            if (Math.Abs(ox) < 1e-6f && Math.Abs(oy) < 1e-6f && Math.Abs(oz) < 1e-6f)
+                continue;
+            var names = coords.Keys.Where(n => stationComponent.GetValueOrDefault(n) == cid).ToList();
+            foreach (var name in names)
+            {
+                if (!coords.TryGetValue(name, out var c))
+                    continue;
+                coords[name] = c with { X = c.X + ox, Y = c.Y + oy, Z = c.Z + oz };
+            }
+        }
     }
 
     private static void ApplyPlanStationPositionOverrides(
@@ -156,9 +265,83 @@ public static class SurveyStationGeometry
             return;
         foreach (var kv in overrides)
         {
-            var n = kv.Key;
             var o = kv.Value;
-            coords[n] = new StationPlanCoords(n, o.X, o.Y, o.Z);
+            var key = FindStationKey(coords, kv.Key);
+            if (key == null)
+            {
+                coords[kv.Key] = new StationPlanCoords(kv.Key, o.X, o.Y, o.Z);
+                continue;
+            }
+
+            if (!coords.TryGetValue(key, out var existing))
+                continue;
+            coords[key] = existing with { X = o.X, Y = o.Y, Z = o.Z };
+        }
+    }
+
+    /// <summary>
+    /// A pinned station stays. A station first placed from it is placed again from the
+    /// adjusted point. Earlier stations on the chain, including the entrance, stay put.
+    /// </summary>
+    private static void ReseatDerivedStations(
+        Dictionary<string, StationPlanCoords> coords,
+        Dictionary<string, StationDerivation> derivedFrom,
+        IReadOnlyDictionary<string, PlanStationPositionOverride>? overrides,
+        IReadOnlyDictionary<string, PlanStationPositionOverride>? fixedStationPositions)
+    {
+        if (derivedFrom.Count == 0)
+            return;
+        if ((overrides == null || overrides.Count == 0) &&
+            (fixedStationPositions == null || fixedStationPositions.Count == 0))
+            return;
+
+        var pinned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (overrides != null)
+        {
+            foreach (var name in overrides.Keys)
+                pinned.Add(name);
+        }
+
+        if (fixedStationPositions != null)
+        {
+            foreach (var name in fixedStationPositions.Keys)
+                pinned.Add(name);
+        }
+
+        if (pinned.Count == 0)
+            return;
+
+        var settled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in pinned)
+        {
+            var key = FindStationKey(coords, name);
+            if (key != null)
+                settled.Add(key);
+        }
+
+        var progressed = true;
+        while (progressed)
+        {
+            progressed = false;
+            foreach (var (childName, derivation) in derivedFrom)
+            {
+                var childKey = FindStationKey(coords, childName);
+                if (childKey == null || pinned.Contains(childKey) || settled.Contains(childKey))
+                    continue;
+                var parentKey = FindStationKey(coords, derivation.ParentKey);
+                if (parentKey == null || !settled.Contains(parentKey))
+                    continue;
+                if (!coords.TryGetValue(parentKey, out var parent) || !coords.TryGetValue(childKey, out var child))
+                    continue;
+                coords[childKey] = child with
+                {
+                    X = parent.X + derivation.Dx,
+                    Y = parent.Y + derivation.Dy,
+                    Z = parent.Z + derivation.Dz,
+                };
+                settled.Add(childKey);
+                progressed = true;
+            }
         }
     }
 
@@ -205,6 +388,7 @@ public static class SurveyStationGeometry
                && frame.ValueKind == JsonValueKind.String
                && string.Equals(frame.GetString(), ExtendedElevationCoordinateFrame, StringComparison.Ordinal);
     }
+
     /// <summary>Parses <c>vectorLines</c> for a given Android <c>viewMode</c>.</summary>
     public static IReadOnlyList<PlanVectorPolyline> ParseVectorLinesForViewMode(JsonElement? vectorLinesRoot, int requiredViewMode)
     {

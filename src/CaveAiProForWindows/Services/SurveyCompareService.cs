@@ -94,6 +94,48 @@ public static class SurveyCompareService
             stationRows.Count(r => r.ChangeKind == "Moved"));
     }
 
+    /// <summary>
+    /// Short preview before an upload replaces a newer cloud copy.
+    /// [local] is this computer. [cloud] null means the shots could not be loaded.
+    /// Added rows are only in the cloud. Removed rows are only on this computer.
+    /// </summary>
+    public static string FormatCloudReplacePreview(CaveProjectDocument local, CaveProjectDocument? cloud, int maxLines = 12)
+    {
+        ArgumentNullException.ThrowIfNull(local);
+        if (cloud == null)
+            return "Cloud shots could not be loaded. Uploading still replaces the whole cloud copy.";
+
+        var diff = Compare(local, cloud);
+        var changed = diff.LegChanges.Where(r => r.ChangeKind == "Changed").ToList();
+        var onlyLocal = diff.LegChanges.Where(r => r.ChangeKind == "Removed").ToList();
+        var onlyCloud = diff.LegChanges.Where(r => r.ChangeKind == "Added").ToList();
+        if (changed.Count == 0 && onlyLocal.Count == 0 && onlyCloud.Count == 0)
+            return "Traverse legs match. The cloud copy is newer, but station, distance, azimuth, and clino are the same.";
+
+        var details = new List<string>(changed.Count + onlyLocal.Count + onlyCloud.Count);
+        foreach (var row in changed)
+            details.Add($"Changed {row.FromStation} → {row.ToStation}: this computer {row.DetailA} · cloud {row.DetailB}");
+        foreach (var row in onlyLocal)
+            details.Add($"Only on this computer: {row.FromStation} → {row.ToStation} ({row.DetailA})");
+        foreach (var row in onlyCloud)
+            details.Add($"Only in the cloud: {row.FromStation} → {row.ToStation} ({row.DetailB})");
+
+        var sb = new StringBuilder();
+        sb.Append(changed.Count);
+        sb.Append(" changed, ");
+        sb.Append(onlyLocal.Count);
+        sb.Append(" only on this computer, ");
+        sb.Append(onlyCloud.Count);
+        sb.AppendLine(" only in the cloud.");
+        var shown = Math.Max(1, maxLines);
+        foreach (var line in details.Take(shown))
+            sb.AppendLine(line);
+        var hidden = details.Count - Math.Min(details.Count, shown);
+        if (hidden > 0)
+            sb.Append("And ").Append(hidden).AppendLine(" more.");
+        return sb.ToString().TrimEnd();
+    }
+
     private static Dictionary<LegKey, ShotRecord> IndexLegs(CaveProjectDocument? project)
     {
         var map = new Dictionary<LegKey, ShotRecord>(LegKeyComparer.Instance);

@@ -15,6 +15,9 @@ public partial class PublicLibraryWebWindow : Window
     /// <summary>First navigation URL; defaults to embedded public map.</summary>
     public string InitialUrl { get; set; } = PublicLibraryCatalog.WebMapUrlEmbedded;
 
+    /// <summary>Called once when the page cannot be reached. The window closes after this runs.</summary>
+    public Action? OfflineNavigationFailed { get; set; }
+
     public PublicLibraryWebWindow()
     {
         InitializeComponent();
@@ -85,10 +88,28 @@ public partial class PublicLibraryWebWindow : Window
                 }
             };
 
-            core.NavigationCompleted += (_, _) =>
+            core.NavigationCompleted += (_, args) =>
             {
                 UpdateGuestLibraryChromeVisibility();
                 MaybeRestampEmbed(core);
+                if (args.IsSuccess || OfflineNavigationFailed == null)
+                    return;
+                if (args.WebErrorStatus is not (
+                    CoreWebView2WebErrorStatus.HostNameNotResolved or
+                    CoreWebView2WebErrorStatus.CannotConnect or
+                    CoreWebView2WebErrorStatus.Disconnected or
+                    CoreWebView2WebErrorStatus.Timeout or
+                    CoreWebView2WebErrorStatus.ConnectionAborted or
+                    CoreWebView2WebErrorStatus.ServerUnreachable or
+                    CoreWebView2WebErrorStatus.ErrorHttpInvalidServerResponse))
+                    return;
+                var failed = OfflineNavigationFailed;
+                OfflineNavigationFailed = null;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    failed?.Invoke();
+                    Close();
+                }));
             };
 
             core.Navigate(PublicLibraryCatalog.ResolveInAppStartUrl(InitialUrl));

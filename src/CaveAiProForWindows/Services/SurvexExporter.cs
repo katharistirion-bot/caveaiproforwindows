@@ -75,31 +75,51 @@ public static class SurvexExporter
         }
 
         var anchor = SanitizeStation(options.FixStation);
+        var fixEasting = options.FixEasting;
+        var fixNorthing = options.FixNorthing;
+        var fixElevation = options.FixElevation;
+        if (TryGetPlanOverride(project, options.FixStation, out var entranceAdjusted))
+        {
+            fixEasting = entranceAdjusted.X;
+            fixNorthing = entranceAdjusted.Y;
+            fixElevation = entranceAdjusted.Z;
+        }
         sb.AppendLine(string.Join(" ",
             "*fix",
             anchor,
-            options.FixEasting.ToString("0.###", CultureInfo.InvariantCulture),
-            options.FixNorthing.ToString("0.###", CultureInfo.InvariantCulture),
-            options.FixElevation.ToString("0.###", CultureInfo.InvariantCulture)));
+            fixEasting.ToString("0.###", CultureInfo.InvariantCulture),
+            fixNorthing.ToString("0.###", CultureInfo.InvariantCulture),
+            fixElevation.ToString("0.###", CultureInfo.InvariantCulture)));
 
         sb.AppendLine("*units tape metres");
         sb.AppendLine("*units compass degrees");
         sb.AppendLine("*units clino degrees");
         sb.AppendLine();
-        sb.AppendLine("; Traverse legs (toStation != \"-\").");
+
+        AppendEquates(sb, project);
+        AppendProjectFixedStations(sb, project, anchor);
+        AppendAdjustedStationFixes(sb, project, anchor);
+
+        sb.AppendLine("; Traverse legs (toStation != \"-\"; EXCLUDE omitted).");
         sb.AppendLine("*data normal from to tape compass clino");
 
-        foreach (var s in project.Shots.Where(x => x.IsTraverseLeg))
+        var flagState = SurvexFlagState.None;
+        foreach (var s in project.Shots.Where(x => x.IsNetworkLeg))
         {
+            flagState = EmitFlagTransition(sb, flagState, DesiredTraverseFlags(s.LegFlags));
             var from = SanitizeStation(s.FromStation);
             var to = SanitizeStation(s.ToStation);
-            sb.AppendLine(string.Join("\t",
+            var line = string.Join("\t",
                 from,
                 to,
                 s.Distance.ToString("0.###", CultureInfo.InvariantCulture),
                 s.Azimuth.ToString(CultureInfo.InvariantCulture),
-                s.Clino.ToString(CultureInfo.InvariantCulture)));
+                s.Clino.ToString(CultureInfo.InvariantCulture));
+            var note = LegFlagComment(s.LegFlags);
+            sb.AppendLine(string.IsNullOrEmpty(note) ? line : line + "\t; " + note);
         }
+
+        flagState = EmitFlagTransition(sb, flagState, SurvexFlagState.None);
 
         var splays = project.Shots.Where(x => !x.IsTraverseLeg && x.Distance > 0).ToList();
         if (options.IncludeSplays && splays.Count > 0)
@@ -107,6 +127,7 @@ public static class SurvexExporter
             sb.AppendLine();
             sb.AppendLine($"; Splay shots ({splays.Count}) — toStation \"-\" in CaveAI Pro.");
             sb.AppendLine("*data normal from to tape compass clino");
+            flagState = EmitFlagTransition(sb, flagState, SurvexFlagState.Splay);
             foreach (var s in splays)
             {
                 sb.AppendLine(string.Join("\t",
@@ -117,6 +138,7 @@ public static class SurvexExporter
                     s.Clino.ToString(CultureInfo.InvariantCulture)));
             }
 
+            EmitFlagTransition(sb, SurvexFlagState.Splay, SurvexFlagState.None);
         }
 
         if (options.IncludeLrudPassage)
@@ -151,6 +173,162 @@ public static class SurvexExporter
     private static string EscapeTitle(string name)
     {
         return name.Replace("\"", "''", StringComparison.Ordinal);
+    }
+
+    [Flags]
+    private enum SurvexFlagState
+    {
+        None = 0,
+        Surface = 1,
+        Duplicate = 2,
+        Splay = 4,
+    }
+
+    private static SurvexFlagState DesiredTraverseFlags(string? legFlags)
+    {
+        var state = SurvexFlagState.None;
+        if (SurveyLegFlags.Has(legFlags, SurveyLegFlags.Surface))
+            state |= SurvexFlagState.Surface;
+        if (SurveyLegFlags.Has(legFlags, SurveyLegFlags.Duplicate))
+            state |= SurvexFlagState.Duplicate;
+        return state;
+    }
+
+    private static string LegFlagComment(string? legFlags)
+    {
+        var notes = new List<string>();
+        if (SurveyLegFlags.IsNoPlot(legFlags))
+            notes.Add("NOPLOT");
+        if (SurveyLegFlags.IsHeld(legFlags))
+            notes.Add("DONTADJUST");
+        return notes.Count == 0 ? "" : string.Join(" ", notes);
+    }
+
+    private static SurvexFlagState EmitFlagTransition(StringBuilder sb, SurvexFlagState current, SurvexFlagState desired)
+    {
+        if (current == desired)
+            return current;
+
+        void Toggle(SurvexFlagState bit, string name)
+        {
+            var was = (current & bit) != 0;
+            var now = (desired & bit) != 0;
+            if (was == now)
+                return;
+            sb.AppendLine(now ? $"*flags {name}" : $"*flags not {name}");
+        }
+
+        Toggle(SurvexFlagState.Surface, "surface");
+        Toggle(SurvexFlagState.Duplicate, "duplicate");
+        Toggle(SurvexFlagState.Splay, "splay");
+        return desired;
+    }
+
+    private static void AppendEquates(StringBuilder sb, CaveProjectDocument project)
+    {
+        if (project.StationEquates is not { Count: > 0 })
+            return;
+
+        sb.AppendLine("; Station equates (same physical point).");
+        foreach (var eq in project.StationEquates)
+        {
+            var a = SanitizeStation(eq.StationA ?? "");
+            var b = SanitizeStation(eq.StationB ?? "");
+            if (a is "?" or "" || b is "?" or "" || a.Equals(b, StringComparison.OrdinalIgnoreCase))
+                continue;
+            sb.AppendLine($"*equate {a} {b}");
+        }
+
+        sb.AppendLine();
+    }
+
+    private static void AppendProjectFixedStations(StringBuilder sb, CaveProjectDocument project, string alreadyFixed)
+    {
+        var positions = project.FixedStationPositions;
+        if (positions is not { Count: > 0 })
+            return;
+
+        sb.AppendLine("; Fixed stations (plan metres east / north / up).");
+        foreach (var kv in positions.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var name = SanitizeStation(kv.Key);
+            if (name is "?" or "")
+                continue;
+            if (name.Equals(alreadyFixed, StringComparison.OrdinalIgnoreCase))
+                continue;
+            sb.AppendLine(string.Join(" ",
+                "*fix",
+                name,
+                kv.Value.X.ToString("0.###", CultureInfo.InvariantCulture),
+                kv.Value.Y.ToString("0.###", CultureInfo.InvariantCulture),
+                kv.Value.Z.ToString("0.###", CultureInfo.InvariantCulture)));
+        }
+
+        sb.AppendLine();
+    }
+
+    private static void AppendAdjustedStationFixes(StringBuilder sb, CaveProjectDocument project, string alreadyFixed)
+    {
+        var overrides = project.PlanStationPositionOverrides;
+        if (overrides.Count == 0)
+            return;
+
+        var fixedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (project.FixedStationPositions != null)
+        {
+            foreach (var key in project.FixedStationPositions.Keys)
+                fixedNames.Add(SanitizeStation(key));
+        }
+
+        var lines = new List<string>();
+        foreach (var kv in overrides.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var name = SanitizeStation(kv.Key);
+            if (name is "?" or "")
+                continue;
+            if (name.Equals(alreadyFixed, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (fixedNames.Contains(name))
+                continue;
+            lines.Add(string.Join(" ",
+                "*fix",
+                name,
+                kv.Value.X.ToString("0.###", CultureInfo.InvariantCulture),
+                kv.Value.Y.ToString("0.###", CultureInfo.InvariantCulture),
+                kv.Value.Z.ToString("0.###", CultureInfo.InvariantCulture)));
+        }
+
+        if (lines.Count == 0)
+            return;
+
+        sb.AppendLine("; Adjusted plan stations (metres east, north, up).");
+        sb.AppendLine("; These *fix lines keep the office adjustment. Delete them to recompute from the legs.");
+        foreach (var line in lines)
+            sb.AppendLine(line);
+        sb.AppendLine();
+    }
+
+    private static bool TryGetPlanOverride(
+        CaveProjectDocument project,
+        string station,
+        out PlanStationPositionOverride value)
+    {
+        value = default;
+        var map = project.PlanStationPositionOverrides;
+        if (map.Count == 0)
+            return false;
+        if (map.TryGetValue(station, out value))
+            return true;
+        var sanitized = SanitizeStation(station);
+        foreach (var kv in map)
+        {
+            if (SanitizeStation(kv.Key).Equals(sanitized, StringComparison.OrdinalIgnoreCase))
+            {
+                value = kv.Value;
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void AppendLrudPassageBlock(StringBuilder sb, CaveProjectDocument project)

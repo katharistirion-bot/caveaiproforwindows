@@ -779,13 +779,50 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (!System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
+            {
+                ShowExploreFromOfflinePack();
+                return;
+            }
+
             var url = PublicLibraryCatalog.ResolveExploreMapOpenUrl();
-            PublicLibraryCatalog.ShowInAppWindow(this, url);
+            PublicLibraryCatalog.ShowInAppWindow(this, url, ShowExploreFromOfflinePack);
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Explore map", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    private void ShowExploreFromOfflinePack()
+    {
+        double lat = 0, lon = 0;
+        var url = PublicLibraryCatalog.ResolveExploreMapOpenUrl();
+        var query = url.Contains('?', StringComparison.Ordinal) ? url[(url.IndexOf('?') + 1)..] : "";
+        foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pair = part.Split('=', 2);
+            if (pair.Length != 2)
+                continue;
+            var key = Uri.UnescapeDataString(pair[0]);
+            var value = Uri.UnescapeDataString(pair[1]);
+            if (key.Equals("lat", StringComparison.OrdinalIgnoreCase) &&
+                double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedLat))
+                lat = parsedLat;
+            if (key.Equals("lon", StringComparison.OrdinalIgnoreCase) &&
+                double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedLon))
+                lon = parsedLon;
+        }
+
+        if (Math.Abs(lat) < 1e-8 && Math.Abs(lon) < 1e-8 && DataContext is MainViewModel vm &&
+            vm.SelectedProject?.Lat is double projectLat && vm.SelectedProject.Lon is double projectLon)
+        {
+            lat = projectLat;
+            lon = projectLon;
+        }
+
+        MainSurveyTabControl.SelectedItem = SurfaceTab;
+        _surfaceMapView?.ShowCachedExplore(lat, lon);
     }
 
     private void OpenPublicLibraryExternal_Click(object sender, RoutedEventArgs e)

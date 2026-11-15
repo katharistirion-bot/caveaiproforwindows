@@ -31,6 +31,7 @@ public partial class CommandPaletteWindow : Window
         Add("File", "Open backup…", () => _vm.OpenFileCommand.Execute(null), "open", "load", "zip", "json");
         Add("File", "Import Survex…", () => _vm.ImportSurvexCommand.Execute(null), "svx", "survex", "import");
         Add("File", "Import Therion…", () => _vm.ImportTherionCommand.Execute(null), "th", "therion", "import");
+        Add("File", "Import legacy centerline…", () => _vm.ImportLegacyCenterlineCommand.Execute(null), "dat", "compass", "walls", "srv", "tro", "visual topo", "import");
         Add("File", "Save project", () => _vm.SaveProjectCommand.Execute(null), "save", "write");
         Add("File", "Save as Android backup ZIP…", () => _vm.SaveProjectAsCommand.Execute(null), "save as", "android", "zip", "backup");
         Add("File", "Close workspace", () => _vm.CloseWorkspaceCommand.Execute(null), "close", "unload");
@@ -40,7 +41,13 @@ public partial class CommandPaletteWindow : Window
         Add("Library", "Download from Public Library…", () => _vm.DownloadPublicLibraryBackupCommand.Execute(null), "cloud", "backup");
         Add("Survey", "Survey compare…", () => _vm.CompareSurveysCommand.Execute(null), "diff", "compare");
         Add("Survey", "Compare backups…", () => _vm.CompareBackupsCommand.Execute(null), "diff", "files");
+        Add("Survey", "Loop closure assistant…", () => _vm.ShowLoopClosureAssistantCommand.Execute(null), "loop", "misclosure", "compass", "wls", "adjust");
+        Add("Survey", "Network anchors…", () => _vm.ShowNetworkAnchorsCommand.Execute(null), "equate", "fixed", "xyz", "hold", "walls", "anchor");
         Add("Survey", "Field trip planner…", () => _vm.OpenFieldTripPlannerCommand.Execute(null), "route", "gpx");
+        Add("Tools", "Survey instrument…", () => _vm.OpenSurveyInstrumentCommand.Execute(null), "distox", "caveble", "bric", "laser", "instrument");
+        Add("Tools", "LiDAR scanner…", () => _vm.OpenLidarScannerCommand.Execute(null), "lidar", "las", "obj", "scan");
+        Add("Tools", "Return to entrance…", () => _vm.OpenFieldReturnCommand.Execute(null), "sos", "gps", "alarm", "bearing");
+        Add("Tools", "Cloud plan…", () => _vm.RenderCloudPlanCommand.Execute(null), "gemini", "ai", "render", "plan");
         Add("Tools", "Android Bluetooth companion…", OpenAndroidBluetoothFromPalette, "bluetooth", "android", "peer", "rfcomm", "phone");
         Add("Cloud", "Push to Cloud", () => _vm.PublishToCloudCommand.Execute(null), "publish", "upload");
         Add("Cloud", "Retry failed cloud publish", () => _vm.CloudCommands.RetryCommand.Execute(null), "retry", "queue");

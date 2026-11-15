@@ -89,6 +89,9 @@
         <TabItem Header="Shots">
             <DockPanel LastChildFill="True">
                 <DockPanel DockPanel.Dock="Top" Margin="8,8,8,4">
+                    <Button DockPanel.Dock="Right" Content="Add leg" Command="{Binding AddSurveyLegCommand}"
+                            Padding="10,4" Margin="8,0,0,0"
+                            ToolTip="Append a traverse leg after the last station. Edit distance, azimuth, and clino, then save." />
                     <TextBlock DockPanel.Dock="Left" Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0"
                                Foreground="{DynamicResource Cave.TextMuted}" />
                     <TextBox Text="{Binding ShotsFilterText, UpdateSourceTrigger=PropertyChanged}" Padding="6,4"
@@ -104,6 +107,12 @@
                         <DataGridTextColumn Header="Dist m" Binding="{Binding Distance, Mode=TwoWay, StringFormat=F2}" Width="72" />
                         <DataGridTextColumn Header="Clino°" Binding="{Binding Clino, Mode=TwoWay}" Width="56" />
                         <DataGridTextColumn Header="Az°" Binding="{Binding Azimuth, Mode=TwoWay}" Width="56" />
+                        <DataGridTextColumn Header="BS az°" Binding="{Binding BacksightAzimuth, Mode=TwoWay}" Width="64"
+                                            ToolTipService.ToolTip="Backsight compass degrees (−999 = blank)." />
+                        <DataGridTextColumn Header="BS cl°" Binding="{Binding BacksightClino, Mode=TwoWay}" Width="64"
+                                            ToolTipService.ToolTip="Backsight clinometer degrees." />
+                        <DataGridTextColumn Header="Flags" Binding="{Binding LegFlags, Mode=TwoWay}" Width="100"
+                                            ToolTipService.ToolTip="Space-separated leg flags (e.g. NOPLOT DONTADJUST EXCLUDE SURFACE)." />
                         <DataGridTextColumn Header="Depth m" Binding="{Binding Depth, Mode=TwoWay, StringFormat=F2}" Width="72" />
                         <DataGridTextColumn Header="L" Binding="{Binding L, Mode=TwoWay, StringFormat=F2}" Width="44" />
                         <DataGridTextColumn Header="R" Binding="{Binding R, Mode=TwoWay, StringFormat=F2}" Width="44" />

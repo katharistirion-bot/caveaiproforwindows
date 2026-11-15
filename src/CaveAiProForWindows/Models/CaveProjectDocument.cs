@@ -240,6 +240,31 @@ public sealed class CaveProjectDocument
     [JsonPropertyName("activeCartographyMapId")]
     public string? ActiveCartographyMapId { get; set; }
 
+    /// <summary>Notebook length for new typed distances: <c>m</c> or <c>ft</c>. Null means metres. Stored shots stay metres.</summary>
+    [JsonPropertyName("lengthUnit")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LengthUnit { get; set; }
+
+    /// <summary>Notebook angle for typed backsights: <c>deg</c> or <c>grad</c>. Null means degrees. Stored angles stay degrees.</summary>
+    [JsonPropertyName("angleUnit")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AngleUnit { get; set; }
+
+    /// <summary>Station pairs that are one point.</summary>
+    [JsonPropertyName("stationEquates")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<StationEquate>? StationEquates { get; set; }
+
+    /// <summary>Stations held during network closure.</summary>
+    [JsonPropertyName("fixedStations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? FixedStations { get; set; }
+
+    /// <summary>Known plan-frame XYZ (metres) for fixed stations, such as a Walls #fix.</summary>
+    [JsonPropertyName("fixedStationPositions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, PlanStationPositionOverride>? FixedStationPositions { get; set; }
+
     /// <summary>Any Gson members not listed above (forward-compatible with newer Android builds).</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }

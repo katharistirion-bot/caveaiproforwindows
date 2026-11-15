@@ -15,9 +15,13 @@ public static class SurveyWorkspaceJsonBuilder
     private static readonly byte[] FallbackMarkerUtf8 =
         Encoding.UTF8.GetBytes("""{"__caveAiWorkspaceInvalid":true,"shots":[]}""");
 
+    public static bool IsFallbackMarker(byte[] bytes) =>
+        bytes.AsSpan().SequenceEqual(FallbackMarkerUtf8);
+
     private static readonly HashSet<string> ProjectKeys = new(StringComparer.Ordinal)
     {
         "name", "date", "alt", "exitAlt", "shots", "planStationPositionOverrides",
+        "lengthUnit", "angleUnit", "stationEquates", "fixedStations", "fixedStationPositions",
         "vectorLines", "mapSymbols", "brackets", "sketches", "sketchLayer", "mapObjects",
         "planSketchLayer", "freehandSketches", "mapSketchLayer", "sectionSketches",
         "publicLibraryCartographyUris", "lat", "lon", "surfaceLidarRaster",
@@ -39,7 +43,7 @@ public static class SurveyWorkspaceJsonBuilder
     private static readonly HashSet<string> ShotKeys = new(StringComparer.Ordinal)
     {
         "fromStation", "toStation", "from", "to", "azimuth", "clino", "distance",
-        "l", "r", "u", "d", "left", "right", "up", "down", "radials", "hasSplayWatch",
+        "l", "r", "u", "d", "left", "right", "up", "down", "radials", "hasSplayWatch", "traverseKind", "backsightAzimuth", "backsightClino", "legFlags",
         "atmosphericO2VolPct", "ambientBleTempCelsius", "manualAmbientTempCelsius",
         "ambientBleRelativeHumidityPct", "manualRelativeHumidityPct", "co2Ppm", "pressureHpa",
     };

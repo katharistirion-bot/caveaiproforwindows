@@ -32,4 +32,34 @@ public sealed class SurveyCompareServiceTests
         Assert.AreEqual(1, result.LegsAdded);
         Assert.AreEqual(0, result.LegsRemoved);
     }
+
+    [TestMethod]
+    public void FormatCloudReplacePreview_names_each_side()
+    {
+        var local = new CaveProjectDocument
+        {
+            Name = "Cave",
+            Shots =
+            [
+                new ShotRecord { FromStation = "1", ToStation = "2", Distance = 4.2f, Azimuth = 90f, Clino = -3f },
+                new ShotRecord { FromStation = "2", ToStation = "3", Distance = 3f, Azimuth = 10f, Clino = 0f },
+            ],
+        };
+        var cloud = new CaveProjectDocument
+        {
+            Name = "Cave",
+            Shots =
+            [
+                new ShotRecord { FromStation = "1", ToStation = "2", Distance = 4.5f, Azimuth = 92f, Clino = -3f },
+                new ShotRecord { FromStation = "3", ToStation = "4", Distance = 2f, Azimuth = 180f, Clino = 1f },
+            ],
+        };
+
+        var text = SurveyCompareService.FormatCloudReplacePreview(local, cloud);
+        StringAssert.Contains(text, "1 changed");
+        StringAssert.Contains(text, "only on this computer");
+        StringAssert.Contains(text, "only in the cloud");
+        StringAssert.Contains(text, "2 → 3");
+        StringAssert.Contains(text, "3 → 4");
+    }
 }

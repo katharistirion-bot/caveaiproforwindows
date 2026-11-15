@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using CaveAiProForWindows.Models;
+using CaveAiProForWindows.Services;
 
 namespace CaveAiProForWindows.Services.SurveyLoopQc;
 
@@ -16,7 +17,7 @@ public static class SurveyLoopQcAnalyzer
     public static IReadOnlyList<SurveyLoopInfo> AnalyzeLoops(CaveProjectDocument project)
     {
         ArgumentNullException.ThrowIfNull(project);
-        var legs = project.Shots.Where(s => s.IsTraverseLeg).ToList();
+        var legs = project.Shots.Where(s => s.IsNetworkLeg).ToList();
         if (legs.Count < 3)
             return Array.Empty<SurveyLoopInfo>();
 
@@ -104,10 +105,10 @@ public static class SurveyLoopQcAnalyzer
                 sn += vec.Value.Dy;
                 sz += vec.Value.Dz;
                 var sh = legs.Find(s =>
-                    (string.Equals(s.FromStation, a, StringComparison.Ordinal) &&
-                     string.Equals(s.ToStation, b, StringComparison.Ordinal)) ||
-                    (string.Equals(s.FromStation, b, StringComparison.Ordinal) &&
-                     string.Equals(s.ToStation, a, StringComparison.Ordinal)));
+                    (string.Equals(s.FromStation, a, StringComparison.OrdinalIgnoreCase) &&
+                     string.Equals(s.ToStation, b, StringComparison.OrdinalIgnoreCase)) ||
+                    (string.Equals(s.FromStation, b, StringComparison.OrdinalIgnoreCase) &&
+                     string.Equals(s.ToStation, a, StringComparison.OrdinalIgnoreCase)));
                 if (sh != null)
                     plen += sh.Distance;
             }
@@ -139,28 +140,21 @@ public static class SurveyLoopQcAnalyzer
         string to)
     {
         var shot = shots.FirstOrDefault(s =>
-            (string.Equals(s.FromStation, from, StringComparison.Ordinal) &&
-             string.Equals(s.ToStation, to, StringComparison.Ordinal)) ||
-            (string.Equals(s.FromStation, to, StringComparison.Ordinal) &&
-             string.Equals(s.ToStation, from, StringComparison.Ordinal)));
+            (string.Equals(s.FromStation, from, StringComparison.OrdinalIgnoreCase) &&
+             string.Equals(s.ToStation, to, StringComparison.OrdinalIgnoreCase)) ||
+            (string.Equals(s.FromStation, to, StringComparison.OrdinalIgnoreCase) &&
+             string.Equals(s.ToStation, from, StringComparison.OrdinalIgnoreCase)));
         if (shot == null)
             return null;
         var (dx, dy, dz) = ShotVectorEnu(shot);
-        return string.Equals(shot.FromStation, from, StringComparison.Ordinal)
+        return string.Equals(shot.FromStation, from, StringComparison.OrdinalIgnoreCase)
             ? (dx, dy, dz)
             : (-dx, -dy, -dz);
     }
 
     private static (double Dx, double Dy, double Dz) ShotVectorEnu(ShotRecord shot)
     {
-        var azRad = shot.Azimuth * (Math.PI / 180.0);
-        var clRad = shot.Clino * (Math.PI / 180.0);
-        var distance = shot.Distance;
-        var hDist = distance * Math.Cos(clRad);
-        return (
-            hDist * Math.Sin(azRad),
-            hDist * Math.Cos(azRad),
-            distance * Math.Sin(clRad));
+        return SurveyLegGeometry.Delta(shot);
     }
 
     private static List<string>? PathOnSpanningTree(

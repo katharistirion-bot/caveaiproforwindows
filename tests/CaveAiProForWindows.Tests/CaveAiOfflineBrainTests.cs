@@ -249,6 +249,63 @@ public sealed class CaveAiOfflineBrainTests
         StringAssert.Contains(reply, "Survey QC co-pilot");
     }
 
+    [TestMethod]
+    public void Answer_whatIsWrong_namesMissingWallsAndLeads()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Leads",
+            Shots =
+            [
+                new ShotRecord { FromStation = "A1", ToStation = "A2", Distance = 8, Azimuth = 10, Clino = -5 },
+                new ShotRecord { FromStation = "A2", ToStation = "A3", Distance = 6, Azimuth = 20, Clino = 0 },
+                new ShotRecord { FromStation = "A2", ToStation = "B1", Distance = 4, Azimuth = 90, Clino = 0 },
+            ],
+        };
+
+        var reply = CaveAiOfflineBrain.Answer(project, "what is wrong with this survey");
+        StringAssert.Contains(reply, "LRUD");
+        StringAssert.Contains(reply, "B1");
+    }
+
+    [TestMethod]
+    public void Answer_howToDrawSection_usesTheUsageGuide()
+    {
+        var project = new CaveProjectDocument { Name = "Guide" };
+        var reply = CaveAiOfflineBrain.Answer(project, "How do I draw a section?");
+        StringAssert.Contains(reply, "Sketch Editor");
+        StringAssert.Contains(reply, "Generate from survey");
+        StringAssert.Contains(reply, "Profile");
+    }
+
+    [TestMethod]
+    public void Answer_depth_isNotReplacedByTheUsageGuide()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Test",
+            Alt = 100,
+            Shots =
+            [
+                new ShotRecord
+                {
+                    FromStation = "A1",
+                    ToStation = "A2",
+                    Distance = 10,
+                    Azimuth = 0,
+                    Clino = -45,
+                },
+            ],
+        };
+        var reply = CaveAiOfflineBrain.Answer(project, "what is the max depth?");
+        StringAssert.Contains(reply, "depth");
+        Assert.IsFalse(reply.Contains("Sketch Editor", StringComparison.Ordinal));
+
+        var howToDepth = CaveAiOfflineBrain.Answer(project, "How do I know the depth?");
+        StringAssert.Contains(howToDepth, "depth");
+        Assert.IsFalse(howToDepth.Contains("Sketch Editor", StringComparison.Ordinal));
+    }
+
     private static CaveProjectDocument BuildProjectFromFixture(JsonElement projectEl)
     {
         var project = new CaveProjectDocument

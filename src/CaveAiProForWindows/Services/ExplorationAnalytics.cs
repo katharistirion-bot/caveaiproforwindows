@@ -24,6 +24,9 @@ public static class ExplorationAnalytics
         var sb = new StringBuilder();
         sb.AppendLine($"Project: {p.Name}");
         sb.AppendLine($"Date: {p.Date}   Entrance alt (m): {p.Alt:0.##}");
+        var calibration = InstrumentCalibrationQuality.FormatLine(p.SurveyCalibrationProfile);
+        if (calibration != null)
+            sb.AppendLine(calibration);
         if (p.Lat is { } la && p.Lon is { } lo)
             sb.AppendLine($"Entrance: {la.ToString(inv)}, {lo.ToString(inv)}");
         sb.AppendLine($"Shots total: {shots.Count}  (traverse legs: {traverses}, splays / other: {splays})");

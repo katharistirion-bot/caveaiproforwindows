@@ -25,7 +25,11 @@ public static class DesignLayerVectorLinesSerializer
         project.VectorLines = MergeWindowsVectorLines(project.VectorLines, JsonSerializer.SerializeToElement(windowsLines, CompactJson));
     }
 
-    /// <summary>Keeps Android vector lines; replaces prior Windows lines with the new set.</summary>
+    /// <summary>
+    /// Keeps Android vector lines and the section sheet. Replaces only the plan-sketch mirrors
+    /// that this sync rebuilds from <c>mapObjects</c>. Section ink (<c>WINDOWS_SECTION</c>, long profile)
+    /// is not in <c>mapObjects</c>, so dropping it here erased the drawing on every save.
+    /// </summary>
     public static JsonElement MergeWindowsVectorLines(JsonElement? existingVectorLines, JsonElement windowsLines)
     {
         var merged = new List<JsonElement>();
@@ -34,7 +38,7 @@ public static class DesignLayerVectorLinesSerializer
         {
             foreach (var el in arr.EnumerateArray())
             {
-                if (IsWindowsAuthoredVectorLine(el))
+                if (IsReplacedByPlanSketchSync(el))
                     continue;
                 merged.Add(el.Clone());
             }
@@ -164,6 +168,21 @@ public static class DesignLayerVectorLinesSerializer
             JsonValueKind.String when int.TryParse(v.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) => parsed,
             _ => fallback,
         };
+    }
+
+    /// <summary>
+    /// Plan ink rewritten from <c>mapObjects</c> / <c>sketches</c>. Section-sheet rows stay:
+    /// they are the long-profile drawing the phone opens.
+    /// </summary>
+    private static bool IsReplacedByPlanSketchSync(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return false;
+        if (SurveyStationGeometry.IsWindowsSectionVectorLine(el))
+            return false;
+        if (SurveyStationGeometry.IsExtendedElevationCartography(el))
+            return false;
+        return IsWindowsAuthoredVectorLine(el);
     }
 
     private static bool IsWindowsAuthoredVectorLine(JsonElement el)

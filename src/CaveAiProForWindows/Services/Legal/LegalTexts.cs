@@ -62,11 +62,11 @@ public static class LegalTexts
 
         12. PROHIBITED CONDUCT: You may not reverse engineer, decompile, or disassemble the Software except where mandatory law allows; circumvent technical measures; remove legal notices; use the Software to violate law; redistribute the Software outside authorised channels; or use the Developer’s name or marks in a misleading way.
 
-        13. DESKTOP COMPANION: The Windows edition is a survey workstation companion to CaveAI Pro (Android). It is not sold through Google Play. Optional network features (Public Library, Push to Cloud, Reference Catalog, collaboration, update checks) operate only when you initiate them and where an active subscription or trial applies. Field recording and live BLE survey instruments are Android-only. Windows imports and processes backups you export from mobile, and may optionally exchange lean survey JSON (no photos or ZIP archives) over Bluetooth Classic when you start Tools → Android Bluetooth companion.
+        13. DESKTOP COMPANION: The Windows edition is a survey workstation companion to CaveAI Pro (Android). It is not sold through Google Play. Optional network features (Public Library, Push to Cloud, Reference Catalog, collaboration, update checks) operate only when you initiate them and where an active subscription or trial applies. Windows can record a leg from a paired DistoX, CaveBLE, or BRIC (Tools → Survey instrument), put a LiDAR outline on the plan, and show a live GPS bearing back to the entrance with a local alarm (Tools → Return to entrance). The phone SOS remains the alarm to carry underground. Windows imports and processes backups you export from mobile, and may optionally exchange lean survey JSON (no photos or ZIP archives) over Bluetooth Classic when you start Tools → Android Bluetooth companion. When you are signed in, saving the project also uploads the private survey to Survey Cloud for the phone.
 
         13A. PUSH TO CLOUD / PUBLIC LIBRARY: If you publish survey data or images to Firebase or the Public Library, you are solely responsible for lawfulness, accuracy, rights, permissions, and safety of published content. Do not publish confidential or safety-sensitive information without authority and consent.
 
-        13B. ON-DEVICE AI ASSISTANT: The docked Cave AI panel on Windows answers from imported survey context on your PC only. It does not upload your project files for cloud generative map rendering (that feature is not available on Windows). Optional cloud features elsewhere in the ecosystem (web/Android) remain governed by their respective terms.
+        13B. ON-DEVICE AI ASSISTANT: The docked Cave AI panel on Windows answers from imported survey context on your PC only. Tools → Cloud plan, when you are signed in, sends the centerline image to Cloud AI and stores the returned plan image on the project. Optional cloud features elsewhere in the ecosystem (web/Android) remain governed by their respective terms.
 
         13C. PROTECTED CAVE DATA (FCRPA & LOCAL LAWS): By using this application, you agree that you will not upload, share, or distribute any private, restricted, or federally protected cave data (including but not limited to data protected under the U.S. Federal Cave Resources Protection Act - FCRPA, or local archaeological and environmental laws worldwide). You acknowledge that you retain full and exclusive legal responsibility for any data you import or share through this platform.
 
@@ -93,8 +93,8 @@ public static class LegalTexts
         Privacy summary (Windows desktop)
         Data controller: Georgios Kourentzis · caveaipro@gmail.com
 
-        • Local-first: survey JSON/ZIP files you open stay on your PC unless you export or use Push to Cloud.
-        • On-device Cave AI: answers from imported survey context on your PC; no cloud generative map rendering on Windows.
+        • Local-first: survey JSON/ZIP files you open stay on your PC unless you export, save while signed in (private Survey Cloud for the phone), or use Push to Cloud.
+        • On-device Cave AI: answers from imported survey context on your PC. Tools → Cloud plan uploads the centerline image and stores the returned plan when you are signed in.
         • Push to Cloud / Public Library: uses your Google/Firebase session in WebView2; you control what is uploaded.
         • Diagnostics: startup.log and last-error.txt locally; when signed in, anonymised error reports may be sent to Firebase (no survey file content).
         • Updates: optional check against GitHub Releases (Velopack); no personal survey content is sent.
@@ -107,8 +107,8 @@ public static class LegalTexts
         Privacy summary (Windows desktop)
         Data controller: Georgios Kourentzis · caveaipro@gmail.com
 
-        • Local-first: survey JSON/ZIP files you open stay on your PC unless you export or use Push to Cloud.
-        • On-device Cave AI: answers from imported survey context on your PC; no cloud generative map rendering on Windows.
+        • Local-first: survey JSON/ZIP files you open stay on your PC unless you export, save while signed in (private Survey Cloud for the phone), or use Push to Cloud.
+        • On-device Cave AI: answers from imported survey context on your PC. Tools → Cloud plan uploads the centerline image and stores the returned plan when you are signed in.
         • Push to Cloud / Public Library: uses your Google/Firebase session in WebView2; you control what is uploaded.
         • Diagnostics: startup.log and last-error.txt locally; when signed in, anonymised error reports may be sent to Firebase (no survey file content).
         • Updates: delivered automatically through the Microsoft Store; no personal survey content is sent.

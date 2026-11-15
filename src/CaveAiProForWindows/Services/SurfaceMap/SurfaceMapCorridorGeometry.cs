@@ -67,7 +67,7 @@ public static class SurfaceMapCorridorGeometry
             provisional = true;
         }
 
-        var traverseLegs = project.Shots.Where(s => s.IsTraverseLeg).ToList();
+        var traverseLegs = project.Shots.Where(s => s.IsPlottedTraverse).ToList();
         if (traverseLegs.Count == 0)
             return new CorridorBuildResult(null, false);
 

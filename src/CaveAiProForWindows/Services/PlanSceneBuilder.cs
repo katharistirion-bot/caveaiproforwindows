@@ -114,7 +114,7 @@ public static class PlanSceneBuilder
         foreach (var pin in FieldCatalogMapPinCollector.Collect(p))
             Consider(pin.X, pin.Y);
 
-        foreach (var s in p.Shots.Where(x => x.IsTraverseLeg))
+        foreach (var s in p.Shots.Where(x => x.IsPlottedTraverse))
         {
             if (coords.TryGetValue(s.FromStation, out var fa))
                 Consider(fa.X, fa.Y);
@@ -144,7 +144,7 @@ public static class PlanSceneBuilder
         }
 
         var segs = new List<(float, float, float, float)>();
-        foreach (var s in p.Shots.Where(x => x.IsTraverseLeg))
+        foreach (var s in p.Shots.Where(x => x.IsPlottedTraverse))
         {
             if (!coords.TryGetValue(s.FromStation, out var a) || !coords.TryGetValue(s.ToStation, out var b))
                 continue;
@@ -183,7 +183,7 @@ public static class PlanSceneBuilder
         List<(float x1, float y1, float x2, float y2)> splaySegs)
     {
         const float Eps = 1e-4f;
-        foreach (var shot in shots.Where(s => s.IsTraverseLeg))
+        foreach (var shot in shots.Where(s => s.IsPlottedTraverse))
         {
             if (!coords.TryGetValue(shot.FromStation, out var a) || !coords.TryGetValue(shot.ToStation, out var b))
                 continue;

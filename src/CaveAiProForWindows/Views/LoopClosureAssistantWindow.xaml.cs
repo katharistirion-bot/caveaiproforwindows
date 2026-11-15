@@ -80,9 +80,12 @@ public partial class LoopClosureAssistantWindow : Window
     }
 
     private LoopAdjustmentMethod SelectedMethod =>
-        MethodBox.SelectedIndex == 1
-            ? LoopAdjustmentMethod.WeightedLeastSquares
-            : LoopAdjustmentMethod.CompassRule;
+        MethodBox.SelectedIndex switch
+        {
+            1 => LoopAdjustmentMethod.CompassRule,
+            2 => LoopAdjustmentMethod.WeightedLeastSquares,
+            _ => LoopAdjustmentMethod.NetworkLeastSquares,
+        };
 
     private void Preview_Click(object sender, RoutedEventArgs e)
     {

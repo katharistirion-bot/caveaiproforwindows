@@ -150,6 +150,21 @@ public sealed class ShotRecord
     [JsonPropertyName("verticalPositionAccuracyM")]
     public float? VerticalPositionAccuracyM { get; set; }
 
+    /// <summary>Backsight compass in degrees, as read. Null when the book has none. −999 means blank.</summary>
+    [JsonPropertyName("backsightAzimuth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public float? BacksightAzimuth { get; set; }
+
+    /// <summary>Backsight clinometer in degrees. Null when not recorded.</summary>
+    [JsonPropertyName("backsightClino")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public float? BacksightClino { get; set; }
+
+    /// <summary>Space-separated SURFACE, DUPLICATE, EXCLUDE, NOPLOT, DONTADJUST. Null on older books.</summary>
+    [JsonPropertyName("legFlags")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LegFlags { get; set; }
+
     /// <summary>Unmapped per-shot JSON (e.g. nested <c>lrud</c> object) — read by <see cref="ShotImportNormalizer"/>.</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
@@ -165,6 +180,15 @@ public sealed class ShotRecord
 
     /// <summary>Main traverse leg vs splay side-shot (toStation <c>"-"</c>).</summary>
     public bool IsTraverseLeg => !IsSplayDestination(ToStation);
+
+    /// <summary>Traverse leg that places stations and enters network closure.</summary>
+    public bool IsNetworkLeg => IsTraverseLeg && !SurveyLegFlags.IsExcluded(LegFlags);
+
+    /// <summary>Traverse leg drawn on plan. Excluded and no-plot legs are omitted.</summary>
+    public bool IsPlottedTraverse => IsNetworkLeg && !SurveyLegFlags.IsNoPlot(LegFlags);
+
+    /// <summary>Cave length. Surface, duplicate, and excluded legs do not add passage length.</summary>
+    public bool CountsTowardCaveLength => IsNetworkLeg && !SurveyLegFlags.SkipsCaveLength(LegFlags) && Distance > 0f;
 
     /// <summary>
     /// Effective L/R/U/D in metres for plan geometry: classic <c>l/r/u/d</c> when any are set; otherwise 12-point

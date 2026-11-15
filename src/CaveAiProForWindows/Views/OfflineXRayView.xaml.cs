@@ -344,7 +344,7 @@ public partial class OfflineXRayView : UserControl, IMapSurfaceShortcuts
         var planSyms = SurveyStationGeometry.ParsePlanMapSymbols(p).ToList();
         var lineThickness = Math.Max(2.0, w * 0.0025);
 
-        foreach (var shot in p.Shots.Where(s => s.IsTraverseLeg))
+        foreach (var shot in p.Shots.Where(s => s.IsPlottedTraverse))
         {
             if (!_coords.TryGetValue(shot.FromStation, out var a) || !_coords.TryGetValue(shot.ToStation, out var b))
                 continue;

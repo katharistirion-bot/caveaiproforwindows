@@ -1,6 +1,7 @@
 using System.Globalization;
 using CaveAiProForWindows.Models;
 using CaveAiProForWindows.Services;
+using CaveAiProForWindows.Services.SurveyLoopQc;
 
 namespace CaveAiProForWindows.Services.SurveyAnalysis;
 
@@ -11,6 +12,9 @@ public enum LoopAdjustmentMethod
 
     /// <summary>Iterative weighted least-squares refinement on loop legs.</summary>
     WeightedLeastSquares,
+
+    /// <summary>One weighted solve of every free station, holding fixed stations and equates.</summary>
+    NetworkLeastSquares,
 }
 
 public sealed record SurveyLoopDescriptor(
@@ -43,36 +47,10 @@ public static class SurveyLoopClosureAdjuster
         var coords = SurveyStationGeometry.CalculatePlanCoordinates(project);
         var trav = project.Shots.Where(s => s.IsTraverseLeg).ToList();
         var loops = new List<SurveyLoopDescriptor>();
-
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var path = new List<string>();
-
-        foreach (var shot in trav)
+        foreach (var info in SurveyLoopQcAnalyzer.AnalyzeLoops(project))
         {
-            var from = shot.FromStation.Trim();
-            var to = shot.ToStation.Trim();
-            if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
-                continue;
-
-            if (visited.Contains(to))
-            {
-                var idx = path.FindIndex(s => s.Equals(to, StringComparison.OrdinalIgnoreCase));
-                if (idx >= 0)
-                {
-                    var cycle = path.Skip(idx).Append(to).ToList();
-                    if (TryDescribeLoop(cycle, trav, coords, out var desc))
-                        loops.Add(desc);
-                }
-            }
-            else
-            {
-                if (path.Count == 0 || !path[^1].Equals(from, StringComparison.OrdinalIgnoreCase))
-                    path.Add(from);
-                path.Add(to);
-            }
-
-            visited.Add(from);
-            visited.Add(to);
+            if (TryDescribeLoop(info.StationCycle.ToList(), trav, coords, out var desc))
+                loops.Add(desc);
         }
 
         return loops;
@@ -83,6 +61,9 @@ public static class SurveyLoopClosureAdjuster
         LoopAdjustmentMethod method = LoopAdjustmentMethod.CompassRule)
     {
         ArgumentNullException.ThrowIfNull(project);
+        if (method == LoopAdjustmentMethod.NetworkLeastSquares)
+            return AdjustNetwork(project);
+
         var baseCoords = SurveyStationGeometry.CalculatePlanCoordinates(project);
         var loops = DetectLoops(project);
         if (loops.Count == 0)
@@ -110,7 +91,7 @@ public static class SurveyLoopClosureAdjuster
                 ApplyCompassRule(loop, adjusted, project);
         }
 
-        var misAfter = DetectLoopsFromCoords(project, adjusted).Sum(l => l.MisclosureMeters);
+        var misAfter = MaxLegCoordinateError(loops, project.Shots, adjusted);
 
         return new SurveyLoopAdjustmentResult(
             method,
@@ -120,12 +101,34 @@ public static class SurveyLoopClosureAdjuster
             misAfter);
     }
 
+    private static SurveyLoopAdjustmentResult AdjustNetwork(CaveProjectDocument project)
+    {
+        var loops = DetectLoops(project);
+        var solved = SurveyNetworkAdjuster.Solve(project);
+        var misBefore = loops.Sum(l => l.MisclosureMeters);
+        var misAfter = loops.Count == 0
+            ? 0
+            : MaxLegCoordinateError(loops, project.Shots, solved);
+        return new SurveyLoopAdjustmentResult(
+            LoopAdjustmentMethod.NetworkLeastSquares,
+            solved,
+            loops,
+            misBefore,
+            misAfter);
+    }
+
+    private readonly record struct DirectedLeg(ShotRecord Shot, string FromStation, string ToStation, bool Reversed)
+    {
+        public double Distance => Shot.Distance;
+    }
+
     private static void ApplyCompassRule(
         SurveyLoopDescriptor loop,
         Dictionary<string, (float X, float Y, float Z)> coords,
         CaveProjectDocument project)
     {
-        var legs = CollectLoopLegs(loop.Stations, project.Shots);
+        var cycle = RotateCycleToHeld(loop.Stations, EntranceStation(project));
+        var legs = CollectLoopLegs(cycle, project.Shots);
         if (legs.Count == 0)
             return;
 
@@ -133,6 +136,16 @@ public static class SurveyLoopClosureAdjuster
         if (totalLen < 1e-6)
             return;
 
+        double misX = 0, misY = 0, misZ = 0;
+        foreach (var leg in legs)
+        {
+            var delta = DirectedDelta(leg);
+            misX += delta.dx;
+            misY += delta.dy;
+            misZ += delta.dz;
+        }
+
+        var held = cycle[0];
         var corrections = new Dictionary<string, (double dx, double dy, double dz)>(StringComparer.OrdinalIgnoreCase);
         var cumX = 0.0;
         var cumY = 0.0;
@@ -141,15 +154,12 @@ public static class SurveyLoopClosureAdjuster
         foreach (var leg in legs)
         {
             var w = leg.Distance / totalLen;
-            var cx = -loop.MisclosureX * w;
-            var cy = -loop.MisclosureY * w;
-            var cz = -loop.MisclosureZ * w;
-            cumX += cx;
-            cumY += cy;
-            cumZ += cz;
-
-            if (!corrections.ContainsKey(leg.ToStation))
-                corrections[leg.ToStation] = (cumX, cumY, cumZ);
+            cumX += -misX * w;
+            cumY += -misY * w;
+            cumZ += -misZ * w;
+            if (leg.ToStation.Equals(held, StringComparison.OrdinalIgnoreCase))
+                continue;
+            corrections[leg.ToStation] = (cumX, cumY, cumZ);
         }
 
         foreach (var (station, (dx, dy, dz)) in corrections)
@@ -165,23 +175,26 @@ public static class SurveyLoopClosureAdjuster
         Dictionary<string, (float X, float Y, float Z)> coords,
         CaveProjectDocument project)
     {
-        // Two-pass: compass rule seed + single Gauss-Seidel iteration weighted by leg length.
         ApplyCompassRule(loop, coords, project);
 
-        var legs = CollectLoopLegs(loop.Stations, project.Shots);
+        var cycle = RotateCycleToHeld(loop.Stations, EntranceStation(project));
+        var legs = CollectLoopLegs(cycle, project.Shots);
         var totalLen = legs.Sum(l => l.Distance);
         if (totalLen < 1e-6)
             return;
+        var held = cycle[0];
 
         for (var iter = 0; iter < 3; iter++)
         {
             foreach (var leg in legs)
             {
+                if (leg.ToStation.Equals(held, StringComparison.OrdinalIgnoreCase))
+                    continue;
                 if (!coords.TryGetValue(leg.FromStation, out var a) ||
                     !coords.TryGetValue(leg.ToStation, out var b))
                     continue;
 
-                var obs = LegVector(leg, a);
+                var obs = DirectedDelta(leg);
                 var errX = (b.X - a.X) - obs.dx;
                 var errY = (b.Y - a.Y) - obs.dy;
                 var errZ = (b.Z - a.Z) - obs.dz;
@@ -195,41 +208,46 @@ public static class SurveyLoopClosureAdjuster
         }
     }
 
-    private static IReadOnlyList<SurveyLoopDescriptor> DetectLoopsFromCoords(
-        CaveProjectDocument project,
+    private static double MaxLegCoordinateError(
+        IReadOnlyList<SurveyLoopDescriptor> loops,
+        IReadOnlyList<ShotRecord> shots,
         IReadOnlyDictionary<string, (float X, float Y, float Z)> coords)
     {
-        var trav = project.Shots.Where(s => s.IsTraverseLeg).ToList();
-        var loops = new List<SurveyLoopDescriptor>();
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var path = new List<string>();
-
-        foreach (var shot in trav)
+        var worst = 0.0;
+        foreach (var loop in loops)
         {
-            var from = shot.FromStation.Trim();
-            var to = shot.ToStation.Trim();
-            if (visited.Contains(to))
+            foreach (var leg in CollectLoopLegs(loop.Stations, shots))
             {
-                var idx = path.FindIndex(s => s.Equals(to, StringComparison.OrdinalIgnoreCase));
-                if (idx >= 0)
-                {
-                    var cycle = path.Skip(idx).Append(to).ToList();
-                    if (TryDescribeLoopFromCoords(cycle, trav, coords, out var desc))
-                        loops.Add(desc);
-                }
+                if (!coords.TryGetValue(leg.FromStation, out var a) ||
+                    !coords.TryGetValue(leg.ToStation, out var b))
+                    return double.PositiveInfinity;
+                var obs = DirectedDelta(leg);
+                var err = Math.Sqrt(
+                    Math.Pow((b.X - a.X) - obs.dx, 2) +
+                    Math.Pow((b.Y - a.Y) - obs.dy, 2) +
+                    Math.Pow((b.Z - a.Z) - obs.dz, 2));
+                if (err > worst)
+                    worst = err;
             }
-            else
-            {
-                if (path.Count == 0 || !path[^1].Equals(from, StringComparison.OrdinalIgnoreCase))
-                    path.Add(from);
-                path.Add(to);
-            }
-
-            visited.Add(from);
-            visited.Add(to);
         }
 
-        return loops;
+        return worst;
+    }
+
+    private static string? EntranceStation(CaveProjectDocument project) =>
+        project.Shots.FirstOrDefault(s => s.IsNetworkLeg)?.FromStation;
+
+    private static IReadOnlyList<string> RotateCycleToHeld(IReadOnlyList<string> cycle, string? held)
+    {
+        if (cycle.Count < 2 || string.IsNullOrWhiteSpace(held))
+            return cycle;
+        var body = cycle.Take(cycle.Count - 1).ToList();
+        var idx = body.FindIndex(s => s.Equals(held, StringComparison.OrdinalIgnoreCase));
+        if (idx <= 0)
+            return cycle;
+        var rotated = body.Skip(idx).Concat(body.Take(idx)).ToList();
+        rotated.Add(rotated[0]);
+        return rotated;
     }
 
     private static bool TryDescribeLoop(
@@ -263,9 +281,9 @@ public static class SurveyLoopClosureAdjuster
         var totalLen = 0.0;
         foreach (var leg in legs)
         {
-            if (!coords.TryGetValue(leg.FromStation, out var a))
+            if (!coords.ContainsKey(leg.FromStation) || !coords.ContainsKey(leg.ToStation))
                 return false;
-            var obs = LegVector(leg, a);
+            var obs = DirectedDelta(leg);
             sx += obs.dx;
             sy += obs.dy;
             sz += obs.dz;
@@ -275,7 +293,7 @@ public static class SurveyLoopClosureAdjuster
         var mis = Math.Sqrt(sx * sx + sy * sy + sz * sz);
         var closing = $"{legs[^1].FromStation}→{legs[^1].ToStation}";
         desc = new SurveyLoopDescriptor(
-            cycle.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            cycle.ToList(),
             closing,
             mis,
             totalLen,
@@ -287,35 +305,37 @@ public static class SurveyLoopClosureAdjuster
         return true;
     }
 
-    private static List<ShotRecord> CollectLoopLegs(IReadOnlyList<string> cycle, IReadOnlyList<ShotRecord> trav)
+    private static List<DirectedLeg> CollectLoopLegs(IReadOnlyList<string> cycle, IReadOnlyList<ShotRecord> trav)
     {
-        var legs = new List<ShotRecord>();
+        var legs = new List<DirectedLeg>();
         for (var i = 0; i < cycle.Count - 1; i++)
         {
             var a = cycle[i];
             var b = cycle[i + 1];
-            var leg = trav.FirstOrDefault(s =>
+            var forward = trav.FirstOrDefault(s =>
                 s.FromStation.Equals(a, StringComparison.OrdinalIgnoreCase) &&
                 s.ToStation.Equals(b, StringComparison.OrdinalIgnoreCase));
-            if (leg == null)
-                return legs;
-            legs.Add(leg);
+            if (forward != null)
+            {
+                legs.Add(new DirectedLeg(forward, a, b, false));
+                continue;
+            }
+
+            var reverse = trav.FirstOrDefault(s =>
+                s.FromStation.Equals(b, StringComparison.OrdinalIgnoreCase) &&
+                s.ToStation.Equals(a, StringComparison.OrdinalIgnoreCase));
+            if (reverse == null)
+                return new List<DirectedLeg>();
+            legs.Add(new DirectedLeg(reverse, a, b, true));
         }
 
         return legs;
     }
 
-    private static (double dx, double dy, double dz) LegVector(
-        ShotRecord leg,
-        (float X, float Y, float Z) from)
+    private static (double dx, double dy, double dz) DirectedDelta(DirectedLeg leg)
     {
-        var az = leg.Azimuth * (Math.PI / 180.0);
-        var cl = leg.Clino * (Math.PI / 180.0);
-        var h = leg.Distance * Math.Cos(cl);
-        return (
-            h * Math.Sin(az),
-            h * Math.Cos(az),
-            leg.Distance * Math.Sin(cl));
+        var (dx, dy, dz) = SurveyLegGeometry.Delta(leg.Shot);
+        return leg.Reversed ? (-dx, -dy, -dz) : (dx, dy, dz);
     }
 
     /// <summary>

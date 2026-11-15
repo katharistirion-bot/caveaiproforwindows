@@ -17,6 +17,7 @@ using CaveAiProForWindows.Services;
 using CaveAiProForWindows.Services.AndroidBluetooth;
 using CaveAiProForWindows.Services.Auth;
 using CaveAiProForWindows.Services.CloudPublish;
+using CaveAiProForWindows.Services.Gemini;
 using CaveAiProForWindows.Services.Legal;
 using CaveAiProForWindows.Services.Localization;
 using CaveAiProForWindows.Services.Persistence;
@@ -240,8 +241,11 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _caveAiQueryText = "";
 
+    partial void OnCaveAiQueryTextChanged(string value) =>
+        AskCaveAiCommand.NotifyCanExecuteChanged();
+
     [ObservableProperty] private string _caveAiAnswerText =
-        "Ask about depth, traverse length, loops, volume, or next step. Answers stay on this PC.";
+        "Ask how to use the app, or ask about depth, traverse length, loops, volume, or next step. Answers stay on this PC.";
 
     /// <summary>English site-identity line for status bar tooltip (mirrors Android <c>SiteIdentity.kt</c>).</summary>
     public string SiteIdentityTooltip =>
@@ -329,6 +333,8 @@ public partial class MainViewModel : ObservableObject
         ExportAllProjectsToFolderCommand.NotifyCanExecuteChanged();
         ExportSurveyQcReportCommand.NotifyCanExecuteChanged();
         ExportUnifiedQcReportCommand.NotifyCanExecuteChanged();
+        ExportExpeditionQcPacketCommand.NotifyCanExecuteChanged();
+        AddSurveyLegCommand.NotifyCanExecuteChanged();
         ExportPlanSvgCommand.NotifyCanExecuteChanged();
         ExportPlanDxfCommand.NotifyCanExecuteChanged();
         ExportSectionSvgCommand.NotifyCanExecuteChanged();
@@ -343,6 +349,8 @@ public partial class MainViewModel : ObservableObject
         SaveProjectCommand.NotifyCanExecuteChanged();
         SaveProjectAsCommand.NotifyCanExecuteChanged();
         PublishToCloudCommand.NotifyCanExecuteChanged();
+        ShowLoopClosureAssistantCommand.NotifyCanExecuteChanged();
+        ShowNetworkAnchorsCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsCloudPublishingChanged(bool value)
@@ -374,10 +382,14 @@ public partial class MainViewModel : ObservableObject
         ExportSectionDxfCommand.NotifyCanExecuteChanged();
         ExportSurveyQcReportCommand.NotifyCanExecuteChanged();
         ExportUnifiedQcReportCommand.NotifyCanExecuteChanged();
+        ExportExpeditionQcPacketCommand.NotifyCanExecuteChanged();
+        AddSurveyLegCommand.NotifyCanExecuteChanged();
         SaveProjectCommand.NotifyCanExecuteChanged();
         SaveProjectAsCommand.NotifyCanExecuteChanged();
         PrintPreviewCommand.NotifyCanExecuteChanged();
         PublishToCloudCommand.NotifyCanExecuteChanged();
+        ShowLoopClosureAssistantCommand.NotifyCanExecuteChanged();
+        ShowNetworkAnchorsCommand.NotifyCanExecuteChanged();
         _cloudCommands.NotifyPublishStateChanged();
         RefreshReferenceLinkSummary();
         OnPropertyChanged(nameof(SiteIdentityTooltip));
@@ -875,6 +887,7 @@ public partial class MainViewModel : ObservableObject
             "Ctrl+W — Close workspace (unload all opened files from this session)\n" +
             "F1 — About\n" +
             "Drag and drop — same file types as Open; you can also drop standalone map files (GeoTIFF, PNG, …).\n\n" +
+            "Sketch Editor → Plan or Section. Generate from survey: left/right LRUD on Plan, Up/Down ceiling and floor on Section. Save project. The phone shows that section on Profile (long profile).\n\n" +
             "Map (PLAN / SECTION / SKETCH EDITOR, when keyboard focus is in the survey tabs — not in a text field):\n" +
             "Ctrl+1 — Pan / zoom · Ctrl+2 — Select · Ctrl+3 — Draw · Ctrl+4 — Symbol\n" +
             "Ctrl+0 — Reset zoom / pan · Ctrl+Plus or Ctrl+Numpad+ — Zoom in · Ctrl+Minus or Ctrl+Numpad− — Zoom out\n" +
@@ -901,21 +914,45 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ImportSurvex() =>
-        ImportCenterlineFile(
+        ImportParsedCenterline(
             title: "Import Survex centerline",
             filter: "Survex centerline|*.svx|All files|*.*",
             formatLabel: "Survex",
-            survex: true);
+            parse: path =>
+            {
+                var imported = SurvexImporter.ParseFile(path);
+                return (imported.Project, imported.TraverseLegs, imported.SplayLegs, imported.Warnings);
+            });
 
     [RelayCommand]
     private void ImportTherion() =>
-        ImportCenterlineFile(
+        ImportParsedCenterline(
             title: "Import Therion centerline",
             filter: "Therion centerline|*.th|All files|*.*",
             formatLabel: "Therion",
-            survex: false);
+            parse: path =>
+            {
+                var imported = TherionImporter.ParseFile(path);
+                return (imported.Project, imported.TraverseLegs, imported.SplayLegs, imported.Warnings);
+            });
 
-    private void ImportCenterlineFile(string title, string filter, string formatLabel, bool survex)
+    [RelayCommand]
+    private void ImportLegacyCenterline() =>
+        ImportParsedCenterline(
+            title: "Import Compass, Walls, or Visual Topo",
+            filter: "Compass (*.dat)|*.dat|Walls (*.srv)|*.srv|Visual Topo (*.tro)|*.tro|Walls project (*.wpj)|*.wpj|All files|*.*",
+            formatLabel: "Legacy centerline",
+            parse: path =>
+            {
+                var imported = LegacyCenterlineImporter.ParseFile(path);
+                return (imported.Project, imported.TraverseLegs, imported.SplayLegs, imported.Warnings);
+            });
+
+    private void ImportParsedCenterline(
+        string title,
+        string filter,
+        string formatLabel,
+        Func<string, (CaveProjectDocument Project, int Traverse, int Splay, IReadOnlyList<string> Warnings)> parse)
     {
         var owner = Wpf.Application.Current.MainWindow;
         var dlg = new Microsoft.Win32.OpenFileDialog
@@ -928,26 +965,11 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            CaveProjectDocument project;
-            int traverse;
-            int splay;
-            IReadOnlyList<string> warnings;
-            if (survex)
-            {
-                var imported = SurvexImporter.ParseFile(dlg.FileName);
-                project = imported.Project;
-                traverse = imported.TraverseLegs;
-                splay = imported.SplayLegs;
-                warnings = imported.Warnings;
-            }
-            else
-            {
-                var imported = TherionImporter.ParseFile(dlg.FileName);
-                project = imported.Project;
-                traverse = imported.TraverseLegs;
-                splay = imported.SplayLegs;
-                warnings = imported.Warnings;
-            }
+            var imported = parse(dlg.FileName);
+            var project = imported.Project;
+            var traverse = imported.Traverse;
+            var splay = imported.Splay;
+            var warnings = imported.Warnings;
 
             if (!UnloadWorkspaceBeforeNewLoad())
                 return;
@@ -1107,16 +1129,65 @@ public partial class MainViewModel : ObservableObject
             if (confirm != Wpf.MessageBoxResult.Yes)
                 return;
 
+            var remote = await SurveyCloudProjectService.TryGetProjectMetaAsync(token, SelectedProject.ProjectId)
+                .ConfigureAwait(true);
+            var localMs = SelectedProject.SurveyArchivedAtMs ?? 0L;
+            if (remote != null && remote.UpdatedAtMs > 0 && remote.UpdatedAtMs > localMs)
+            {
+                var updated = DateTimeOffset.FromUnixTimeMilliseconds(remote.UpdatedAtMs).ToLocalTime();
+                CaveProjectDocument? cloudProject = null;
+                try
+                {
+                    StatusMessage = "Comparing Survey Cloud shots…";
+                    var bytes = await SurveyCloudProjectService.DownloadProjectJsonBytesAsync(token, remote)
+                        .ConfigureAwait(true);
+                    var text = Encoding.UTF8.GetString(bytes);
+                    cloudProject = ExplorationDataLoader.DeserializeProjectsFromText(text).FirstOrDefault();
+                }
+                catch (Exception)
+                {
+                    cloudProject = null;
+                }
+
+                if (SelectedProject == null)
+                    return;
+                var legDiff = SurveyCompareService.FormatCloudReplacePreview(SelectedProject, cloudProject);
+                var replace = Wpf.MessageBox.Show(
+                    owner,
+                    $"Survey Cloud has a newer copy of \"{remote.CaveName}\" " +
+                    $"({remote.ShotCount} shots, updated {updated:g}).\n\n" +
+                    "Uploading replaces that copy with this one.\n\n" +
+                    legDiff +
+                    "\n\nUpload anyway?",
+                    "Survey Cloud",
+                    Wpf.MessageBoxButton.YesNo,
+                    Wpf.MessageBoxImage.Warning);
+                if (replace != Wpf.MessageBoxResult.Yes)
+                {
+                    StatusMessage = "Survey Cloud upload cancelled. The cloud copy was kept.";
+                    return;
+                }
+            }
+
             PersistProjectBeforeSave?.Invoke(SelectedProject);
             StatusMessage = $"Uploading “{SelectedProject.Name}” to Survey Cloud…";
             var meta = await SurveyCloudProjectService.UploadProjectAsync(token, SelectedProject).ConfigureAwait(true);
             MarkDirty();
+            var localSaved = false;
             if (CanSaveProject())
+            {
                 SaveProject();
-            StatusMessage = $"Saved “{meta.CaveName}” to Survey Cloud ({meta.ShotCount} shots).";
+                localSaved = !IsDirty;
+            }
+            var localNote = localSaved
+                ? ""
+                : "\n\nThe copy on disk was not updated. Save the project, or use Save As, before you close so the backup matches Survey Cloud.";
+            StatusMessage = localSaved
+                ? $"Saved “{meta.CaveName}” to Survey Cloud ({meta.ShotCount} shots)."
+                : $"Uploaded “{meta.CaveName}” to Survey Cloud. The file on disk was not updated.";
             Wpf.MessageBox.Show(
                 owner,
-                $"Uploaded to Survey Cloud.\n\nPreview: {meta.PreviewUrl}",
+                $"Uploaded to Survey Cloud.\n\nPreview: {meta.PreviewUrl}{localNote}",
                 "Survey Cloud",
                 Wpf.MessageBoxButton.OK,
                 Wpf.MessageBoxImage.Information);
@@ -1134,7 +1205,9 @@ public partial class MainViewModel : ObservableObject
         CaveAiAnswerText = CaveAiOfflineBrain.Answer(SelectedProject, CaveAiQueryText, _knownCaveMaster);
     }
 
-    private bool CanAskCaveAi() => LegalTermsGateOpen() && SelectedProject != null;
+    private bool CanAskCaveAi() =>
+        LegalTermsGateOpen() &&
+        (SelectedProject != null || WindowsUsageGuide.TryAnswer(CaveAiQueryText) != null);
 
     [RelayCommand]
     private void OpenStandaloneMaps()
@@ -1887,13 +1960,85 @@ public partial class MainViewModel : ObservableObject
         SaveProjectAsCommand.NotifyCanExecuteChanged();
     }
 
+    private bool _sendingBookBack;
+
     [RelayCommand(CanExecute = nameof(CanSaveProjectOrSaveAs))]
     private void SaveProject()
     {
         if (CanSaveProject())
+        {
             _workspaceSession.SaveProject();
+            RefreshIntegrityAfterLocalSave();
+            if (!_sendingBookBack)
+                _ = SendBookBackToPhoneAsync();
+        }
         else
             TrySaveProjectAsAndroidBackup();
+    }
+
+    /// <summary>
+    /// After a local save, upload the private survey when this PC is already signed in.
+    /// A newer cloud copy is left in place. The public catalog still uses Push to Cloud.
+    /// </summary>
+    private async Task SendBookBackToPhoneAsync()
+    {
+        var project = SelectedProject;
+        var token = CloudPublishWebViewHost.TokenCache.TryGetUsableToken();
+        if (project == null || token == null)
+            return;
+
+        _sendingBookBack = true;
+        try
+        {
+            var remote = await SurveyCloudProjectService.TryGetProjectMetaAsync(token, project.ProjectId)
+                .ConfigureAwait(true);
+            var localMs = project.SurveyArchivedAtMs ?? 0L;
+            if (remote != null && localMs > 0 && remote.UpdatedAtMs > localMs && remote.UpdatedAtMs > 0)
+            {
+                StatusMessage =
+                    "Saved on this PC. Survey Cloud has a newer copy, so it was not replaced. Open from the cloud if that copy is the one you want.";
+                return;
+            }
+
+            PersistProjectBeforeSave?.Invoke(project);
+            StatusMessage = $"Sending “{project.Name}” to Survey Cloud for the phone…";
+            var meta = await SurveyCloudProjectService.UploadProjectAsync(token, project).ConfigureAwait(true);
+            try
+            {
+                if (CanSaveProject())
+                {
+                    _workspaceSession.SaveProject();
+                    RefreshIntegrityAfterLocalSave();
+                }
+            }
+            catch (Exception saveEx)
+            {
+                StatusMessage =
+                    $"Sent “{meta.CaveName}” to Survey Cloud, but the file on this PC was not updated: {saveEx.Message}";
+                return;
+            }
+
+            StatusMessage = $"Saved on this PC and sent “{meta.CaveName}” to Survey Cloud ({meta.ShotCount} shots).";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Saved on this PC. Survey Cloud send failed: " + ex.Message;
+        }
+        finally
+        {
+            _sendingBookBack = false;
+        }
+    }
+
+    private void RefreshIntegrityAfterLocalSave()
+    {
+        var path = _primarySourcePath;
+        if (string.IsNullOrWhiteSpace(path) ||
+            !path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
+            !File.Exists(path))
+            return;
+        _integrityReport = IntegrityVerifier.VerifyZip(path);
+        ApplyIntegrityUi();
     }
 
     private bool CanSaveProjectAs() => LegalTermsGateOpen() && SelectedProject != null;
@@ -1924,6 +2069,8 @@ public partial class MainViewModel : ObservableObject
             ClearDirty();
             StatusMessage = "Android backup ZIP saved: " + dlg.FileName;
             SnackbarService.ShowFileSaved(dlg.FileName, "Android backup —");
+            if (!_sendingBookBack)
+                _ = SendBookBackToPhoneAsync();
             return true;
         }
         catch (Exception ex)
@@ -2358,6 +2505,25 @@ public partial class MainViewModel : ObservableObject
     }
 
     private bool CanShowLoopClosureAssistant() => LegalTermsGateOpen() && SelectedProject != null;
+
+    [RelayCommand(CanExecute = nameof(CanShowNetworkAnchors))]
+    private void ShowNetworkAnchors()
+    {
+        if (SelectedProject == null)
+            return;
+        var owner = Wpf.Application.Current.MainWindow;
+        var dlg = new NetworkAnchorsWindow(SelectedProject) { Owner = owner };
+        if (dlg.ShowDialog() != true || !dlg.Applied)
+            return;
+        MarkDirty("Network anchors updated");
+        if (CanSaveProject())
+            SaveProject();
+        RefreshStationQc();
+        OnPropertyChanged(nameof(StatisticsText));
+        OnPropertyChanged(nameof(SummaryText));
+    }
+
+    private bool CanShowNetworkAnchors() => LegalTermsGateOpen() && SelectedProject != null;
 
     [RelayCommand(CanExecute = nameof(CanOpenPublicationSheet))]
     private void OpenPublicationSheet()
@@ -3036,6 +3202,8 @@ public partial class MainViewModel : ObservableObject
             }
             StatusMessage = "Android backup ZIP saved: " + dlg.FileName;
             SnackbarService.ShowFileSaved(dlg.FileName, "Android backup —");
+            if (!_sendingBookBack)
+                _ = SendBookBackToPhoneAsync();
         }
         catch (Exception ex)
         {
@@ -3188,6 +3356,142 @@ public partial class MainViewModel : ObservableObject
                 SurveyVisualizationMode.LongProfile,
                 PlanCanvasDrawOptionsFactory.ForExport(SurveyCanvasKind.Plan, SurveyVisualizationMode.LongProfile));
             StatusMessage = "Long profile SVG saved.";
+        }
+        catch (Exception ex)
+        {
+            Wpf.MessageBox.Show(Wpf.Application.Current.MainWindow, ex.Message, "Export failed", Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void AddSurveyLeg()
+    {
+        if (SelectedProject == null)
+            return;
+        var draft = SurveyBookLegDraft.CreateNext(SelectedProject.Shots);
+        SelectedProject.Shots.Add(draft);
+        ShotsFilterText = "";
+        RefreshShotsView();
+        NotifySurveyDataEdited();
+        MarkDirty($"Added leg {draft.FromStation} → {draft.ToStation}. Edit distance, azimuth, and clino, then save.");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void OpenSurveyInstrument()
+    {
+        if (SelectedProject == null)
+            return;
+        var owner = GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow;
+        var window = new SurveyInstrumentWindow(reading =>
+        {
+            if (SelectedProject == null)
+                return;
+            var draft = SurveyBookLegDraft.CreateNext(SelectedProject.Shots);
+            draft.Distance = reading.DistanceM;
+            draft.Azimuth = reading.AzimuthDeg;
+            draft.Clino = reading.ClinoDeg;
+            SelectedProject.Shots.Add(draft);
+            ShotsFilterText = "";
+            RefreshShotsView();
+            NotifySurveyDataEdited();
+            MarkDirty(
+                $"Instrument leg {draft.FromStation} → {draft.ToStation}: " +
+                $"{reading.DistanceM:0.000} m, az {reading.AzimuthDeg:0.0}°, clino {reading.ClinoDeg:0.0}°.");
+        })
+        {
+            Owner = owner as Wpf.Window,
+        };
+        window.Show();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void OpenFieldReturn()
+    {
+        if (SelectedProject?.Lat is not double lat || SelectedProject.Lon is not double lon ||
+            Math.Abs(lat) < 1e-8 && Math.Abs(lon) < 1e-8)
+        {
+            Wpf.MessageBox.Show(
+                GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow,
+                "Lock an entrance position on the survey before asking for a return bearing.",
+                "Return to entrance",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
+            return;
+        }
+
+        var owner = GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow;
+        new FieldReturnWindow(lat, lon) { Owner = owner as Wpf.Window }.Show();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void OpenLidarScanner()
+    {
+        if (SelectedProject == null)
+            return;
+        var owner = GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow;
+        var window = new LidarScannerWindow(SelectedProject, () =>
+        {
+            NotifySurveyDataEdited();
+            MarkDirty("LiDAR outline is on the plan. Save so the phone shows the same lines.");
+        })
+        {
+            Owner = owner as Wpf.Window,
+        };
+        window.Show();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private async Task RenderCloudPlanAsync()
+    {
+        if (SelectedProject == null)
+            return;
+        if (TryNotifyCloudBlockedInTestMode("Cloud plan"))
+            return;
+        try
+        {
+            StatusMessage = "Asking Cloud AI for a plan…";
+            var message = await CloudPlanRenderer.RenderAndStoreAsync(SelectedProject, PrimarySourceFilePath)
+                .ConfigureAwait(true);
+            NotifySurveyDataEdited();
+            MarkDirty(message);
+            StatusMessage = message;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            Wpf.MessageBox.Show(
+                GetOwnerWindow?.Invoke() ?? Wpf.Application.Current.MainWindow,
+                ex.Message,
+                "Cloud plan",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Warning);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExportWithSelectedProject))]
+    private void ExportExpeditionQcPacket()
+    {
+        if (SelectedProject == null)
+            return;
+        var safe = string.Join("_", SelectedProject.Name.Split(Path.GetInvalidFileNameChars()));
+        var dlg = new SaveFileDialog
+        {
+            Title = "Expedition QC packet",
+            Filter = "Text|*.txt|All|*.*",
+            FileName = $"{safe}_expedition_qc.txt",
+        };
+        if (dlg.ShowDialog(Wpf.Application.Current.MainWindow) != true)
+            return;
+        try
+        {
+            File.WriteAllBytes(dlg.FileName, SurveyExpeditionQcPacket.BuildUtf8Bom(SelectedProject));
+            StatusMessage = "Expedition QC packet saved.";
+            Wpf.MessageBox.Show(
+                Wpf.Application.Current.MainWindow,
+                "Packet saved (UTF-8 BOM): raw legs, adjusted station coordinates, and loop closure.",
+                "Export",
+                Wpf.MessageBoxButton.OK,
+                Wpf.MessageBoxImage.Information);
         }
         catch (Exception ex)
         {

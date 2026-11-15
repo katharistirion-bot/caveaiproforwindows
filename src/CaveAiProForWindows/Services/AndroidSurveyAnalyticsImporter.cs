@@ -556,7 +556,7 @@ public static class AndroidSurveyAnalyticsImporter
     {
         foreach (var tag in project.SurveyAiClassifications)
         {
-            var label = !string.IsNullOrWhiteSpace(tag.LabelLocale) ? tag.LabelLocale : tag.Label;
+            var label = !string.IsNullOrWhiteSpace(tag.Label) ? tag.Label : tag.LabelLocale;
             if (string.IsNullOrWhiteSpace(label))
                 continue;
 

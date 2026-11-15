@@ -11,7 +11,8 @@
             <TextBlock x:Name="PreviewSummaryText" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,8" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" Text="Method:" />
-                <ComboBox x:Name="MethodBox" Width="180" SelectedIndex="0" Margin="0,0,12,0">
+                <ComboBox x:Name="MethodBox" Width="220" SelectedIndex="0" Margin="0,0,12,0">
+                    <ComboBoxItem Content="Network least squares" />
                     <ComboBoxItem Content="Compass rule (Bowditch)" />
                     <ComboBoxItem Content="Weighted least squares" />
                 </ComboBox>
@@ -23,7 +24,7 @@
             </StackPanel>
         </StackPanel>
         <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="{DynamicResource Cave.TextMuted}" Margin="0,0,0,10"
-                   Text="Detected closed traverse loops with misclosure. Preview is non-destructive. Apply to project writes plan station overrides into the open backup (Ctrl+S) — raw shots unchanged. Apply to copy saves a new ZIP instead." />
+                   Text="Network least squares moves every free station together and holds fixed stations and equates. Compass rule and weighted least squares still adjust one loop at a time. Preview is non-destructive. Apply writes plan station overrides — raw shots stay unchanged." />
         <DataGrid x:Name="LoopGrid" AutoGenerateColumns="False" IsReadOnly="True"
                   Background="{DynamicResource Cave.Surface}" BorderBrush="{DynamicResource Cave.Border}">
             <DataGrid.Columns>

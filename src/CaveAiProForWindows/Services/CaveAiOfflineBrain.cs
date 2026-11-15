@@ -10,6 +10,10 @@ public static class CaveAiOfflineBrain
 {
     public static string Answer(CaveProjectDocument? project, string? query, IEnumerable<KnownCaveRecord>? library = null)
     {
+        var usage = WindowsUsageGuide.TryAnswer(query);
+        if (usage != null)
+            return usage;
+
         if (project == null)
             return "Open a CaveAI Pro backup and select a project first.";
 
@@ -32,7 +36,10 @@ public static class CaveAiOfflineBrain
             return TripEndNarrativeOffline.BuildOfflineTripNarrativeChatAnswer(project);
 
         if (IsSurveyQcQuery(q))
-            return SurveyLoopQc.SurveyLoopQcSummary.BuildCopilotAnswer(project);
+            return SurveyLoopQc.SurveyLoopQcSummary.BuildCopilotAnswer(project) + "\n" + BuildSurveyJudgment(project);
+
+        if (IsSurveyJudgmentQuery(q))
+            return BuildSurveyJudgment(project);
 
         if (IsOverviewStatusQuery(q))
         {
@@ -77,15 +84,24 @@ public static class CaveAiOfflineBrain
         if (ContainsAny(q, "survex", "therion", "import svx", "import .svx", "import th", "import .th") ||
             (q.Contains("import") && ContainsAny(q, "survex", "therion", "svx", ".th")))
         {
-            return "File → Import Survex (.svx) or Import Therion (.th) to bring office surveys into CaveAI Pro for Windows. "
-                + "Use Loop closure assistant for Compass / WLS plan overrides after import. Export Survex/Therion/DXF remains available from the export menus.";
+            return "File → Import Survex (.svx), Therion (.th), or legacy centerline (Compass .dat, Walls .srv, Visual Topo .tro). "
+                + "Loop closure assistant can run a network least-squares solve, or Compass / WLS one loop at a time. Export Survex/Therion/DXF remains available from the export menus.";
+        }
+
+        if (ContainsAny(q, "equate", "fixed station", "fixed xyz", "network anchor", "#fix", "#equate") ||
+            (q.Contains("hold") && ContainsAny(q, "station", "fixed", "anchor")))
+        {
+            return "Tools → Network anchors edits station equates and fixed XYZ for network least-squares. "
+                + "Equates merge two names into one point; Hold keeps a station fixed, with optional east/north/up metres. "
+                + "Legacy Walls #equate / #fix import into the same fields.";
         }
 
         if (ContainsAny(q, "loop closure assistant", "compass rule", "wls", "weighted least") ||
             (q.Contains("adjust") && ContainsAny(q, "loop", "closure", "misclosure")))
         {
             return "Open Loop closure assistant for multi-loop Compass rule or weighted least-squares (WLS) plan overrides. "
-                + "Raw shots stay unchanged. The web Survey QC → Loop closure panel offers the same office adjust.";
+                + "Raw shots stay unchanged. Use Network anchors for equates and fixed XYZ before solving. "
+                + "The web Survey QC → Loop closure panel offers the same office adjust.";
         }
 
         if (ContainsAny(q, "depth", "deep", "vertical"))
@@ -127,9 +143,10 @@ public static class CaveAiOfflineBrain
         }
 
         var siteLabelFallback = SurveySiteTypeResolver.GetMapLabel(project, library);
+        var judgment = BuildSurveyJudgment(project);
         return
             $"Project \"{project.Name}\" — {siteLabelFallback}. {shots.Count} shots, ~{traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m traverse, max depth ~{maxDepth.ToString("0.#", CultureInfo.InvariantCulture)} m. " +
-            "Ask about depth, traverse, shots, return distance, pending geo, site type, last leg, volume, clino, loop closure, Survex/Therion import, trip report, or next step.";
+            judgment;
     }
 
     private static string BuildNextActionAnswer(
@@ -147,19 +164,23 @@ public static class CaveAiOfflineBrain
             return $"Next: open the **Geo/Bio** tab — {pendingGeo} field sample(s) pending geo/bio sync.";
 
         if (entranceLocked && shots.Count == 0)
-            return "Next: open the **HUD** tab. Entrance GPS is locked — set From/To and log your first main leg.";
+            return "Next: log the first main leg in CaveAI Pro on Android (From, To, distance, azimuth, clino), then sync this project. Entrance GPS is already locked.";
 
         if (!entranceLocked && shots.Count == 0)
-            return "Next: lock entrance GPS at the mouth (toolbar GPS icon), then open **HUD** to log your first main leg.";
+            return "Next: lock entrance GPS at the mouth in CaveAI Pro on Android, then log the first main leg and sync this project.";
 
         if (trailingSplays >= 3 && mains.Count > 0)
             return $"Next: tie in a **main leg** — {trailingSplays} trailing splays; mains carry traverse and return distance.";
 
+        var priority = SurveyPriorityLine(mains);
+        if (priority != null)
+            return "Next: " + priority;
+
         var dist = ComputeReturnDistanceMeters(project, mains);
         if (dist > 1)
-            return $"Next: continue surveying on **HUD** — {shots.Count} shots, {mains.Count} mains, ~{traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m traverse (~{dist.ToString("0.#", CultureInfo.InvariantCulture)} m from entrance).";
+            return $"Next: correct legs in Data & backup inspector, or continue the traverse in CaveAI Pro on Android and sync — {shots.Count} shots, {mains.Count} mains, ~{traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m traverse (~{dist.ToString("0.#", CultureInfo.InvariantCulture)} m from entrance).";
 
-        return $"Next: continue surveying on **HUD** — {shots.Count} shots ({mains.Count} mains, {splays} splays), ~{traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m traverse.";
+        return $"Next: correct legs in Data & backup inspector, or continue the traverse in CaveAI Pro on Android and sync — {shots.Count} shots ({mains.Count} mains, {splays} splays), ~{traverseM.ToString("0.#", CultureInfo.InvariantCulture)} m traverse.";
     }
 
     internal static int CountPendingGeoSamples(CaveProjectDocument project)
@@ -230,7 +251,7 @@ public static class CaveAiOfflineBrain
     }
 
     private static bool IsNextActionQuery(string q) =>
-        ContainsAny(q, "next", "now", "should") &&
+        (ContainsAny(q, "next", "should") || ContainsWord(q, "now")) &&
         ContainsAny(q, "do", "step", "action", "focus", "priority");
 
     private static bool IsEntranceDistanceQuery(string q) =>
@@ -326,6 +347,91 @@ public static class CaveAiOfflineBrain
         return vol;
     }
 
+    private static bool IsSurveyJudgmentQuery(string q) =>
+        q.Contains("what is wrong", StringComparison.Ordinal) ||
+        q.Contains("what's wrong", StringComparison.Ordinal) ||
+        q.Contains("whats wrong", StringComparison.Ordinal) ||
+        q.Contains("open lead", StringComparison.Ordinal) ||
+        q.Contains("open end", StringComparison.Ordinal) ||
+        q.Contains("declination", StringComparison.Ordinal) ||
+        q.Contains("true north", StringComparison.Ordinal) ||
+        q.Contains("magnetic north", StringComparison.Ordinal) ||
+        (q.Contains("lrud", StringComparison.Ordinal) &&
+         (q.Contains("missing", StringComparison.Ordinal) || q.Contains("empty", StringComparison.Ordinal) || q.Contains("unmeasured", StringComparison.Ordinal))) ||
+        ((q.Contains("satellite", StringComparison.Ordinal) || q.Contains("x-ray", StringComparison.Ordinal) || q.Contains("xray", StringComparison.Ordinal)) &&
+         (q.Contains("rotate", StringComparison.Ordinal) || q.Contains("north", StringComparison.Ordinal) || q.Contains("align", StringComparison.Ordinal) || q.Contains("wrong", StringComparison.Ordinal)));
+
+    private static int CountMainsMissingLrud(IReadOnlyList<ShotRecord> mains)
+    {
+        var missing = 0;
+        foreach (var shot in mains)
+        {
+            var (l, r, u, d) = shot.EffectivePlanLrud();
+            if (Math.Abs(l) < 0.05f && Math.Abs(r) < 0.05f && Math.Abs(u) < 0.05f && Math.Abs(d) < 0.05f)
+                missing++;
+        }
+        return missing;
+    }
+
+    private static List<string> OpenLeadNames(IReadOnlyList<ShotRecord> mains)
+    {
+        if (mains.Count == 0)
+            return [];
+        var degree = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var shot in mains)
+        {
+            var from = (shot.FromStation ?? "").Trim();
+            var to = (shot.ToStation ?? "").Trim();
+            if (from.Length > 0 && from != "-")
+                degree[from] = degree.GetValueOrDefault(from) + 1;
+            if (to.Length > 0 && to != "-")
+                degree[to] = degree.GetValueOrDefault(to) + 1;
+        }
+        var entrance = (mains[0].FromStation ?? "").Trim();
+        return degree.Where(pair => pair.Value == 1 && pair.Key != entrance)
+            .Select(pair => pair.Key)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static string? SurveyPriorityLine(IReadOnlyList<ShotRecord> mains)
+    {
+        if (mains.Count < 3)
+            return null;
+        var missing = CountMainsMissingLrud(mains);
+        var leads = OpenLeadNames(mains);
+        if (missing >= (mains.Count + 1) / 2)
+            return $"measure LRUD on {missing} of {mains.Count} main legs. Empty walls stay a centerline, not a 1 m tube.";
+        if (leads.Count >= 2)
+            return $"{leads.Count} open leads ({string.Join(", ", leads.Take(6))}). Survey the one you still intend, and label the rest.";
+        return null;
+    }
+
+    private static string BuildSurveyJudgment(CaveProjectDocument project)
+    {
+        var mains = project.Shots.Where(s => s.IsTraverseLeg).ToList();
+        var inv = CultureInfo.InvariantCulture;
+        if (mains.Count == 0)
+            return "No main legs yet. Lock the entrance, then record the first traverse.";
+
+        var missing = CountMainsMissingLrud(mains);
+        var leads = OpenLeadNames(mains);
+        var recent = string.Join("; ", mains.TakeLast(3).Select(s =>
+            $"{s.FromStation}→{s.ToStation} {s.Distance.ToString("0.#", inv)} m, az {s.Azimuth.ToString("0", inv)}°, clino {s.Clino.ToString("0", inv)}°"));
+        var decl = project.SurveyCalibrationProfile?.MagneticDeclinationAppliedDeg;
+        var declLine = decl is float d
+            ? $"Geographic overlays add declination once ({d.ToString("0.0", inv)}° stored on this survey)."
+            : "Phone and default Bluetooth azimuths are stored magnetic. Maps add declination once. Leave normalize-Bluetooth-to-true-north off, or the cave rotates on the satellite.";
+        var leadLine = leads.Count == 0
+            ? "No side leads: every station except the entrance has more than one connection."
+            : "Unclosed leads: " + string.Join(", ", leads.Take(8)) + (leads.Count > 8 ? $" (+{leads.Count - 8} more)" : "") + ".";
+        var loops = SurveyLoopQc.SurveyLoopQcAnalyzer.AnalyzeLoops(project);
+        var loopLine = SurveyLoopQc.SurveyLoopQcSummary.BuildMisclosureSummary(loops);
+        var priority = SurveyPriorityLine(mains) ?? $"continue the traverse from {mains[^1].ToStation}.";
+        return
+            $"{missing} of {mains.Count} main legs have no LRUD or radials, so those passages stay a centerline. {leadLine} Recent mains: {recent}. {declLine} {loopLine} Priority: {priority}";
+    }
+
     private static string? GetJsonString(JsonElement el, string name) =>
         el.TryGetProperty(name, out var prop) && prop.ValueKind == JsonValueKind.String
             ? prop.GetString()
@@ -336,6 +442,11 @@ public static class CaveAiOfflineBrain
 
     private static bool ContainsAny(string haystack, params string[] words) =>
         words.Any(w => haystack.Contains(w, StringComparison.Ordinal));
+
+    /// <summary>"now" must not match inside "know".</summary>
+    private static bool ContainsWord(string haystack, string word) =>
+        haystack.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Any(part => part.Equals(word, StringComparison.Ordinal));
 
     /// <summary>Short status lines for publication sheet, GEO/BIO header, and Survey QC (no chat UI).</summary>
     public static IReadOnlyList<string> BuildStatusHints(CaveProjectDocument? project, int maxHints = 3)

@@ -140,6 +140,14 @@ public sealed class SectionSheetInkTests
                 .GetDouble();
             Assert.AreEqual(5, storedY, 0.05);
 
+            DesignLayerVectorLinesSerializer.SyncWindowsInkToVectorLines(project);
+            var kept = project.VectorLines!.Value.EnumerateArray()
+                .Where(SurveyStationGeometry.IsWindowsSectionVectorLine)
+                .ToList();
+            Assert.AreEqual(1, kept.Count);
+            Assert.AreEqual(SurveyStationGeometry.AndroidViewModeLongProfile, kept[0].GetProperty("viewMode").GetInt32());
+            Assert.AreEqual(5, kept[0].GetProperty("points")[0].GetProperty("second").GetDouble(), 0.05);
+
             var symbols = project.MapSymbols.EnumerateArray().ToList();
             Assert.AreEqual(1, symbols.Count(el => el.GetProperty("viewMode").GetInt32() == 0));
             Assert.IsTrue(symbols.Any(el =>

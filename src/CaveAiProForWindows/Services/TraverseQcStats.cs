@@ -48,7 +48,11 @@ public static class TraverseQcStats
         var trav = shots.Where(s => s.IsTraverseLeg).ToList();
         var coords = SurveyStationGeometry.CalculatePlanCoordinates(p);
         if (coords.Count == 0)
-            return "No traverse shots (to ≠ \"-\") for statistics.";
+        {
+            var empty = "No traverse shots (to ≠ \"-\") for statistics.";
+            var calibration = InstrumentCalibrationQuality.FormatLine(p.SurveyCalibrationProfile);
+            return calibration == null ? empty : empty + "\n" + calibration;
+        }
 
         var sumH = 0.0;
         var sumTape = 0.0;
@@ -69,7 +73,9 @@ public static class TraverseQcStats
         sb.AppendLine($"Project: {p.Name}");
         sb.AppendLine($"Stations (traverse graph): {coords.Count}");
         sb.AppendLine($"Traverse shots: {trav.Count}  ·  Other shots: {shots.Count - trav.Count}");
+        var caveTape = trav.Where(s => s.CountsTowardCaveLength).Sum(s => (double)s.Distance);
         sb.AppendLine($"Sum tape (as recorded): {sumTape.ToString("0.##", inv)} m");
+        sb.AppendLine($"Cave length (excludes surface, duplicate, excluded): {caveTape.ToString("0.##", inv)} m");
         sb.AppendLine($"Sum horizontal leg projections (sum of distance·cos(clino)): {sumH.ToString("0.##", inv)} m");
         sb.AppendLine($"Shot depth (min…max from depth field): {minDepth.ToString("0.##", inv)} … {maxDepth.ToString("0.##", inv)} m");
         sb.AppendLine($"Station Z span: {spanZ.ToString("0.##", inv)} m");
@@ -250,6 +256,14 @@ public static class TraverseQcStats
 
             if (bits.Count > 0)
                 rows.Add(new SurveyQcIssueRow("Export", $"Instrument context: {string.Join(" · ", bits)}"));
+        }
+
+        var calibrationLine = InstrumentCalibrationQuality.FormatLine(p.SurveyCalibrationProfile);
+        if (calibrationLine != null)
+        {
+            rows.Add(new SurveyQcIssueRow(
+                InstrumentCalibrationQuality.IsWeak(p.SurveyCalibrationProfile) ? "Instrument QC" : "Export",
+                calibrationLine));
         }
 
         if (p.StationEnvironmentSnapshots.Count > 0)

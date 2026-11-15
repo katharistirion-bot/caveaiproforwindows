@@ -113,4 +113,56 @@ public sealed class TherionExporterTests
             System.Threading.Thread.CurrentThread.CurrentCulture = prev;
         }
     }
+
+    [TestMethod]
+    public void BuildCenterlineTh_emits_equates_flags_and_skips_exclude()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Flags Cave",
+            StationEquates = [new StationEquate { StationA = "A1", StationB = "B1" }],
+            FixedStationPositions = new Dictionary<string, PlanStationPositionOverride>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["C1"] = new PlanStationPositionOverride(1f, 2f, 3f),
+            },
+            Shots =
+            [
+                new ShotRecord { FromStation = "A1", ToStation = "A2", Distance = 5f, Azimuth = 0f, Clino = 0f, LegFlags = "SURFACE" },
+                new ShotRecord { FromStation = "A2", ToStation = "A3", Distance = 4f, Azimuth = 90f, Clino = 0f, LegFlags = "EXCLUDE" },
+                new ShotRecord { FromStation = "A3", ToStation = "A4", Distance = 3f, Azimuth = 180f, Clino = 0f, LegFlags = "NOPLOT" },
+            ],
+        };
+
+        var text = new UTF8Encoding(false).GetString(
+            TherionExporter.BuildCenterlineThUtf8Bom(project).AsSpan(3..));
+
+        StringAssert.Contains(text, "    equate A1 B1");
+        StringAssert.Contains(text, "    fix C1 1 2 3");
+        StringAssert.Contains(text, "    flags surface");
+        StringAssert.Contains(text, "    flags not surface");
+        Assert.IsFalse(text.Contains(" A2 A3 ", StringComparison.Ordinal));
+        StringAssert.Contains(text, "# NOPLOT");
+    }
+
+    [TestMethod]
+    public void BuildCenterlineTh_locks_adjusted_stations_and_keeps_raw_legs()
+    {
+        var project = new CaveProjectDocument
+        {
+            Name = "Adjusted Cave",
+            PlanStationPositionOverrides = new Dictionary<string, PlanStationPositionOverride>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["A2"] = new PlanStationPositionOverride(8.5f, 1f, 4f),
+            },
+            Shots =
+            [
+                new ShotRecord { FromStation = "A1", ToStation = "A2", Distance = 10f, Azimuth = 90f, Clino = 0f },
+            ],
+        };
+
+        var text = new UTF8Encoding(false).GetString(
+            TherionExporter.BuildCenterlineThUtf8Bom(project).AsSpan(3..));
+        StringAssert.Contains(text, "    fix A2 8.5 1 4");
+        StringAssert.Contains(text, "    A1 A2 10 ");
+    }
 }

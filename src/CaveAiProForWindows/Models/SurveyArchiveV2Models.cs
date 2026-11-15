@@ -49,6 +49,24 @@ public sealed class SurveyCalibrationProfileSnapshot
     /// <summary>Opaque compass / sensor calibration blob (soft iron, bias, etc.).</summary>
     [JsonPropertyName("compassCalibrationJson")]
     public JsonElement CompassCalibrationJson { get; set; }
+
+    /// <summary>Mean gravity residual from the last DistoX solve written into the project.</summary>
+    [JsonPropertyName("meanGravityError")]
+    public float? MeanGravityError { get; set; }
+
+    /// <summary>Mean compass residual from the last DistoX solve written into the project.</summary>
+    [JsonPropertyName("meanMagneticError")]
+    public float? MeanMagneticError { get; set; }
+
+    /// <summary><c>good</c>, <c>usable</c>, or <c>weak</c>.</summary>
+    [JsonPropertyName("fitQuality")]
+    public string? FitQuality { get; set; }
+
+    [JsonPropertyName("sampleCount")]
+    public int? SampleCount { get; set; }
+
+    [JsonPropertyName("groupCount")]
+    public int? GroupCount { get; set; }
 }
 
 /// <summary>One on-device AI label attached to a shot, station, sketch, or project.</summary>

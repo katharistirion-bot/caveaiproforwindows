@@ -43,4 +43,31 @@ public sealed class TherionImporterTests
         Assert.ThrowsException<InvalidOperationException>(() =>
             TherionImporter.Parse("survey empty -title \"Empty\"\nendsurvey\n"));
     }
+
+    [TestMethod]
+    public void Parse_imports_equates_plan_fix_and_flags()
+    {
+        const string th = """
+            encoding utf-8
+            survey meta -title "Meta"
+              centerline
+                units metric
+                data normal from to tape compass clino
+                equate A1 B1
+                fix C1 10 20 30
+                flags surface
+                A1 A2 5 0 0
+                flags not surface
+                A2 A3 4 90 0  # NOPLOT
+              endcenterline
+            endsurvey
+            """;
+        var imported = TherionImporter.Parse(th);
+        Assert.AreEqual("A1", imported.Project.StationEquates![0].StationA);
+        Assert.AreEqual("B1", imported.Project.StationEquates[0].StationB);
+        Assert.AreEqual(10f, imported.Project.FixedStationPositions!["C1"].X, 0.001f);
+        Assert.IsTrue(SurveyLegFlags.Has(imported.Project.Shots[0].LegFlags, SurveyLegFlags.Surface));
+        Assert.IsTrue(SurveyLegFlags.IsNoPlot(imported.Project.Shots[1].LegFlags));
+        Assert.IsNull(imported.Project.Lat);
+    }
 }

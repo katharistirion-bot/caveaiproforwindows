@@ -37,6 +37,7 @@ public partial class SurfaceMapView : UserControl
     private DispatcherTimer? _expeditionShareTimer;
     private bool _expeditionShareRefreshRunning;
     private CancellationTokenSource? _offlinePackCts;
+    private (double Lat, double Lon)? _pendingExplore;
     private bool _offlinePackDownloading;
 
     public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(
@@ -374,6 +375,15 @@ public partial class SurfaceMapView : UserControl
                             if (needsFit)
                                 SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"fitSurvey"}""");
                         }
+                        if (_pendingExplore is { } explore)
+                        {
+                            _pendingExplore = null;
+                            PostHostLocation(explore.Lat, explore.Lon, "explore", 13);
+                            var pack = SurfaceMapOfflinePack.Read();
+                            StatusText.Text = pack != null && pack.Covers(explore.Lat, explore.Lon)
+                                ? "No network. Explore is the cached surface pack for this area."
+                                : "No network. Download the offline pack on this tab, then Explore can open from that cache.";
+                        }
                         break;
                     case "mapError":
                         LoadingOverlay.Visibility = Visibility.Collapsed;
@@ -563,6 +573,29 @@ public partial class SurfaceMapView : UserControl
         {
             _applyingSettings = false;
         }
+    }
+
+    /// <summary>Explore with no network: cached surface tiles around the last viewport.</summary>
+    public void ShowCachedExplore(double lat, double lon)
+    {
+        if (CacheOnlyCheck != null)
+            CacheOnlyCheck.IsChecked = true;
+        if (_tileCache != null)
+            _tileCache.CacheOnlyMode = true;
+        var meta = SurfaceMapOfflinePack.Read();
+        var covered = meta != null && IsValidMapCoord(lat, lon) && meta.Covers(lat, lon);
+        StatusText.Text = covered
+            ? "No network. Explore is the cached surface pack for this area."
+            : "No network. Download the offline pack on this tab, then Explore can open from that cache.";
+        if (!IsValidMapCoord(lat, lon))
+            return;
+        if (SurfaceWebView?.CoreWebView2 == null || !_mapReady)
+        {
+            _pendingExplore = (lat, lon);
+            return;
+        }
+
+        PostHostLocation(lat, lon, "explore", 13);
     }
 
     public void ReloadLayersFromSettings()
@@ -1058,6 +1091,80 @@ public partial class SurfaceMapView : UserControl
 
     private void PickBaseMap_Click(object sender, RoutedEventArgs e) =>
         SurfaceWebView?.CoreWebView2?.PostWebMessageAsJson("""{"type":"pinPick","payload":{"kind":"base"}}""");
+
+    private void ImportDem_Click(object sender, RoutedEventArgs e)
+    {
+        if (Project == null)
+        {
+            StatusText.Text = "Open a survey before importing an aerial DEM.";
+            return;
+        }
+
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Aerial DEM raster",
+            Filter = "Raster|*.tif;*.tiff;*.png;*.jpg;*.jpeg|All files|*.*",
+        };
+        if (dlg.ShowDialog(Window.GetWindow(this)) != true)
+            return;
+
+        var box = new Window
+        {
+            Title = "Aerial DEM corners",
+            Width = 420,
+            Height = 280,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = Window.GetWindow(this),
+            ResizeMode = ResizeMode.NoResize,
+        };
+        var stack = new StackPanel { Margin = new Thickness(16) };
+        stack.Children.Add(new TextBlock
+        {
+            Text = "WGS84 corners of the north-up raster. Southwest, then northeast.",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8),
+        });
+        var swLat = new TextBox { Margin = new Thickness(0, 4, 0, 0) };
+        var swLon = new TextBox { Margin = new Thickness(0, 4, 0, 0) };
+        var neLat = new TextBox { Margin = new Thickness(0, 4, 0, 0) };
+        var neLon = new TextBox { Margin = new Thickness(0, 4, 0, 0) };
+        stack.Children.Add(new TextBlock { Text = "Southwest latitude" });
+        stack.Children.Add(swLat);
+        stack.Children.Add(new TextBlock { Text = "Southwest longitude" });
+        stack.Children.Add(swLon);
+        stack.Children.Add(new TextBlock { Text = "Northeast latitude" });
+        stack.Children.Add(neLat);
+        stack.Children.Add(new TextBlock { Text = "Northeast longitude" });
+        stack.Children.Add(neLon);
+        var apply = new Button { Content = "Apply", Margin = new Thickness(0, 12, 0, 0), IsDefault = true };
+        stack.Children.Add(apply);
+        box.Content = stack;
+        apply.Click += (_, _) =>
+        {
+            if (!SurfaceDemImport.TryParseCorner(swLat.Text, out var a) ||
+                !SurfaceDemImport.TryParseCorner(swLon.Text, out var b) ||
+                !SurfaceDemImport.TryParseCorner(neLat.Text, out var c) ||
+                !SurfaceDemImport.TryParseCorner(neLon.Text, out var d))
+            {
+                MessageBox.Show(box, "Enter the four corners as decimal degrees.", "Aerial DEM");
+                return;
+            }
+
+            try
+            {
+                var entry = SurfaceDemImport.Apply(Project, ZipPath, dlg.FileName, a, b, c, d);
+                box.DialogResult = true;
+                box.Close();
+                QueueProjectPush();
+                MarkProjectDirty("Aerial DEM stored as " + entry + ". Save the project so the phone receives it.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(box, ex.Message, "Aerial DEM");
+            }
+        };
+        box.ShowDialog();
+    }
 
     private async void LocateMe_Click(object sender, RoutedEventArgs e)
     {
