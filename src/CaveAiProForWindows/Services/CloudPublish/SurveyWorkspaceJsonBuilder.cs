@@ -103,10 +103,21 @@ public static class SurveyWorkspaceJsonBuilder
             if (kept.Count == 0)
                 continue;
             writer.WriteStartObject();
+            var wrotePressure = false;
             foreach (var prop in kept)
             {
                 writer.WritePropertyName(prop.Name);
                 prop.Value.WriteTo(writer);
+                if (prop.Name == "pressureHpa")
+                    wrotePressure = true;
+            }
+            // ShotRecord uses barometricPressureHpa; workspace / web / Android use pressureHpa.
+            if (!wrotePressure &&
+                shot.TryGetProperty("barometricPressureHpa", out var pressureEl) &&
+                pressureEl.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined)
+            {
+                writer.WritePropertyName("pressureHpa");
+                pressureEl.WriteTo(writer);
             }
             writer.WriteEndObject();
         }
