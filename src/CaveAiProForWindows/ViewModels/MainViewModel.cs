@@ -1992,8 +1992,9 @@ public partial class MainViewModel : ObservableObject
         {
             var remote = await SurveyCloudProjectService.TryGetProjectMetaAsync(token, project.ProjectId)
                 .ConfigureAwait(true);
+            // Match manual upload: refuse when cloud is newer even if local SurveyArchivedAtMs is unset (0).
             var localMs = project.SurveyArchivedAtMs ?? 0L;
-            if (remote != null && localMs > 0 && remote.UpdatedAtMs > localMs && remote.UpdatedAtMs > 0)
+            if (remote != null && remote.UpdatedAtMs > 0 && remote.UpdatedAtMs > localMs)
             {
                 StatusMessage =
                     "Saved on this PC. Survey Cloud has a newer copy, so it was not replaced. Open from the cloud if that copy is the one you want.";

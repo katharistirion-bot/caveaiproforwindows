@@ -1,6 +1,6 @@
 # Microsoft Store upload checklist
 
-Generated: 2026-08-29  
+Generated: 2026-11-15  
 Repo: `D:\caveaiproforwindows`  
 Product ID: **9PPF3HPZRL21**
 
@@ -8,14 +8,14 @@ Product ID: **9PPF3HPZRL21**
 
 | Package | Path | Status |
 |---------|------|--------|
-| **Review (certification)** | `_store_out\CaveAiProForWindows-1.5.18-Store-Review-unsigned.msix` | Build with `package-store-msix-review.ps1` |
-| **Production (unsigned)** | `_store_out\CaveAiProForWindows-1.5.18-Store-unsigned.msix` | Build with `package-store-msix.ps1` |
+| **Review (certification)** | `_store_out\CaveAiProForWindows-1.5.29-Store-Review-unsigned.msix` | Build with `package-store-msix-review.ps1` |
+| **Production (unsigned)** | `_store_out\CaveAiProForWindows-1.5.29-Store-unsigned.msix` | Build with `package-store-msix.ps1` |
 
-App version in `Directory.Build.props`: **1.5.18** (package identity version **1.5.18.0**).
+App version in `Directory.Build.props`: **1.5.29** (package identity version **1.5.29.0**).
 
-GitHub sideload: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.5.18
+GitHub sideload: https://github.com/katharistirion-bot/caveaiproforwindows/releases/tag/v1.5.29
 
-See **`docs/STORE_UPLOAD_1.5.18.md`** for Partner Center steps and release notes. Historical **1.5.14** upload notes remain in `docs/STORE_UPLOAD_1.5.14.md`.
+See **`docs/STORE_UPLOAD_1.5.29.md`** for Partner Center steps and release notes. Historical **1.5.18** / **1.5.14** upload notes remain in `docs/STORE_UPLOAD_1.5.18.md` and `docs/STORE_UPLOAD_1.5.14.md`.
 
 Review build uses **`STORE_REVIEW_UNLOCKED`** via profile `MicrosoftStore-Review-Win64` (subscription gate disabled for cert testers).
 
@@ -32,7 +32,7 @@ $env:CAVEAIPRO_FIREBASE_API_KEY = $cfg.apiKey
 
 Or set `$env:CAVEAIPRO_FIREBASE_API_KEY` directly (Firebase Console → Project settings → Your apps → CaveAI Pro Web → Web API Key).
 
-Expected output: `_store_out\CaveAiProForWindows-1.5.18-Store-unsigned.msix`
+Expected output: `_store_out\CaveAiProForWindows-1.5.29-Store-unsigned.msix`
 
 ### Build review MSIX (certification)
 
