@@ -51,15 +51,19 @@ public static class ProjectAiAssetPersistence
     private static string StageKey(CaveProjectDocument project) =>
         $"{project.Name}|{project.Date}|{project.Shots?.Count ?? 0}";
 
-    /// <summary>Writes a cloud-rendered plan beside the project and into the open ZIP when there is one.</summary>
+    /// <summary>
+    /// Legacy entry point kept for callers/tests. Generative session attach was removed —
+    /// cloud plan images go through <see cref="StoreGeneratedMap"/> only.
+    /// </summary>
     public static void AttachSessionAssets(
         CaveProjectDocument project,
         string sourceFilePath,
         byte[]? aiCartographyPng,
         byte[]? structureMaskPng)
     {
-        if (aiCartographyPng is { Length: > 0 })
-            StoreGeneratedMap(project, sourceFilePath, aiCartographyPng);
+        _ = project;
+        _ = sourceFilePath;
+        _ = aiCartographyPng;
         _ = structureMaskPng;
     }
 
