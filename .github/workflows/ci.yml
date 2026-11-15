@@ -100,8 +100,7 @@ jobs:
           CAVEAIPRO_FIREBASE_API_KEY: ${{ secrets.CAVEAIPRO_FIREBASE_API_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CAVEAIPRO_FIREBASE_API_KEY)) {
-            Write-Host "Skipping MSIX pack — CAVEAIPRO_FIREBASE_API_KEY not set."
-            exit 0
+            throw 'store-msix-pack requires GitHub secret CAVEAIPRO_FIREBASE_API_KEY (Firebase Web API key).'
           }
           ./tools/inject-firebase-config.ps1
           ./tools/package-store-msix.ps1 -RepoRoot $PWD
@@ -112,5 +111,5 @@ jobs:
         with:
           name: CaveAiProForWindows-store-msix
           path: _store_out/*-Store-unsigned.msix
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14

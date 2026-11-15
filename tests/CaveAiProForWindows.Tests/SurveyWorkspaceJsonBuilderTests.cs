@@ -108,4 +108,40 @@ public sealed class SurveyWorkspaceJsonBuilderTests
     {
         Assert.AreEqual(12 * 1024 * 1024, SurveyWorkspaceJsonBuilder.MaxBytes);
     }
+
+    [TestMethod]
+    public void BuildBytes_maps_barometricPressureHpa_to_pressureHpa()
+    {
+        var full = """
+            {
+              "name": "Pressure alias",
+              "shots": [
+                {
+                  "fromStation":"A",
+                  "toStation":"B",
+                  "distance":1,
+                  "barometricPressureHpa":1008.4,
+                  "backsightAzimuth":180,
+                  "legFlags":["EXCLUDE"]
+                }
+              ],
+              "stationEquates":[{"a":"A","b":"A1"}],
+              "fixedStations":["A"],
+              "planStationPositionOverrides":{"B":{"e":1,"n":0}}
+            }
+            """;
+
+        var bytes = SurveyWorkspaceJsonBuilder.BuildBytes(Encoding.UTF8.GetBytes(full));
+        using var doc = JsonDocument.Parse(bytes);
+        var slim = doc.RootElement;
+        var shot = slim.GetProperty("shots")[0];
+
+        Assert.AreEqual(1008.4, shot.GetProperty("pressureHpa").GetDouble(), 1e-9);
+        Assert.IsFalse(shot.TryGetProperty("barometricPressureHpa", out _));
+        Assert.AreEqual(180.0, shot.GetProperty("backsightAzimuth").GetDouble(), 1e-9);
+        Assert.AreEqual(1, shot.GetProperty("legFlags").GetArrayLength());
+        Assert.AreEqual(1, slim.GetProperty("stationEquates").GetArrayLength());
+        Assert.AreEqual(1, slim.GetProperty("fixedStations").GetArrayLength());
+        Assert.IsTrue(slim.TryGetProperty("planStationPositionOverrides", out _));
+    }
 }
